@@ -1003,6 +1003,30 @@ public enum Command
     /// key to each, so nothing downstream depends on how fast somebody types.
     /// </remarks>
     SignIn,
+
+    /// <summary>
+    /// Picks up the notifications in the corner, so their keys are the only keys.
+    /// </summary>
+    ShowNotifications,
+
+    /// <summary>
+    /// Goes to the flight the showing notification is about: the flights tab, the
+    /// cursor on it, and the flight open.
+    /// </summary>
+    /// <remarks>
+    /// <b>A read, for <see cref="ShowFlight"/>'s reason.</b> The modal opens on
+    /// the press and its log arrives on a background read.
+    /// </remarks>
+    GoToNotification,
+
+    /// <summary>The next notification in the stack, round to the first.</summary>
+    NextNotification,
+
+    /// <summary>The previous notification in the stack, round to the last.</summary>
+    PreviousNotification,
+
+    /// <summary>Puts away the notification showing, without going to it.</summary>
+    DismissNotification,
 }
 
 /// <summary>

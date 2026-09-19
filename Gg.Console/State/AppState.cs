@@ -383,6 +383,17 @@ public enum UiMode
     /// console is for is the decision somebody makes while looking at a fleet.
     /// </remarks>
     FloorChoice,
+
+    /// <summary>
+    /// The notifications in the corner, holding the keyboard while somebody reads
+    /// them.
+    /// </summary>
+    /// <remarks>
+    /// <b>Unfocused they hold nothing.</b> A notification that took the keyboard
+    /// when it arrived would swallow whatever key somebody was halfway through
+    /// pressing; this mode is entered on purpose, and esc gives the console back.
+    /// </remarks>
+    Notifications,
 }
 
 /// <summary>Which page of help a person is reading.</summary>
@@ -2066,6 +2077,26 @@ public sealed record AppState
     /// list of what is being looked for.
     /// </remarks>
     public IReadOnlyList<Expectation> Expecting { get; init; } = [];
+
+    /// <summary>What the console noticed on its own and has not been dismissed.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A stack over the corner of the screen, not a line.</b> The activity line
+    /// is the receipt for what a keypress did; a notification is what the control
+    /// plane later confirmed, which can arrive while a person is doing something
+    /// else and more than one at a time. When they go away is a time, and so is
+    /// <c>Expectations</c>' to keep rather than this model's.
+    /// </para>
+    /// <para>
+    /// <b>Not <see cref="Notices"/>.</b> Those are the tenant's, read from whoami
+    /// and drawn above the queue for as long as they are true; these are this
+    /// console's own, about what it did, and they are dismissed.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<Notification> Notifications { get; init; } = [];
+
+    /// <summary>Which of <see cref="Notifications"/> is showing.</summary>
+    public int NotificationAt { get; init; }
 
     /// <summary>What the open compose question is about, if one is open.</summary>
     /// <remarks>

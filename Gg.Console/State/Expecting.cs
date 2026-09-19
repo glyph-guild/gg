@@ -82,6 +82,16 @@ public enum NotificationKind
     /// saying it has not happened yet.
     /// </remarks>
     GateStillWaiting,
+
+    /// <summary>
+    /// A gate this console did not answer has opened, and is waiting on somebody.
+    /// </summary>
+    /// <remarks>
+    /// The one kind that is not about this console's own writes: the queue grew
+    /// while a person was doing something else, which is exactly what a corner
+    /// that can be glanced at is for.
+    /// </remarks>
+    GateOpened,
 }
 
 /// <summary>

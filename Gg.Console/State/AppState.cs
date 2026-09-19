@@ -539,6 +539,16 @@ public sealed record RefreshState
 
     /// <summary>Whether somebody pressed the key and it has not been done yet.</summary>
     public bool Wanted { get; init; }
+
+    /// <summary>
+    /// Whether the control plane is telling this console when things change.
+    /// </summary>
+    /// <remarks>
+    /// While it is, a change is read when it happens and the countdown is only
+    /// the backstop - so the key says "live" rather than counting to a read that
+    /// is no longer how the screen stays true.
+    /// </remarks>
+    public bool Live { get; init; }
 }
 
 /// <summary>Which half of the flight modal is showing.</summary>

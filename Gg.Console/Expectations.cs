@@ -71,6 +71,11 @@ public sealed class Expectations(
         public Task<Func<AppState, AppState>?>? Running { get; set; }
     }
 
+    /// <summary>Every look that is waiting, due now.</summary>
+    public void Hurry()
+    {
+    }
+
     /// <summary>
     /// Start a look that is due, fold one that has landed, and age the
     /// notifications.

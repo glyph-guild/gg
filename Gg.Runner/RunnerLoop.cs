@@ -1893,6 +1893,11 @@ public sealed class RunnerLoop(
             // Sitting beside ResumesFrom because it was the absence of exactly
             // this line that left step two green with nothing reaching an agent.
             Instructions = loop.Instructions,
+            // AND THE DESTINATION'S WORDING FOR WHAT THIS FLIGHT OPENS, the same
+            // missing-middle-link shape one member over: the control plane sent
+            // it on every lease, the landing tool existed to answer it, and this
+            // line was absent - so no agent ever read it.
+            LandingWording = loop.Landing,
             // AND WHAT THIS FLIGHT IS TO DO, carried the same way and for the
             // same reason: the contract composed it from the work kind and the
             // runner hands it over. Null is every kind that states none, which

@@ -1630,9 +1630,6 @@ public sealed class FlightCommands(
         SubmitAndObserve? loop = null)
     {
         var token = Session();
-        _ = wait;
-        _ = bound;
-        _ = loop;
 
         // The kind is DERIVED from which payload arrived, here and in one
         // place, so a caller never names a kind that disagrees with what it
@@ -1692,7 +1689,28 @@ public sealed class FlightCommands(
             Attended = attended ? true : null,
         };
 
-        return new VerbResult.Launched(await _client.LaunchFlightAsync(token, request, cancellationToken));
+        var launched = await _client.LaunchFlightAsync(token, request, cancellationToken);
+
+        if (!wait || launched.FlightNumber is { Length: > 0 })
+        {
+            return new VerbResult.Launched(launched);
+        }
+
+        // --wait: THE LOOP A PERSON RAN BY HAND, run for them. The number is
+        // minted when the Flight context handles the command, after the 202, so
+        // the flight is read by the id the door DID give until it is listed -
+        // with the verb's own bounded patience, and never a number it did not
+        // see. Nothing to submit: the launch already was.
+        string? number = null;
+
+        _ = await (loop ?? Waiting()).RunAsync(
+            _ => Task.FromResult<string?>(null),
+            async ct => number =
+                (await _client.GetFlightAsync(token, launched.FlightId, ct))?.FlightNumber,
+            bound ?? ObservationBound.Default,
+            cancellationToken);
+
+        return new VerbResult.Launched(launched with { FlightNumber = number });
     }
 
     /// <summary>

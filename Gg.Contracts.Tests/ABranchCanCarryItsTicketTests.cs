@@ -14,12 +14,11 @@ namespace Gg.Contracts.Tests;
 /// hand.
 /// </para>
 /// <para>
-/// <b>The template names the TAIL, and the prefix is not the author's to
-/// choose.</b> <c>gg/</c> is how this platform recognises its own branches -
-/// <c>IsOurs</c> is what branch cleanup reads, and <c>IsHandoff</c> distinguishes
-/// work kept for a takeover from work offered for merge. An envelope that could
-/// write the prefix could write one that neither predicate sees, and the failure
-/// mode is a remote quietly accumulating refs nothing will ever delete.
+/// <b>The template names the TAIL</b> - and, since 2026-09-19, the whole branch
+/// when it starts with <c>refs/heads/</c>, which
+/// <c>ATemplateMayNameTheWholeBranchTests</c> holds. This remark said
+/// <c>IsOurs</c> is what branch cleanup reads; no product code calls it. The
+/// prefix a runner reads is <c>IsHandoff</c>'s, and a handoff stays under it.
 /// </para>
 /// <para>
 /// <b>The flight number is required in it, for a collision rather than for

@@ -1345,13 +1345,15 @@ public sealed record Destination
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The tail only, because the prefix is not the author's to choose.</b>
-    /// <c>gg/</c> is how this platform recognises its own branches:
-    /// <see cref="DestinationBranch.IsOurs"/> is what cleanup reads and
-    /// <see cref="DestinationBranch.IsHandoff"/> tells work kept for a takeover
-    /// from work offered for merge. An envelope that could write the prefix
-    /// could write one neither predicate sees, and a remote would quietly
-    /// accumulate refs nothing will ever delete.
+    /// <b>The tail, unless it says it is the whole branch.</b> A template names
+    /// the part after <c>gg/</c>, as every template written before 2026-09-19
+    /// does. One starting with <c>refs/heads/</c>
+    /// (<see cref="DestinationBranch.WholeBranch"/>) names the whole branch
+    /// instead, so <c>refs/heads/feature/{flight}-{ticket}</c> pushes
+    /// <c>feature/GG-189-18493</c>. The one prefix product code reads is
+    /// <see cref="DestinationBranch.IsHandoff"/>'s, and work kept for a takeover
+    /// stays under <c>gg/handoff/</c> whichever form the template takes. (This
+    /// said until then that cleanup reads <c>IsOurs</c>; nothing does.)
     /// </para>
     /// <para>
     /// <b>It names <c>{flight}</c> and <c>{ticket}</c> and nothing else</b>, and

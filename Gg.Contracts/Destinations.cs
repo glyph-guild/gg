@@ -275,7 +275,33 @@ public static class DestinationBranch
     /// ever delete.
     /// </remarks>
     public static string For(string flightNumber, string? template = null, string? ticket = null) =>
-        Prefix + Rendered(template, flightNumber, ticket);
+        template is { } whole && whole.Trim().StartsWith(WholeBranch, StringComparison.Ordinal)
+            ? Rendered(whole.Trim()[WholeBranch.Length..], flightNumber, ticket)
+            : Prefix + Rendered(template, flightNumber, ticket);
+
+    /// <summary>
+    /// How a template says it names the whole branch rather than the part after
+    /// <see cref="Prefix"/>: it starts with git's own name for a branch.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Asked for 2026-09-19</b>, so a team whose branches read
+    /// <c>feature/…</c> can have a flight's read the same way:
+    /// <c>refs/heads/feature/{flight}-{ticket}</c> is <c>feature/GG-189-18493</c>.
+    /// </para>
+    /// <para>
+    /// <b>Opted into, never inferred.</b> Every template written before this names
+    /// a tail and keeps meaning exactly that, so a stored document is not
+    /// reinterpreted. Before, this form rendered <c>gg/refs/heads/…</c>, which
+    /// nobody wanted.
+    /// </para>
+    /// <para>
+    /// <b>A handoff stays under <c>gg/handoff/</c> whatever the template says.</b>
+    /// <see cref="IsHandoff"/> is how a runner tells work kept for a takeover from
+    /// work offered for merge, and it is the one prefix product code reads.
+    /// </para>
+    /// </remarks>
+    public const string WholeBranch = "refs/heads/";
 
     /// <summary>
     /// The branch for work KEPT so somebody can take the flight over.
@@ -292,7 +318,11 @@ public static class DestinationBranch
     /// </remarks>
     public static string ForHandoff(
         string flightNumber, string? template = null, string? ticket = null) =>
-        Prefix + "handoff/" + Rendered(template, flightNumber, ticket);
+        Prefix + "handoff/" + Rendered(
+            template is { } whole && whole.Trim().StartsWith(WholeBranch, StringComparison.Ordinal)
+                ? whole.Trim()[WholeBranch.Length..]
+                : template,
+            flightNumber, ticket);
 
     /// <summary>The placeholder standing for the flight this branch carries.</summary>
     public const string FlightPlaceholder = "{flight}";
@@ -346,6 +376,16 @@ public static class DestinationBranch
         {
             return "A branch template names nothing. Leave it out to keep the default, "
                  + $"which is '{Prefix}{FlightPlaceholder}'.";
+        }
+
+        // A REF THAT IS NOT A BRANCH. A tag would make a flight's work look
+        // released, and refs/pull/ is the forge's to write. Only git's name for
+        // a branch says "this template names the whole branch".
+        if (text.StartsWith("refs/", StringComparison.Ordinal)
+            && !text.StartsWith(WholeBranch, StringComparison.Ordinal))
+        {
+            return $"'{text}' names a ref that is not a branch. A template names the part "
+                 + $"after '{Prefix}', or the whole branch when it starts with '{WholeBranch}'.";
         }
 
         if (text.Contains(Prefix, StringComparison.Ordinal))
@@ -443,7 +483,15 @@ public static class DestinationBranch
     public static bool IsHandoff(string branch) =>
         branch is not null && branch.StartsWith(Prefix + "handoff/", StringComparison.Ordinal);
 
-    /// <summary>Whether this is a branch this platform would have created.</summary>
+    /// <summary>
+    /// Whether this is a branch under this platform's own prefix: the default,
+    /// every tail template, and every handoff.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not "every branch this platform created"</b> since a template may name
+    /// the whole branch (<see cref="WholeBranch"/>). Nothing in product code
+    /// reads this; the prefix a runner does read is <see cref="IsHandoff"/>'s.
+    /// </remarks>
     public static bool IsOurs(string branch) =>
         branch is not null && branch.StartsWith(Prefix, StringComparison.Ordinal);
 

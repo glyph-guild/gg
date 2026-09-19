@@ -937,7 +937,14 @@ public sealed class ConsoleLoop(
 
                     if (arrived)
                     {
-                        state = Reloaded(state, reload, asked: false);
+                        // AND THE HEALTH REPORT GOES WITH EVERYTHING ELSE. The
+                        // loader keeps a report it already holds, because a
+                        // write does not change what the checks answer - but a
+                        // sign-in changes the session, runner and credential
+                        // checks, even for the same person signing in again
+                        // after theirs ran out. Dropped here, so this reload is
+                        // the one that asks.
+                        state = Reloaded(state with { Doctor = null }, reload, asked: false);
                     }
 
                     break;

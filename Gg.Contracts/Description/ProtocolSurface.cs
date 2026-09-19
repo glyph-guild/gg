@@ -281,9 +281,53 @@ public static class ProtocolSurface
             Statuses = [200, 401, 403, 404, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
-        // WHOSE RUNNER THIS IS, set and cleared after registration. A person's
-        // act on both verbs: the value decides what work the runner is offered,
-        // so a runner able to change it could widen its own queue.
+        // WHOSE RUNNER THIS IS, apart from what it takes (ADR-0025 section 6).
+        // Claiming is a person's own act for themselves, so the body names
+        // nobody. 403 is NOT YOU - a tenant runner, which an admin has said
+        // nobody claims; 409 is NOT NOW - somebody else's, which they may give
+        // up. 404, per the heartbeat route, for a runner not this tenant's.
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/runners/{id}/claim",
+            Audience = Audience.Developer,
+            Request = typeof(RunnerClaimRequest),
+            Response = typeof(RunnerOwnership),
+            Statuses = [200, 401, 403, 404, 409, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        // AND GIVING IT UP, which ends its reservation too. Its owner's, or an
+        // admin's - the recorded way to free a machine whose owner has left.
+        // Anybody else is 403. NO 409: unclaiming a runner nobody claimed is
+        // the state the caller asked for.
+        new()
+        {
+            Method = "DELETE",
+            Path = "/v1/runners/{id}/claim",
+            Audience = Audience.Developer,
+            Response = typeof(RunnerOwnership),
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        // AN ADMIN'S DOOR, and it turns tenant and open into each other and
+        // nothing else. A claimed runner is 409 - unclaim it first - so an
+        // owner never loses a machine without that being its own recorded act.
+        // Anybody not an admin is 403.
+        new()
+        {
+            Method = "PUT",
+            Path = "/v1/runners/{id}/ownership",
+            Audience = Audience.Developer,
+            Request = typeof(RunnerOwnershipRequest),
+            Response = typeof(RunnerOwnership),
+            Statuses = [200, 400, 401, 403, 404, 409, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        // WHAT ITS OWNER KEEPS IT TO, set and cleared after a claim. The
+        // owner's act on both verbs, and no longer a claim: reserving a runner
+        // nobody owns is 409 - claim it first - and somebody else's is 403. A
+        // runner able to change it could widen its own queue, so neither verb
+        // is a runner's.
         new()
         {
             Method = "POST",
@@ -291,10 +335,6 @@ public static class ProtocolSurface
             Audience = Audience.Developer,
             Request = typeof(RunnerReservationRequest),
             Response = typeof(RunnerReserved),
-            // 404 for a runner that is not this tenant's, per the heartbeat
-            // route: the shape of a refusal must not tell a caller which ids
-            // exist. 409 for one somebody else already holds - taking it is a
-            // different act and is not this one.
             Statuses = [200, 401, 403, 404, 409, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
@@ -306,7 +346,9 @@ public static class ProtocolSurface
             Response = typeof(RunnerReserved),
             // NO 409. Releasing a runner nobody reserved is the state the caller
             // asked for, and refusing it would make "make sure this is free" a
-            // two-step dance with a race in the middle.
+            // two-step dance with a race in the middle. 403 for a runner that is
+            // somebody else's: releasing it would hand their machine to the
+            // tenant's work without their asking.
             Statuses = [200, 401, 403, 404, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
@@ -1731,6 +1773,10 @@ public static class ProtocolSurface
             // is named by the path, so there is nothing for a body to say.
             [typeof(RunnerReservationRequest)] = [],
             [typeof(RunnerReserved)] = ["runnerId", "reservedTo", "reservedAt"],
+            [typeof(RunnerClaimRequest)] = [],
+            [typeof(RunnerOwnershipRequest)] = ["ownership"],
+            [typeof(RunnerOwnership)] =
+                ["runnerId", "ownership", "owner", "ownerPrincipalId", "ownedAt", "reserved"],
             // Empty for the reservation request's reason: the path names the
             // runner, and the only member this could grow is a principal.
             // THE ASK PROTOCOL, DECLARED BEFORE ANYTHING CARRIES IT. ADR-0013
@@ -1852,7 +1898,8 @@ public static class ProtocolSurface
             [typeof(RunnerSummary)] =
                 ["runnerId", "label", "state", "currentFlightId", "currentFlightNumber", "lastHeartbeatAt",
                  "labels", "registeredByPrincipalId", "registeredBy",
-                 "parkedAt", "parkedBecause", "hostRunnerId", "machine"],
+                 "parkedAt", "parkedBecause", "hostRunnerId", "machine",
+                 "ownership", "owner", "ownerPrincipalId", "reserved", "resident", "profile"],
             [typeof(RunnerList)] = ["runners"],
             [typeof(ChartEnvironmentRequest)] = ["name", "meaning"],
             [typeof(EnvironmentCharted)] = ["name", "meaning", "disposition", "chartedBy", "chartedAt"],

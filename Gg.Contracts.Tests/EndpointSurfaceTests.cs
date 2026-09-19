@@ -459,8 +459,18 @@ public class EndpointSurfaceTests
         // other decided action. 404 for a strategy that names no recipe, 409 while
         // a build stands - one at a time. The response is the decided PoolAction,
         // which gained its recipe in the same step, so the contract moves to 0.195.0.
+        //
+        // Moved for ownership apart from reservation, slice forty-three (ADR-0025
+        // section 6): POST and DELETE /v1/runners/{id}/claim, a person's own act
+        // for themselves - 403 for a tenant runner, 409 for somebody else's, and
+        // no 409 on DELETE, whose absent state is the one asked for; PUT
+        // /v1/runners/{id}/ownership, an admin's word turning tenant and open
+        // into each other, 409 for a claimed runner and 400 for any other
+        // value. Reservation's two doors keep their statuses and change their
+        // meaning: the owner's only. The request types are new, so the contract
+        // moves to 0.199.0.
         await Assert.That(Fingerprint())
-            .IsEqualTo("7060135b4c1cd15a161a15b3df8ca159507a73387e517898f9d3400f573ed056")
+            .IsEqualTo("efb47a037b30aa51c53397804d8f306c6f43cc267723f384ea4bcf09e1dea96e")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

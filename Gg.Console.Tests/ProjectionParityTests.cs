@@ -183,6 +183,12 @@ public class ProjectionParityTests
                               + "reason is written out at ConsoleDataTests' exemption "
                               + "for RetireRunnerAsync, and both go together or "
                               + "neither does.",
+            ["RunnerOwned"] = "no arm because no console verb yet: claiming, unclaiming "
+                            + "and an admin's word arrive in the runner modal together with "
+                            + "the ownership it draws. The reason is at VerbParityTests' "
+                            + "entry for RunnerClaim; this arm and those keys go together.",
+            ["RunnerReservation"] = "no arm, for RunnerOwned's reason: reserve and release "
+                                  + "join the modal beside claim.",
             ["Decided"] = "step 3: a decision's own result, so the queue and the gates "
                         + "reflect it without a second boot.",
             ["Taken"] = "step 2: the seed is fetched at boot and assigned directly; an arm "

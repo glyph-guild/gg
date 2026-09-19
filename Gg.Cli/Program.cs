@@ -108,6 +108,16 @@ return CliArgs.Parse(args) switch
         await EmitAsync(repin.Json, c => c.RepinRunnerAsync(repin.RunnerId)),
     CliAction.RunnerRetire retire =>
         await EmitAsync(retire.Json, c => c.RetireRunnerAsync(retire.RunnerId)),
+    CliAction.RunnerClaim claim =>
+        await EmitAsync(claim.Json, c => c.ClaimRunnerAsync(claim.RunnerId)),
+    CliAction.RunnerUnclaim unclaim =>
+        await EmitAsync(unclaim.Json, c => c.UnclaimRunnerAsync(unclaim.RunnerId)),
+    CliAction.RunnerReserve reserve =>
+        await EmitAsync(reserve.Json, c => c.ReserveRunnerAsync(reserve.RunnerId)),
+    CliAction.RunnerRelease release =>
+        await EmitAsync(release.Json, c => c.ReleaseRunnerAsync(release.RunnerId)),
+    CliAction.RunnerOwnershipSet owning =>
+        await EmitAsync(owning.Json, c => c.SetRunnerOwnershipAsync(owning.RunnerId, owning.Ownership)),
     CliAction.RunnerWatch watch => await WatchAsync(watch),
     CliAction.Invite invite => await EmitAsync(invite.Json, c => c.InviteAsync()),
     CliAction.Why why => await EmitAsync(why.Json, c => c.WhyAsync(why.Flight, why.Obligation)),
@@ -781,6 +791,13 @@ static async Task<int> EmitAsync(bool json, Func<FlightCommands, Task<VerbResult
         // fell to the HttpRequestException clause below and was printed as
         // "could not reach the control plane - try gg doctor", sending somebody
         // to diagnose a network that had just answered them.
+        return Fail(refused.Message);
+    }
+    catch (RunnerOwnershipRefusedException refused)
+    {
+        // NOT YOU, OR NOT NOW. A tenant runner, somebody else's, claim it
+        // first, unclaim it first: each is the control plane's own sentence,
+        // and each is a different thing to do next.
         return Fail(refused.Message);
     }
     catch (AdminRefusedException refused)

@@ -1603,29 +1603,48 @@ public sealed class FlightCommands(
     /// machine back is <c>gg runner up</c>, which is a different act.
     /// </remarks>
     /// <summary>Claims a runner for the person signed in here.</summary>
-    public Task<VerbResult> ClaimRunnerAsync(
+    /// <remarks>
+    /// <b>For themselves, and only themselves.</b> The control plane takes who
+    /// from the session; nothing here can name anybody else. Claimed is not
+    /// reserved: the machine still takes the tenant's work until its owner
+    /// says otherwise.
+    /// </remarks>
+    public async Task<VerbResult> ClaimRunnerAsync(
         string runnerId, CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException();
+        new VerbResult.RunnerOwned(
+            await _client.ClaimRunnerAsync(Session(), runnerId, cancellationToken)
+            ?? throw NoSuchRunner(runnerId));
 
-    /// <summary>Gives a runner up, back to open.</summary>
-    public Task<VerbResult> UnclaimRunnerAsync(
+    /// <summary>Gives a runner up, back to open, and ends its reservation.</summary>
+    public async Task<VerbResult> UnclaimRunnerAsync(
         string runnerId, CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException();
+        new VerbResult.RunnerOwned(
+            await _client.UnclaimRunnerAsync(Session(), runnerId, cancellationToken)
+            ?? throw NoSuchRunner(runnerId));
 
     /// <summary>An admin's word on whether a runner is the tenant's or open.</summary>
-    public Task<VerbResult> SetRunnerOwnershipAsync(
+    public async Task<VerbResult> SetRunnerOwnershipAsync(
         string runnerId, string ownership, CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException();
+        new VerbResult.RunnerOwned(
+            await _client.SetRunnerOwnershipAsync(Session(), runnerId, ownership, cancellationToken)
+            ?? throw NoSuchRunner(runnerId));
 
     /// <summary>Keeps the caller's own runner to the caller's flights.</summary>
-    public Task<VerbResult> ReserveRunnerAsync(
+    public async Task<VerbResult> ReserveRunnerAsync(
         string runnerId, CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException();
+        new VerbResult.RunnerReservation(
+            await _client.ReserveRunnerAsync(Session(), runnerId, cancellationToken)
+            ?? throw NoSuchRunner(runnerId));
 
     /// <summary>Lets the caller's runner take the tenant's work again.</summary>
-    public Task<VerbResult> ReleaseRunnerAsync(
+    public async Task<VerbResult> ReleaseRunnerAsync(
         string runnerId, CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException();
+        new VerbResult.RunnerReservation(
+            await _client.ReleaseRunnerAsync(Session(), runnerId, cancellationToken)
+            ?? throw NoSuchRunner(runnerId));
+
+    private static RunnerNotFoundException NoSuchRunner(string runnerId) =>
+        new($"No runner {runnerId} here. Run gg runners to see this tenant's fleet.");
 
     public async Task<VerbResult> RetireRunnerAsync(
         string runnerId, CancellationToken cancellationToken = default)

@@ -611,6 +611,8 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(CredentialRegistered))]
 [JsonSerializable(typeof(Gg.Contracts.CredentialRemoved))]
 [JsonSerializable(typeof(Gg.Contracts.RunnerRetired))]
+[JsonSerializable(typeof(Gg.Contracts.RunnerOwnership))]
+[JsonSerializable(typeof(Gg.Contracts.RunnerReserved))]
 [JsonSerializable(typeof(Gg.Client.RunnerRepinned))]
 [JsonSerializable(typeof(DiagnosticsBundle))]
 [JsonSerializable(typeof(EnvelopeState))]
@@ -704,6 +706,10 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.CredentialRemoved),
         VerbResult.RunnerRetired r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RunnerRetired),
+        VerbResult.RunnerOwned r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RunnerOwnership),
+        VerbResult.RunnerReservation r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RunnerReserved),
         VerbResult.RunnerRepinned r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RunnerRepinned),
         VerbResult.Bundle r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.DiagnosticsBundle),
@@ -796,6 +802,10 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.CredentialRemoved))),
         VerbResultKinds.RunnerRetired => new VerbResult.RunnerRetired(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.RunnerRetired))),
+        VerbResultKinds.RunnerOwned => new VerbResult.RunnerOwned(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.RunnerOwnership))),
+        VerbResultKinds.RunnerReservation => new VerbResult.RunnerReservation(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.RunnerReserved))),
         VerbResultKinds.RunnerRepinned => new VerbResult.RunnerRepinned(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.RunnerRepinned))),
         VerbResultKinds.Bundle => new VerbResult.Bundle(Require(
@@ -870,6 +880,8 @@ public static class VerbOutput
         VerbResult.CredentialAdded r => CredentialAdded(r.Value),
         VerbResult.CredentialRemoved r => CredentialRemoved(r.Value),
         VerbResult.RunnerRetired r => RunnerRetiredText(r.Value),
+        VerbResult.RunnerOwned r => RunnerOwnedText(r.Value),
+        VerbResult.RunnerReservation r => RunnerReservationText(r.Value),
         VerbResult.RunnerRepinned r => RunnerRepinnedText(r.Value),
         VerbResult.Bundle r => Bundle(r.Value),
         VerbResult.EnvelopeShown r => Envelope(r.Value),
@@ -1373,6 +1385,35 @@ public static class VerbOutput
         $"Retired {Clean(retired.RunnerId)} at {retired.RetiredAt:u}. "
       + "Its credential is revoked and it is out of the fleet; what it did is still recorded. "
       + "Bringing that machine back is gg runner up.";
+
+    /// <summary>Whose the runner is now, and what that lets a person do next.</summary>
+    private static string RunnerOwnedText(Gg.Contracts.RunnerOwnership owned)
+    {
+        var id = Clean(owned.RunnerId);
+
+        return owned.Ownership switch
+        {
+            Gg.Contracts.RunnerOwnerships.Claimed when owned.Reserved =>
+                $"{id} is {Clean(owned.Owner)}'s, and reserved: it takes only their flights.",
+            // CLAIMED IS NOT RESERVED, and that is the case the split exists
+            // for - so it is said, with the verb that changes it.
+            Gg.Contracts.RunnerOwnerships.Claimed =>
+                $"{id} is {Clean(owned.Owner)}'s. It still takes the tenant's work; "
+              + $"gg runner reserve {id} keeps it to theirs.",
+            Gg.Contracts.RunnerOwnerships.Tenant =>
+                $"{id} is the tenant's: nobody may claim it. An admin can open it with "
+              + $"gg runner ownership {id} open.",
+            Gg.Contracts.RunnerOwnerships.Open =>
+                $"{id} is open: anybody here may claim it for themselves with gg runner claim {id}.",
+            _ => $"{id}: the control plane said '{Clean(owned.Ownership)}', which this gg does not know.",
+        };
+    }
+
+    /// <summary>Whose flights the runner takes now.</summary>
+    private static string RunnerReservationText(Gg.Contracts.RunnerReserved reservation) =>
+        reservation.ReservedTo is { Length: > 0 } holder
+            ? $"{Clean(reservation.RunnerId)} is reserved: it takes only {Clean(holder)}'s flights."
+            : $"{Clean(reservation.RunnerId)} is not reserved: it takes the tenant's work.";
 
     private static string RunnerRepinnedText(Gg.Client.RunnerRepinned repinned) =>
         repinned.Forgotten
@@ -2172,9 +2213,31 @@ public static class VerbOutput
             var under = nested ? "  " : "";
 
             text.AppendLine(
-                $"{under}{Clean(runner.State),-8}  {Clean(runner.Label),-16}{beat}{on}{labels}");
+                $"{under}{Clean(runner.State),-8}  {Clean(runner.Label),-16}{beat}{on}{Whose(runner)}{labels}");
         }
         return text.ToString().TrimEnd();
+    }
+
+    /// <summary>Whose a runner is, as a row says it - or nothing from a control plane that does not say.</summary>
+    /// <remarks>
+    /// <b>Empty is not open.</b> A row reading "open" from a control plane with
+    /// no claim door would invite a verb that cannot succeed, so an older one
+    /// gets no column at all.
+    /// </remarks>
+    private static string Whose(RunnerSummary runner)
+    {
+        var whose = runner.Ownership switch
+        {
+            RunnerOwnerships.Tenant => "  the tenant's",
+            RunnerOwnerships.Open => "  open",
+            RunnerOwnerships.Claimed =>
+                $"  {Clean(runner.Owner)}'s{(runner.Reserved ? ", reserved" : "")}",
+            _ => "",
+        };
+
+        return whose
+             + (runner.Resident ? "  resident" : "")
+             + (runner.Profile is { Length: > 0 } profile ? $"  profile {Clean(profile)}" : "");
     }
 
     /// <summary>

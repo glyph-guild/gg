@@ -270,6 +270,23 @@ public class VerbParityTests
                              + "permanently removes whatever row is selected is the wrong "
                              + "affordance for it; if it lands there it needs a "
                              + "confirmation the other runner keys do not have.",
+            ["RunnerClaim"] = "absent, and a GAP rather than a decision (slice forty-three, "
+                            + "step 2). Claiming is reversible and the runner modal is where "
+                            + "a person already looks at a machine, so a key there is the "
+                            + "natural home - but the modal shows no ownership yet, and a "
+                            + "key that changes a fact the pane cannot draw acts blind. The "
+                            + "pane learns whose first; the keys follow it.",
+            ["RunnerUnclaim"] = "absent, for RunnerClaim's reason: the two arrive together "
+                              + "or neither does.",
+            ["RunnerReserve"] = "absent, for RunnerClaim's reason. Reserving changes which "
+                              + "flights a machine takes, and a person pressing it needs "
+                              + "to see whose the machine is at the same moment.",
+            ["RunnerRelease"] = "absent, for RunnerReserve's reason.",
+            ["RunnerOwnershipSet"] = "absent, and DELIBERATELY so for now: an admin's word "
+                                   + "about the tenant's machines is a rare, considered act, "
+                                   + "and the console is a place people arrive at by arrow "
+                                   + "key. A terminal is the right door until the modal has "
+                                   + "a confirmation to hang it on, as RunnerRetire says.",
             ["EnvelopeShow"] = "absent, and a gap: step 4 adds the read. ConsoleData has no "
                              + "envelope method at all today.",
             ["AirspaceShow"] = "absent, and a gap: a dead wrapper today, resolved in step 6 "

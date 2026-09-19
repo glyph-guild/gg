@@ -6,6 +6,9 @@
 # this proxy and never at the socket - and why nothing else here mounts it.
 # PoolHostTests holds that: exactly one artefact may name the socket, and it is
 # this one.
+#
+# And the registry the pool's images live in, which is given nothing of the
+# kind. APoolHostHasItsRegistryTests holds the service to that.
 services:
   pool-proxy:
     image: nginx:1.27
@@ -25,3 +28,31 @@ services:
       # compares that file against PoolNaming. Two copies is how the halves
       # start disagreeing.
       - ../../scripts/pool-proxy/nginx.conf:/etc/nginx/nginx.conf:ro
+
+  # THE HOST'S OWN REGISTRY, at the one address everything else already names.
+  # A strategy pins its member image as 127.0.0.1:5000/...@sha256:..., and the
+  # proxy lets a build tag and a push reach 127.0.0.1:5000 and nowhere else.
+  # Until this service existed a host had a registry only if a person had
+  # started one, and a host stood up from these files built an image with
+  # nowhere to put it.
+  registry:
+    # PINNED BY DIGEST, not by tag. This holds every image a member runs, so
+    # what it is has to be a version somebody named. registry:2 rather than 3,
+    # which is a new major version: adopting one on the machine that holds
+    # every member image is its own change, not a default taken here.
+    image: registry:2@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373
+    container_name: gg-pool-registry
+    restart: unless-stopped
+    # LOOPBACK ONLY, for the proxy's reason. It does not authenticate either,
+    # and a push decides what a member runs. The daemon pushes to it over the
+    # host's loopback, which Docker trusts without TLS, so no daemon setting
+    # is needed.
+    ports:
+      - "127.0.0.1:5000:5000"
+    # NO SOCKET. It stores images; it never starts anything.
+    volumes:
+      - registry-data:/var/lib/registry
+
+volumes:
+  # NAMED, so the images a strategy pins survive the container being replaced.
+  registry-data:

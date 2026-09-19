@@ -62,7 +62,8 @@ says so. That covers CI, anything behind a pipe, and Windows, where
 **No .NET required** — a pool host, a CI runner, a laptop:
 
 ```sh
-curl -fsSL https://github.com/glyph-guild/gg/releases/latest/download/gg-linux-x64.tar.gz | tar xz
+v=0.37.3
+curl -fsSL https://github.com/glyph-guild/gg/releases/download/v$v/gg-linux-x64.tar.gz | tar xz
 sudo install -m 0755 gg /usr/local/bin/gg
 sudo install -m 0644 libporta_pty.so libonigwrap.so /usr/local/bin/
 gg --version
@@ -70,6 +71,11 @@ gg --version
 
 Swap `linux-x64` for `osx-arm64` on an Apple-silicon Mac, and `.so` for
 `.dylib`.
+
+**A version, not `latest`.** `v` is the release this README was written
+against, and the release that moves the version moves it. `releases/latest`
+means whichever release GitHub last marked latest on this repository, and the
+contract releases published here used to take it — a link to `latest` 404'd.
 
 **Both `install` lines, and the second is not optional.** `gg` loads those two
 libraries from its own directory — which is why they go in `bin` beside it
@@ -79,13 +85,19 @@ exactly as normal, then opens your editor without the gg bar. It will say which
 file is missing when that happens, but it cannot say it before you have already
 pressed the key.
 
-**As a .NET tool**, if you already have the SDK. `--add-source` takes a
-directory rather than a URL, so the package is downloaded first:
+**As a .NET tool**, if you already have the SDK, from nuget.org:
 
 ```sh
-curl -fsSL -O https://github.com/glyph-guild/gg/releases/latest/download/GlyphGuild.Gg.Cli.0.1.0.nupkg
-dotnet tool install -g --add-source . GlyphGuild.Gg.Cli
+v=0.37.3
+sudo dotnet tool install GlyphGuild.Gg.Cli --version $v --tool-path /usr/local/lib/gg
+sudo ln -sf /usr/local/lib/gg/gg /usr/local/bin/gg
 ```
+
+`--tool-path` rather than `-g`: a global install lands in the home of whoever
+typed it, which on a host is the account the runner runs as — able to rewrite
+its own executable. `--version` because a tool installed without one takes
+whatever reached nuget.org last. `gg update` says the update command for
+whichever shape it finds.
 
 Either way the command is `gg`. The package id is not `gg` because that one is
 taken on nuget.org; the command is unaffected.

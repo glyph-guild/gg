@@ -19,7 +19,7 @@ Both are built and attached by `.github/workflows/publish-cli.yml`.
 
 | shape | who installs it | updates by |
 |---|---|---|
-| .NET tool | anything with the SDK, including every pool host | `dotnet tool update -g GlyphGuild.Gg.Cli --version X` |
+| .NET tool | anything with the SDK, including every pool host | `sudo dotnet tool update GlyphGuild.Gg.Cli --version X --tool-path /usr/local/lib/gg` |
 | native binary | a machine with no SDK | downloading it again |
 | container image | pool members | rebuilt and repinned by digest |
 

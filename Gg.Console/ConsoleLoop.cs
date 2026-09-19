@@ -1152,27 +1152,20 @@ public sealed class ConsoleLoop(
     }
 
     /// <summary>
-    /// Records the flight a write named as something to look for.
+    /// Records what a write named as something to look for.
     /// </summary>
     /// <remarks>
     /// <b>Only when it named one.</b> A refusal, an empty buffer and a declined
     /// nomination open nothing that can be asked about by id, and inventing a
     /// question would leave the console looking for a flight nobody made.
     /// </remarks>
-    public static AppState Expect(AppState state, Opening opening)
+    public static AppState Expect(AppState state, Receipt receipt)
     {
         ArgumentNullException.ThrowIfNull(state);
-        ArgumentNullException.ThrowIfNull(opening);
+        ArgumentNullException.ThrowIfNull(receipt);
 
-        return opening.FlightId is { Length: > 0 } id
-            ? state with
-            {
-                Expecting =
-                [
-                    .. state.Expecting,
-                    new Expectation { Kind = ExpectationKind.FlightAppears, Id = id },
-                ],
-            }
+        return receipt.Expected is { } expected && !state.Expecting.Contains(expected)
+            ? state with { Expecting = [.. state.Expecting, expected] }
             : state;
     }
 

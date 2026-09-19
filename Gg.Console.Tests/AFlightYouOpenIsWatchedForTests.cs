@@ -18,8 +18,8 @@ namespace Gg.Console.Tests;
 /// </para>
 /// <para>
 /// <b>The id was in hand and thrown away.</b> <c>VerbConsoleActions</c> wrote it
-/// into a sentence and returned the sentence. It crosses as an
-/// <see cref="Opening"/> now, and the loop records it as the question to ask.
+/// into a sentence and returned the sentence. It crosses in a
+/// <see cref="Receipt"/> now, and the loop records it as the question to ask.
 /// </para>
 /// </remarks>
 public class AFlightYouOpenIsWatchedForTests
@@ -32,7 +32,7 @@ public class AFlightYouOpenIsWatchedForTests
 
         var opened = actions.Fly("stop the pty test flaking", [], null);
 
-        await Assert.That(opened.FlightId).IsEqualTo(AConsolePlane.Launched)
+        await Assert.That(opened.Expected?.Id).IsEqualTo(AConsolePlane.Launched)
             .Because("the 202 names the flight, and that id is the only way to ask whether "
                    + "it has appeared.");
     }
@@ -45,7 +45,7 @@ public class AFlightYouOpenIsWatchedForTests
 
         var opened = actions.FlyTicket("ado", "18490", [], null);
 
-        await Assert.That(opened.FlightId).IsEqualTo(AConsolePlane.Launched);
+        await Assert.That(opened.Expected?.Id).IsEqualTo(AConsolePlane.Launched);
     }
 
     [Test]
@@ -58,7 +58,7 @@ public class AFlightYouOpenIsWatchedForTests
 
         var opened = actions.Fly("ado#", [], null);
 
-        await Assert.That(opened.FlightId).IsNull();
+        await Assert.That(opened.Expected?.Id).IsNull();
     }
 
     [Test]

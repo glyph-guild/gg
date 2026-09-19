@@ -300,13 +300,13 @@ internal static class ConsoleDoubles
                 : "decided";
         }
 
-        public Opening AnswerNomination(string nomination, bool open, string reason)
+        public Receipt AnswerNomination(string nomination, bool open, string reason)
         {
             Answered.Add((nomination, open, reason));
 
             return refusing
-                ? new Opening("Nothing was answered — the control plane could not be reached.")
-                : open ? new Opening("opened", opens) : new Opening("declined");
+                ? new Receipt("Nothing was answered — the control plane could not be reached.")
+                : open ? Receipt.Opened("opened", opens) : new Receipt("declined");
         }
 
         /// <summary>Records the share, so a test can assert what was asked for.</summary>
@@ -316,18 +316,18 @@ internal static class ConsoleDoubles
             return "recorded";
         }
 
-        public Opening Fly(string intent, IReadOnlyList<string> repositories, string? workKind)
+        public Receipt Fly(string intent, IReadOnlyList<string> repositories, string? workKind)
         {
             Pasted.Add(intent);
             Intents.Add((intent, repositories, workKind));
             Kinds.Add(workKind);
 
             return refusing
-                ? new Opening("Nothing was opened — the control plane could not be reached.")
-                : new Opening("opened", opens);
+                ? new Receipt("Nothing was opened — the control plane could not be reached.")
+                : Receipt.Opened("opened", opens);
         }
 
-        public Opening FlyTicket(
+        public Receipt FlyTicket(
             string provider, string id, IReadOnlyList<string> repositories,
             string? workKind)
         {
@@ -341,8 +341,8 @@ internal static class ConsoleDoubles
             Kinds.Add(workKind);
 
             return refusing
-                ? new Opening("Nothing was opened — the control plane could not be reached.")
-                : new Opening($"Opened a flight for {provider}#{id}.", opens);
+                ? new Receipt("Nothing was opened — the control plane could not be reached.")
+                : Receipt.Opened($"Opened a flight for {provider}#{id}.", opens);
         }
 
         public string? AlreadyFlown(string provider, string id)

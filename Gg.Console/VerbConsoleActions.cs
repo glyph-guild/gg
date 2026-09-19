@@ -122,7 +122,7 @@ public sealed class VerbConsoleActions(
     /// that reported the outcome it hoped for would be deciding.
     /// </para>
     /// </remarks>
-    public Opening AnswerNomination(string nomination, bool open, string reason)
+    public Receipt AnswerNomination(string nomination, bool open, string reason)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(nomination);
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
@@ -138,7 +138,7 @@ public sealed class VerbConsoleActions(
             // has to say what an unparseable one means. It cannot happen from a
             // row this console drew, which is exactly why it is worth a
             // sentence rather than an exception nobody sees.
-            return new Opening($"'{nomination}' is not a nomination this console can answer.");
+            return new Receipt($"'{nomination}' is not a nomination this console can answer.");
         }
 
         try
@@ -153,13 +153,13 @@ public sealed class VerbConsoleActions(
                     ? flight.ToString()
                     : null;
 
-            return new Opening(
+            return Receipt.Opened(
                 $"Answered {outcome}. What it became is on the board when this refreshes.",
                 started);
         }
         catch (Exception refusal) when (Expected(refusal))
         {
-            return new Opening($"Nothing was answered — {refusal.Message}");
+            return new Receipt($"Nothing was answered — {refusal.Message}");
         }
     }
 
@@ -188,7 +188,7 @@ public sealed class VerbConsoleActions(
         }
     }
 
-    public Opening Fly(string intent, IReadOnlyList<string> repositories, string? workKind)
+    public Receipt Fly(string intent, IReadOnlyList<string> repositories, string? workKind)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(intent);
 
@@ -201,11 +201,11 @@ public sealed class VerbConsoleActions(
         }
         catch (Exception refusal) when (Expected(refusal))
         {
-            return new Opening($"Nothing was opened — {refusal.Message}");
+            return new Receipt($"Nothing was opened — {refusal.Message}");
         }
     }
 
-    public Opening FlyTicket(
+    public Receipt FlyTicket(
         string provider, string id, IReadOnlyList<string> repositories,
         string? workKind)
     {
@@ -221,7 +221,7 @@ public sealed class VerbConsoleActions(
         }
         catch (Exception refusal) when (Expected(refusal))
         {
-            return new Opening($"Nothing was opened — {refusal.Message}");
+            return new Receipt($"Nothing was opened — {refusal.Message}");
         }
     }
 
@@ -231,12 +231,12 @@ public sealed class VerbConsoleActions(
     /// whether the flight has appeared yet, and it used to be written into the
     /// sentence and dropped.
     /// </remarks>
-    private static Opening Launched(VerbResult opened) => opened is VerbResult.Launched launched
-        ? new Opening(
+    private static Receipt Launched(VerbResult opened) => opened is VerbResult.Launched launched
+        ? Receipt.Opened(
             $"Opened {launched.Value.FlightId}. Its number is minted when it materializes, "
             + "and it appears here when it does.",
             launched.Value.FlightId)
-        : new Opening("The flight was accepted.");
+        : new Receipt("The flight was accepted.");
 
     /// <summary>
     /// Whether this work item has flown before, and what to say if it has.

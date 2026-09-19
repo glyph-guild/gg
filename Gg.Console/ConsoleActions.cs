@@ -19,11 +19,12 @@ namespace Gg.Console;
 /// which is a different fact and the only one the console is entitled to.
 /// </para>
 /// <para>
-/// <b>The three that open a flight also say WHICH flight</b>, in an
-/// <see cref="Opening"/>. That is not an outcome either - the door answers 202
-/// before the flight exists anywhere a read can see it - but it is the question
-/// the console now has to ask: is it there yet. Without the id the only way to
-/// ask was a reload that ran before the row could exist and saw nothing.
+/// <b>A write that the console has to look for says WHAT to look for</b>, in a
+/// <see cref="Receipt"/>. That is not an outcome either - the door answers 202
+/// before a flight exists anywhere a read can see it, and before a gate it
+/// answered has closed - but it is the question the console now has to ask: is
+/// it there yet. Without it the only way to ask was a reload that ran before
+/// the change could be seen and saw nothing.
 /// </para>
 /// <para>
 /// <b>Nothing that must not be stored crosses this boundary.</b> A secret and an
@@ -72,7 +73,7 @@ public interface IConsoleActions
     /// too - so somebody who changed their mind by saving an empty buffer has
     /// not opened a flight by accident.
     /// </param>
-    Opening AnswerNomination(string nomination, bool open, string reason);
+    Receipt AnswerNomination(string nomination, bool open, string reason);
 
     /// <summary>
     /// Keeps a share of an allowance back, or clears the floor, and says what
@@ -98,7 +99,7 @@ public interface IConsoleActions
     /// singular when there is exactly one, so a flight naming one travels
     /// exactly as it always did.
     /// </param>
-    Opening Fly(string intent, IReadOnlyList<string> repositories, string? workKind);
+    Receipt Fly(string intent, IReadOnlyList<string> repositories, string? workKind);
 
     /// <summary>
     /// Open a flight for a work item somebody picked, by provider and id.
@@ -119,7 +120,7 @@ public interface IConsoleActions
     /// missing kind as <c>implement</c>, and a console that supplied that name
     /// would be declaring something nobody chose.
     /// </remarks>
-    Opening FlyTicket(
+    Receipt FlyTicket(
         string provider, string id, IReadOnlyList<string> repositories, string? workKind);
 
     /// <summary>
@@ -166,16 +167,24 @@ public interface IConsoleActions
 }
 
 /// <summary>
-/// What opening a flight said, and the flight the console now watches for.
+/// What a write said, and what the console now looks for because of it.
 /// </summary>
 /// <remarks>
-/// <b>The id is null whenever nothing can be watched for</b>: a refusal, a
-/// control plane that answered without one, a nomination declined rather than
+/// <b>Nothing to look for whenever nothing can be named</b>: a refusal, a
+/// control plane that answered without an id, a nomination declined rather than
 /// opened. Null is not "nothing happened" - a POST that reached the control
 /// plane and failed on the way back opens a flight and reports a refusal - so
-/// the loop re-reads when there is no id, exactly as it did before there was
-/// one.
+/// the loop re-reads when there is nothing named, exactly as it did before
+/// anything could be.
 /// </remarks>
 /// <param name="Said">The sentence a person reads.</param>
-/// <param name="FlightId">The flight the write opened, when the door named it.</param>
-public sealed record Opening(string Said, string? FlightId = null);
+/// <param name="Expected">What the console now looks for, when the write named it.</param>
+public sealed record Receipt(string Said, Expectation? Expected = null)
+{
+    /// <summary>A flight opened, looked for by the id the door named - or not, when it named none.</summary>
+    public static Receipt Opened(string said, string? flightId) => new(
+        said,
+        flightId is { Length: > 0 } id
+            ? new Expectation { Kind = ExpectationKind.FlightAppears, Id = id }
+            : null);
+}

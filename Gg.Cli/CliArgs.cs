@@ -751,6 +751,9 @@ public static class CliArgs
         "gg take <flight> [--return <outcome> [--note <note>]]  take a flight over, and hand it back",
         "gg runner labels               what each runner advertises, with its disposition",
         "gg runner retire <id>          take a runner out of the fleet, for good",
+        "gg runner claim|unclaim <id>   make a machine yours, or give it back",
+        "gg runner reserve|release <id> keep your machine to your own flights, or not",
+        "gg runner ownership <id> tenant|open  an admin's word: nobody's to claim, or anybody's",
         "gg runner watch <id>           watch it, and whatever it flies next",
         "gg runner repin <id>           trust a runner's key again after it changed",
         "gg invite                      a link that makes somebody a second principal here",
@@ -1102,6 +1105,35 @@ public static class CliArgs
               + "gg watches to see which ones are in force."),
             ["runner", "labels"] => new CliAction.RunnerLabels(json),
             ["runner", "retire", var retireId] => new CliAction.RunnerRetire(retireId, json),
+            // WHOSE A MACHINE IS, AND WHAT IT TAKES (slice forty-three). The
+            // control plane decides who may; this side refuses only what no
+            // control plane could accept.
+            ["runner", "claim", var claimId] => new CliAction.RunnerClaim(claimId, json),
+            ["runner", "unclaim", var unclaimId] => new CliAction.RunnerUnclaim(unclaimId, json),
+            ["runner", "reserve", var reserveId] => new CliAction.RunnerReserve(reserveId, json),
+            ["runner", "release", var releaseId] => new CliAction.RunnerRelease(releaseId, json),
+            ["runner", "ownership", var ownedId, var ownership]
+                when ownership is Gg.Contracts.RunnerOwnerships.Tenant or Gg.Contracts.RunnerOwnerships.Open =>
+                new CliAction.RunnerOwnershipSet(ownedId, ownership, json),
+            // CLAIMED IS A PERSON'S OWN ACT, never an admin's word about
+            // somebody - so it is not a value this verb takes.
+            ["runner", "ownership", _, Gg.Contracts.RunnerOwnerships.Claimed] => Unknown(
+                "gg runner ownership sets tenant or open. A runner is claimed by the person it "
+              + "is for, with gg runner claim <id> - never set by an admin."),
+            ["runner", "ownership", ..] => Unknown(
+                "gg runner ownership needs a runner id and tenant or open. Run gg runners to "
+              + "see the fleet."),
+            ["runner", "claim", ..] => Unknown(
+                "gg runner claim needs one runner id - the machine that is yours. Run gg runners "
+              + "to see the fleet."),
+            ["runner", "unclaim", ..] => Unknown(
+                "gg runner unclaim needs one runner id. Run gg runners to see whose each one is."),
+            ["runner", "reserve", ..] => Unknown(
+                "gg runner reserve needs one runner id - one of yours. Run gg runners to see "
+              + "whose each one is."),
+            ["runner", "release", ..] => Unknown(
+                "gg runner release needs one runner id - one of yours. Run gg runners to see "
+              + "whose each one is."),
             // LINES IS BOUNDED BY THE CONTRACT, not here: RunnerAskBounds.MaxLines
             // is what the runner clamps to, and a second bound on this side would
             // be a second answer to how much a person may ask for.

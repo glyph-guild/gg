@@ -196,6 +196,17 @@ public class ConsoleDataTests
             // and that confirmation is the work, not the wiring.
             "RetireRunnerAsync",
 
+            // WHOSE A MACHINE IS, changed from a terminal until the modal can
+            // show it (slice forty-three, step 2). All five are reversible or an
+            // admin's considered word, and none belongs on a key whose pane
+            // cannot yet draw the fact it changes. A GAP, and the reason is
+            // written once, at VerbParityTests' entry for RunnerClaim.
+            "ClaimRunnerAsync",
+            "UnclaimRunnerAsync",
+            "ReserveRunnerAsync",
+            "ReleaseRunnerAsync",
+            "SetRunnerOwnershipAsync",
+
             // A LOCAL ACT ON LOCAL STATE. Repinning forgets what this machine
             // remembers about a runner's key; no pane shows a pin, and nothing in
             // the console can be introduced yet, so a console equivalent would act

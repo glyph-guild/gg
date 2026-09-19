@@ -41,6 +41,11 @@ namespace Gg.Client;
 [JsonSerializable(typeof(RunnerSealedAnswer))]
 [JsonSerializable(typeof(RunnerRetirementRequest))]
 [JsonSerializable(typeof(RunnerRetired))]
+[JsonSerializable(typeof(RunnerClaimRequest))]
+[JsonSerializable(typeof(RunnerOwnershipRequest))]
+[JsonSerializable(typeof(RunnerOwnership))]
+[JsonSerializable(typeof(RunnerReservationRequest))]
+[JsonSerializable(typeof(RunnerReserved))]
 [JsonSerializable(typeof(RunnerList))]
 // NEW HERE, and its absence was the restriction showing through: a person
 // could never post a reading, so this context never needed to write one. The
@@ -1626,30 +1631,79 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     }
 
     /// <summary>Claims a runner for the caller. Null when this tenant has no such runner.</summary>
+    /// <remarks>
+    /// <b>A refusal is an answer, and it carries the control plane's sentence</b>
+    /// - a tenant runner (403) or somebody else's (409) - because the two are
+    /// different things to do next and the status alone says neither.
+    /// </remarks>
     public Task<RunnerOwnership?> ClaimRunnerAsync(
         string sessionToken, string runnerId, CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException();
+        OwnershipAsync(
+            HttpMethod.Post, $"/v1/runners/{Uri.EscapeDataString(runnerId)}/claim", sessionToken,
+            JsonContent.Create(new RunnerClaimRequest(), ProtocolJsonContext.Default.RunnerClaimRequest),
+            ProtocolJsonContext.Default.RunnerOwnership, cancellationToken);
 
     /// <summary>Gives a runner up, back to open. Null when this tenant has no such runner.</summary>
     public Task<RunnerOwnership?> UnclaimRunnerAsync(
         string sessionToken, string runnerId, CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException();
+        OwnershipAsync(
+            HttpMethod.Delete, $"/v1/runners/{Uri.EscapeDataString(runnerId)}/claim", sessionToken,
+            content: null, ProtocolJsonContext.Default.RunnerOwnership, cancellationToken);
 
     /// <summary>An admin's word: the tenant's, or open. Null when this tenant has no such runner.</summary>
     public Task<RunnerOwnership?> SetRunnerOwnershipAsync(
         string sessionToken, string runnerId, string ownership,
         CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException();
+        OwnershipAsync(
+            HttpMethod.Put, $"/v1/runners/{Uri.EscapeDataString(runnerId)}/ownership", sessionToken,
+            JsonContent.Create(
+                new RunnerOwnershipRequest { Ownership = ownership },
+                ProtocolJsonContext.Default.RunnerOwnershipRequest),
+            ProtocolJsonContext.Default.RunnerOwnership, cancellationToken);
 
     /// <summary>Keeps the caller's own runner to the caller's flights. Null when there is no such runner.</summary>
     public Task<RunnerReserved?> ReserveRunnerAsync(
         string sessionToken, string runnerId, CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException();
+        OwnershipAsync(
+            HttpMethod.Post, $"/v1/runners/{Uri.EscapeDataString(runnerId)}/reservation", sessionToken,
+            JsonContent.Create(
+                new RunnerReservationRequest(), ProtocolJsonContext.Default.RunnerReservationRequest),
+            ProtocolJsonContext.Default.RunnerReserved, cancellationToken);
 
     /// <summary>Lets the caller's runner take the tenant's work again. Null when there is no such runner.</summary>
     public Task<RunnerReserved?> ReleaseRunnerAsync(
         string sessionToken, string runnerId, CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException();
+        OwnershipAsync(
+            HttpMethod.Delete, $"/v1/runners/{Uri.EscapeDataString(runnerId)}/reservation", sessionToken,
+            content: null, ProtocolJsonContext.Default.RunnerReserved, cancellationToken);
+
+    /// <summary>One of the five ownership doors: null for 404, the sentence for 403 and 409.</summary>
+    private async Task<T?> OwnershipAsync<T>(
+        HttpMethod method, string path, string sessionToken, HttpContent? content,
+        System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> answer,
+        CancellationToken cancellationToken)
+        where T : class
+    {
+        using var request = Request(method, path, sessionToken);
+        request.Content = content;
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        if (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Conflict
+                                or HttpStatusCode.BadRequest)
+        {
+            throw new RunnerOwnershipRefusedException(await RefusalAsync(response, cancellationToken));
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync(answer, cancellationToken);
+    }
 
     /// <summary>
     /// Asks to be introduced to one runner, for one short conversation.

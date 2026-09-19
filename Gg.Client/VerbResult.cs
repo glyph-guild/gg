@@ -2623,6 +2623,13 @@ public static class VerbOutput
             $"  Expires:    {who.ExpiresAt:u}",
         };
 
+        // HOW A DOCUMENT NAMES YOU, and only when the control plane says. A
+        // blank line would read as having no subject.
+        if (who.Subject is { Length: > 0 } subject)
+        {
+            lines.Add($"  Subject:    {Clean(subject)}");
+        }
+
         // ONLY WHEN TRUE. Most people are not administrators, and a line
         // reading "Administers: no" on every whoami would teach a reader to
         // skip the one line that matters. Absent is the ordinary answer, which
@@ -3132,6 +3139,19 @@ public static class VerbOutput
                  + $"flight {flight} awaits {declared.Awaiting}. The name is not in the "
                  + "topology until that gate opens, so a document applied to it now is "
                  + "refused.\n";
+        }
+
+        // YOURS, AND WHAT THE WATCH SAYS ABOUT IT. Unquoted, where the renderer
+        // would quote it - the parser reads a colon inside a plain value, and
+        // WhoAmISaysYourSubjectTests pastes this very line and reads it back.
+        if (declared.For is { Length: > 0 } whose)
+        {
+            var line = $"for: {whose}";
+            return declared.WroteTo is { Length: > 0 } wrote
+                ? $"{declared.Name}: declared as your own {declared.Role}, with no gate. "
+                + $"Wrote {line} into {wrote}.\n"
+                : $"{declared.Name}: declared as your own {declared.Role}, with no gate. Its "
+                + $"file names you on its first line:\n  {line}\n";
         }
 
         return declared.DeclaredBy is { Length: > 0 } who

@@ -1,4 +1,5 @@
 using Gg.Contracts;
+using Gg.Contracts.Authoring;
 using Gg.Contracts.Description;
 
 namespace Gg.Client;
@@ -1052,19 +1053,77 @@ public sealed class FlightCommands(
     {
         var (live, pending) = await _client.DeclareNameAsync(
             Session(),
-            new DeclareNameRequest { Name = name, Role = role, Parent = parent },
+            new DeclareNameRequest { Name = name, Role = role, Parent = parent, Personal = personal },
             cancellationToken);
+
+        // WHOSE IT IS, AS THE CONTROL PLANE BOUND IT. gg sent a flag and never
+        // a person, so the answer is the only place the person comes from.
+        var whose = personal ? live?.For : null;
 
         return new VerbResult.NameDeclared(new NameDeclared
         {
             Name = name,
             Role = role,
             Parent = parent,
+            For = whose,
+            WroteTo = whose is { Length: > 0 } && estateRoot is { Length: > 0 }
+                ? await WritePersonAsync(estateRoot, role, name, whose, cancellationToken)
+                : null,
             DeclaredBy = live?.DeclaredBy,
             Flight = pending?.Flight,
             Awaiting = pending?.Awaiting,
             Widens = pending?.Widens,
         });
+    }
+
+    /// <summary>
+    /// Writes a personal watch's person into its file, when the file is there
+    /// and reads as a watch. Returns the path written, or null.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>So nobody types a subject.</b> The spelling is the provider's opaque
+    /// subject, and a person who had to copy it would copy it wrong.
+    /// </para>
+    /// <para>
+    /// <b>A file that does not read as a watch is left alone</b>, and the answer
+    /// says the line instead. Rewriting half an author's work to add one line
+    /// would be the verb deciding what their document says.
+    /// </para>
+    /// <para>
+    /// <b>The <c>based-on:</c> line is kept</b>, because it is the precondition
+    /// the next apply carries and the renderer does not write it.
+    /// </para>
+    /// </remarks>
+    private static async Task<string?> WritePersonAsync(
+        string estateRoot, string role, string name, string whose,
+        CancellationToken cancellationToken)
+    {
+        var relative = $"{AirspaceTree.Directory}/{AirspaceNames.PathFor(role, name)}";
+        var path = Path.Combine(estateRoot, relative);
+
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        var parsed = EnvelopeYaml.ParseWatch(await File.ReadAllTextAsync(path, cancellationToken));
+
+        if (parsed.Watch is not { } watch)
+        {
+            return null;
+        }
+
+        // THE TREE'S OWN HEADER, spelled as AirspaceTree spells it when it writes.
+        var text = EnvelopeText.Render(watch with { For = whose });
+        if (parsed.BasedOn is { Length: > 0 } version)
+        {
+            text = $"based-on: {version}\n{text}";
+        }
+
+        await File.WriteAllTextAsync(path, text, cancellationToken);
+
+        return relative;
     }
 
     /// <summary>

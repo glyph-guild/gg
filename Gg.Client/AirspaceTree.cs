@@ -719,6 +719,9 @@ public sealed record NameDeclared
     /// </summary>
     public string? For { get; init; }
 
+    /// <summary>The watch file its person was written into, or null when none was.</summary>
+    public string? WroteTo { get; init; }
+
     /// <summary>Who declared it, when the name is live here now.</summary>
     /// <remarks>
     /// Null while a declaration is riding a flight, because nobody has yet:

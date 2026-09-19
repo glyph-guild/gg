@@ -83,6 +83,24 @@ public abstract record CliAction
     public sealed record RunnerSweep(string Watch) : CliAction;
 
     /// <summary>
+    /// Makes this machine's runner a service: a systemd unit or a launchd
+    /// daemon, written from templates in this binary.
+    /// </summary>
+    /// <remarks>
+    /// <b>The token is not a member, and cannot be.</b> <see cref="Enroll"/>
+    /// says one is to be read - prompted, or piped on stdin - because an
+    /// argument is in shell history and in <c>ps</c> before any code of ours
+    /// runs, and an enrollment token registers a machine.
+    /// </remarks>
+    /// <param name="ControlPlane">Where the runner reports; a first install needs one.</param>
+    /// <param name="Enroll">Whether to read an enrollment token.</param>
+    /// <param name="User">The service user, when not the platform's default.</param>
+    public sealed record ServiceInstall(string? ControlPlane, bool Enroll, string? User) : CliAction;
+
+    /// <summary>Removes exactly what <see cref="ServiceInstall"/> wrote.</summary>
+    public sealed record ServiceUninstall : CliAction;
+
+    /// <summary>
     /// Opens a flight. Exactly one payload: <see cref="Text"/>, <see cref="Uri"/>,
     /// or <see cref="Provider"/> and <see cref="Id"/> together.
     /// </summary>

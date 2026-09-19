@@ -373,6 +373,17 @@ public class VerbParityTests
                        + "shows that a newer gg exists through WhoAmI.Notices, which is the "
                        + "channel for something a tenant should act on; what to TYPE belongs "
                        + "where typing happens.",
+            // A MACHINE'S OWN SETUP, run once with root. The console runs as a
+            // person and never elevates, and what the verb does - create a
+            // user, write root-owned files, start a service - is exactly what a
+            // UI session may not start.
+            ["ServiceInstall"] = "deliberately outside: it runs once, under sudo, on the machine "
+                               + "becoming a runner, and it creates a user and starts a service. "
+                               + "The console never elevates and a UI session may not start "
+                               + "anything; the runner it installs shows up in the console as "
+                               + "any other runner does.",
+            ["ServiceUninstall"] = "deliberately outside, for ServiceInstall's reason: it is root's, "
+                                 + "on the machine itself, and it stops a service.",
             ["Unknown"] = "not a verb - the parse's own answer for something that is not one.",
 
             // --- absent, and out of scope for this slice, with the reason ---

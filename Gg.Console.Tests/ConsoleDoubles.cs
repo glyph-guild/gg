@@ -236,10 +236,12 @@ internal static class ConsoleDoubles
     /// <param name="opens">
     /// The flight id every opening answers with, the way the door's 202 names
     /// one. A refusal answers with none, because nothing can be watched for -
-    /// which is also what a declined nomination answers.
+    /// which is also what a declined nomination answers. Null is a control
+    /// plane that accepted the flight without naming it, which the loop meets
+    /// with the re-read it always did.
     /// </param>
     internal sealed class Records(
-        string? alreadyFlown = null, bool refusing = false, string opens = Records.Opened)
+        string? alreadyFlown = null, bool refusing = false, string? opens = Records.Opened)
         : IConsoleActions
     {
         /// <summary>The flight every opening names unless a test says otherwise.</summary>

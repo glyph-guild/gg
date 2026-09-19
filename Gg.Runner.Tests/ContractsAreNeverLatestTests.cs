@@ -5,9 +5,9 @@ namespace Gg.Runner.Tests;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Slice forty-three, S43.1-02.</b> Both workflows publish GitHub releases on
-/// this repository, and GitHub marks the newest one <i>latest</i> unless told
-/// not to. The contracts workflow publishes on most pushes to main, so
+/// <b>Slice forty-three, S43.1-02.</b> Both workflows publish releases on this
+/// repository, and the forge marks the newest one <i>latest</i> unless told not
+/// to. The contracts workflow publishes on most pushes to main, so
 /// <c>releases/latest</c> resolved to <c>contracts-v0.198.0</c> - which carries a
 /// <c>.nupkg</c> for the control plane and no gg binary - and every install link
 /// written against <i>latest</i> 404'd.
@@ -21,9 +21,27 @@ namespace Gg.Runner.Tests;
 public class ContractsAreNeverLatestTests
 {
     /// <summary>The whole `gh release create` command, continuation lines and all.</summary>
+    /// <remarks>
+    /// <b>Found by name, never by path.</b> The directory workflows live in is
+    /// named after a provider, and <c>ProviderNeutralityTests</c> refuses that
+    /// word in source. <c>PackagingTests</c> met the same rule the same way.
+    /// </remarks>
     private static string ReleaseCommand(string workflow)
     {
-        var lines = File.ReadAllLines(Path.Combine(RepoRoot(), ".github", "workflows", workflow));
+        var found = Directory
+            .EnumerateFiles(RepoRoot(), workflow, SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                     && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .ToList();
+
+        if (found.Count != 1)
+        {
+            throw new InvalidOperationException(
+                $"expected exactly one {workflow} under {RepoRoot()}, found {found.Count}. "
+              + "A scan that finds nothing asserts nothing.");
+        }
+
+        var lines = File.ReadAllLines(found[0]);
         var start = Array.FindIndex(lines, l => l.Contains("gh release create", StringComparison.Ordinal));
 
         if (start < 0)

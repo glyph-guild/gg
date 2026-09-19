@@ -142,4 +142,47 @@ public class WithholdingReasonTests
         await Assert.That(parked).IsNotEqualTo(gap);
         await Assert.That(parked).IsNotEqualTo(reserved);
     }
+
+    // ---- a personal watch's flight, and nobody of theirs flying ----
+
+    [Test]
+    public async Task A_personal_flight_with_no_runner_of_its_persons_is_a_kind_of_its_own()
+    {
+        // A FOURTH WITHHOLDING, and a wait like the other three: the flight was
+        // admitted and is going to run the moment one of its person's machines
+        // asks. A personal watch's flight runs only on a machine its person has
+        // claimed, so "no runner advertises" would send somebody to provision
+        // capacity when what is missing is theirs.
+        await Assert.That(ReasonKinds.All).Contains(ReasonKinds.PersonalRunnerAbsent);
+        await Assert.That(ReasonKinds.FamilyOf(ReasonKinds.PersonalRunnerAbsent))
+            .IsEqualTo(ReasonFamilies.Failed);
+    }
+
+    [Test]
+    public async Task A_personal_flight_names_whose_machines_it_waits_for()
+    {
+        var sentence = Reason.Sentence(ReasonKinds.PersonalRunnerAbsent, ["Dana"]);
+
+        await Assert.That(sentence).Contains("Dana");
+        await Assert.That(sentence).Contains("claim")
+            .Because("the remedy a person can act on is one of their own machines asking, or "
+                   + "claiming one - and the sentence has to say which word that is.");
+        await Assert.That(sentence).DoesNotContain("no runner advertises")
+            .Because("the capacity is not what is missing: this person's machine is.");
+        await Assert.That(sentence).DoesNotContain("reserved")
+            .Because("a personal watch follows whose a machine is, not what it is kept for - "
+                   + "telling somebody to reserve a runner sends them to the wrong door.");
+    }
+
+    [Test]
+    public async Task A_personal_flight_whose_person_has_left_says_so_rather_than_naming_nobody()
+    {
+        // THE RESERVATION'S RULE, one kind over: a person's display is dropped
+        // when they leave the tenant, and a sentence with a hole where their
+        // name goes reads as a rendering bug.
+        var sentence = Reason.Sentence(ReasonKinds.PersonalRunnerAbsent, []);
+
+        await Assert.That(sentence).Contains("no longer");
+        await Assert.That(sentence).DoesNotContain("''");
+    }
 }

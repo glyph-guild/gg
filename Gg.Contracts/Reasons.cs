@@ -414,6 +414,9 @@ public static class ReasonKinds
     /// </remarks>
     public const string DirectedRunnerAbsent = "directed-runner-absent";
 
+    /// <summary>A personal watch's flight, and none of its person's runners asking.</summary>
+    public const string PersonalRunnerAbsent = "personal-runner-absent";
+
     /// <summary>
     /// An attended flight names a runner that is already flying. Params: [runner].
     /// </summary>

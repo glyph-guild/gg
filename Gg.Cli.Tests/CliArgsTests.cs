@@ -227,6 +227,33 @@ public class CliArgsTests
     }
 
     [Test]
+    public async Task The_usage_says_fly_takes_a_repository()
+    {
+        // FOUND FLYING ado#18490, 2026-09-19. A ticket flight opened without
+        // --repo resolves to no repository unless the envelope selects exactly
+        // one, and the runner hands the agent an empty tree. The flag that
+        // prevents it was parsed, validated and absent from the usage, so the
+        // flight that needed it was opened without it.
+        var message = ((CliAction.Unknown)CliArgs.Parse(["frobnicate"])).Message;
+
+        await Assert.That(message).Contains("  --repo <name>")
+            .Because("fly's repository flag is listed under fly, beside --runner and "
+                   + "--work-kind, not only under credential where it means something else.");
+    }
+
+    [Test]
+    public async Task A_bare_repo_flag_points_where_repositories_are_listed()
+    {
+        // `gg airspace show` lists the airspace's names - envelopes, work
+        // kinds, strategies, watches - and no repository. Sending somebody
+        // there to find a repository's name is a hint that cannot be followed.
+        var refused = (CliAction.Unknown)CliArgs.Parse(["fly", "--ticket", "ado#18490", "--repo"]);
+
+        await Assert.That(refused.Message).DoesNotContain("gg airspace show");
+        await Assert.That(refused.Message).Contains("Repositories tab");
+    }
+
+    [Test]
     public async Task TheRefusalNamesWhatWasTyped()
     {
         // "unknown command" without saying which one makes a typo in a script

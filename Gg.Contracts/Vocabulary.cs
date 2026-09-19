@@ -27,6 +27,8 @@ public static class Vocabulary
         typeof(RunnerReservationRequest),
         typeof(RunnerReserved),
         typeof(RunnerClaimRequest),
+        typeof(ReadinessItem),
+        typeof(ReadinessReading),
         typeof(EnrollmentTokenRequest),
         typeof(EnrollmentTokenMinted),
         typeof(EnrollmentTokenSummary),

@@ -1823,6 +1823,8 @@ public static class ProtocolSurface
                  "cacheWriteTokens", "limit", "tokens", "reported", "resetsAt", "reportedAt"],
             [typeof(AllowanceReading)] = ["allowance", "measuredAt", "windows"],
             [typeof(AgentReading)] = ["provider", "standing", "source", "measuredAt", "diagnosis"],
+            [typeof(ReadinessItem)] = ["kind", "subject", "met", "diagnosis"],
+            [typeof(ReadinessReading)] = ["profile", "version", "items", "measuredAt"],
             [typeof(AllowanceSummary)] =
                 ["name", "measuredAt", "windows", "runners", "owners", "floor", "override"],
             [typeof(AllowanceFloor)] = ["sessionFraction", "weekFraction"],

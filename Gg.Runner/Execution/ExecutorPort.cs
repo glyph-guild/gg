@@ -182,6 +182,18 @@ public sealed record ExecutorRequest
     public Gg.Contracts.LeaseLanding? LandingWording { get; init; }
 
     /// <summary>
+    /// Where the agent's scratch goes - inside the flight's own directory - or
+    /// null where there is no flight directory to put it in.
+    /// </summary>
+    /// <remarks>
+    /// <b>Found reviewing GG-190, 2026-09-19</b>: its scanner scripts went to the
+    /// host's <c>/tmp</c> and outlived the flight. The temporary-directory
+    /// variables point here and the prompt names it; null leaves a sweep's and
+    /// the move-bound probe's environment exactly as it was.
+    /// </remarks>
+    public string? ScratchDirectory { get; init; }
+
+    /// <summary>
     /// What this flight is to do, from its work kind, or null for the wording
     /// every flight has always been given.
     /// </summary>

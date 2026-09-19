@@ -195,6 +195,10 @@ public sealed class AttendedExecutor(
         // hand-flight runs under the credential gg holds, not the one the
         // person's shell happens to have.
         ClaudeCodeExecutor.PlaceToken(info, agent, token);
+
+        // AND THE SAME SCRATCH, for the same reason: this is the same agent on
+        // the same flight, watched rather than headless.
+        ClaudeCodeExecutor.PlaceScratch(info, request);
         return info;
     }
 

@@ -27,9 +27,30 @@ public static class EnrollmentSeed
             Path.GetDirectoryName(configurationPath) ?? ".", FileName);
 
     /// <summary>The token, or null when there is none to redeem.</summary>
-    public static string? Read(string configurationPath) => null;
+    public static string? Read(string configurationPath)
+    {
+        var path = PathBeside(configurationPath);
 
+        try
+        {
+            return File.Exists(path) && File.ReadAllText(path).Trim() is { Length: > 0 } token
+                ? token
+                : null;
+        }
+        catch (Exception unreadable) when (unreadable is IOException or UnauthorizedAccessException)
+        {
+            // A seed this user cannot read is one it was not meant to redeem.
+            return null;
+        }
+    }
+
+    /// <summary>Removes the seed: a redeemed token is spent, and a spent one is kept nowhere.</summary>
     public static void Spend(string configurationPath)
     {
+        var path = PathBeside(configurationPath);
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
     }
 }

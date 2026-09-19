@@ -201,6 +201,14 @@ public class ConsoleDataTests
             // admin's considered word, and none belongs on a key whose pane
             // cannot yet draw the fact it changes. A GAP, and the reason is
             // written once, at VerbParityTests' entry for RunnerClaim.
+            // ENROLLMENT, from a terminal (slice forty-three, step 4). Minting
+            // shows a secret once, which a repainting pane would keep; listing
+            // and revoking are a gap until the console draws tokens. The reasons
+            // are at VerbParityTests' FleetEnroll and FleetTokens entries.
+            "MintEnrollmentTokenAsync",
+            "EnrollmentTokensAsync",
+            "RevokeEnrollmentTokenAsync",
+
             "ClaimRunnerAsync",
             "UnclaimRunnerAsync",
             "ReserveRunnerAsync",

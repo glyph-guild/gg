@@ -54,7 +54,38 @@ public static class EnrollmentBounds
     /// <b>Who may mint a tenant token is not here</b> - that is the caller's
     /// session, which only the control plane can read. This is the shape.
     /// </remarks>
-    public static string? Validate(EnrollmentTokenRequest request) => null;
+    public static string? Validate(EnrollmentTokenRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (string.IsNullOrWhiteSpace(request.Profile))
+        {
+            return "An enrollment token names the fleet profile its machines run under.";
+        }
+
+        if (request.Uses < 1)
+        {
+            return "An enrollment token enrolls at least one machine - say how many with --uses.";
+        }
+
+        if (request.ExpiresInSeconds < 1 || request.ExpiresInSeconds > MaxLifetime.TotalSeconds)
+        {
+            return "An enrollment token lasts at most seven days, and says how long with "
+                 + "--expires - a standing grant that happened to be written down is what the "
+                 + "bound exists to prevent.";
+        }
+
+        if (request.Ownership is not (RunnerOwnerships.Tenant or RunnerOwnerships.Open or RunnerOwnerships.Claimed))
+        {
+            return $"'{request.Ownership}' is not whose a machine can start as. It starts as the "
+                 + "tenant's, open, or claimed by whoever mints the token.";
+        }
+
+        return request.Reserve && request.Ownership != RunnerOwnerships.Claimed
+            ? "Only a claimed machine can start reserved - a reservation keeps a machine to its "
+            + "owner's flights, and a tenant or open machine has no owner."
+            : null;
+    }
 }
 
 /// <summary>A minted enrollment token. The secret is here once and never again.</summary>

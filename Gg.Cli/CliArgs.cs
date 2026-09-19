@@ -396,11 +396,14 @@ public abstract record CliAction
     /// <summary>Takes a runner out of the fleet. There is no undo.</summary>
     public sealed record RunnerRetire(string RunnerId, bool Json) : CliAction, IEmitsResult;
 
+    /// <summary><c>gg fleet enroll</c>: some machines may join as one profile.</summary>
     public sealed record FleetEnroll(Gg.Contracts.EnrollmentTokenRequest Request, bool Json)
         : CliAction, IEmitsResult;
 
+    /// <summary><c>gg fleet tokens</c>: this tenant's enrollment tokens, never their secrets.</summary>
     public sealed record FleetTokens(bool Json) : CliAction, IEmitsResult;
 
+    /// <summary><c>gg fleet revoke &lt;id&gt;</c>: a token enrolls nothing more.</summary>
     public sealed record FleetRevoke(string TokenId, bool Json) : CliAction, IEmitsResult;
 
     /// <summary><c>gg runner claim &lt;id&gt;</c>: this machine is mine.</summary>
@@ -758,6 +761,10 @@ public static class CliArgs
         "gg take <flight> [--return <outcome> [--note <note>]]  take a flight over, and hand it back",
         "gg runner labels               what each runner advertises, with its disposition",
         "gg runner retire <id>          take a runner out of the fleet, for good",
+        "gg fleet enroll --profile <name> --uses <n> --expires <duration> [--tenant | --claim [--reserve]]",
+        "                                 a token some machines may join with, shown once",
+        "gg fleet tokens                this tenant's enrollment tokens, without their secrets",
+        "gg fleet revoke <id>           an enrollment token enrolls nothing more",
         "gg runner claim|unclaim <id>   make a machine yours, or give it back",
         "gg runner reserve|release <id> keep your machine to your own flights, or not",
         "gg runner ownership <id> tenant|open  an admin's word: nobody's to claim, or anybody's",
@@ -1115,6 +1122,14 @@ public static class CliArgs
             // WHOSE A MACHINE IS, AND WHAT IT TAKES (slice forty-three). The
             // control plane decides who may; this side refuses only what no
             // control plane could accept.
+            // HOW A MACHINE JOINS (slice forty-three, rules 17 and 18): a person
+            // decides ahead of time, and the machine redeems the decision.
+            ["fleet", "enroll", .. var enrolling] => FleetEnrollArguments(enrolling, json),
+            ["fleet", "tokens"] => new CliAction.FleetTokens(json),
+            ["fleet", "revoke", var revokeId] => new CliAction.FleetRevoke(revokeId, json),
+            ["fleet", "revoke", ..] => Unknown(
+                "gg fleet revoke needs one token id. Run gg fleet tokens to see this tenant's."),
+            ["fleet", ..] => Unknown("gg fleet takes enroll, tokens or revoke."),
             ["runner", "claim", var claimId] => new CliAction.RunnerClaim(claimId, json),
             ["runner", "unclaim", var unclaimId] => new CliAction.RunnerUnclaim(unclaimId, json),
             ["runner", "reserve", var reserveId] => new CliAction.RunnerReserve(reserveId, json),
@@ -1554,6 +1569,98 @@ public static class CliArgs
 
         return new CliAction.ServiceInstall(controlPlane, enroll, user);
     }
+
+    /// <summary>
+    /// <c>gg fleet enroll</c>'s flags, in any order. Both bounds are required
+    /// (rule 18): a token with no expiry or no count is a standing grant.
+    /// </summary>
+    private static CliAction FleetEnrollArguments(ReadOnlySpan<string> arguments, bool json)
+    {
+        string? profile = null;
+        int? uses = null;
+        TimeSpan? expires = null;
+        var tenant = false;
+        var claim = false;
+        var reserve = false;
+
+        for (var at = 0; at < arguments.Length; at++)
+        {
+            switch (arguments[at])
+            {
+                case "--tenant": tenant = true; continue;
+                case "--claim": claim = true; continue;
+                case "--reserve": reserve = true; continue;
+            }
+
+            if (at + 1 >= arguments.Length)
+            {
+                return Unknown($"gg fleet enroll: '{arguments[at]}' was given no value.");
+            }
+
+            switch (arguments[at])
+            {
+                case "--profile": profile = arguments[++at]; break;
+                case "--uses" when int.TryParse(arguments[at + 1], out var n): uses = n; at++; break;
+                case "--expires" when Duration(arguments[at + 1]) is { } span: expires = span; at++; break;
+                case "--uses":
+                    return Unknown($"gg fleet enroll: --uses is '{arguments[at + 1]}', and it takes a whole number of machines.");
+                case "--expires":
+                    return Unknown($"gg fleet enroll: --expires is '{arguments[at + 1]}', and it takes a duration like 30m, 24h or 7d.");
+                default:
+                    return Unknown(
+                        $"gg fleet enroll: '{arguments[at]}' is not one of its options. It takes --profile, "
+                      + "--uses, --expires, and one of --tenant or --claim (with --reserve).");
+            }
+        }
+
+        if (tenant && claim)
+        {
+            return Unknown(
+                "gg fleet enroll: --tenant and --claim are two answers to whose a machine starts as. "
+              + "Say one - the tenant's, or yours.");
+        }
+
+        if (reserve && !claim)
+        {
+            return Unknown(
+                "gg fleet enroll: --reserve keeps a machine to its owner's flights, so it comes with "
+              + "--claim - a tenant or open machine has no owner to keep it for.");
+        }
+
+        return (profile, uses, expires) switch
+        {
+            (null or "", _, _) => Unknown(
+                "gg fleet enroll needs --profile: the fleet profile every machine it enrolls runs under."),
+            (_, null, _) => Unknown(
+                "gg fleet enroll needs --uses: how many machines it may enroll. Nothing enrolls beyond it."),
+            (_, _, null) => Unknown(
+                "gg fleet enroll needs --expires, at most 7d: a token with no end is a standing grant."),
+            _ => new CliAction.FleetEnroll(
+                new Gg.Contracts.EnrollmentTokenRequest
+                {
+                    Profile = profile,
+                    Uses = uses!.Value,
+                    ExpiresInSeconds = (int)Math.Min(int.MaxValue, expires!.Value.TotalSeconds),
+                    Ownership = tenant
+                        ? Gg.Contracts.RunnerOwnerships.Tenant
+                        : claim ? Gg.Contracts.RunnerOwnerships.Claimed : Gg.Contracts.RunnerOwnerships.Open,
+                    Reserve = reserve,
+                },
+                json),
+        };
+    }
+
+    /// <summary>A duration a person types: a whole number and m, h or d.</summary>
+    private static TimeSpan? Duration(string text) =>
+        text.Length > 1 && int.TryParse(text.AsSpan(0, text.Length - 1), out var n) && n > 0
+            ? text[^1] switch
+            {
+                'm' => TimeSpan.FromMinutes(n),
+                'h' => TimeSpan.FromHours(n),
+                'd' => TimeSpan.FromDays(n),
+                _ => null,
+            }
+            : null;
 
     private static CliAction ReadArguments(ReadOnlySpan<string> arguments)
     {

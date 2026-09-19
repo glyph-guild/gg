@@ -278,9 +278,22 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.RunnerRetired;
     }
 
+    /// <summary>An enrollment token, minted - the one time its secret is shown.</summary>
     public sealed record EnrollmentMinted(Gg.Contracts.EnrollmentTokenMinted Value) : VerbResult
     {
         public override string Kind => VerbResultKinds.EnrollmentMinted;
+    }
+
+    /// <summary>This tenant's enrollment tokens, without their secrets.</summary>
+    public sealed record EnrollmentTokens(Gg.Contracts.EnrollmentTokenList Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.EnrollmentTokens;
+    }
+
+    /// <summary>An enrollment token, revoked.</summary>
+    public sealed record EnrollmentRevoked(Gg.Contracts.EnrollmentTokenSummary Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.EnrollmentRevoked;
     }
 
     /// <summary>A runner's ownership after a claim, an unclaim or an admin's word.</summary>
@@ -519,6 +532,8 @@ public static class VerbResultKinds
     public const string RunnerRetired = "runner-retired";
     public const string RunnerOwned = "runner-owned";
     public const string EnrollmentMinted = "enrollment-minted";
+    public const string EnrollmentTokens = "enrollment-tokens";
+    public const string EnrollmentRevoked = "enrollment-revoked";
     public const string RunnerReservation = "runner-reservation";
     public const string RunnerRepinned = "runner-repinned";
     public const string Bundle = "bundle";
@@ -618,6 +633,9 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(Gg.Contracts.CredentialRemoved))]
 [JsonSerializable(typeof(Gg.Contracts.RunnerRetired))]
 [JsonSerializable(typeof(Gg.Contracts.RunnerOwnership))]
+[JsonSerializable(typeof(Gg.Contracts.EnrollmentTokenMinted))]
+[JsonSerializable(typeof(Gg.Contracts.EnrollmentTokenList))]
+[JsonSerializable(typeof(Gg.Contracts.EnrollmentTokenSummary))]
 [JsonSerializable(typeof(Gg.Contracts.RunnerReserved))]
 [JsonSerializable(typeof(Gg.Client.RunnerRepinned))]
 [JsonSerializable(typeof(DiagnosticsBundle))]
@@ -714,6 +732,12 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RunnerRetired),
         VerbResult.RunnerOwned r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RunnerOwnership),
+        VerbResult.EnrollmentMinted r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnrollmentTokenMinted),
+        VerbResult.EnrollmentTokens r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnrollmentTokenList),
+        VerbResult.EnrollmentRevoked r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnrollmentTokenSummary),
         VerbResult.RunnerReservation r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RunnerReserved),
         VerbResult.RunnerRepinned r =>
@@ -810,6 +834,12 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.RunnerRetired))),
         VerbResultKinds.RunnerOwned => new VerbResult.RunnerOwned(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.RunnerOwnership))),
+        VerbResultKinds.EnrollmentMinted => new VerbResult.EnrollmentMinted(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.EnrollmentTokenMinted))),
+        VerbResultKinds.EnrollmentTokens => new VerbResult.EnrollmentTokens(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.EnrollmentTokenList))),
+        VerbResultKinds.EnrollmentRevoked => new VerbResult.EnrollmentRevoked(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.EnrollmentTokenSummary))),
         VerbResultKinds.RunnerReservation => new VerbResult.RunnerReservation(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.RunnerReserved))),
         VerbResultKinds.RunnerRepinned => new VerbResult.RunnerRepinned(Require(
@@ -887,6 +917,11 @@ public static class VerbOutput
         VerbResult.CredentialRemoved r => CredentialRemoved(r.Value),
         VerbResult.RunnerRetired r => RunnerRetiredText(r.Value),
         VerbResult.RunnerOwned r => RunnerOwnedText(r.Value),
+        VerbResult.EnrollmentMinted r => EnrollmentMintedText(r.Value),
+        VerbResult.EnrollmentTokens r => EnrollmentTokensText(r.Value),
+        VerbResult.EnrollmentRevoked r =>
+            $"Revoked enrollment token {Clean(r.Value.TokenId)}: it enrolls nothing more. Machines "
+          + "it already enrolled are unchanged - gg runner retire takes one out.",
         VerbResult.RunnerReservation r => RunnerReservationText(r.Value),
         VerbResult.RunnerRepinned r => RunnerRepinnedText(r.Value),
         VerbResult.Bundle r => Bundle(r.Value),
@@ -1391,6 +1426,46 @@ public static class VerbOutput
         $"Retired {Clean(retired.RunnerId)} at {retired.RetiredAt:u}. "
       + "Its credential is revoked and it is out of the fleet; what it did is still recorded. "
       + "Bringing that machine back is gg runner up.";
+
+    /// <summary>The token, once, with what it does and how a machine uses it.</summary>
+    private static string EnrollmentMintedText(Gg.Contracts.EnrollmentTokenMinted minted)
+    {
+        var starts = minted.Ownership switch
+        {
+            Gg.Contracts.RunnerOwnerships.Tenant => "the tenant's",
+            Gg.Contracts.RunnerOwnerships.Claimed when minted.Reserved => "yours, and reserved to your flights",
+            Gg.Contracts.RunnerOwnerships.Claimed => "yours",
+            _ => "open",
+        };
+
+        return $"Enrollment token {Clean(minted.TokenId)}: up to {minted.Uses} machine(s) as "
+             + $"'{Clean(minted.Profile)}', until {minted.ExpiresAt:u}, each starting {starts}.\n\n"
+             + $"  {Clean(minted.Token)}\n\n"
+             + "Shown once - the control plane keeps only its hash. On a machine, give it to "
+             + "`gg service install --enroll` at the prompt or on stdin, or to install.sh with "
+             + "--enroll-file; never as an argument, where a process list would show it.";
+    }
+
+    /// <summary>One row per token: what it is for and how much is left, never the secret.</summary>
+    private static string EnrollmentTokensText(Gg.Contracts.EnrollmentTokenList list)
+    {
+        if (list.Tokens.Count == 0)
+        {
+            return "No enrollment tokens. gg fleet enroll --profile <name> --uses <n> --expires <duration> mints one.";
+        }
+
+        var text = new StringBuilder();
+        foreach (var token in list.Tokens)
+        {
+            var state = token.RevokedAt is { } revoked ? $"  revoked {revoked:u}" : "";
+            text.AppendLine(
+                $"{Clean(token.TokenId),-38}{Clean(token.Profile),-20}{token.UsesLeft,3} left  "
+              + $"until {token.ExpiresAt:u}  {Clean(token.Ownership)}{(token.Reserved ? ", reserved" : "")}"
+              + $"  by {Clean(token.MintedBy)}{state}");
+        }
+
+        return text.ToString().TrimEnd();
+    }
 
     /// <summary>Whose the runner is now, and what that lets a person do next.</summary>
     private static string RunnerOwnedText(Gg.Contracts.RunnerOwnership owned)

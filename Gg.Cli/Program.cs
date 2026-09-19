@@ -108,6 +108,12 @@ return CliArgs.Parse(args) switch
         await EmitAsync(repin.Json, c => c.RepinRunnerAsync(repin.RunnerId)),
     CliAction.RunnerRetire retire =>
         await EmitAsync(retire.Json, c => c.RetireRunnerAsync(retire.RunnerId)),
+    CliAction.FleetEnroll enrolling =>
+        await EmitAsync(enrolling.Json, c => c.MintEnrollmentTokenAsync(enrolling.Request)),
+    CliAction.FleetTokens tokens =>
+        await EmitAsync(tokens.Json, c => c.EnrollmentTokensAsync()),
+    CliAction.FleetRevoke revoking =>
+        await EmitAsync(revoking.Json, c => c.RevokeEnrollmentTokenAsync(revoking.TokenId)),
     CliAction.RunnerClaim claim =>
         await EmitAsync(claim.Json, c => c.ClaimRunnerAsync(claim.RunnerId)),
     CliAction.RunnerUnclaim unclaim =>
@@ -791,6 +797,12 @@ static async Task<int> EmitAsync(bool json, Func<FlightCommands, Task<VerbResult
         // fell to the HttpRequestException clause below and was printed as
         // "could not reach the control plane - try gg doctor", sending somebody
         // to diagnose a network that had just answered them.
+        return Fail(refused.Message);
+    }
+    catch (EnrollmentRefusedException refused)
+    {
+        // A BOUND, A PROFILE NOT IN FORCE, A TENANT TOKEN FROM A NON-ADMIN, OR A
+        // TOKEN THAT NAMES NOTHING HERE - each the control plane's sentence.
         return Fail(refused.Message);
     }
     catch (RunnerOwnershipRefusedException refused)
@@ -2422,9 +2434,27 @@ static async Task<int> RunnerUpAsync()
     }
 
     var session = new FileSessionStore().Read();
-    if (session is null)
+    var runnerStore = new FileRunnerStore(FileRunnerStore.PathFor(Environment.MachineName));
+
+    // AN ENROLLED MACHINE STARTS HERE (slice forty-three, rule 19): its install
+    // left a token beside config.json, and nobody signs in on it. The token is
+    // redeemed once, for a runner credential of the machine's own, and spent.
+    var configurationPath = Gg.Local.ConfigurationFile.DefaultPath();
+    var enrollment = runnerStore.Usable(DateTimeOffset.UtcNow) is null
+        ? Gg.Local.EnrollmentSeed.Read(configurationPath)
+        : null;
+
+    // A SESSION IS NEEDED ONLY TO REGISTER. A machine holding a runner
+    // credential of its own - an enrolled one, or one somebody signed in on
+    // once - starts on that, which is what lets a service come back after a
+    // reboot with nobody at it.
+    if (runnerStore.Usable(DateTimeOffset.UtcNow) is null && enrollment is null && session is null)
     {
-        return Fail("not signed in — run `gg login` first. Registering a runner is a person's action.");
+        return Fail(
+            "not signed in, and this machine holds no runner credential or enrollment token - run "
+          + "`gg login` first, or enroll it: `gg fleet enroll` mints a token and "
+          + "`gg service install --enroll` hands it to the machine. Registering a runner is a "
+          + "person's action, taken at the machine or ahead of time.");
     }
 
     // A person registers the runner; the runner then holds only the credential
@@ -2435,29 +2465,72 @@ static async Task<int> RunnerUpAsync()
     // runners in `gg runners` with ten of them permanently offline - one per
     // restart - and a machine could not come back from a reboot without
     // somebody signed in.
-    var runnerStore = new FileRunnerStore(FileRunnerStore.PathFor(Environment.MachineName));
-    var registered = await RunnerIdentity.EnsureAsync(
-        runnerStore,
-        async () =>
-        {
-            var fresh = await new ControlPlaneClient(http)
-                .RegisterRunnerAsync(
-                    session.SessionToken, Environment.MachineName,
-                    publicKey: RunnerIdentityKey
-                        .LoadOrCreate(RunnerIdentityKey.PathFor(Environment.MachineName))
-                        .PublicKey,
-                    // WHERE IT RUNS. The resident's label happens to be the host
-                    // name as well, and the fleet groups by this, not by that.
-                    machine: Environment.MachineName);
-
-            return new StoredRunner
+    StoredRunner registered;
+    try
+    {
+        registered = await RunnerIdentity.EnsureAsync(
+            runnerStore,
+            async () =>
             {
-                RunnerId = fresh.RunnerId,
-                RunnerToken = fresh.RunnerToken,
-                ExpiresAt = DateTimeOffset.UtcNow.AddDays(30),
-            };
-        },
-        DateTimeOffset.UtcNow);
+                var publicKey = RunnerIdentityKey
+                    .LoadOrCreate(RunnerIdentityKey.PathFor(Environment.MachineName))
+                    .PublicKey;
+
+                // THE TOKEN BEFORE THE SESSION: an install that left one said how this
+                // machine joins, and joining as its profile is what was decided.
+                if (enrollment is { } token)
+                {
+                    var enrolled = await new ControlPlaneClient(http).EnrollAsync(
+                        token, Environment.MachineName, publicKey: publicKey,
+                        machine: Environment.MachineName);
+
+                    // THE MACHINE WRITES DOWN WHICH PROFILE IT AGREED TO, which is
+                    // what lets it take that profile's directed keys without a
+                    // person (rule 15) - and nothing else's.
+                    var file = Gg.Local.ConfigurationFile.Read(configurationPath).Configuration
+                        ?? new Gg.Local.Configuration();
+                    Gg.Local.ConfigurationFile.Write(
+                        file with { EnrolledProfile = enrolled.Profile }, configurationPath);
+                    Gg.Local.EnrollmentSeed.Spend(configurationPath);
+
+                    Console.WriteLine(
+                        $"enrolled as runner {enrolled.RunnerId} under profile '{enrolled.Profile}', "
+                      + $"starting {enrolled.Ownership}; the token is spent.");
+
+                    return new StoredRunner
+                    {
+                        RunnerId = enrolled.RunnerId,
+                        RunnerToken = enrolled.RunnerToken,
+                        ExpiresAt = enrolled.ExpiresAt,
+                    };
+                }
+
+                var fresh = await new ControlPlaneClient(http)
+                    .RegisterRunnerAsync(
+                        session!.SessionToken, Environment.MachineName,
+                        publicKey: publicKey,
+                        // WHERE IT RUNS. The resident's label happens to be the host
+                        // name as well, and the fleet groups by this, not by that.
+                        machine: Environment.MachineName);
+
+                return new StoredRunner
+                {
+                    RunnerId = fresh.RunnerId,
+                    RunnerToken = fresh.RunnerToken,
+                    ExpiresAt = DateTimeOffset.UtcNow.AddDays(30),
+                };
+            },
+            DateTimeOffset.UtcNow);
+    }
+    catch (EnrollmentRefusedException refused)
+    {
+        // SPENT, EXPIRED, REVOKED OR NEVER MINTED - one sentence for all four,
+        // which is the control plane's choice and the right one. The seed stays
+        // where it is, so the person who comes to look finds what was tried.
+        return Fail(
+            $"{refused.Message} This machine's enrollment token was not taken: mint another with "
+          + "`gg fleet enroll` and run `gg service install --enroll` again.");
+    }
 
     // WHAT THE CONTROL PLANE OFFERS, TAKEN BEFORE ANYTHING IS COMPOSED. Every
     // value below is read once into a local and handed to the loop, so a file

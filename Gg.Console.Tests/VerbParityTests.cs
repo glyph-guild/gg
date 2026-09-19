@@ -270,6 +270,14 @@ public class VerbParityTests
                              + "permanently removes whatever row is selected is the wrong "
                              + "affordance for it; if it lands there it needs a "
                              + "confirmation the other runner keys do not have.",
+            ["FleetEnroll"] = "absent, and DELIBERATELY so: the one output is a secret shown "
+                            + "once, and a console repaints - a token drawn in a pane is one a "
+                            + "screen share, a scrollback or a screenshot keeps. A terminal prints "
+                            + "it once and moves on.",
+            ["FleetTokens"] = "absent, and a gap: a list a pane could draw, beside the runners, "
+                            + "once enrollment has a place in the console to live.",
+            ["FleetRevoke"] = "absent, for FleetTokens' reason: it acts on a row the console "
+                            + "does not yet draw.",
             ["RunnerClaim"] = "absent, and a GAP rather than a decision (slice forty-three, "
                             + "step 2). Claiming is reversible and the runner modal is where "
                             + "a person already looks at a machine, so a key there is the "

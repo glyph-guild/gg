@@ -474,8 +474,15 @@ public class EndpointSurfaceTests
         // /v1/airspace/fleet/{name}, a document applied like a strategy - 400 a
         // refusal, 202 a widening diverted to the gate - and GET for one and for
         // all. The document type is new, so the contract moves to 0.200.0.
+        //
+        // Moved for enrollment, slice forty-three rules 17-19: POST
+        // /v1/runners/enrollments, ANONYMOUS and authorized by the token alone as
+        // a member's redemption is by its nonce, 403 for every refusal in one
+        // sentence; and a new governed prefix, /v1/fleet, with POST and GET
+        // /v1/fleet/tokens and POST /v1/fleet/tokens/{id}/revocation. The types
+        // are new, so the contract moves to 0.201.0.
         await Assert.That(Fingerprint())
-            .IsEqualTo("9a7a2bb0b0fa315c117696e60648bfda35b3ac01ba5a02f19f58f627eb97598b")
+            .IsEqualTo("71ea445a6f8039fac3ba342ccc6dcc0cab17e82644ab9cf9006e7be5bdebf55f")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

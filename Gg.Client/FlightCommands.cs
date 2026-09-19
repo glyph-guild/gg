@@ -1619,6 +1619,41 @@ public sealed class FlightCommands(
     /// attested; what ends is the credential and the fleet row. Bringing the
     /// machine back is <c>gg runner up</c>, which is a different act.
     /// </remarks>
+    /// <summary>Mints an enrollment token: some machines may join as one profile (rule 17).</summary>
+    /// <remarks>
+    /// <b>The secret comes back once</b> and is printed once; the control plane
+    /// keeps only its hash, and <c>gg fleet tokens</c> never shows it again.
+    /// </remarks>
+    public async Task<VerbResult> MintEnrollmentTokenAsync(
+        EnrollmentTokenRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        // THE SHAPE HERE, THE AUTHORITY THERE: a bound this side can see is
+        // refused before a round trip, and who may mint a tenant token is the
+        // session's, which only the control plane can read.
+        if (EnrollmentBounds.Validate(request) is { } refused)
+        {
+            throw new EnrollmentRefusedException(refused);
+        }
+
+        return new VerbResult.EnrollmentMinted(
+            await _client.MintEnrollmentTokenAsync(Session(), request, cancellationToken));
+    }
+
+    /// <summary>This tenant's enrollment tokens, without their secrets.</summary>
+    public async Task<VerbResult> EnrollmentTokensAsync(CancellationToken cancellationToken = default) =>
+        new VerbResult.EnrollmentTokens(
+            await _client.ListEnrollmentTokensAsync(Session(), cancellationToken));
+
+    /// <summary>Revokes an enrollment token: it enrolls nothing more.</summary>
+    public async Task<VerbResult> RevokeEnrollmentTokenAsync(
+        string tokenId, CancellationToken cancellationToken = default) =>
+        new VerbResult.EnrollmentRevoked(
+            await _client.RevokeEnrollmentTokenAsync(Session(), tokenId, cancellationToken)
+            ?? throw new EnrollmentRefusedException(
+                $"No enrollment token {tokenId} here. Run gg fleet tokens to see this tenant's."));
+
     /// <summary>Claims a runner for the person signed in here.</summary>
     /// <remarks>
     /// <b>For themselves, and only themselves.</b> The control plane takes who

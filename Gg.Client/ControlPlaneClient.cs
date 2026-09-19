@@ -1694,22 +1694,100 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
             ProtocolJsonContext.Default.RunnerRetired, cancellationToken);
     }
 
-    public Task<EnrollmentTokenMinted> MintEnrollmentTokenAsync(
-        string sessionToken, EnrollmentTokenRequest asked, CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException();
+    /// <summary>Mints an enrollment token (slice forty-three, rules 17 and 18).</summary>
+    /// <remarks>A refusal - a bound, a profile not in force, a tenant token from a non-admin - is the control plane's sentence.</remarks>
+    public async Task<EnrollmentTokenMinted> MintEnrollmentTokenAsync(
+        string sessionToken, EnrollmentTokenRequest asked, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Post, "/v1/fleet/tokens", sessionToken);
+        request.Content = JsonContent.Create(asked, ProtocolJsonContext.Default.EnrollmentTokenRequest);
 
-    public Task<EnrollmentTokenList> ListEnrollmentTokensAsync(
-        string sessionToken, CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException();
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
 
-    public Task<EnrollmentTokenSummary?> RevokeEnrollmentTokenAsync(
-        string sessionToken, string tokenId, CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException();
+        if (response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Forbidden
+                                or HttpStatusCode.NotFound)
+        {
+            throw new EnrollmentRefusedException(await RefusalAsync(response, cancellationToken));
+        }
 
-    public Task<RunnerEnrolled> EnrollAsync(
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.EnrollmentTokenMinted, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane minted nothing.");
+    }
+
+    /// <summary>This tenant's enrollment tokens, never their secrets.</summary>
+    public async Task<EnrollmentTokenList> ListEnrollmentTokensAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/fleet/tokens", sessionToken);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.EnrollmentTokenList, cancellationToken)
+            ?? new EnrollmentTokenList { Tokens = [] };
+    }
+
+    /// <summary>Revokes an enrollment token. Null when this tenant has no such token.</summary>
+    public async Task<EnrollmentTokenSummary?> RevokeEnrollmentTokenAsync(
+        string sessionToken, string tokenId, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Post, $"/v1/fleet/tokens/{Uri.EscapeDataString(tokenId)}/revocation", sessionToken);
+        request.Content = JsonContent.Create(
+            new EnrollmentTokenRevocation(), ProtocolJsonContext.Default.EnrollmentTokenRevocation);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.EnrollmentTokenSummary, cancellationToken);
+    }
+
+    /// <summary>
+    /// Enrolls this machine with a token: anonymous, authorized by the token
+    /// alone (rule 19). A refusal is one sentence whatever the reason, so a
+    /// token cannot be probed.
+    /// </summary>
+    public async Task<RunnerEnrolled> EnrollAsync(
         string token, string label, CancellationToken cancellationToken = default,
-        string? publicKey = null, string? machine = null) =>
-        throw new NotImplementedException();
+        string? publicKey = null, string? machine = null)
+    {
+        using var request = Request(HttpMethod.Post, "/v1/runners/enrollments");
+        request.Content = JsonContent.Create(
+            new RunnerEnrollmentRequest
+            {
+                Token = token,
+                Label = label,
+                ProtocolVersion = GgVersions.Protocol,
+                PublicKey = publicKey,
+                Machine = machine,
+            },
+            ProtocolJsonContext.Default.RunnerEnrollmentRequest);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.BadRequest)
+        {
+            throw new EnrollmentRefusedException(await RefusalAsync(response, cancellationToken));
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.RunnerEnrolled, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane enrolled nothing.");
+    }
 
     /// <summary>Claims a runner for the caller. Null when this tenant has no such runner.</summary>
     /// <remarks>
@@ -2408,7 +2486,7 @@ public sealed class AdminRefusedException(string message) : Exception(message);
 /// </remarks>
 public sealed class RunnerOwnershipRefusedException(string message) : Exception(message);
 
-/// <summary>Raised when the control plane refuses to mint, or to redeem, an enrollment token.</summary>
+/// <summary>Raised when the control plane refuses to mint, or to redeem, an enrollment token - with its own sentence.</summary>
 public sealed class EnrollmentRefusedException(string message) : Exception(message);
 
 /// <summary>

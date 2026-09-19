@@ -386,8 +386,12 @@ public sealed class RunnerLoop(
     // AND WHERE THE NEW EXPIRY IS WRITTEN DOWN, handed out because Gg.Runner
     // cannot see the store - a renewal only this process knows about dies
     // with it, and the next start asks for a person.
-    Func<DateTimeOffset, Task>? credentialRenewed = null)
+    Func<DateTimeOffset, Task>? credentialRenewed = null,
+    Func<CancellationToken, Task>? measureReadiness = null)
 {
+    /// <summary>Not yet called.</summary>
+    internal Func<CancellationToken, Task>? MeasureReadiness { get; } = measureReadiness;
+
     /// <summary>Seconds the control plane may hold a claim open.</summary>
     public const int ClaimWaitSeconds = 30;
 

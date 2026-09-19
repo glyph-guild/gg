@@ -379,6 +379,16 @@ public static class Reducer
             Command.SelectNext => Moved(state, +1),
             Command.SelectPrevious => Moved(state, -1),
 
+            // THE CORNER. Picked up only when something is in it: a modal whose
+            // only content is the way out is a key that appears to work.
+            Command.ShowNotifications => state.Notifications.Count > 0
+                ? state with { Mode = UiMode.Notifications }
+                : state,
+            Command.NextNotification => NotificationPaged(state, +1),
+            Command.PreviousNotification => NotificationPaged(state, -1),
+            Command.DismissNotification => NotificationDismissed(state),
+            Command.GoToNotification => WentToNotification(state),
+
             // ONLY THAT ONE IS WANTED. The reducer is pure and a refresh is a
             // read; the tick starts it and folds what comes back, which is what
             // stops the console tearing the terminal down to do it.
@@ -1772,5 +1782,161 @@ public static class Reducer
             Queue = queue,
             SelectedRow = index < 0 ? 0 : index,
         };
+    }
+
+    /// <summary>The page turned, round the ends.</summary>
+    private static AppState NotificationPaged(AppState state, int by) =>
+        state.Notifications.Count == 0
+            ? state
+            : state with
+            {
+                NotificationAt =
+                    (Math.Clamp(state.NotificationAt, 0, state.Notifications.Count - 1)
+                     + by + state.Notifications.Count) % state.Notifications.Count,
+            };
+
+    /// <summary>The one showing, put away without going to it.</summary>
+    /// <remarks>
+    /// <b>The last one gives the console back.</b> A mode about notifications with
+    /// none left in it is holding the keyboard for nothing.
+    /// </remarks>
+    private static AppState NotificationDismissed(AppState state)
+    {
+        if (state.Notifications.Count == 0)
+        {
+            return state;
+        }
+
+        var rest = Without(state.Notifications, state.NotificationAt);
+
+        return state with
+        {
+            Notifications = rest,
+            NotificationAt = Math.Clamp(state.NotificationAt, 0, Math.Max(0, rest.Count - 1)),
+            Mode = rest.Count == 0 && state.Mode == UiMode.Notifications
+                ? UiMode.Normal
+                : state.Mode,
+        };
+    }
+
+    /// <summary>
+    /// The flight the showing notification is about: the flights tab, the cursor
+    /// on it, and the flight open.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The three things a person would press their way to</b>, from either end:
+    /// the main view's <c>&gt;</c> or the focused corner's. The notification is
+    /// spent, because somebody acted on it. The modal opens the way
+    /// <see cref="Command.ShowFlight"/> opens it - on the press, with its log a
+    /// background read that <see cref="ShellCommands.Reads"/> starts.
+    /// </para>
+    /// <para>
+    /// <b>A flight not listed still has somewhere to go.</b> It was accepted and
+    /// has not appeared; going to it lands on the flights tab, where it will be,
+    /// and the console looks for it again rather than leaving a person to press
+    /// refresh until it does.
+    /// </para>
+    /// </remarks>
+    private static AppState WentToNotification(AppState state)
+    {
+        if (state.Notifications.Count == 0)
+        {
+            return state;
+        }
+
+        var at = Math.Clamp(state.NotificationAt, 0, state.Notifications.Count - 1);
+        var about = state.Notifications[at];
+        var rest = Without(state.Notifications, at);
+
+        var spent = state with
+        {
+            Notifications = rest,
+            NotificationAt = Math.Clamp(at, 0, Math.Max(0, rest.Count - 1)),
+            Mode = UiMode.Normal,
+            ActiveTab = TabId.Flights,
+        };
+
+        var shown = PaneText.Shown(state.Flights);
+        var row = -1;
+
+        // BY ID, OR BY NUMBER. A gate names its flight by number, and a console
+        // that had not listed the flight when the gate closed could only say it
+        // that way.
+        for (var i = 0; i < shown.Count; i++)
+        {
+            if (string.Equals(shown[i].FlightId, about.FlightId, StringComparison.Ordinal)
+                || (about.FlightNumber is { Length: > 0 } number
+                    && string.Equals(shown[i].FlightNumber, number, StringComparison.OrdinalIgnoreCase)))
+            {
+                row = i;
+                break;
+            }
+        }
+
+        if (row < 0)
+        {
+            var again = new Expectation { Kind = ExpectationKind.FlightAppears, Id = about.FlightId };
+
+            return Arrived(spent with
+            {
+                Expecting = spent.Expecting.Contains(again)
+                    ? spent.Expecting
+                    : [.. spent.Expecting, again],
+            });
+        }
+
+        return Modal(Arrived(spent with { FlightSelected = row }), UiMode.FlightDetail) with
+        {
+            ReadInFlight = true,
+            FlightTab = FlightTab.Details,
+        };
+    }
+
+    private static IReadOnlyList<Notification> Without(IReadOnlyList<Notification> notifications, int at)
+    {
+        var index = Math.Clamp(at, 0, notifications.Count - 1);
+        return [.. notifications.Where((_, i) => i != index)];
+    }
+
+    /// <summary>
+    /// A notification added to the corner, and showing unless somebody is reading.
+    /// </summary>
+    /// <remarks>
+    /// <b>One place, because two things raise them</b> - what the console was
+    /// looking for, and what a refresh found that nobody here did. The page does
+    /// not move under a person reading the corner; only the count does.
+    /// Unfocused, the newest is the one worth drawing.
+    /// </remarks>
+    public static AppState Notified(AppState state, Notification notification)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(notification);
+
+        return state with
+        {
+            Notifications = [.. state.Notifications, notification],
+            NotificationAt = state.Mode == UiMode.Notifications
+                ? state.NotificationAt
+                : state.Notifications.Count,
+        };
+    }
+
+    /// <summary>
+    /// The id of the flight a gate names by number, or the number where the
+    /// list does not have it.
+    /// </summary>
+    /// <remarks>
+    /// Going to a notification looks for the id first, so the id is worth
+    /// finding; the number stands in for a flight not listed yet, and going to
+    /// it matches on that.
+    /// </remarks>
+    public static string FlightIdFor(AppState state, string number)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state.Flights?.Flights.FirstOrDefault(f => string.Equals(
+                   f.FlightNumber, number, StringComparison.OrdinalIgnoreCase))?.FlightId
+               ?? number;
     }
 }

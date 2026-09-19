@@ -188,6 +188,37 @@ public static class ConsoleApply
     /// somebody appends a clause here.
     /// </para>
     /// </remarks>
+    /// <summary>The flights an apply diverted to, as things to look for.</summary>
+    /// <remarks>
+    /// <b>Beside the re-read, not instead of it.</b> The documents' versions moved
+    /// and the gates opened in the request, so re-reading after an apply is right
+    /// about both; what it cannot see yet is the flight each gated change rides,
+    /// which the Flight context projects a moment later. Those are named by id -
+    /// the widening intake answers with the id it minted - and looked for.
+    /// </remarks>
+    public static AppState Watching(AppState state, VerbResult? applied)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (applied is not VerbResult.AirspaceApplied { Value: var estate })
+        {
+            return state;
+        }
+
+        var ridden = estate.Applied.Select(document => document.Flight)
+            .Concat(estate.Declared.Select(name => name.Flight))
+            .OfType<string>()
+            .Where(flight => flight.Length > 0)
+            .Distinct(StringComparer.Ordinal);
+
+        foreach (var flight in ridden)
+        {
+            state = ConsoleLoop.Expect(state, Receipt.Opened("", flight));
+        }
+
+        return state;
+    }
+
     public static string Summary(IReadOnlyList<string> lines)
     {
         ArgumentNullException.ThrowIfNull(lines);

@@ -260,6 +260,12 @@ public sealed class StubControlPlane : IAsyncDisposable
     public bool FlightNotFound { get; set; }
 
     /// <summary>
+    /// How many more reads of one flight answer 404 before it is listed - a
+    /// flight the door accepted and the Flight context has not projected yet.
+    /// </summary>
+    public int UnlistedReads { get; set; }
+
+    /// <summary>
     /// What this control plane is offering, or null to offer nothing.
     /// </summary>
     /// <remarks>
@@ -886,6 +892,14 @@ public sealed class StubControlPlane : IAsyncDisposable
                 }
 
             case var _ when path.StartsWith("/v1/flights/", StringComparison.Ordinal) && FlightNotFound:
+                await WriteAsync(context, 404, "");
+                return;
+
+            case var _ when context.Request.HttpMethod == "GET"
+                && path.StartsWith("/v1/flights/", StringComparison.Ordinal)
+                && path.Count(c => c == '/') == 3
+                && UnlistedReads > 0:
+                UnlistedReads--;
                 await WriteAsync(context, 404, "");
                 return;
 

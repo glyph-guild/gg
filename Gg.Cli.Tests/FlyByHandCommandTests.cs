@@ -164,6 +164,88 @@ public class FlyByHandCommandTests
     };
 
     [Test]
+    public async Task The_number_is_asked_for_once_the_flight_has_been_flown()
+    {
+        // THE DOOR NEVER SENDS ONE. Every test in this file launched with
+        // FlightNumber "GG-9", which the real door never answers: the number is
+        // minted when the Flight context handles the command, after the 202. So
+        // on the real path the gates were never offered - "no number yet", every
+        // time. By the time the hold returns the flight has been flown and the
+        // number exists, so it is asked for by the id the door did give.
+        var said = new List<string>();
+        var asked = new List<string>();
+
+        await FlyByHandCommand.RunAsync(
+            Flying(),
+            plan: _ => Task.FromResult(APlan()),
+            advertised: [],
+            open: _ => Task.FromResult<VerbResult>(new VerbResult.Launched(
+                new FlightLaunched { FlightId = "flight-9" })),
+            hold: (_, _) => Task.FromResult(0),
+            say: said.Add,
+            gates: number =>
+            {
+                asked.Add(number);
+                return Task.FromResult<IReadOnlyList<PendingGate>>([AGate()]);
+            },
+            answer: new Answers(DecisionOutcomes.Approved),
+            decide: (_, _, _, _) => Task.FromResult(true),
+            numberOf: (id, _) => Task.FromResult<string?>(id == "flight-9" ? "GG-9" : null));
+
+        await Assert.That(asked).IsEquivalentTo(new[] { "GG-9" })
+            .Because("the gates are asked for by the number the flight has once it has flown.");
+        await Assert.That(string.Join("\n", said)).DoesNotContain("no number yet");
+    }
+
+    [Test]
+    public async Task A_number_still_missing_after_the_flight_says_so()
+    {
+        // THE ANCHOR. A lookup that finds nothing is the same fact the old
+        // message stated, and it is still worth a sentence rather than a prompt
+        // that silently never appears.
+        var said = new List<string>();
+
+        await FlyByHandCommand.RunAsync(
+            Flying(),
+            plan: _ => Task.FromResult(APlan()),
+            advertised: [],
+            open: _ => Task.FromResult<VerbResult>(new VerbResult.Launched(
+                new FlightLaunched { FlightId = "flight-9" })),
+            hold: (_, _) => Task.FromResult(0),
+            say: said.Add,
+            gates: _ => throw new InvalidOperationException("no number, so no gates to ask for."),
+            answer: new Answers(DecisionOutcomes.Approved),
+            decide: (_, _, _, _) => Task.FromResult(true),
+            numberOf: (_, _) => Task.FromResult<string?>(null));
+
+        await Assert.That(string.Join("\n", said)).Contains("no number yet");
+    }
+
+    [Test]
+    public async Task A_refused_decision_is_not_reported_as_recorded()
+    {
+        // `recorded is not null`, which a VerbResult always is - so a decision
+        // the control plane refused was reported "Recorded". Not yet visible is
+        // not a refusal: the bound ran out before the read surface caught up,
+        // and saying it was not recorded would be the false claim.
+        await Assert.That(FlyByHandCommand.Recorded(Observed(ObservationStates.Refused))).IsFalse();
+        await Assert.That(FlyByHandCommand.Recorded(Observed(ObservationStates.Decided))).IsTrue();
+        await Assert.That(FlyByHandCommand.Recorded(Observed(ObservationStates.NotYetVisible))).IsTrue();
+    }
+
+    private static VerbResult Observed(string state) => new VerbResult.Decided(new DecisionReport
+    {
+        Observation = new Observation
+        {
+            State = state,
+            Because = "as observed",
+            WaitedSeconds = 1,
+            BoundSeconds = 30,
+            Polls = 2,
+        },
+    });
+
+    [Test]
     public async Task A_gate_the_flight_opened_is_offered_at_the_terminal()
     {
         // THE SAME FIELDS `gg gates` SHOWS, BY CONSTRUCTION RATHER THAN BY

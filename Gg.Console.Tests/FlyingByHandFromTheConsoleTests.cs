@@ -171,4 +171,54 @@ public class FlyingByHandFromTheConsoleTests
         await Assert.That(after.SelectedRow).IsEqualTo(3);
         await Assert.That(after.LastHandFlight!).Contains("unreachable");
     }
+
+    [Test]
+    public async Task The_flight_flown_by_hand_is_read_when_the_terminal_comes_back()
+    {
+        // THE ONE WRITE THAT NEVER RE-READ. The child holds the terminal for as
+        // long as the work takes, so by the time it gives it back the flight has
+        // been created, flown and probably landed - and the console came back
+        // showing the list from before it, until the thirty-second tick. What
+        // the loop knows is which branch ran, not whether the sentence it got
+        // back means anything changed; so it reads again.
+        var reloads = 0;
+
+        _ = new ConsoleLoop(
+                new ConsoleDoubles.TypesKeys(Command.FlyByHand),
+                new ConsoleDoubles.NoEditor(),
+                reload: current =>
+                {
+                    reloads++;
+                    return current;
+                },
+                flyByHand: (current, _) => current with { LastHandFlight = "Flew it by hand." })
+            .Run(new AppState());
+
+        await Assert.That(reloads).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task And_when_it_was_written_through_the_compose_question()
+    {
+        // THE OTHER DOOR INTO THE SAME FLIGHT. Asked how to compose it, the answer
+        // runs the same child, so the terminal comes back to the same stale list.
+        var reloads = 0;
+
+        _ = new ConsoleLoop(
+                new ConsoleDoubles.TypesKeys(Command.ComposeInEditor),
+                new ConsoleDoubles.NoEditor(),
+                reload: current =>
+                {
+                    reloads++;
+                    return current;
+                },
+                flyByHand: (current, _) => current with { LastHandFlight = "Flew it by hand." })
+            .Run(new AppState
+            {
+                Mode = UiMode.ComposeChoice,
+                ComposingFor = ComposingFor.HandFlight,
+            });
+
+        await Assert.That(reloads).IsEqualTo(1);
+    }
 }

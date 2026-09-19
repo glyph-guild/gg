@@ -192,6 +192,7 @@ public static class Vocabulary
         typeof(WatchAction),
         typeof(WatchActionList),
         typeof(SweepClaim),
+        typeof(ChangeNotice),
         typeof(SweepServes),
         typeof(SweepNomination),
         typeof(WatchAttestation),

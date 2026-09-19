@@ -48,6 +48,11 @@ public class EveryRefusalReachesAPersonTests
               + "catching this one type in an emitter it does not run through would be false "
               + "comfort. That function growing a handler is its own change, and this line "
               + "comes off the list when it does.",
+            ["ChangeStreamUnavailableException"] =
+                "raised only by ControlPlaneClient.ChangesAsync, which no verb calls - the "
+              + "change stream is the console's, and a 404 there means `refresh on the timer', "
+              + "which is the console's own fallback rather than a sentence for a shell. This "
+              + "line comes off the list when a verb opens the stream.",
         };
 
     private static string Root()

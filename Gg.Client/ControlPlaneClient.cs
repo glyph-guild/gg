@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Gg.Contracts;
@@ -30,6 +32,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(FlightLaunched))]
 [JsonSerializable(typeof(FlightSummary))]
 [JsonSerializable(typeof(BoardPage))]
+[JsonSerializable(typeof(ChangeNotice))]
 [JsonSerializable(typeof(NominationDecision))]
 [JsonSerializable(typeof(FlightList))]
 [JsonSerializable(typeof(FlightLog))]
@@ -483,6 +486,146 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync(
                    ProtocolJsonContext.Default.BoardPage, cancellationToken)
             ?? throw new InvalidOperationException("Control plane returned no board.");
+    }
+
+    /// <summary>
+    /// Opens the change stream and yields each notice as it arrives, starting
+    /// with one whose topic is <see cref="ChangeTopics.Ready"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A doorbell.</b> A notice says which pane moved and, where there is
+    /// one, which row; the caller reads the row through the route that serves
+    /// it. <see cref="ChangeTopics.Ready"/> asks for one full read, because
+    /// whatever moved before the stream opened was never announced.
+    /// </para>
+    /// <para>
+    /// <b>It ends when the stream does</b>, and says nothing about why - a
+    /// control plane restarting and a proxy cutting an idle connection look the
+    /// same from here, and the answer to both is to open it again. Comment lines
+    /// are the server's keepalive and are not handed back; a caller that wants to
+    /// notice a silent stream measures the gap against
+    /// <see cref="ChangeEvents.Keepalive"/> itself.
+    /// </para>
+    /// <para>
+    /// <b>Read after the headers, not after the body</b>, since the body never
+    /// finishes. The client's own timeout covers only the wait for headers.
+    /// </para>
+    /// <para>
+    /// <b>Refused like every other read</b>: 401 on a session it will not take
+    /// is <see cref="NotSignedInException"/>, 426 is
+    /// <see cref="ProtocolTooOldException"/>. 404 is
+    /// <see cref="ChangeStreamUnavailableException"/>, because a control plane
+    /// older than the stream is not a failure - a console goes on refreshing on
+    /// its timer - and it can only do that if this is a different fact from the
+    /// network being down.
+    /// </para>
+    /// </remarks>
+    public async IAsyncEnumerable<ChangeNotice> ChangesAsync(
+        string sessionToken,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/changes", sessionToken);
+        request.Headers.Accept.ParseAdd("text/event-stream");
+
+        using var response = await _httpClient.SendAsync(
+            request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new ChangeStreamUnavailableException(
+                "This control plane does not serve the change stream, so the console "
+              + "refreshes on its timer instead.");
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        await using var body = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(body, Encoding.UTF8);
+
+        string? name = null;
+        var data = new StringBuilder();
+
+        // THE FORMAT IS LINES. `event:` names the event, `data:` lines are
+        // joined by a newline, a line starting with a colon is a comment, and a
+        // blank line ends the event. ReadLineAsync takes \n, \r\n and \r, which
+        // is the set the format allows.
+        while (await reader.ReadLineAsync(cancellationToken) is { } line)
+        {
+            if (line.Length == 0)
+            {
+                if (Notice(name, data) is { } notice)
+                {
+                    yield return notice;
+                }
+
+                name = null;
+                data.Clear();
+                continue;
+            }
+
+            if (line[0] == ':')
+            {
+                continue;
+            }
+
+            var colon = line.IndexOf(':', StringComparison.Ordinal);
+            var field = colon < 0 ? line : line[..colon];
+            var value = colon < 0 ? "" : line[(colon + 1)..];
+
+            if (value.StartsWith(' '))
+            {
+                value = value[1..];
+            }
+
+            switch (field)
+            {
+                case "event":
+                    name = value;
+                    break;
+
+                case "data":
+                    if (data.Length > 0)
+                    {
+                        data.Append('\n');
+                    }
+
+                    data.Append(value);
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// One finished event as a notice, or null when it is not one this gg
+    /// acts on.
+    /// </summary>
+    /// <remarks>
+    /// <b>A notice that cannot be read is skipped rather than thrown.</b> One
+    /// doorbell nobody could read costs a refresh interval; ending the stream
+    /// over it would cost every doorbell after it.
+    /// </remarks>
+    private static ChangeNotice? Notice(string? name, StringBuilder data)
+    {
+        if (string.Equals(name, ChangeEvents.Ready, StringComparison.Ordinal))
+        {
+            return new ChangeNotice { Topic = ChangeTopics.Ready };
+        }
+
+        if (!string.Equals(name, ChangeEvents.Changed, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize(data.ToString(), ProtocolJsonContext.Default.ChangeNotice);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     /// <summary>
@@ -2260,6 +2403,17 @@ public sealed class PermissionRefusedException(string message) : Exception(messa
 
 /// <summary>Raised when the control plane refuses this binary's protocol version.</summary>
 public sealed class ProtocolTooOldException(string message) : Exception(message);
+
+/// <summary>
+/// Raised when the control plane does not serve the change stream at all.
+/// </summary>
+/// <remarks>
+/// A control plane older than the stream answers 404, and that is not a
+/// failure: the console refreshes on its timer as it always has. Its own type so
+/// a caller can tell it from the network being down, where trying again later is
+/// the right answer.
+/// </remarks>
+public sealed class ChangeStreamUnavailableException(string message) : Exception(message);
 
 /// <summary>
 /// Raised when the control plane does not serve a route this gg is sure of.

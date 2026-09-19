@@ -459,8 +459,15 @@ public class EndpointSurfaceTests
         // other decided action. 404 for a strategy that names no recipe, 409 while
         // a build stands - one at a time. The response is the decided PoolAction,
         // which gained its recipe in the same step, so the contract moves to 0.195.0.
+        //
+        // Moved for the change stream: GET /v1/changes, and /v1/changes joins the
+        // governed prefixes. A console refreshed on a timer and the flight a person
+        // had just opened was projected a hop after the write, so the re-read missed
+        // it. Developer audience for the flight list's reason - it says which of a
+        // tenant's flights moved. The body is text/event-stream and each event's data
+        // is a ChangeNotice, which is new, so the contract moves to 0.196.0.
         await Assert.That(Fingerprint())
-            .IsEqualTo("7060135b4c1cd15a161a15b3df8ca159507a73387e517898f9d3400f573ed056")
+            .IsEqualTo("fac62e5cebd41ba9b1e3343941d09d2836998cd7bead13c81324e7d424daba68")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

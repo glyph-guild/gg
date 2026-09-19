@@ -19,6 +19,14 @@ namespace Gg.Console;
 /// which is a different fact and the only one the console is entitled to.
 /// </para>
 /// <para>
+/// <b>A write that the console has to look for says WHAT to look for</b>, in a
+/// <see cref="Receipt"/>. That is not an outcome either - the door answers 202
+/// before a flight exists anywhere a read can see it, and before a gate it
+/// answered has closed - but it is the question the console now has to ask: is
+/// it there yet. Without it the only way to ask was a reload that ran before
+/// the change could be seen and saw nothing.
+/// </para>
+/// <para>
 /// <b>Nothing that must not be stored crosses this boundary.</b> A secret and an
 /// invitation link are both capabilities, and <c>AppState</c> is source-generated
 /// JSON that is written to disk under <c>GG_STATE_DUMP</c> and fed to the
@@ -38,7 +46,7 @@ public interface IConsoleActions
     /// runs again with it, and a rejection that says nothing sends the work back to
     /// be done the same way.
     /// </param>
-    string Decide(string flight, string obligation, bool approved, string? reason);
+    Receipt Decide(string flight, string obligation, bool approved, string? reason);
 
     /// <summary>
     /// Answers a standing nomination, and says what was sent.
@@ -65,7 +73,7 @@ public interface IConsoleActions
     /// too - so somebody who changed their mind by saving an empty buffer has
     /// not opened a flight by accident.
     /// </param>
-    string AnswerNomination(string nomination, bool open, string reason);
+    Receipt AnswerNomination(string nomination, bool open, string reason);
 
     /// <summary>
     /// Keeps a share of an allowance back, or clears the floor, and says what
@@ -91,7 +99,7 @@ public interface IConsoleActions
     /// singular when there is exactly one, so a flight naming one travels
     /// exactly as it always did.
     /// </param>
-    string Fly(string intent, IReadOnlyList<string> repositories, string? workKind);
+    Receipt Fly(string intent, IReadOnlyList<string> repositories, string? workKind);
 
     /// <summary>
     /// Open a flight for a work item somebody picked, by provider and id.
@@ -112,7 +120,7 @@ public interface IConsoleActions
     /// missing kind as <c>implement</c>, and a console that supplied that name
     /// would be declaring something nobody chose.
     /// </remarks>
-    string FlyTicket(
+    Receipt FlyTicket(
         string provider, string id, IReadOnlyList<string> repositories, string? workKind);
 
     /// <summary>
@@ -156,4 +164,27 @@ public interface IConsoleActions
     /// Never the link. Whoever holds it becomes a principal in this tenant.
     /// </remarks>
     string Invite();
+}
+
+/// <summary>
+/// What a write said, and what the console now looks for because of it.
+/// </summary>
+/// <remarks>
+/// <b>Nothing to look for whenever nothing can be named</b>: a refusal, a
+/// control plane that answered without an id, a nomination declined rather than
+/// opened. Null is not "nothing happened" - a POST that reached the control
+/// plane and failed on the way back opens a flight and reports a refusal - so
+/// the loop re-reads when there is nothing named, exactly as it did before
+/// anything could be.
+/// </remarks>
+/// <param name="Said">The sentence a person reads.</param>
+/// <param name="Expected">What the console now looks for, when the write named it.</param>
+public sealed record Receipt(string Said, Expectation? Expected = null)
+{
+    /// <summary>A flight opened, looked for by the id the door named - or not, when it named none.</summary>
+    public static Receipt Opened(string said, string? flightId) => new(
+        said,
+        flightId is { Length: > 0 } id
+            ? new Expectation { Kind = ExpectationKind.FlightAppears, Id = id }
+            : null);
 }

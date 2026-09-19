@@ -188,6 +188,9 @@ public static class ConsoleApply
     /// somebody appends a clause here.
     /// </para>
     /// </remarks>
+    /// <summary>The flights an apply diverted to, as things to look for.</summary>
+    public static AppState Watching(AppState state, VerbResult? applied) => state;
+
     public static string Summary(IReadOnlyList<string> lines)
     {
         ArgumentNullException.ThrowIfNull(lines);

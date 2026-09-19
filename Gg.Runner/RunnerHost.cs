@@ -149,6 +149,11 @@ internal sealed class ConsoleObserver : IRunnerObserver
         System.Console.WriteLine(
             $"credential {failure.Reference.Locator} (as {failure.Reference.Identity}, "
           + $"{failure.Reference.Kind}) could not be resolved: {failure.Problem}");
+
+    public void CredentialNotExtended(DateTimeOffset endsAt) =>
+        System.Console.WriteLine(
+            $"this runner's credential ends at {endsAt:yyyy-MM-dd HH:mm}Z and the control plane "
+          + "will not extend it. It keeps flying until then; after that it needs a new one.");
 }
 
 /// <summary>
@@ -266,7 +271,12 @@ public static class RunnerHost
         // reader, the executor, the declared trackers) is the composition
         // root's. Only `gg runner up` passes it: a held takeover and a pool
         // member do not sweep.
-        Func<Sweeps.ISweepProtocol, Func<CancellationToken, Task>?>? sweeps = null)
+        Func<Sweeps.ISweepProtocol, Func<CancellationToken, Task>?>? sweeps = null,
+        // WHERE A RENEWED CREDENTIAL'S NEW END IS WRITTEN DOWN, or null for a
+        // runner that never asks. Only the root's store knows where; the ask
+        // itself goes through the client built below, because a renewal is
+        // authorized by exactly the credential it renews.
+        Func<DateTimeOffset, Task>? credentialRenewed = null)
     {
         // Longer than the claim's long poll, or the client aborts every idle
         // claim and the long poll becomes a busy loop with extra steps.
@@ -470,7 +480,9 @@ public static class RunnerHost
             agentToken: agentToken,
             initialStanding: standing,
             login: ceremony,
-            sweepWhenIdle: sweeps?.Invoke(protocol))
+            sweepWhenIdle: sweeps?.Invoke(protocol),
+            credential: credentialRenewed is null ? null : protocol,
+            credentialRenewed: credentialRenewed)
         {
             HoldFor = holdFor,
         };

@@ -98,4 +98,7 @@ public sealed class StopsAfterOneFlight(IRunnerObserver inner, CancellationToken
 
     public void CredentialUnresolved(CredentialResolutionFailure failure) =>
         _inner.CredentialUnresolved(failure);
+
+    public void CredentialNotExtended(DateTimeOffset endsAt) =>
+        _inner.CredentialNotExtended(endsAt);
 }

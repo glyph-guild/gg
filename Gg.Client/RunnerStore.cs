@@ -53,9 +53,11 @@ internal sealed partial class RunnerJsonContext : JsonSerializerContext;
 /// the wider authority as well.
 /// </para>
 /// <para>
-/// <b>Thirty days is a cadence, not a bug.</b> Nothing renews a runner token —
-/// the protocol's <c>RenewAsync</c> renews a LEASE — so when it lapses a person
-/// signs in again. <see cref="Usable"/> is what reports that at the one place
+/// <b>Thirty days, renewed from inside the last three.</b> A running resident
+/// and a maintainer each ask <c>/v1/runner/renewal</c> with the token itself and
+/// write the new end back here, so a machine that stays up never needs a
+/// person. One that was down when its token lapsed does: a person signs in
+/// again. <see cref="Usable"/> is what reports that at the one place
 /// able to say so, rather than letting it arrive as a 401 on the first
 /// protocol call.
 /// </para>

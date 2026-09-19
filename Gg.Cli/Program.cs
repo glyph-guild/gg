@@ -2408,8 +2408,9 @@ static async Task<int> RunnerUpAsync()
     // runners in `gg runners` with ten of them permanently offline - one per
     // restart - and a machine could not come back from a reboot without
     // somebody signed in.
+    var runnerStore = new FileRunnerStore(FileRunnerStore.PathFor(Environment.MachineName));
     var registered = await RunnerIdentity.EnsureAsync(
-        new FileRunnerStore(FileRunnerStore.PathFor(Environment.MachineName)),
+        runnerStore,
         async () =>
         {
             var fresh = await new ControlPlaneClient(http)
@@ -2657,11 +2658,22 @@ static async Task<int> RunnerUpAsync()
             // whose console pinned a key it can no longer open anything with.
             identityKey: identity.ForOpeningWhatWasSealedToThisRunner(),
             // AND WHEN THE SLOT IT REGISTERED FOR RUNS OUT, read off the same
-            // stored identity. Thirty days, not renewable: a resident that
-            // meets a 401 has either been retired or has reached the end of
-            // that, and saying which is the difference between a machine
-            // somebody should look at and one that did what it was told.
+            // stored identity. A resident that meets a 401 has either been
+            // retired or has reached the end of that, and saying which is the
+            // difference between a machine somebody should look at and one
+            // that did what it was told.
             credentialExpiresAt: registered.ExpiresAt,
+            // AND WRITTEN BACK WHEN IT IS RENEWED, which it now is: within three
+            // days of that end, through the same door the maintainer uses, with
+            // nobody at the machine. Handed out here because Gg.Runner cannot
+            // see the store - and a renewal only the running process knew
+            // about would read as expired on the next start. A member and a
+            // hand-flight are handed nothing, so they never ask.
+            credentialRenewed: renewedTo =>
+            {
+                runnerStore.Write(registered with { ExpiresAt = renewedTo });
+                return Task.CompletedTask;
+            },
             // WHERE THIS MACHINE ASKS WHAT IT LOOKS LIKE FROM OUTSIDE, from the
             // environment for the reason the trackers and the hosts are: naming
             // one in source would point every runner in every deployment at a

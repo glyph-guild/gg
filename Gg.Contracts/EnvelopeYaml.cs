@@ -106,6 +106,18 @@ public sealed record StrategyParse
     public IReadOnlyList<string> Notes { get; init; } = [];
 }
 
+/// <summary>A fleet profile read from text, or the reason it could not be.</summary>
+public sealed record ProfileParse
+{
+    public string? BasedOn { get; init; }
+
+    public FleetProfile? Profile { get; init; }
+
+    public string? Diagnosis { get; init; }
+
+    public IReadOnlyList<string> Notes { get; init; } = [];
+}
+
 /// <summary>A watch read from text, or the reason it could not be.</summary>
 /// <remarks>
 /// A separate result for a separate door, on <c>StrategyParse</c>'s rule: the
@@ -329,6 +341,10 @@ public static class EnvelopeYaml
             Notes = Notes(text),
         };
     }
+
+    /// <summary>Reads fleet profile text. Reads nothing yet.</summary>
+    public static ProfileParse ParseProfile(string text) =>
+        new() { Diagnosis = "A fleet profile is not read yet." };
 
     /// <summary>Reads watch text, or says what is wrong with it.</summary>
     /// <remarks>

@@ -139,6 +139,18 @@ public sealed record OfferedConfiguration
 
     public required DateTimeOffset OfferedAt { get; init; }
 
+    /// <summary>
+    /// The fleet profile this offer is, or null for the tenant's offer.
+    /// </summary>
+    /// <remarks>
+    /// <b>A directed key from a profile was accepted at the profile's gate</b>
+    /// (slice forty-three, rule 15), so a machine may take it without a person -
+    /// but only a machine whose own file says it enrolled under this profile.
+    /// The control plane naming a profile is a claim; the machine's file is the
+    /// consent. Without the match it is held for a person like any other offer.
+    /// </remarks>
+    public string? Profile { get; init; }
+
     /// <summary>Whether this offer may only be taken by a person.</summary>
     /// <remarks>
     /// <para>

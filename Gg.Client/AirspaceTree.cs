@@ -26,6 +26,9 @@ public sealed record AirspaceEstate
     /// none.
     /// </remarks>
     public IReadOnlyList<WatchState> Watches { get; init; } = [];
+
+    /// <summary>Every fleet profile in force (slice forty-three), for the watches' reason not required.</summary>
+    public IReadOnlyList<FleetProfileState> Profiles { get; init; } = [];
 }
 
 /// <summary>What a pull did to the tree.</summary>
@@ -75,6 +78,9 @@ public sealed record TreeDocument
     public EnvironmentStrategy? Strategy { get; init; }
 
     public WatchDocument? Watch { get; init; }
+
+    /// <summary>A fleet profile, when the path put this under <c>fleet/</c>.</summary>
+    public FleetProfile? Profile { get; init; }
 }
 
 /// <summary>A file that sits where a document goes and does not read as one.</summary>

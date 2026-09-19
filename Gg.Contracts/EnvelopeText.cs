@@ -654,6 +654,9 @@ public static class EnvelopeText
     /// nobody declared is a wait nobody can clear.
     /// </para>
     /// </remarks>
+    /// <summary>A fleet profile. Renders nothing yet.</summary>
+    public static string Render(FleetProfile profile) => "";
+
     public static string Render(EnvironmentStrategy strategy)
     {
         ArgumentNullException.ThrowIfNull(strategy);

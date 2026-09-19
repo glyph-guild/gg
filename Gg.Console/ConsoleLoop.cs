@@ -1130,7 +1130,7 @@ public sealed class ConsoleLoop(
                 // THE CHOSEN REPOSITORY CROSSES ON BOTH DOORS. A setting that
                 // worked depending on whether you pasted or picked would be
                 // worse than no setting.
-                : actions.Fly(intent, state.Against, WorkKinds.Picked(state)),
+                : actions.Fly(intent, state.Against, WorkKinds.Picked(state)).Said,
         };
     }
 
@@ -1240,7 +1240,7 @@ public sealed class ConsoleLoop(
         return state with
         {
             LastNomination = actions.AnswerNomination(
-                nomination.NominationId.ToString(), open, reason),
+                nomination.NominationId.ToString(), open, reason).Said,
         };
     }
 
@@ -1524,7 +1524,7 @@ public sealed class ConsoleLoop(
         return state with
         {
             LastFlightOpened = actions.FlyTicket(
-                    listing.ProviderKey, id, state.Against, WorkKinds.Picked(state))
+                    listing.ProviderKey, id, state.Against, WorkKinds.Picked(state)).Said
                 + " " + PaneText.ComposedBy(ComposingFor.WorkItem),
         };
     }
@@ -1568,7 +1568,7 @@ public sealed class ConsoleLoop(
                 ? "This console is not configured to open flights."
                 : actions.FlyTicket(
                     pending.Provider, pending.Id, state.Against,
-                    WorkKinds.Picked(state)),
+                    WorkKinds.Picked(state)).Said,
         };
     }
 

@@ -1866,7 +1866,7 @@ public static class PlatformToolServer
         said.AppendLine(
             $"  · `title:` and `description:` are instructions for the AGENT, and it only "
           + $"sees them if its loop names the `{Gg.Contracts.LoopMoves.ProposeLanding}` "
-          + "move. Nothing refuses the pair - the destination and the loop can come from "
+          + $"move or declares `{Gg.Contracts.LoopMoves.Anything}`. Nothing refuses the pair - the destination and the loop can come from "
           + "different documents - so a title written without the move is valid, applies, "
           + "and is read by nobody. The proposal is then named from whatever the agent "
           + "happened to write first.");

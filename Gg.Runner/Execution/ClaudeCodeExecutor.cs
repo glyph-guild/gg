@@ -808,6 +808,10 @@ public sealed class ClaudeCodeExecutor(
       // Inserted verbatim: the contract rendered this once, and reformatting
       // here would be the second wording LeaseLoop.Instructions exists to stop.
       + (request.Instructions is { Length: > 0 } standing ? standing : string.Empty)
+      // AND HOW WHAT IT OPENS IS TO BE NAMED, beside the standing policy
+      // because it is the same kind of thing: an operator's words, from the
+      // envelope, about how the work is presented rather than what it is.
+      + Landing(request)
       // AFTER THE OPERATOR'S INSTRUCTIONS, which is the ranking rather than an
       // accident of order. Reviewed policy is read before one agent's advice to
       // another, and the block below says which is which - an agent asked to
@@ -821,6 +825,52 @@ public sealed class ClaudeCodeExecutor(
       + (request.NominationNote is { Length: > 0 } note ? Handover(note) : string.Empty)
       + (request.ResumesFrom is { Length: > 0 } seed ? Resumption(seed) : string.Empty)
       + (request.Feedback is { } feedback ? Feedback(feedback) : string.Empty);
+
+    /// <summary>
+    /// The destination's wording for the proposal this flight opens, to an agent
+    /// that can say it - or nothing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Only where the landing tool can be called</b>: a loop granted
+    /// <c>propose-landing</c>, or one declaring <c>anything</c>, which passes no
+    /// allow-list and so leaves every served tool callable. To any other agent
+    /// this is advice about something it cannot do, and an agent handed a
+    /// policy it cannot meet will try to meet it some other way - a TITLE: line
+    /// in its summary that nothing downstream reads.
+    /// </para>
+    /// <para>
+    /// <b>Only what was asked.</b> A destination that named a title and no
+    /// description gets no description asked for; a body written because the
+    /// prompt said "description" is padding under the agent's name.
+    /// </para>
+    /// </remarks>
+    private static string Landing(ExecutorRequest request)
+    {
+        if (request.LandingWording is not { } asked
+            || (asked.Title is not { Length: > 0 } && asked.Description is not { Length: > 0 })
+            || !(request.Moves.Contains(Gg.Contracts.LoopMoves.ProposeLanding, StringComparer.Ordinal)
+                 || Gg.Contracts.LoopMoves.Unbounded(request.Moves)))
+        {
+            return string.Empty;
+        }
+
+        var said = new StringBuilder(
+            "\n\nThe destination this flight lands in asks for what it opens to be named this "
+          + $"way. When you know what you changed, say it once with {LandingProposalTool.Qualified}:");
+
+        if (asked.Title is { Length: > 0 } title)
+        {
+            said.Append($"\n- Title: {title.Trim()}");
+        }
+
+        if (asked.Description is { Length: > 0 } description)
+        {
+            said.Append($"\n- Description: {description.Trim()}");
+        }
+
+        return said.ToString();
+    }
 
     /// <summary>
     /// What to do when the work cannot be done - the paragraph without which

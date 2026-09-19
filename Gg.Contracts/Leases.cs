@@ -475,10 +475,12 @@ public sealed record LeaseLoop
     /// by rather than with the thing it describes.
     /// </para>
     /// <para>
-    /// <b>It only means anything to a loop granted
-    /// <c>LoopMoves.ProposeLanding</c></b>, which is what turns an instruction
-    /// into something the agent can act on. Absent otherwise, and absent for
-    /// every envelope written before it.
+    /// <b>It only means anything to a loop that can call the landing tool</b> -
+    /// one granted <c>LoopMoves.ProposeLanding</c>, or one declaring
+    /// <c>LoopMoves.Anything</c>, which passes no allow-list - because that is
+    /// what turns an instruction into something the agent can act on. The
+    /// runner says it to those agents and no others. Absent when the
+    /// destination asks nothing, and for every envelope written before it.
     /// </para>
     /// </remarks>
     public LeaseLanding? Landing { get; init; }

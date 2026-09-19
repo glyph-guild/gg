@@ -170,6 +170,18 @@ public sealed record ExecutorRequest
     public string? Instructions { get; init; }
 
     /// <summary>
+    /// How the destination asks what this flight opens to be named, or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>Carried from <c>LeaseLoop.Landing</c>, which nothing read until
+    /// 2026-09-19.</b> The control plane sent it on every lease and the words
+    /// reached no agent, so a destination's <c>title:</c> applied and changed
+    /// nothing. The prompt says it only to an agent that can call the landing
+    /// tool - see <c>ClaudeCodeExecutor.Landing</c>.
+    /// </remarks>
+    public Gg.Contracts.LeaseLanding? LandingWording { get; init; }
+
+    /// <summary>
     /// What this flight is to do, from its work kind, or null for the wording
     /// every flight has always been given.
     /// </summary>

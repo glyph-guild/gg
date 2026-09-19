@@ -25,11 +25,72 @@ namespace Gg.Contracts;
 /// </remarks>
 public static class PersonSpelling
 {
+    /// <summary>The longest spelling this reads, provider and subject together.</summary>
+    public const int MaxLength = 256;
+
     /// <summary>Whether this value claims to name a person rather than a role.</summary>
-    public static bool IsPerson(string? value) => false;
+    /// <remarks>
+    /// <b>A colon is the claim.</b> Roles have always been bare words, so a
+    /// value with a provider prefix is a person and is held to being one - it
+    /// is never a role with an odd name.
+    /// </remarks>
+    public static bool IsPerson(string? value) =>
+        value is not null && value.Contains(':', StringComparison.Ordinal);
 
     /// <summary>Why this value is not a well-formed person, or null when it is one.</summary>
-    public static string? Diagnose(string value) => null;
+    public static string? Diagnose(string value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        var colon = value.IndexOf(':', StringComparison.Ordinal);
+        if (colon < 0)
+        {
+            return $"'{Shown(value)}' names no provider, so it is a role and not a person. A "
+                 + "person is spelled <provider>:<subject> - `gg whoami` prints yours.";
+        }
+
+        if (value.Length > MaxLength)
+        {
+            return $"That person is {value.Length} characters and the limit is {MaxLength}. It "
+                 + "is refused rather than trimmed, because half a subject names somebody else.";
+        }
+
+        var provider = value[..colon];
+        var subject = value[(colon + 1)..];
+
+        if (!IsWord(provider))
+        {
+            return $"'{Shown(value)}' names its provider as '{Shown(provider)}', which is not a "
+                 + "word of lowercase letters, digits and hyphens. A person is spelled "
+                 + "<provider>:<subject> - `gg whoami` prints yours.";
+        }
+
+        // THE SUBJECT IS THE PROVIDER'S, so what shape it takes is not this
+        // binary's to judge - the control plane knows each provider and refuses
+        // a subject that names nobody. What IS judged here is what no subject
+        // can contain: nothing, whitespace, or a control character, any of
+        // which would make one person render as two or as none.
+        if (subject.Length == 0)
+        {
+            return $"'{Shown(value)}' names a provider and no subject, so it names nobody. "
+                 + "A person is spelled <provider>:<subject> - `gg whoami` prints yours.";
+        }
+
+        return subject.Any(c => char.IsWhiteSpace(c) || char.IsControl(c))
+            ? $"'{Shown(value)}' has whitespace or a control character in its subject. A "
+              + "subject is one unbroken token, exactly as the provider issued it."
+            : null;
+    }
+
+    private static bool IsWord(string provider) =>
+        provider.Length > 0
+        && provider[0] is >= 'a' and <= 'z'
+        && provider.All(c => c is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '-');
+
+    // SHOWN, NEVER ECHOED RAW. A control character quoted back into a sentence
+    // would reach whatever renders the refusal - a terminal among them.
+    private static string Shown(string value) =>
+        string.Concat(value.Select(c => char.IsControl(c) ? '?' : c));
 }
 
 /// <summary>Whose work a watch's flights are.</summary>

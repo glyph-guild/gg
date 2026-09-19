@@ -329,6 +329,37 @@ public sealed record WatchDocument
                  + "A watch nobody can perform is a control that reads as running.";
         }
 
+        // A WATCH IS THE TENANT'S OR ONE PERSON'S, AND NOTHING IN BETWEEN. A
+        // value that is neither must not read as the tenant by default, and a
+        // person is held to the one spelling an approver is held to.
+        if (watch.For is { } whose
+            && !string.Equals(whose, LinesOfWork.Tenant, StringComparison.Ordinal))
+        {
+            if (!PersonSpelling.IsPerson(whose))
+            {
+                return $"This watch is for '{whose}', which is neither the tenant nor a person. "
+                     + $"A watch is the tenant's - `for: {LinesOfWork.Tenant}`, or nothing - or "
+                     + "one person's, spelled <provider>:<subject>, and there is nothing in "
+                     + "between.";
+            }
+
+            if (PersonSpelling.Diagnose(whose) is { } malformed)
+            {
+                return malformed;
+            }
+
+            // THAT PERSON'S RUNNERS. The control plane holds no person's
+            // credential, and a forge's scheduler is nobody's machine - so a
+            // personal watch is performed where its person runs, and only there.
+            if (!string.Equals(watch.PullPoint, PullPoints.ResidentRunner, StringComparison.Ordinal))
+            {
+                return $"This watch is one person's and is performed by '{watch.PullPoint}'. A "
+                     + "personal watch sweeps only on its person's own runners, so its pull "
+                     + $"point is {PullPoints.ResidentRunner} - the control plane holds no "
+                     + "person's credential.";
+            }
+        }
+
         // REQUIRED, and the sentence says what makes it different from a
         // repository's. `required` on the member would have been the obvious
         // spelling and is the wrong one: a document read from JSON that omits

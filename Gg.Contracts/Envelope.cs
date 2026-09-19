@@ -2541,6 +2541,16 @@ public sealed record Envelope
                      + "still working.";
             }
 
+            // THE ONE SPELLING OF A PERSON, the one a watch's `for:` is held to.
+            // A bare approver is a role; one with a provider prefix claims to be
+            // a person and has to be a well-formed one.
+            if (PersonSpelling.IsPerson(obligation.Approver)
+                && PersonSpelling.Diagnose(obligation.Approver) is { } wrong)
+            {
+                return $"Obligation '{obligation.Id}' names its approver as a person, and it is "
+                     + $"not a well-formed one: {wrong}";
+            }
+
             if (obligation.Rule is not null)
             {
                 return $"Obligation '{obligation.Id}' is checked by a human and also carries "

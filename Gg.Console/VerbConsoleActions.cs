@@ -143,10 +143,19 @@ public sealed class VerbConsoleActions(
 
         try
         {
-            _ = _data.DecideNominationAsync(id, outcome, reason).GetAwaiter().GetResult();
+            var decided = _data.DecideNominationAsync(id, outcome, reason).GetAwaiter().GetResult();
+
+            // THE FLIGHT AN OPENING STARTED, which the report names once the row
+            // has ended. It was discarded, so the row left the board and nothing
+            // took its place until the next tick.
+            var started = open
+                && decided is VerbResult.NominationDecided { Value.Nomination.FlightId: { } flight }
+                    ? flight.ToString()
+                    : null;
 
             return new Opening(
-                $"Answered {outcome}. What it became is on the board when this refreshes.");
+                $"Answered {outcome}. What it became is on the board when this refreshes.",
+                started);
         }
         catch (Exception refusal) when (Expected(refusal))
         {
@@ -188,10 +197,7 @@ public sealed class VerbConsoleActions(
             var opened = _data.FlyAsync(intent, repositories, workKind)
                 .GetAwaiter().GetResult();
 
-            return new Opening(opened is VerbResult.Launched launched
-                ? $"Opened {launched.Value.FlightId}. Its number is minted when it materializes, "
-                + "so it appears on the next refresh."
-                : "The flight was accepted.");
+            return Launched(opened);
         }
         catch (Exception refusal) when (Expected(refusal))
         {
@@ -211,16 +217,26 @@ public sealed class VerbConsoleActions(
             var opened = _data.FlyTicketAsync(provider, id, repositories, workKind)
                 .GetAwaiter().GetResult();
 
-            return new Opening(opened is VerbResult.Launched launched
-                ? $"Opened {launched.Value.FlightId}. Its number is minted when it materializes, "
-                + "so it appears on the next refresh."
-                : "The flight was accepted.");
+            return Launched(opened);
         }
         catch (Exception refusal) when (Expected(refusal))
         {
             return new Opening($"Nothing was opened — {refusal.Message}");
         }
     }
+
+    /// <summary>What the door answered, and the flight it named.</summary>
+    /// <remarks>
+    /// <b>The id crosses, not only the sentence.</b> It is the one way to ask
+    /// whether the flight has appeared yet, and it used to be written into the
+    /// sentence and dropped.
+    /// </remarks>
+    private static Opening Launched(VerbResult opened) => opened is VerbResult.Launched launched
+        ? new Opening(
+            $"Opened {launched.Value.FlightId}. Its number is minted when it materializes, "
+            + "and it appears here when it does.",
+            launched.Value.FlightId)
+        : new Opening("The flight was accepted.");
 
     /// <summary>
     /// Whether this work item has flown before, and what to say if it has.

@@ -184,6 +184,87 @@ public sealed record RunnerRegistered
     public required DateTimeOffset ExpiresAt { get; init; }
 }
 
+/// <summary>Whose a runner is: the tenant's, nobody's yet, or one person's.</summary>
+/// <remarks>
+/// <para>
+/// <b>Apart from reservation, which used to be the same column.</b> A runner
+/// reserved to somebody was both theirs and kept to their flights, so a person
+/// could not own a machine that still took the tenant's work, and a machine
+/// could not belong to the tenant and to nobody. ADR-0025 § 6 splits them:
+/// this says whose, and <see cref="RunnerOwnership.Reserved"/> says whether the
+/// owner keeps it to their own flights.
+/// </para>
+/// <para>
+/// <b>Three answers, and a gg that meets none shows none.</b> Empty is an
+/// older control plane that has not heard of ownership, which is not the same
+/// as <see cref="Open"/>.
+/// </para>
+/// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
+public static class RunnerOwnerships
+{
+    /// <summary>The tenant's, and never anyone's: an admin said so, and a claim is refused.</summary>
+    public const string Tenant = "tenant";
+
+    /// <summary>Nobody's yet: anybody in the tenant may claim it, for themselves.</summary>
+    public const string Open = "open";
+
+    /// <summary>One person's, by their own claim.</summary>
+    public const string Claimed = "claimed";
+}
+
+/// <summary>Ask for a runner to be claimed by the caller.</summary>
+/// <remarks>
+/// <b>Empty, for the reservation request's reason.</b> The act is "this is
+/// mine"; the control plane knows who is asking, and a member here could only
+/// ever name somebody else - which would put a machine in a person's hands
+/// without their asking.
+/// </remarks>
+[PinnedId("6a0d2c47-3b1e-4f58-9c7a-2e5d8b1f4a63")]
+public sealed record RunnerClaimRequest;
+
+/// <summary>An admin's word on whether a runner is the tenant's or open.</summary>
+/// <remarks>
+/// <b>Never <see cref="RunnerOwnerships.Claimed"/>.</b> An admin turns a
+/// tenant machine claimable and back; claiming is only ever a person's own act,
+/// and a claimed runner is refused until its owner - or an admin, as a recorded
+/// act of its own - unclaims it.
+/// </remarks>
+[PinnedId("0f3b9e21-7c64-4d8a-a1e5-5b2c7d9e3f48")]
+public sealed record RunnerOwnershipRequest
+{
+    /// <summary><see cref="RunnerOwnerships.Tenant"/> or <see cref="RunnerOwnerships.Open"/>.</summary>
+    public required string Ownership { get; init; }
+}
+
+/// <summary>A runner's ownership, as it stands after the call.</summary>
+/// <remarks>
+/// <b>The owner twice, for <see cref="RunnerSummary"/>'s registrant reason:</b>
+/// the id to compare with <see cref="WhoAmI.PrincipalId"/>, and a display for
+/// a person to read. Neither is ever a name typed in.
+/// </remarks>
+[PinnedId("c4e81d57-2a93-4b06-8f1d-7e6a3c5b9d20")]
+public sealed record RunnerOwnership
+{
+    /// <summary>The runner this is about.</summary>
+    public required string RunnerId { get; init; }
+
+    /// <summary>One of <see cref="RunnerOwnerships"/>.</summary>
+    public required string Ownership { get; init; }
+
+    /// <summary>Who owns it, as a display, or null when nobody does.</summary>
+    public string? Owner { get; init; }
+
+    /// <summary>The owner's principal id, or empty when nobody owns it.</summary>
+    public string OwnerPrincipalId { get; init; } = "";
+
+    /// <summary>When it was claimed, or null.</summary>
+    public DateTimeOffset? OwnedAt { get; init; }
+
+    /// <summary>Whether its owner keeps it to their own flights. Never true unless claimed.</summary>
+    public bool Reserved { get; init; }
+}
+
 /// <summary>
 /// Ask for a runner to be reserved to the caller.
 /// </summary>

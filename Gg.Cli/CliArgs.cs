@@ -396,6 +396,22 @@ public abstract record CliAction
     /// <summary>Takes a runner out of the fleet. There is no undo.</summary>
     public sealed record RunnerRetire(string RunnerId, bool Json) : CliAction, IEmitsResult;
 
+    /// <summary><c>gg runner claim &lt;id&gt;</c>: this machine is mine.</summary>
+    public sealed record RunnerClaim(string RunnerId, bool Json) : CliAction, IEmitsResult;
+
+    /// <summary><c>gg runner unclaim &lt;id&gt;</c>: give it back to open.</summary>
+    public sealed record RunnerUnclaim(string RunnerId, bool Json) : CliAction, IEmitsResult;
+
+    /// <summary><c>gg runner reserve &lt;id&gt;</c>: my runner takes only my flights.</summary>
+    public sealed record RunnerReserve(string RunnerId, bool Json) : CliAction, IEmitsResult;
+
+    /// <summary><c>gg runner release &lt;id&gt;</c>: my runner takes the tenant's work again.</summary>
+    public sealed record RunnerRelease(string RunnerId, bool Json) : CliAction, IEmitsResult;
+
+    /// <summary><c>gg runner ownership &lt;id&gt; tenant|open</c>: an admin's word.</summary>
+    public sealed record RunnerOwnershipSet(string RunnerId, string Ownership, bool Json)
+        : CliAction, IEmitsResult;
+
     /// <summary>
     /// Watch what a runner's flight is saying, from wherever you are.
     /// </summary>

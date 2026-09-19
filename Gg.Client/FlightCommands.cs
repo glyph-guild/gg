@@ -1602,6 +1602,31 @@ public sealed class FlightCommands(
     /// attested; what ends is the credential and the fleet row. Bringing the
     /// machine back is <c>gg runner up</c>, which is a different act.
     /// </remarks>
+    /// <summary>Claims a runner for the person signed in here.</summary>
+    public Task<VerbResult> ClaimRunnerAsync(
+        string runnerId, CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+
+    /// <summary>Gives a runner up, back to open.</summary>
+    public Task<VerbResult> UnclaimRunnerAsync(
+        string runnerId, CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+
+    /// <summary>An admin's word on whether a runner is the tenant's or open.</summary>
+    public Task<VerbResult> SetRunnerOwnershipAsync(
+        string runnerId, string ownership, CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+
+    /// <summary>Keeps the caller's own runner to the caller's flights.</summary>
+    public Task<VerbResult> ReserveRunnerAsync(
+        string runnerId, CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+
+    /// <summary>Lets the caller's runner take the tenant's work again.</summary>
+    public Task<VerbResult> ReleaseRunnerAsync(
+        string runnerId, CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+
     public async Task<VerbResult> RetireRunnerAsync(
         string runnerId, CancellationToken cancellationToken = default)
     {

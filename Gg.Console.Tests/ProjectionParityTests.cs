@@ -183,6 +183,11 @@ public class ProjectionParityTests
                               + "reason is written out at ConsoleDataTests' exemption "
                               + "for RetireRunnerAsync, and both go together or "
                               + "neither does.",
+            ["EnrollmentMinted"] = "no arm, and none coming: a secret shown once is not a "
+                                 + "projection - VerbParityTests' FleetEnroll entry says why.",
+            ["EnrollmentTokens"] = "no arm because no console verb yet; the reason is at "
+                                 + "VerbParityTests' FleetTokens entry.",
+            ["EnrollmentRevoked"] = "no arm, for EnrollmentTokens' reason.",
             ["RunnerOwned"] = "no arm because no console verb yet: claiming, unclaiming "
                             + "and an admin's word arrive in the runner modal together with "
                             + "the ownership it draws. The reason is at VerbParityTests' "

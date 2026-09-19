@@ -167,6 +167,12 @@ public static class ProtocolSurface
          // reading is the input to decisions about who gets work, so a route
          // under here that nobody declared could move that without an audit.
          "/v1/allowances",
+         // HOW A MACHINE COMES TO BE ONE OF THIS TENANT'S (slice forty-three).
+         // An enrollment token is a person's decision that machines may join,
+         // made ahead of time; an undeclared route under here would be an
+         // unaudited way to mint that decision - the /v1/invitations argument,
+         // applied to machines rather than to people.
+         "/v1/fleet",
          // The only surface in this protocol that changes what one PERSON may
          // do. An undeclared route under it would be an unaudited way to hand
          // somebody authority - the argument /v1/invitations came in on,
@@ -278,6 +284,55 @@ public static class ProtocolSurface
             // Idempotent, like releasing a reservation and for its reason:
             // un-parking a runner nobody parked is the state the caller asked
             // for.
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        // A MACHINE ENROLLING ITSELF (slice forty-three, rule 19). Anonymous,
+        // authorized by the enrollment token alone, as a member's redemption
+        // is by its nonce. 403 is every refusal - spent, expired, revoked or
+        // never minted - in ONE sentence, so a token cannot be probed for which.
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/runners/enrollments",
+            Audience = Audience.Anonymous,
+            Request = typeof(RunnerEnrollmentRequest),
+            Response = typeof(RunnerEnrolled),
+            Statuses = [200, 400, 403, ProtocolTooOld],
+        },
+        // MINTING ONE (rules 17 and 18): a Developer's act, and an admin's for a
+        // token whose machines start as the tenant's (403 otherwise). 400 is
+        // EnrollmentBounds.Validate; 404 a profile not in force.
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/fleet/tokens",
+            Audience = Audience.Developer,
+            Request = typeof(EnrollmentTokenRequest),
+            Response = typeof(EnrollmentTokenMinted),
+            Statuses = [200, 400, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        // LISTED WITHOUT THEIR SECRETS - there is no member a secret could travel in.
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/fleet/tokens",
+            Audience = Audience.Developer,
+            Response = typeof(EnrollmentTokenList),
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        // REVOKED BY ANYBODY HERE, and idempotent: a token revoked twice is the
+        // state asked for. Revoking stops future enrollments and touches no
+        // machine already enrolled - retiring one is its own act.
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/fleet/tokens/{id}/revocation",
+            Audience = Audience.Developer,
+            Request = typeof(EnrollmentTokenRevocation),
+            Response = typeof(EnrollmentTokenSummary),
             Statuses = [200, 401, 403, 404, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },

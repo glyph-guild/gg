@@ -904,11 +904,16 @@ public static class Roles
     /// </summary>
     public const string Watch = "watch";
 
-    /// <summary>What an enrolled machine is. Not yet a role anything reads.</summary>
+    /// <summary>
+    /// What an enrolled machine is (ADR-0025 section 2): its roles, its
+    /// environment, its agent, its forges. Never composes, like a
+    /// <see cref="Strategy"/> - one profile says what one class of machine is -
+    /// and a flight cannot be FOR one.
+    /// </summary>
     public const string FleetProfile = "fleet-profile";
 
     public static IReadOnlyList<string> All { get; } =
-        [Root, WorkKind, Narrowing, Strategy, Watch];
+        [Root, WorkKind, Narrowing, Strategy, Watch, FleetProfile];
 }
 
 /// <summary>

@@ -108,6 +108,9 @@ public sealed class EnvelopeCommands(ControlPlaneClient client, ISessionStore se
         {
             Roles.Narrowing => Answered(role, EnvelopeYaml.ParseNarrowing(text)),
             Roles.Strategy => Answered(role, EnvelopeYaml.ParseStrategy(text)),
+            // UNDER fleet/, READ AS A PROFILE, so `gg envelope validate` refuses a
+            // binary path or a secret at the same place apply would (rule 14).
+            Roles.FleetProfile => Answered(role, EnvelopeYaml.ParseProfile(text)),
             _ => Answered(role, EnvelopeYaml.Parse(text)),
         });
     }
@@ -154,6 +157,15 @@ public sealed class EnvelopeCommands(ControlPlaneClient client, ISessionStore se
         Diagnosis = parsed.Diagnosis,
         Notes = parsed.Notes,
         Canonical = parsed.Strategy is { } strategy ? EnvelopeText.Render(strategy) : null,
+    };
+
+    private static EnvelopeValidation Answered(string role, ProfileParse parsed) => new()
+    {
+        Role = role,
+        Valid = parsed.Profile is not null,
+        Diagnosis = parsed.Diagnosis,
+        Notes = parsed.Notes,
+        Canonical = parsed.Profile is { } profile ? EnvelopeText.Render(profile) : null,
     };
 
     private string Session() =>

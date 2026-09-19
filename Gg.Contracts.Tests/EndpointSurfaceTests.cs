@@ -469,8 +469,13 @@ public class EndpointSurfaceTests
         // value. Reservation's two doors keep their statuses and change their
         // meaning: the owner's only. The request types are new, so the contract
         // moves to 0.199.0.
+        //
+        // Moved for the fleet profile's doors, slice forty-three rule 13: PUT
+        // /v1/airspace/fleet/{name}, a document applied like a strategy - 400 a
+        // refusal, 202 a widening diverted to the gate - and GET for one and for
+        // all. The document type is new, so the contract moves to 0.200.0.
         await Assert.That(Fingerprint())
-            .IsEqualTo("efb47a037b30aa51c53397804d8f306c6f43cc267723f384ea4bcf09e1dea96e")
+            .IsEqualTo("9a7a2bb0b0fa315c117696e60648bfda35b3ac01ba5a02f19f58f627eb97598b")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

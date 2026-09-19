@@ -654,8 +654,57 @@ public static class EnvelopeText
     /// nobody declared is a wait nobody can clear.
     /// </para>
     /// </remarks>
-    /// <summary>A fleet profile. Renders nothing yet.</summary>
-    public static string Render(FleetProfile profile) => "";
+    /// <summary>A fleet profile, in schema order.</summary>
+    /// <remarks>
+    /// <b>Absent is not rendered</b>, for the strategy's reason: an empty list, a
+    /// false <c>sweeps</c> and no agent are what a profile that never said them
+    /// means, and a rendering that grows lines by itself reports changes nobody made.
+    /// </remarks>
+    public static string Render(FleetProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+
+        var text = new StringBuilder();
+
+        text.Append("roles:\n");
+        foreach (var role in profile.Roles)
+        {
+            text.Append($"  - {Scalar(role)}\n");
+        }
+
+        text.Append($"environment: {Scalar(profile.Environment)}\n");
+
+        if (profile.Agent is { } agent)
+        {
+            text.Append($"agent: {Scalar(agent)}\n");
+        }
+
+        ListOf(text, "forges", profile.Forges);
+        ListOf(text, "destinations", profile.Destinations);
+
+        if (profile.Sweeps)
+        {
+            text.Append("sweeps: true\n");
+        }
+
+        ListOf(text, "credentials", profile.Credentials);
+
+        return text.ToString();
+
+        static void ListOf(StringBuilder text, string key, IReadOnlyList<string> values)
+        {
+            if (values.Count == 0)
+            {
+                return;
+            }
+
+            text.Append($"{key}:\n");
+            foreach (var value in values)
+            {
+                text.Append($"  - {Scalar(value)}\n");
+            }
+        }
+    }
 
     public static string Render(EnvironmentStrategy strategy)
     {

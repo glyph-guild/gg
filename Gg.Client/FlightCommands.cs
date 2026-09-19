@@ -1352,6 +1352,10 @@ public sealed class FlightCommands(
                 answer = document.Strategy is { } strategy
                     ? await _client.ApplyStrategyAsync(
                         Session(), document.Name, strategy, cancellationToken)
+                    // A PROFILE HAS ITS OWN DOOR TOO, for the watch's reason.
+                    : document.Profile is { } profile
+                    ? await _client.ApplyFleetProfileAsync(
+                        Session(), document.Name, profile, cancellationToken)
                     : document.Watch is { } watch
                     ? await _client.ApplyWatchAsync(
                         Session(), document.Name, watch, cancellationToken)
@@ -1517,6 +1521,19 @@ public sealed class FlightCommands(
                    "gg holds no comparator for a strategy, so this cannot be shown to "
                  + "tighten here. The control plane compares it and will apply it directly "
                  + "if it does - so this orders last and may land without a gate.")
+                : (Changeset.Tightening, null, null);
+        }
+
+        // A PROFILE IS ORDERED BY THE CONTRACT'S COMPARATOR, the one the
+        // control plane applies with, so what this says is what will happen.
+        if (document.Profile is { } proposedProfile)
+        {
+            var heldProfile = estate.Profiles.FirstOrDefault(
+                p => string.Equals(p.Name, document.Name, StringComparison.Ordinal));
+
+            return heldProfile is not null
+                && FleetProfile.Widening(heldProfile.Profile, proposedProfile) is { } widens
+                ? (Changeset.Widening, widens.Field, widens.Because)
                 : (Changeset.Tightening, null, null);
         }
 

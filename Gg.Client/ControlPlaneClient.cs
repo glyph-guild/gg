@@ -42,6 +42,9 @@ namespace Gg.Client;
 [JsonSerializable(typeof(RunnerRetirementRequest))]
 [JsonSerializable(typeof(RunnerRetired))]
 [JsonSerializable(typeof(RunnerClaimRequest))]
+[JsonSerializable(typeof(FleetProfile))]
+[JsonSerializable(typeof(FleetProfileState))]
+[JsonSerializable(typeof(FleetProfileList))]
 [JsonSerializable(typeof(RunnerOwnershipRequest))]
 [JsonSerializable(typeof(RunnerOwnership))]
 [JsonSerializable(typeof(RunnerReservationRequest))]
@@ -887,7 +890,61 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
             // the apply after that pull would have read as a person deleting
             // every one.
             Watches = (await ListWatchesAsync(sessionToken, cancellationToken)).Watches,
+            // AND A FOURTH, for fleet profiles (slice forty-three).
+            Profiles = (await ListFleetProfilesAsync(sessionToken, cancellationToken)).Profiles,
         };
+
+    /// <summary>Every fleet profile in force for the tenant.</summary>
+    /// <remarks>
+    /// <b>Empty from a control plane that has no such door</b> - a 404 on the
+    /// list itself, which is how one pinned below 0.200.0 answers. A pull must
+    /// keep working against it, and it holds no profiles to lose.
+    /// </remarks>
+    public async Task<FleetProfileList> ListFleetProfilesAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/airspace/fleet", sessionToken);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return new FleetProfileList { Profiles = [] };
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.FleetProfileList, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+    }
+
+    /// <summary>Applies a fleet profile to its topology name, through the fleet door.</summary>
+    /// <remarks>JSON on the wire, as a strategy's is; a 400 carries the control plane's own diagnosis.</remarks>
+    public async Task<EnvelopeApplied> ApplyFleetProfileAsync(
+        string sessionToken, string name, FleetProfile profile,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Put, $"/v1/airspace/fleet/{Uri.EscapeDataString(name)}", sessionToken);
+        request.Content = JsonContent.Create(profile, ProtocolJsonContext.Default.FleetProfile);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            throw new StrategyRefusedException(
+                await response.Content.ReadAsStringAsync(cancellationToken));
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.EnvelopeApplied, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+    }
 
     public async Task<StrategyList> ListStrategiesAsync(
         string sessionToken, CancellationToken cancellationToken = default)

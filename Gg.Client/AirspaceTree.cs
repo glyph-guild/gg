@@ -199,6 +199,22 @@ public static class AirspaceTree
             }
         }
 
+        // A PROFILE IN FORCE IS WRITTEN, for the watches' reason: a working copy
+        // without them would make the next apply read as retiring every one.
+        foreach (var profile in estate.Profiles)
+        {
+            if (Rendered(
+                    root, Roles.FleetProfile, profile.Name,
+                    EnvelopeText.Render(profile.Profile), profile.Version) is { } path)
+            {
+                written.Add(path);
+            }
+            else
+            {
+                unrepresentable.Add(profile.Name);
+            }
+        }
+
         return new TreeWritten
         {
             Written = [.. written.OrderBy(p => p, StringComparer.Ordinal)],
@@ -399,6 +415,11 @@ public static class AirspaceTree
             held[watch.Name] = EnvelopeText.Render(watch.Watch);
         }
 
+        foreach (var profile in estate.Profiles)
+        {
+            held[profile.Name] = EnvelopeText.Render(profile.Profile);
+        }
+
         return
         [
             .. tree.Documents.Where(d =>
@@ -469,6 +490,7 @@ public static class AirspaceTree
             .. estate.Documents.Select(d => d.Name)
                 .Concat(estate.Strategies.Select(s => s.Name))
                 .Concat(estate.Watches.Select(w => w.Name))
+                .Concat(estate.Profiles.Select(p => p.Name))
                 // Root cannot be retired - a tenant with no floor is ungoverned -
                 // so its absence from a tree is never an intent, whatever it looks
                 // like.
@@ -488,6 +510,7 @@ public static class AirspaceTree
         // the estate holds - so without this arm every watch in a working copy
         // would read as CHANGED on every diff, and be re-sent on every apply.
         : document.Watch is { } watch ? EnvelopeText.Render(watch)
+        : document.Profile is { } profile ? EnvelopeText.Render(profile)
         : string.Empty;
 
     /// <summary>Parses one file by the role its path gave it.</summary>
@@ -523,6 +546,15 @@ public static class AirspaceTree
             return parsed.Watch is { } watch
                 ? (Document(name, role, path, parsed.BasedOn) with { Watch = watch }, null)
                 : (null, parsed.Diagnosis ?? "This does not read as a watch.");
+        }
+
+        // A PROFILE BEFORE THE FALL-THROUGH, for the watch's reason above.
+        if (string.Equals(role, Roles.FleetProfile, StringComparison.Ordinal))
+        {
+            var parsed = EnvelopeYaml.ParseProfile(text);
+            return parsed.Profile is { } profile
+                ? (Document(name, role, path, parsed.BasedOn) with { Profile = profile }, null)
+                : (null, parsed.Diagnosis ?? "This does not read as a fleet profile.");
         }
 
         var read = EnvelopeYaml.Parse(text);

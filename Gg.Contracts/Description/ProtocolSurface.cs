@@ -1092,6 +1092,43 @@ public static class ProtocolSurface
         },
         new()
         {
+            // THE FLEET PROFILE DOOR (slice forty-three, rule 13). What an
+            // enrolled machine is, applied to a name whose topology role is
+            // fleet-profile, through the same per-name stream and version counter
+            // as a strategy. 400 is FleetProfile.Validate's diagnosis - a path
+            // where an agent's name belongs, a value where a reference belongs -
+            // an uncharted environment, or an unknown name or role; 202 is a
+            // widening diverted to the gate.
+            Method = "PUT",
+            Path = "/v1/airspace/fleet/{name}",
+            Audience = Audience.Developer,
+            Request = typeof(FleetProfile),
+            Response = typeof(EnvelopeApplied),
+            Statuses = [200, 202, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/airspace/fleet/{name}",
+            Audience = Audience.Developer,
+            Response = typeof(FleetProfileState),
+            // 404 is a name with no profile in force.
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/airspace/fleet",
+            Audience = Audience.Developer,
+            Response = typeof(FleetProfileList),
+            // Empty is 200: a tenant that enrolls nothing has no profiles.
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             Method = "GET",
             Path = "/v1/airspace/strategies",
             Audience = Audience.Developer,

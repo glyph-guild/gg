@@ -135,12 +135,13 @@ public class EnvelopeLayerTests
         // answer is better than a third rank: a team is a NAME in the open
         // half of (role, name), so no vocabulary moves when one forms.
         await Assert.That(Roles.All).DoesNotContain("team");
-        await Assert.That(Roles.All.Count).IsEqualTo(5)
-            .Because("root, work-kind, narrowing, slice twelve's strategy, and slice "
-                   + "thirty-nine's watch. Each is a role rather than a name because each "
-                   + "document has a shape of its own - and the two differ in what happens "
-                   + "next: a strategy composes with nothing, while a watch composes root "
-                   + "and then narrowings, which is ADR-0022 section 5's rule for its bound.");
+        await Assert.That(Roles.All.Count).IsEqualTo(6)
+            .Because("root, work-kind, narrowing, slice twelve's strategy, slice "
+                   + "thirty-nine's watch, and slice forty-three's fleet profile. Each is a "
+                   + "role rather than a name because each document has a shape of its own - "
+                   + "and they differ in what happens next: a strategy and a profile compose "
+                   + "with nothing, while a watch composes root and then narrowings, which is "
+                   + "ADR-0022 section 5's rule for its bound.");
     }
 
     // ---- composition ----

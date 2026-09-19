@@ -50,25 +50,198 @@ public sealed record FleetProfile
     public string? Agent { get; init; }
 
     /// <summary>The forges it serves, in <c>vcs-hosts</c>' spelling: <c>key=host</c>.</summary>
-    public IReadOnlyList<string> Forges { get; init; } = [];
+    public IReadOnlyList<string> Forges
+    {
+        get => field ?? [];
+        init;
+    } = [];
 
     /// <summary>Where it may land work, in <c>destination-apis</c>' spelling: <c>key=api</c>.</summary>
-    public IReadOnlyList<string> Destinations { get; init; } = [];
+    public IReadOnlyList<string> Destinations
+    {
+        get => field ?? [];
+        init;
+    } = [];
 
     /// <summary>Whether it sweeps the tenant's watches when idle.</summary>
     public bool Sweeps { get; init; }
 
     /// <summary>The credentials it needs, as references its own sources resolve - never a value.</summary>
-    public IReadOnlyList<string> Credentials { get; init; } = [];
+    public IReadOnlyList<string> Credentials
+    {
+        get => field ?? [];
+        init;
+    } = [];
 
-    /// <summary>The label the lease matches a runner under this profile by. Nothing yet.</summary>
-    public static string LabelFor(FleetProfile profile) => "";
+    /// <summary>The label the lease matches a runner under this profile by.</summary>
+    public static string LabelFor(FleetProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        return $"environment={profile.Environment}";
+    }
 
-    /// <summary>The schema's own rule. Refuses nothing yet.</summary>
-    public static string? Validate(FleetProfile profile) => null;
+    /// <summary>
+    /// The schema's own rule, shared so gg and the control plane cannot disagree
+    /// about what a valid profile is. Null means valid; anything else is the refusal.
+    /// </summary>
+    public static string? Validate(FleetProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
 
-    /// <summary>Whether a change widens. Says nothing yet.</summary>
-    public static (string Field, string Because)? Widening(FleetProfile prior, FleetProfile proposed) => null;
+        if (profile.Roles.Count == 0)
+        {
+            return "This profile names no role, so a machine under it would do nothing. Say "
+                 + $"roles: [{ProfileRoles.Run}], [{ProfileRoles.Maintain}] or both.";
+        }
+
+        if (profile.Roles.FirstOrDefault(r => !ProfileRoles.All.Contains(r, StringComparer.Ordinal))
+            is { } unknown)
+        {
+            return $"'{unknown}' is not a role a machine can have. A machine may "
+                 + $"{string.Join(" and ", ProfileRoles.All)}.";
+        }
+
+        if (profile.Roles.Distinct(StringComparer.Ordinal).Count() != profile.Roles.Count)
+        {
+            return "This profile names a role twice. Each is said once.";
+        }
+
+        if (!IsWord(profile.Environment))
+        {
+            return $"environment is '{profile.Environment}', and an environment is one word - "
+                 + "the charted name a runner under this profile advertises as environment=<name>.";
+        }
+
+        // RULE 14: A NAME, NEVER A PATH. The binary is the machine's to find;
+        // a profile that could point every machine under it at a path could
+        // point them at anything that path holds.
+        if (profile.Agent is { } agent && !IsWord(agent))
+        {
+            return $"agent is '{agent}', and a profile names an agent, never a binary. Write "
+                 + "the agent's name - claude - and let each machine find its own binary.";
+        }
+
+        foreach (var forge in profile.Forges)
+        {
+            if (Pair(forge) is null)
+            {
+                return $"forges has '{forge}', and a forge is written key=host, as vcs-hosts is.";
+            }
+        }
+
+        foreach (var destination in profile.Destinations)
+        {
+            if (Pair(destination) is null)
+            {
+                return $"destinations has '{destination}', and a destination is written key=api, "
+                     + "as destination-apis is.";
+            }
+        }
+
+        // RULE 14: A REFERENCE, NEVER A SECRET. A reference names its source by
+        // scheme - local:, keyvault:// - and a bare value is refused rather
+        // than guessed at, because the one mistake this must never allow is a
+        // secret written into a document the whole tenant can read.
+        foreach (var credential in profile.Credentials)
+        {
+            if (!IsReference(credential))
+            {
+                return "credentials has an entry that is not a reference. A profile names where "
+                     + "a secret is - local:<name> or keyvault://<vault-host>/<secret> - never "
+                     + "the secret itself, and the value is not repeated here in case it was one.";
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="proposed"/> lets a machine do anything
+    /// <paramref name="prior"/> did not, and which field says so - or null for
+    /// a tightening, which applies at once.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>In the contract, so gg and the control plane read one answer</b> -
+    /// the strategy's comparator lives only on the control plane, and gg says
+    /// so every time it orders one. A profile is new enough not to repeat that.
+    /// </para>
+    /// <para>
+    /// <b>More reach is a widening; a different reach is too.</b> A role, a
+    /// forge, a destination or a credential added; sweeping turned on; and any
+    /// change of environment or agent - neither is a subset of the other, and a
+    /// machine that now furnishes a different environment takes different work.
+    /// Removing any of them tightens.
+    /// </para>
+    /// </remarks>
+    public static (string Field, string Because)? Widening(FleetProfile prior, FleetProfile proposed)
+    {
+        ArgumentNullException.ThrowIfNull(prior);
+        ArgumentNullException.ThrowIfNull(proposed);
+
+        if (Added(prior.Roles, proposed.Roles) is { } role)
+        {
+            return ("roles", $"it adds the role '{role}', so every machine under it may do more.");
+        }
+
+        if (!string.Equals(prior.Environment, proposed.Environment, StringComparison.Ordinal))
+        {
+            return ("environment",
+                $"it moves every machine under it from '{prior.Environment}' to "
+              + $"'{proposed.Environment}', and a different environment takes different work.");
+        }
+
+        if (!string.Equals(prior.Agent, proposed.Agent, StringComparison.Ordinal)
+            && proposed.Agent is not null)
+        {
+            return ("agent", $"it has every machine under it run '{proposed.Agent}'.");
+        }
+
+        if (Added(prior.Forges, proposed.Forges) is { } forge)
+        {
+            return ("forges", $"it adds the forge '{forge}' to every machine under it.");
+        }
+
+        if (Added(prior.Destinations, proposed.Destinations) is { } destination)
+        {
+            return ("destinations", $"it lets every machine under it land work at '{destination}'.");
+        }
+
+        if (!prior.Sweeps && proposed.Sweeps)
+        {
+            return ("sweeps", "it has every machine under it sweep the tenant's watches.");
+        }
+
+        if (Added(prior.Credentials, proposed.Credentials) is { } credential)
+        {
+            return ("credentials", $"it has every machine under it read '{credential}'.");
+        }
+
+        return null;
+
+        static string? Added(IReadOnlyList<string> before, IReadOnlyList<string> after) =>
+            after.FirstOrDefault(a => !before.Contains(a, StringComparer.Ordinal));
+    }
+
+    private static bool IsWord(string? value) =>
+        value is { Length: > 0 and <= 64 }
+        && value.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c is '-' or '_')
+        && char.IsAsciiLetterLower(value[0]);
+
+    private static (string Key, string Value)? Pair(string value)
+    {
+        var at = value.IndexOf('=', StringComparison.Ordinal);
+        return at > 0 && at < value.Length - 1 && !value.Any(char.IsWhiteSpace)
+            ? (value[..at], value[(at + 1)..])
+            : null;
+    }
+
+    private static bool IsReference(string value) =>
+        !value.Any(char.IsWhiteSpace)
+        && (value.StartsWith("local:", StringComparison.Ordinal) && value.Length > "local:".Length
+            || value.StartsWith("keyvault://", StringComparison.Ordinal)
+               && value.IndexOf('/', "keyvault://".Length) is > 0 and var slash
+               && slash < value.Length - 1);
 }
 
 /// <summary>One applied fleet profile, as the read side serves it.</summary>

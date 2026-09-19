@@ -1225,8 +1225,8 @@ public static class CliArgs
                 new CliAction.AirspaceName(role, named, Gg.Contracts.Roles.Root, json),
             ["airspace", "name", ..] => Unknown(
                 "gg airspace name takes a role and a name, in that order - "
-              + "gg airspace name narrowing pci. The role is one of work-kind, narrowing or "
-              + "strategy, and --under names the parent when it is not root."),
+              + "gg airspace name narrowing pci. The role is one of work-kind, narrowing, "
+              + "strategy, watch or fleet-profile, and --under names the parent when it is not root."),
             ["airspace", ..] => Unknown(
                 "gg airspace takes show, pull, diff, apply, name, retire or repositories."),
             ["plan"] => new CliAction.Plan(null, json),

@@ -203,6 +203,16 @@ public interface IRunnerObserver
     /// stdout is what a customer pastes into a ticket.
     /// </remarks>
     void CredentialUnresolved(CredentialResolutionFailure failure);
+
+    /// <summary>
+    /// This runner's own credential ends on a date and the control plane will
+    /// not extend it.
+    /// </summary>
+    /// <remarks>
+    /// Said once, because it is settled: the runner keeps flying until then, and
+    /// the sentence is the only warning anybody gets before a person is needed.
+    /// </remarks>
+    void CredentialNotExtended(DateTimeOffset endsAt);
 }
 
 /// <summary>Ignores everything, for tests where the narration is not the subject.</summary>
@@ -228,6 +238,7 @@ public sealed class SilentObserver : IRunnerObserver
     public void AgentReady(string provider) { }
     public void Waiting(IReadOnlyList<string> repos) { }
     public void CredentialUnresolved(CredentialResolutionFailure failure) { }
+    public void CredentialNotExtended(DateTimeOffset endsAt) { }
     public void Materialized(string slug, string headCommit, long bytes) { }
     public void WorkspaceFailed(string diagnosis) { }
     public void FactsShipped(int count) { }
@@ -695,14 +706,19 @@ public sealed class RunnerLoop(
     }
     private readonly IClock _clock = clock;
 
-    /// <summary>When this runner's own credential ends, or null if unrecorded.</summary>
-    private readonly DateTimeOffset? _credentialExpiresAt = credentialExpiresAt;
+    /// <summary>How this runner keeps its own credential, or null for one that does not ask.</summary>
+    private readonly CredentialRenewal? _renewal = credential is null
+        ? null
+        : new CredentialRenewal(
+            credential, clock, credentialExpiresAt, credentialRenewed,
+            observer.CredentialNotExtended);
 
-    /// <summary>How this runner asks for more time, or null for one that does not.</summary>
-    internal IRunnerCredential? Credential { get; } = credential;
-
-    /// <summary>Where a renewed expiry is written down.</summary>
-    internal Func<DateTimeOffset, Task>? CredentialRenewed { get; } = credentialRenewed;
+    /// <summary>When this runner's own credential ends, as last known here, or null if unrecorded.</summary>
+    /// <remarks>
+    /// The renewed date once there is one, so a 401 after a renewal is told
+    /// apart from an ending by the date the control plane actually gave.
+    /// </remarks>
+    private DateTimeOffset? CredentialExpiresAt => _renewal?.ExpiresAt ?? credentialExpiresAt;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay;
 
     private readonly Func<TimeSpan, CancellationToken, Task> _beatPace =
@@ -823,6 +839,11 @@ public sealed class RunnerLoop(
         {
             while (!cancellationToken.IsCancellationRequested && !_boundBroke)
             {
+                // ITS OWN CREDENTIAL FIRST, and before the hold below, because a
+                // runner held for its agent's login can wait for days - long
+                // enough to reach the end of a credential nobody renewed.
+                await RenewIfDueAsync(cancellationToken);
+
                 // AN AGENT THAT CANNOT START IS A RUNNER THAT MUST NOT CLAIM,
                 // and holding rather than exiting is what keeps it reachable:
                 // it beats inside, so introductions still arrive, and a
@@ -1012,7 +1033,7 @@ public sealed class RunnerLoop(
             // that it is a DIAGNOSIS rather than a trace, and that the two
             // reasons a 401 arrives are told apart.
             _endedCredential = CredentialEnding.For(
-                _credentialExpiresAt, _clock.UtcNow, refused);
+                CredentialExpiresAt, _clock.UtcNow, refused);
 
             _observer.ControlPlaneRefused(_endedCredential.Said, TimeSpan.Zero);
         }
@@ -1025,6 +1046,29 @@ public sealed class RunnerLoop(
 
     /// <summary>How this runner's credential ended, once one has.</summary>
     private CredentialEnding? _endedCredential;
+
+    /// <summary>Renews this runner's credential when it is due.</summary>
+    /// <remarks>
+    /// <b>A bad moment is left to the claim below</b>, which meets the same
+    /// control plane a moment later and already has the backoff for it; the
+    /// next turn asks again. A 401 is not caught here: a credential the control
+    /// plane will not authenticate is an ending, and the loop says which one.
+    /// </remarks>
+    private async Task RenewIfDueAsync(CancellationToken cancellationToken)
+    {
+        if (_renewal is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _renewal.RenewIfDueAsync(cancellationToken);
+        }
+        catch (HttpRequestException refusal) when (TransientFailure.IsTransient(refusal))
+        {
+        }
+    }
 
     /// <summary>Whether a session's probe found the bound broken.</summary>
     private bool _boundBroke;

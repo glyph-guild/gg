@@ -484,6 +484,10 @@ internal sealed class RecordingObserver : IRunnerObserver
     public void CredentialUnresolved(CredentialResolutionFailure failure) =>
         Record($"unresolved:{failure.Reference.Locator}");
 
+    /// <summary>A credential that will not be extended, by the date it ends.</summary>
+    public void CredentialNotExtended(DateTimeOffset endsAt) =>
+        Record($"not-extended:{endsAt:O}");
+
     /// <summary>A repository was put on disk. The path and the commit, never a byte of it.</summary>
     public void Materialized(string slug, string headCommit, long bytes) =>
         Record($"materialized:{headCommit}:{bytes}", lifecycle: false);

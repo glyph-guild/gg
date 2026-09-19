@@ -318,6 +318,9 @@ public sealed class WhatThisRunnerSays(
 
     public void CredentialUnresolved(CredentialResolutionFailure failure) =>
         _inner.CredentialUnresolved(failure);
+
+    public void CredentialNotExtended(DateTimeOffset endsAt) =>
+        _inner.CredentialNotExtended(endsAt);
 }
 
 /// <summary>The last lines of something, and whether there were more.</summary>

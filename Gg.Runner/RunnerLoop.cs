@@ -366,7 +366,16 @@ public sealed class RunnerLoop(
     // setting - never by anything on the wire.
     //
     // LAST and defaulted, because every existing caller passes positionally.
-    Func<CancellationToken, Task>? sweepWhenIdle = null)
+    Func<CancellationToken, Task>? sweepWhenIdle = null,
+    // HOW THIS RUNNER KEEPS ITS OWN CREDENTIAL, or null for one that does not
+    // ask - a member, whose twelve hours are the boundary, and a hand-flight,
+    // which lasts one flight. The maintainer's shape: the same credential asks,
+    // so a renewal grants nothing the runner did not already hold.
+    IRunnerCredential? credential = null,
+    // AND WHERE THE NEW EXPIRY IS WRITTEN DOWN, handed out because Gg.Runner
+    // cannot see the store - a renewal only this process knows about dies
+    // with it, and the next start asks for a person.
+    Func<DateTimeOffset, Task>? credentialRenewed = null)
 {
     /// <summary>Seconds the control plane may hold a claim open.</summary>
     public const int ClaimWaitSeconds = 30;
@@ -688,6 +697,12 @@ public sealed class RunnerLoop(
 
     /// <summary>When this runner's own credential ends, or null if unrecorded.</summary>
     private readonly DateTimeOffset? _credentialExpiresAt = credentialExpiresAt;
+
+    /// <summary>How this runner asks for more time, or null for one that does not.</summary>
+    internal IRunnerCredential? Credential { get; } = credential;
+
+    /// <summary>Where a renewed expiry is written down.</summary>
+    internal Func<DateTimeOffset, Task>? CredentialRenewed { get; } = credentialRenewed;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay;
 
     private readonly Func<TimeSpan, CancellationToken, Task> _beatPace =

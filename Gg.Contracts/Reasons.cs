@@ -137,6 +137,8 @@ public sealed record Reason
               + "is queued - waiting behind it would be waiting an unknown time at a terminal. "
               + "Wait for it to land and ask again, or fly a machine that is free.",
 
+            ReasonKinds.PersonalRunnerAbsent => Personal(parameters),
+
             ReasonKinds.DirectedRunnerAbsent =>
                 $"waiting: this flight is for '{First(parameters)}', and that runner is not "
               + "currently asking for work. Nothing is misconfigured - a directed flight is "
@@ -197,6 +199,20 @@ public sealed record Reason
                 + "(DELETE /v1/runners/{id}/reservation), or bring up a runner that is not "
                 + "reserved.";
         }
+
+        // WHOSE MACHINE IS MISSING, and what they can do about it. A personal
+        // watch's flight runs only on a machine its person has claimed, so the
+        // remedy is theirs: start one, or claim one. Never "reserve": a
+        // personal watch follows whose a machine is, not what it is kept for.
+        static string Personal(IReadOnlyList<string> parameters) =>
+            parameters.Count > 0
+                ? $"waiting: this flight is {parameters[0]}'s own work, from their personal "
+                + "watch, and it runs only on a machine they have claimed. None of theirs is "
+                + "asking for work. Start one of theirs, or claim one that is running "
+                + "(gg runner claim)."
+                : "waiting: this flight is the work of a personal watch whose person is no "
+                + "longer in this tenant. It runs only on a machine they have claimed, so "
+                + "nothing will take it - retire the watch, or decline its work on the board.";
 
         // A PARKING QUOTES THE REASON SOMEBODY GAVE, and copes when they gave
         // none. The reason is nullable where it is written, and a sentence that
@@ -414,7 +430,28 @@ public static class ReasonKinds
     /// </remarks>
     public const string DirectedRunnerAbsent = "directed-runner-absent";
 
-    /// <summary>A personal watch's flight, and none of its person's runners asking.</summary>
+    /// <summary>
+    /// A personal watch's flight, and no runner its person has claimed is asking
+    /// for work. Params: [person] or [].
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A personal watch runs on its person's machines and no other</b>, so
+    /// its flight is not offered to the fleet at all. That is correct, and it
+    /// is silent: every fleet surface reads healthy while the flight waits.
+    /// This is the sentence that says whose machine is missing.
+    /// </para>
+    /// <para>
+    /// <b>Not <see cref="NoRunnerAdvertises"/></b> - capacity is not what is
+    /// missing - <b>and not <see cref="RunnerReserved"/></b>: a personal watch
+    /// follows whose a machine is, not what it is kept for, so the remedy is to
+    /// start one of theirs or claim one, never to reserve one.
+    /// </para>
+    /// <para>
+    /// The person is a DISPLAY, dropped when they have left the tenant, which
+    /// the empty form says out loud - <see cref="RunnerReserved"/>'s rule.
+    /// </para>
+    /// </remarks>
     public const string PersonalRunnerAbsent = "personal-runner-absent";
 
     /// <summary>
@@ -486,7 +523,7 @@ public static class ReasonKinds
          Uncharted, RegistrationIsAWidening, BlockedByBound, PoolWarming,
          StaleWorkingCopy, FlightsInTheAir, DeclaredAndAbsent, ForgeUnreachable,
          RunnerReserved, RunnerParked, DirectedRunnerAbsent, DirectedRunnerBusy,
-         NoCredentialRegistered, CredentialUnreadable];
+         NoCredentialRegistered, CredentialUnreadable, PersonalRunnerAbsent];
 
     /// <summary>The family a kind belongs to. Throws on a kind nobody declared.</summary>
     public static string FamilyOf(string kind) => kind switch
@@ -506,7 +543,7 @@ public static class ReasonKinds
         // bucket somebody was told no in.
         NoRunnerAdvertises or PoolWarming or DeclaredAndAbsent or ForgeUnreachable
             or RunnerReserved or RunnerParked or DirectedRunnerAbsent
-            or NoCredentialRegistered or CredentialUnreadable =>
+            or NoCredentialRegistered or CredentialUnreadable or PersonalRunnerAbsent =>
             ReasonFamilies.Failed,
         BlockedByBound => ReasonFamilies.Declined,
         // DIRECTED-RUNNER-BUSY IS A REFUSAL AND ITS SIBLING IS A WAIT, which is

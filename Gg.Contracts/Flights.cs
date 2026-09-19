@@ -861,6 +861,36 @@ public sealed record RunnerSummary
     /// </para>
     /// </remarks>
     public string? Machine { get; init; }
+
+    /// <summary>
+    /// Whose this runner is - one of <see cref="RunnerOwnerships"/> - or empty
+    /// from a control plane that has not heard of ownership.
+    /// </summary>
+    /// <remarks>
+    /// <b>Empty is not open.</b> A gg newer than its control plane receives no
+    /// member, and a row that read "open" there would invite a claim the
+    /// control plane has no door for.
+    /// </remarks>
+    public string Ownership { get; init; } = "";
+
+    /// <summary>The owner's display, or empty when nobody owns it.</summary>
+    /// <remarks>
+    /// Text somebody else chose, travelling to a terminal: stripped of control
+    /// sequences before it is drawn, like <see cref="RegisteredBy"/>.
+    /// </remarks>
+    public string Owner { get; init; } = "";
+
+    /// <summary>The owner's principal id, for comparing with <see cref="WhoAmI.PrincipalId"/>.</summary>
+    public string OwnerPrincipalId { get; init; } = "";
+
+    /// <summary>Whether its owner keeps it to their own flights.</summary>
+    public bool Reserved { get; init; }
+
+    /// <summary>Whether it maintains a pool - the only kind of runner that may mint members.</summary>
+    public bool Resident { get; init; }
+
+    /// <summary>The fleet profile it enrolled under, or null for one that enrolled under none.</summary>
+    public string? Profile { get; init; }
 }
 
 /// <summary>The states a runner may be derived to be in.</summary>

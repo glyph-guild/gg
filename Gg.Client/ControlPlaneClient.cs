@@ -1625,6 +1625,32 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
             ProtocolJsonContext.Default.RunnerRetired, cancellationToken);
     }
 
+    /// <summary>Claims a runner for the caller. Null when this tenant has no such runner.</summary>
+    public Task<RunnerOwnership?> ClaimRunnerAsync(
+        string sessionToken, string runnerId, CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+
+    /// <summary>Gives a runner up, back to open. Null when this tenant has no such runner.</summary>
+    public Task<RunnerOwnership?> UnclaimRunnerAsync(
+        string sessionToken, string runnerId, CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+
+    /// <summary>An admin's word: the tenant's, or open. Null when this tenant has no such runner.</summary>
+    public Task<RunnerOwnership?> SetRunnerOwnershipAsync(
+        string sessionToken, string runnerId, string ownership,
+        CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+
+    /// <summary>Keeps the caller's own runner to the caller's flights. Null when there is no such runner.</summary>
+    public Task<RunnerReserved?> ReserveRunnerAsync(
+        string sessionToken, string runnerId, CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+
+    /// <summary>Lets the caller's runner take the tenant's work again. Null when there is no such runner.</summary>
+    public Task<RunnerReserved?> ReleaseRunnerAsync(
+        string sessionToken, string runnerId, CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+
     /// <summary>
     /// Asks to be introduced to one runner, for one short conversation.
     /// </summary>
@@ -2235,6 +2261,17 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 /// down".
 /// </remarks>
 public sealed class AdminRefusedException(string message) : Exception(message);
+
+/// <summary>
+/// Raised when the control plane refuses a claim, an unclaim, a reservation or
+/// an ownership change, carrying its own sentence.
+/// </summary>
+/// <remarks>
+/// <b>403 and 409 both arrive here</b>, and the sentence is what tells them
+/// apart: not you - a tenant runner, somebody else's - or not now - claim it
+/// first, unclaim it first. Each is a different thing to do next.
+/// </remarks>
+public sealed class RunnerOwnershipRefusedException(string message) : Exception(message);
 
 /// <summary>
 /// Raised when the control plane checked the principal and said no.

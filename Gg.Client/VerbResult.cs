@@ -278,6 +278,18 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.RunnerRetired;
     }
 
+    /// <summary>A runner's ownership after a claim, an unclaim or an admin's word.</summary>
+    public sealed record RunnerOwned(Gg.Contracts.RunnerOwnership Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.RunnerOwned;
+    }
+
+    /// <summary>A runner's reservation after its owner reserved or released it.</summary>
+    public sealed record RunnerReservation(Gg.Contracts.RunnerReserved Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.RunnerReservation;
+    }
+
     public sealed record Bundle(DiagnosticsBundle Value) : VerbResult
     {
         public override string Kind => VerbResultKinds.Bundle;
@@ -500,6 +512,8 @@ public static class VerbResultKinds
     public const string CredentialAdded = "credential-added";
     public const string CredentialRemoved = "credential-removed";
     public const string RunnerRetired = "runner-retired";
+    public const string RunnerOwned = "runner-owned";
+    public const string RunnerReservation = "runner-reservation";
     public const string RunnerRepinned = "runner-repinned";
     public const string Bundle = "bundle";
     public const string Envelope = "envelope";

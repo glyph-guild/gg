@@ -2327,7 +2327,7 @@ static async Task<int> HoldAsync(
     return await Gg.Runner.RunnerHost.RunAsync(
         new Uri(baseAddress), registered.RunnerId, registered.RunnerToken, labels,
         TimeSpan.Zero,
-        new LocalCredentialResolver(new FileCredentialStore()),
+        new LocalCredentialResolver(MachineCredentialStore.ThisMachine()),
         new Gg.Runner.Workspace(
             Gg.Runner.Vcs.VcsConfiguration.FromEnvironment(
             Settings.Value(Gg.Runner.Vcs.VcsConfiguration.HostsVariable, InForce.Configuration)), new Gg.Runner.Vcs.WorkingTreeRoot()),
@@ -2346,7 +2346,7 @@ static async Task<int> HoldAsync(
             Gg.Local.IntentConfiguration.FromEnvironment(
             Settings.Value(Gg.Local.IntentConfiguration.ReadersVariable, InForce.Configuration),
             Settings.Value(Gg.Local.IntentConfiguration.ServedVariable, InForce.Configuration)),
-            secretFor: locator => new FileCredentialStore().Read(locator),
+            secretFor: locator => MachineCredentialStore.SecretFor(locator),
             self: Gg.Local.SelfInvocation.Current,
             // AND THE SAME ADAPTER, so a hand-flight on a machine holding an
             // agent token runs under it exactly as a fleet flight would.
@@ -2356,7 +2356,7 @@ static async Task<int> HoldAsync(
         // token has died holds and says so, rather than handing a person a
         // flight whose agent exits at once.
         agent: Gg.Runner.Execution.ExecutorConfiguration.AgentFor(declared),
-        agentToken: () => new FileCredentialStore().Read(
+        agentToken: () => MachineCredentialStore.ThisMachine().Read(
             Gg.Runner.Execution.ExecutorConfiguration.AgentFor(declared).Locator),
         // WHEN THIS MACHINE'S CREDENTIAL ENDS. Thirty days here, and a person
         // is sitting in front of it, so the sentence matters more than the exit
@@ -2555,7 +2555,7 @@ static async Task<int> RunnerUpAsync()
         // file reaches the sinks. Read straight from the environment this
         // would be the stun-servers defect again, one variable over.
         apis: Settings.Value(Gg.Runner.Intent.TrackerConfiguration.ApisVariable, inForce),
-        secretFor: destination => new FileCredentialStore().Read(destination));
+        secretFor: destination => MachineCredentialStore.SecretFor(destination));
 
     // WHICH AGENT THIS MACHINE HAS, and none is a real answer. Until this line
     // existed the runner was handed no executor at all, so `gg runner serve`
@@ -2577,7 +2577,7 @@ static async Task<int> RunnerUpAsync()
         readers: Gg.Local.IntentConfiguration.FromEnvironment(
             Settings.Value(Gg.Local.IntentConfiguration.ReadersVariable, inForce),
             Settings.Value(Gg.Local.IntentConfiguration.ServedVariable, inForce)),
-        secretFor: locator => new FileCredentialStore().Read(locator),
+        secretFor: locator => MachineCredentialStore.SecretFor(locator),
         declaration: agentDeclaration);
     var agent = Gg.Runner.Execution.ExecutorConfiguration.AgentFromEnvironment(
         declaration: agentDeclaration);
@@ -2638,7 +2638,7 @@ static async Task<int> RunnerUpAsync()
     {
         return await Gg.Runner.RunnerHost.RunAsync(
             new Uri(baseAddress), registered.RunnerId, registered.RunnerToken, labels, holdFor,
-            new LocalCredentialResolver(new FileCredentialStore()), workspace, stopping.Token,
+            new LocalCredentialResolver(MachineCredentialStore.ThisMachine()), workspace, stopping.Token,
             destinations: destinations, trackers: trackers, executor: executor,
             allowance: Allowance(),
             // HOW THE AGENT AUTHENTICATES, from the same declaration the
@@ -2646,7 +2646,7 @@ static async Task<int> RunnerUpAsync()
             // channel's keeper writes - so a token sent over the channel is
             // the one the next probe measures.
             agent: agent,
-            agentToken: () => agent is null ? null : new FileCredentialStore().Read(agent.Locator),
+            agentToken: () => agent is null ? null : MachineCredentialStore.ThisMachine().Read(agent.Locator),
             // WHETHER A CONSOLE MAY MAKE THIS MACHINE RUN ITS AGENT'S LOGIN
             // CEREMONY: null unless this machine's own file says
             // accept-agent-login, through the one gate, for the same
@@ -2776,7 +2776,7 @@ static async Task<int> RunnerReadAsync(CliAction.RunnerRead read)
 
     if (read.Credential is { Length: > 0 } locator)
     {
-        var resolved = await new LocalCredentialResolver(new FileCredentialStore())
+        var resolved = await new LocalCredentialResolver(MachineCredentialStore.ThisMachine())
             .ResolveAsync(
                 new Gg.Contracts.CredentialReference
                 {
@@ -2924,7 +2924,7 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
         // offer CAN place, and which is read after for exactly that reason.
         apis: Settings.Value(
             Gg.Runner.Intent.TrackerConfiguration.ApisVariable, InForce.Configuration),
-        secretFor: destination => new FileCredentialStore().Read(destination));
+        secretFor: destination => MachineCredentialStore.SecretFor(destination));
 
     // WHERE A TOOL SERVER'S CREDENTIAL COMES FROM, and the only place this
     // process hands one over. The same store `gg credential add` writes; the
@@ -2937,7 +2937,7 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
         readers: Gg.Local.IntentConfiguration.FromEnvironment(
             Settings.Value(Gg.Local.IntentConfiguration.ReadersVariable, InForce.Configuration),
             Settings.Value(Gg.Local.IntentConfiguration.ServedVariable, InForce.Configuration)),
-        secretFor: locator => new FileCredentialStore().Read(locator),
+        secretFor: locator => MachineCredentialStore.SecretFor(locator),
         declaration: agentDeclaration);
     var agent = Gg.Runner.Execution.ExecutorConfiguration.AgentFromEnvironment(
         declaration: agentDeclaration);
@@ -2977,13 +2977,13 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
 
     return await Gg.Runner.RunnerHost.RunAsync(
         new Uri(baseAddress), identity.RunnerId, identity.RunnerToken, identity.Labels, holdFor,
-        new LocalCredentialResolver(new FileCredentialStore()), workspace, stopping.Token,
+        new LocalCredentialResolver(MachineCredentialStore.ThisMachine()), workspace, stopping.Token,
         destinations: destinations, trackers: trackers, executor: executor,
         allowance: Allowance(),
         // A MEMBER IS THE MACHINE THIS EXISTS FOR: no login of its own, so it
         // holds until a token is sent, and the hold is what keeps it reachable.
         agent: agent,
-        agentToken: () => agent is null ? null : new FileCredentialStore().Read(agent.Locator),
+        agentToken: () => agent is null ? null : MachineCredentialStore.ThisMachine().Read(agent.Locator),
 
         // THE LOGIN CEREMONY, through the resident's own gate. This member
         // opened accept-agent-login at first start - read back above, which
@@ -3068,7 +3068,7 @@ static Gg.Runner.AllowanceReporter? Allowance() =>
             Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable) is { } declared
             ? Gg.Runner.Execution.ExecutorConfiguration.AgentFor(declared)
             : null,
-        secretFor: locator => new FileCredentialStore().Read(locator));
+        secretFor: locator => MachineCredentialStore.SecretFor(locator));
 
 static async Task<int> RunnerMaintainAsync(string pool)
 {
@@ -3283,7 +3283,7 @@ static async Task<int> RunnerSweepAsync(string watch)
     // WHICH AGENT THIS MACHINE HAS, and none is a refusal rather than a loop
     // that pulls sweeps forever and reports every one unreachable.
     var agent = Gg.Runner.Execution.ExecutorConfiguration.ForSweeps(
-        secretFor: locator => new FileCredentialStore().Read(locator),
+        secretFor: locator => MachineCredentialStore.SecretFor(locator),
         declaration: Settings.Value(
             Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable, inForce));
 
@@ -3341,7 +3341,7 @@ static Func<Gg.Runner.Sweeps.ISweepProtocol, Func<CancellationToken, Task>?>? Re
     }
 
     var agent = Gg.Runner.Execution.ExecutorConfiguration.ForSweeps(
-        secretFor: locator => new FileCredentialStore().Read(locator),
+        secretFor: locator => MachineCredentialStore.SecretFor(locator),
         declaration: Settings.Value(
             Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable, inForce));
 
@@ -3425,7 +3425,7 @@ static string? SkillCredential(Gg.Runner.Vcs.RepoTarget target)
 {
     try
     {
-        return new FileCredentialStore().Read(
+        return MachineCredentialStore.ThisMachine().Read(
             Gg.Contracts.CredentialLocator.ForRepo(target.Slug));
     }
     catch (ArgumentException)

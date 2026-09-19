@@ -14,6 +14,17 @@ public enum ExpectationKind
     /// sees nothing.
     /// </remarks>
     FlightAppears,
+
+    /// <summary>
+    /// A gate this console answered, and the gate list still showing it.
+    /// </summary>
+    /// <remarks>
+    /// The door answers 202 and the gate closes a moment later, when the
+    /// decision's cascade reaches the receptor that closes it - in-process, but
+    /// behind a flush window. The console used to hold the screen for up to
+    /// thirty seconds watching for that; it answers now and looks.
+    /// </remarks>
+    GateAnswered,
 }
 
 /// <summary>
@@ -33,8 +44,14 @@ public sealed record Expectation
 {
     public required ExpectationKind Kind { get; init; }
 
-    /// <summary>The flight id the door answered with.</summary>
+    /// <summary>
+    /// The flight id the door answered with - or, for a gate, the flight number
+    /// the gate list names it by.
+    /// </summary>
     public required string Id { get; init; }
+
+    /// <summary>For a gate, which of the flight's obligations was answered.</summary>
+    public string? Obligation { get; init; }
 }
 
 /// <summary>What a notification is telling somebody.</summary>
@@ -52,6 +69,19 @@ public enum NotificationKind
     /// not listed" is a real state worth a sentence, whatever is behind it.
     /// </remarks>
     NotListedYet,
+
+    /// <summary>A gate this console answered has closed.</summary>
+    GateAnswered,
+
+    /// <summary>
+    /// A gate this console answered is still showing after the time it was given.
+    /// </summary>
+    /// <remarks>
+    /// Not a refusal - nothing has said no - and said for <see cref="NotListedYet"/>'s
+    /// reason: going quiet about something a person is waiting on is worse than
+    /// saying it has not happened yet.
+    /// </remarks>
+    GateStillWaiting,
 }
 
 /// <summary>

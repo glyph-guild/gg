@@ -1247,7 +1247,7 @@ public sealed class ConsoleLoop(
 
         return state with
         {
-            LastDecision = actions.Decide(gate.FlightNumber, gate.ObligationId, approved, reason),
+            LastDecision = actions.Decide(gate.FlightNumber, gate.ObligationId, approved, reason).Said,
         };
     }
 

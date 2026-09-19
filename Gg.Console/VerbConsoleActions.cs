@@ -66,7 +66,7 @@ public sealed class VerbConsoleActions(
     /// bad trade; the honest answer is that this caller cannot measure it.
     /// </para>
     /// </remarks>
-    public string Decide(string flight, string obligation, bool approved, string? reason)
+    public Receipt Decide(string flight, string obligation, bool approved, string? reason)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(flight);
         ArgumentException.ThrowIfNullOrWhiteSpace(obligation);
@@ -91,8 +91,8 @@ public sealed class VerbConsoleActions(
                 },
                 reason).GetAwaiter().GetResult();
 
-            return $"{flight}: {obligation} answered {outcome}. What it became is on the flight "
-                 + "when this refreshes.";
+            return new Receipt($"{flight}: {obligation} answered {outcome}. What it became is on "
+                 + "the flight when this refreshes.");
         }
         catch (Exception refusal) when (refusal is DecisionRefusedException
                                             or NotSignedInException
@@ -103,7 +103,7 @@ public sealed class VerbConsoleActions(
             // NAMED EXCEPTIONS, and the model stays intact. Swallowing everything
             // here would turn a bug into a console that looks like it answered - the
             // exact shape this whole change exists to remove.
-            return $"{flight}: {obligation} was not answered — {refusal.Message}";
+            return new Receipt($"{flight}: {obligation} was not answered — {refusal.Message}");
         }
     }
 

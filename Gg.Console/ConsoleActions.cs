@@ -46,7 +46,7 @@ public interface IConsoleActions
     /// runs again with it, and a rejection that says nothing sends the work back to
     /// be done the same way.
     /// </param>
-    string Decide(string flight, string obligation, bool approved, string? reason);
+    Receipt Decide(string flight, string obligation, bool approved, string? reason);
 
     /// <summary>
     /// Answers a standing nomination, and says what was sent.

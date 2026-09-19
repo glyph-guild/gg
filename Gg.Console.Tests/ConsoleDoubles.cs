@@ -291,13 +291,20 @@ internal static class ConsoleDoubles
 
         internal int Invited { get; private set; }
 
-        public string Decide(string flight, string obligation, bool approved, string? reason)
+        public Receipt Decide(string flight, string obligation, bool approved, string? reason)
         {
             Decided.Add((flight, obligation, approved, reason));
 
+            // THE GATE TO LOOK FOR, the way the real one answers once the door
+            // has taken the decision - and nothing to look for on a refusal.
             return refusing
-                ? "Nothing was decided — the control plane could not be reached."
-                : "decided";
+                ? new Receipt("Nothing was decided — the control plane could not be reached.")
+                : new Receipt("decided", new Expectation
+                {
+                    Kind = ExpectationKind.GateAnswered,
+                    Id = flight,
+                    Obligation = obligation,
+                });
         }
 
         public Receipt AnswerNomination(string nomination, bool open, string reason)

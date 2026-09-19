@@ -157,9 +157,11 @@ public sealed class Expectations(
     /// is for every other read this console makes.
     /// </remarks>
     public static Func<Expectation, Task<Func<AppState, AppState>?>> Looks(
-        Func<string, Task<FlightSummary?>> flight)
+        Func<string, Task<FlightSummary?>> flight,
+        Func<Task<GateList?>>? gates = null)
     {
         ArgumentNullException.ThrowIfNull(flight);
+        _ = gates;
 
         return expected => LookAsync(flight, expected);
     }

@@ -27,6 +27,9 @@ internal sealed class AConsolePlane : HttpMessageHandler
     private readonly int _flights;
     private readonly int _inTheAir;
 
+    /// <summary>What <c>/v1/gates</c> lists. Empty unless a test gives it one.</summary>
+    internal List<PendingGate> Gates { get; } = [];
+
     private int _live;
     private int _liveLogs;
 
@@ -139,6 +142,15 @@ internal sealed class AConsolePlane : HttpMessageHandler
         // naming the flight and not its number, which nobody has minted yet.
         // Unserved, it fell through to `{}` and a 200, which is a launch
         // missing its required id rather than a launch.
+        // THE DOOR A GATE IS ANSWERED THROUGH, answered the way the real one is:
+        // 202 and no body. The gate stays listed - closing it is the control
+        // plane's, a moment later - which is exactly the window this console
+        // used to hold the screen through.
+        if (request.Method == HttpMethod.Post && path.EndsWith("/decisions", StringComparison.Ordinal))
+        {
+            return new HttpResponseMessage(HttpStatusCode.Accepted);
+        }
+
         if (request.Method == HttpMethod.Post && path == "/v1/flights")
         {
             return new HttpResponseMessage(HttpStatusCode.Accepted)
@@ -266,7 +278,7 @@ internal sealed class AConsolePlane : HttpMessageHandler
                 new AllowanceList { Allowances = [] },
                 ProtocolJsonContext.Default.AllowanceList),
             "/v1/gates" => JsonSerializer.Serialize(
-                new GateList { Gates = [] }, ProtocolJsonContext.Default.GateList),
+                new GateList { Gates = [.. Gates] }, ProtocolJsonContext.Default.GateList),
             "/v1/credentials" => JsonSerializer.Serialize(
                 new CredentialList { Credentials = [] },
                 ProtocolJsonContext.Default.CredentialList),

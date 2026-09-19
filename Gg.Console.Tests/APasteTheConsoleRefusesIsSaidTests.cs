@@ -31,7 +31,7 @@ public class APasteTheConsoleRefusesIsSaidTests
         var (data, _) = AConsolePlane.Console();
         var actions = new VerbConsoleActions(data, new NeverAsked());
 
-        var said = actions.Fly(pasted, [], null);
+        var said = actions.Fly(pasted, [], null).Said;
 
         await Assert.That(said).StartsWith("Nothing was opened")
             .Because("a typo is a sentence on the activity line, not the end of the console.");

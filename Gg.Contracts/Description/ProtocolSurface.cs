@@ -1811,6 +1811,16 @@ public static class ProtocolSurface
             [typeof(RunnerReservationRequest)] = [],
             [typeof(RunnerReserved)] = ["runnerId", "reservedTo", "reservedAt"],
             [typeof(RunnerClaimRequest)] = [],
+            [typeof(EnrollmentTokenRequest)] = ["profile", "uses", "expiresInSeconds", "ownership", "reserve"],
+            [typeof(EnrollmentTokenMinted)] =
+                ["tokenId", "token", "profile", "uses", "expiresAt", "ownership", "reserved"],
+            [typeof(EnrollmentTokenSummary)] =
+                ["tokenId", "profile", "usesLeft", "expiresAt", "ownership", "reserved", "mintedBy",
+                 "mintedAt", "revokedAt"],
+            [typeof(EnrollmentTokenList)] = ["tokens"],
+            [typeof(EnrollmentTokenRevocation)] = [],
+            [typeof(RunnerEnrollmentRequest)] = ["token", "label", "protocolVersion", "publicKey", "machine"],
+            [typeof(RunnerEnrolled)] = ["runnerId", "runnerToken", "expiresAt", "profile", "ownership"],
             [typeof(RunnerOwnershipRequest)] = ["ownership"],
             [typeof(RunnerOwnership)] =
                 ["runnerId", "ownership", "owner", "ownerPrincipalId", "ownedAt", "reserved"],

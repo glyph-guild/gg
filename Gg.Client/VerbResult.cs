@@ -278,6 +278,11 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.RunnerRetired;
     }
 
+    public sealed record EnrollmentMinted(Gg.Contracts.EnrollmentTokenMinted Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.EnrollmentMinted;
+    }
+
     /// <summary>A runner's ownership after a claim, an unclaim or an admin's word.</summary>
     public sealed record RunnerOwned(Gg.Contracts.RunnerOwnership Value) : VerbResult
     {
@@ -513,6 +518,7 @@ public static class VerbResultKinds
     public const string CredentialRemoved = "credential-removed";
     public const string RunnerRetired = "runner-retired";
     public const string RunnerOwned = "runner-owned";
+    public const string EnrollmentMinted = "enrollment-minted";
     public const string RunnerReservation = "runner-reservation";
     public const string RunnerRepinned = "runner-repinned";
     public const string Bundle = "bundle";

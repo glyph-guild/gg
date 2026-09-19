@@ -1624,9 +1624,15 @@ public sealed class FlightCommands(
         // it shipped and no caller set either, so a tenant with a work kind
         // defined had no way to open a flight for it.
         string? workKind = null,
-        string? environment = null)
+        string? environment = null,
+        bool wait = false,
+        ObservationBound? bound = null,
+        SubmitAndObserve? loop = null)
     {
         var token = Session();
+        _ = wait;
+        _ = bound;
+        _ = loop;
 
         // The kind is DERIVED from which payload arrived, here and in one
         // place, so a caller never names a kind that disagrees with what it

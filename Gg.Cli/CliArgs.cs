@@ -143,7 +143,9 @@ public abstract record CliAction
         /// wants to see what the flight says - the runner opens a channel and an
         /// agent still does the work.
         /// </remarks>
-        bool Attended = false)
+        bool Attended = false,
+        /// <summary>Stay until the flight has a number, and say it.</summary>
+        bool Wait = false)
         : CliAction, IEmitsResult;
 
     /// <summary>

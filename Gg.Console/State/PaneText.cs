@@ -3573,11 +3573,22 @@ public static class PaneText
 
         if (state.Doctor is not { } report)
         {
-            text.AppendLine("  This console has not read a health report. It asks when it");
-            text.AppendLine("  opens and again on r; gg doctor answers the same question");
-            text.AppendLine("  from a terminal, which is where a remedy would be typed.");
+            // IT PROMISED `r`, which is the repositories tab and has never
+            // re-run anything here. What actually asks is the boot and a
+            // sign-in, so that is what the page says.
+            text.AppendLine("  This console has not read a health report. It asks");
+            text.AppendLine("  when it opens and when somebody signs in; gg doctor answers");
+            text.AppendLine("  the same question from a terminal, which is where a remedy");
+            text.AppendLine("  would be typed.");
             return text.ToString().TrimEnd();
         }
+
+        // WHEN IT WAS TAKEN, because it is no longer re-taken on every write. A
+        // page that does not say so reads as a check made a moment ago, and the
+        // one fact that would send somebody to gg doctor is that it was not.
+        text.AppendLine("  Taken when this console opened or somebody last signed in;");
+        text.AppendLine("  gg doctor asks again from a terminal.");
+        text.AppendLine();
 
         foreach (var check in report.Checks)
         {

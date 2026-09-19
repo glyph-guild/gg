@@ -2829,7 +2829,27 @@ static async Task<int> RunnerUpAsync()
             // machine's own setting and declared trackers, never from anything
             // on the wire. Null - off, no tracker declared, or no executor to
             // sweep with - is a runner that behaves exactly as it did.
-            sweeps: ResidentSweepsFor(inForce));
+            sweeps: ResidentSweepsFor(inForce),
+            // AND WHETHER IT MEETS ITS PROFILE (slice forty-three, rule 25):
+            // the profile it enrolled under, measured against the agent it
+            // declares, the references its own store resolves and the forges
+            // it can reach, and reported for bring-up gates to open and close
+            // by. A runner enrolled under no profile is answered 404 and
+            // measures nothing.
+            readiness: client => async cancellationToken =>
+            {
+                if (await client.ProfileAsync(cancellationToken) is not { } profile)
+                {
+                    return;
+                }
+
+                await client.ReportReadinessAsync(
+                    await Gg.Runner.ProfileReadiness.MeasureAsync(
+                        profile, agent?.Provider,
+                        MachineChecks.ResolveAsync, MachineChecks.ReachAsync,
+                        DateTimeOffset.UtcNow, cancellationToken),
+                    cancellationToken);
+            });
     }
     finally
     {

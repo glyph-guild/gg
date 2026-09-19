@@ -574,6 +574,32 @@ public static class ProtocolSurface
         },
         new()
         {
+            // WHAT THIS RUNNER WAS ENROLLED AS (slice forty-three, rule 25), for
+            // it to measure itself against. No id in the path, on renewal's
+            // reason: the credential names the runner. 404 is a runner that
+            // enrolled under no profile - every runner registered by a person.
+            Method = "GET",
+            Path = "/v1/runner/profile",
+            Audience = Audience.Runner,
+            Response = typeof(FleetProfileState),
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
+        new()
+        {
+            // WHETHER IT MEETS THAT PROFILE - the agent reading's shape and its
+            // reason: a measurement on its own route, 202 and nothing back. What
+            // the control plane made of it, a bring-up gate opening or closing,
+            // is a read of its own.
+            Method = "POST",
+            Path = "/v1/runner/readiness",
+            Audience = Audience.Runner,
+            Request = typeof(ReadinessReading),
+            Statuses = [202, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
+        new()
+        {
             Method = "POST",
             Path = "/v1/runners/{id}/heartbeat",
             Audience = Audience.Runner,

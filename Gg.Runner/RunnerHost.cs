@@ -276,7 +276,12 @@ public static class RunnerHost
         // runner that never asks. Only the root's store knows where; the ask
         // itself goes through the client built below, because a renewal is
         // authorized by exactly the credential it renews.
-        Func<DateTimeOffset, Task>? credentialRenewed = null)
+        Func<DateTimeOffset, Task>? credentialRenewed = null,
+        // HOW THIS MACHINE MEASURES ITSELF AGAINST ITS PROFILE, or null for a
+        // runner that does not (slice forty-three, rule 25). A factory for the
+        // sweep's reason: it speaks with the SAME client and credential this
+        // runner claims with, which is built below.
+        Func<IRunnerReadiness, Func<CancellationToken, Task>?>? readiness = null)
     {
         // Longer than the claim's long poll, or the client aborts every idle
         // claim and the long poll becomes a busy loop with extra steps.
@@ -482,7 +487,8 @@ public static class RunnerHost
             login: ceremony,
             sweepWhenIdle: sweeps?.Invoke(protocol),
             credential: credentialRenewed is null ? null : protocol,
-            credentialRenewed: credentialRenewed)
+            credentialRenewed: credentialRenewed,
+            measureReadiness: readiness?.Invoke(protocol))
         {
             HoldFor = holdFor,
         };

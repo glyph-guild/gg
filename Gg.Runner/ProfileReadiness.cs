@@ -35,8 +35,55 @@ public static class ProfileReadiness
         DateTimeOffset now,
         CancellationToken cancellationToken = default)
     {
-        await Task.CompletedTask;
+        ArgumentNullException.ThrowIfNull(profile);
+        ArgumentNullException.ThrowIfNull(resolve);
+        ArgumentNullException.ThrowIfNull(reach);
+
         var items = new List<ReadinessItem>();
+
+        if (profile.Profile.Agent is { } wanted)
+        {
+            var met = string.Equals(wanted, declaredAgent, StringComparison.Ordinal);
+            items.Add(new ReadinessItem
+            {
+                Kind = ReadinessKinds.Agent,
+                Subject = wanted,
+                Met = met,
+                Diagnosis = met
+                    ? null
+                    : declaredAgent is null
+                        ? $"the profile runs {wanted}, and this machine declares no agent - set "
+                        + "executor-binary to where its binary is."
+                        : $"the profile runs {wanted}, and this machine declares {declaredAgent}.",
+            });
+        }
+
+        foreach (var reference in profile.Profile.Credentials)
+        {
+            var why = await resolve(reference, cancellationToken);
+            items.Add(new ReadinessItem
+            {
+                Kind = ReadinessKinds.Credential,
+                Subject = reference,
+                Met = why is null,
+                Diagnosis = why,
+            });
+        }
+
+        foreach (var forge in profile.Profile.Forges)
+        {
+            var at = forge.IndexOf('=', StringComparison.Ordinal);
+            var (key, host) = at > 0 ? (forge[..at], forge[(at + 1)..]) : (forge, forge);
+
+            var why = await reach(host, cancellationToken);
+            items.Add(new ReadinessItem
+            {
+                Kind = ReadinessKinds.Forge,
+                Subject = key,
+                Met = why is null,
+                Diagnosis = why,
+            });
+        }
 
         return new ReadinessReading
         {

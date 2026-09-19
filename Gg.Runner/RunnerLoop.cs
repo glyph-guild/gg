@@ -387,11 +387,12 @@ public sealed class RunnerLoop(
     // cannot see the store - a renewal only this process knows about dies
     // with it, and the next start asks for a person.
     Func<DateTimeOffset, Task>? credentialRenewed = null,
+    // WHETHER THIS MACHINE MEETS ITS PROFILE, measured again on an idle turn
+    // every ProfileReadiness.Every (slice forty-three, rule 25), or null for a
+    // runner enrolled under none. Handed in for the sweep's reason: what it
+    // measures with - stores, network - is the composition root's.
     Func<CancellationToken, Task>? measureReadiness = null)
 {
-    /// <summary>Not yet called.</summary>
-    internal Func<CancellationToken, Task>? MeasureReadiness { get; } = measureReadiness;
-
     /// <summary>Seconds the control plane may hold a claim open.</summary>
     public const int ClaimWaitSeconds = 30;
 
@@ -419,6 +420,42 @@ public sealed class RunnerLoop(
     /// Cancellation is not a failure and is not reported as one.
     /// </para>
     /// </remarks>
+    /// <summary>When readiness was last measured, or null before the first time.</summary>
+    private DateTimeOffset? _readinessAt;
+
+    /// <summary>Measures this machine against its profile when it is due.</summary>
+    /// <remarks>
+    /// <b>Best-effort, and said when it fails</b>, as a sweep is: a bring-up
+    /// gate that cannot hear from this machine stays open, which is the honest
+    /// state, and the next turn tries again.
+    /// </remarks>
+    private async Task MeasureReadinessIfDueAsync(CancellationToken cancellationToken)
+    {
+        if (measureReadiness is not { } measure
+            || (_readinessAt is { } at && _clock.UtcNow - at < ProfileReadiness.Every))
+        {
+            return;
+        }
+
+        _readinessAt = _clock.UtcNow;
+
+        try
+        {
+            await measure(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception failed) when (failed is not OutOfMemoryException)
+        {
+            _observer.ControlPlaneRefused(
+                "This machine could not measure or report whether it meets its profile: "
+              + failed.Message,
+                ProfileReadiness.Every);
+        }
+    }
+
     private async Task SweepWhileIdleAsync(CancellationToken cancellationToken)
     {
         if (sweepWhenIdle is not { } sweep)
@@ -918,6 +955,11 @@ public sealed class RunnerLoop(
                         // that should start the moment it arrives. Each of the
                         // three is a reason not to fill the slot.
                         await SweepWhileIdleAsync(cancellationToken);
+
+                        // AND WHETHER IT MEETS ITS PROFILE, on the same plain
+                        // idle, so a bring-up gate closes a few minutes after
+                        // its item verifies rather than when anybody says so.
+                        await MeasureReadinessIfDueAsync(cancellationToken);
                     }
 
                     continue;

@@ -165,6 +165,14 @@ public class TheSignInModalReadsTests
         var state = new AppState
         {
             Mode = UiMode.Normal,
+
+            // TWO IN THE CORNER, so both of its flags are read: one is waiting,
+            // and more than one is what makes paging a key.
+            Notifications =
+            [
+                new Notification { Kind = NotificationKind.FlightOpened, FlightId = "f-1" },
+                new Notification { Kind = NotificationKind.FlightOpened, FlightId = "f-2" },
+            ],
             LiveVisible = true,
             Frozen = true,
             BrowseVisible = true,

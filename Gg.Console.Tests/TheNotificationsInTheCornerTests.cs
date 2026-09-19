@@ -76,8 +76,8 @@ public class TheNotificationsInTheCornerTests
         var several = KeymapContext.For(
             Showing(Opened("f-1", "GG-1"), Opened("f-2", "GG-2")) with { Mode = UiMode.Notifications });
 
-        await Assert.That(Keymap.Resolve(KeyStroke.Char('j'), several)).IsEqualTo(Command.NextNotification);
-        await Assert.That(Keymap.Resolve(KeyStroke.Char('k'), several)).IsEqualTo(Command.PreviousNotification);
+        await Assert.That(Keymap.Resolve(KeyStroke.RightKey, several)).IsEqualTo(Command.NextNotification);
+        await Assert.That(Keymap.Resolve(KeyStroke.LeftKey, several)).IsEqualTo(Command.PreviousNotification);
         await Assert.That(Keymap.Resolve(KeyStroke.Char('x'), several)).IsEqualTo(Command.DismissNotification);
         await Assert.That(Keymap.Resolve(KeyStroke.Char('>'), several)).IsEqualTo(Command.GoToNotification);
         await Assert.That(Keymap.Resolve(KeyStroke.Esc, several)).IsEqualTo(Command.CloseModal);
@@ -92,7 +92,7 @@ public class TheNotificationsInTheCornerTests
     {
         var one = KeymapContext.For(Showing(Opened("f-1", "GG-1")) with { Mode = UiMode.Notifications });
 
-        await Assert.That(Keymap.Resolve(KeyStroke.Char('j'), one)).IsNull();
+        await Assert.That(Keymap.Resolve(KeyStroke.RightKey, one)).IsNull();
         await Assert.That(Keymap.Buttons(one).Select(b => b.Label ?? "")).IsEquivalentTo(
             new[] { "Go to it", "Dismiss" });
     }

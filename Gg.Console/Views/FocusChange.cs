@@ -59,6 +59,15 @@ public enum FocusTarget
     /// <summary>The table of work kinds, which is the whole of that question.</summary>
     WorkKindChoices,
 
+    /// <summary>
+    /// The corner's buttons, while somebody has picked the notifications up.
+    /// </summary>
+    /// <remarks>
+    /// Not the modal: the corner is its own view, drawn from the model like the
+    /// airspace path's field, and the dialog is not on the screen at all.
+    /// </remarks>
+    Notifications,
+
     /// <summary>The registry a credential is being sent for, the same shape.</summary>
     CredentialRepositoryChoices,
 
@@ -205,8 +214,16 @@ public static class FocusChange
         WorkItemTab workItemTab = WorkItemTab.Details,
         WorkItemTab landedWorkItemTab = WorkItemTab.Details,
         WorkKindTab workKindTab = WorkKindTab.Kind,
-        WorkKindTab landedWorkKindTab = WorkKindTab.Kind) => (mode, landed) switch
+        WorkKindTab landedWorkKindTab = WorkKindTab.Kind,
+        bool notificationsHaveFocus = false) => (mode, landed) switch
         {
+            // THE CORNER, FOR THE AIRSPACE PATH'S REASON: not a modal, so the
+            // arms below would hand the keyboard to a dialog nobody can see.
+            // Left alone once it has it, or a render once a second would pull
+            // focus back to the first button under somebody moving along them.
+            (UiMode.Notifications, _) when notificationsHaveFocus => FocusTarget.LeaveAlone,
+            (UiMode.Notifications, _) => FocusTarget.Notifications,
+
             // THE FIELD FIRST, because it is not a modal and the arms below would
             // hand it to one that is not on screen.
             (UiMode.AirspacePath, _) when pathHasFocus => FocusTarget.LeaveAlone,

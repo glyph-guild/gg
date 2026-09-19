@@ -22,7 +22,13 @@ public sealed class TerminalGuiSession(
     // WHAT THE BOOT BROUGHT, folded by the screen on a tick. Last and
     // defaulted, like the argument above it, because every existing caller
     // passes positionally.
-    Func<AppState?>? booted = null) : IUiSession
+    Func<AppState?>? booted = null,
+
+    // WHAT THE CONSOLE'S WRITES SAID THEY DID, looked for on the tick. Last
+    // and defaulted, for reads' reason. BOTH arguments arrived while the
+    // other was out - taking either side's list whole would have dropped the
+    // other silently, and a defaulted parameter does not fail to compile.
+    Expectations? expectations = null) : IUiSession
 {
     public UiOutcome Run(AppState state)
     {
@@ -34,7 +40,8 @@ public sealed class TerminalGuiSession(
         using var app = Application.Create();
         app.Init();
         using var screen = new ConsoleScreen(
-            app, state, tails, runnerLog, refresh, signInLanded, reads, booted);
+            app, state, tails, runnerLog, refresh, signInLanded, reads, booted,
+            expectations);
         app.Run(screen);
         return new UiOutcome(screen.ExitCommand, screen.State);
     }

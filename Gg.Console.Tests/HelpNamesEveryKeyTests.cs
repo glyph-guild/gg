@@ -142,6 +142,13 @@ public class HelpNamesEveryKeyTests
         // which is what a sweep's flight is: the same key as the ticket, and
         // the other arm of it.
         from overALink in (bool[])[false, true]
+
+        // AND HOW MANY NOTIFICATIONS ARE IN THE CORNER, for the reason every
+        // clause above records, seven times now: none offers neither of the two
+        // keys that reach it, one offers them and no paging, two offer paging.
+        // One dimension of three rather than two flags of two, because "several"
+        // with none waiting is not a state anything can be in.
+        from notifications in (int[])[0, 1, 2]
         select new KeymapContext(
             mode, showing, frozen, takeable, handedBack, overADocument,
             ReadingTheDocument: false, OverAFold: overAFold,
@@ -161,6 +168,8 @@ public class HelpNamesEveryKeyTests
             OverALink = overALink,
             AllowanceIsMine = allowanceIsMine,
             FleetAllowancesOffered = fleetOffered,
+            NotificationsWaiting = notifications > 0,
+            NotificationsSeveral = notifications > 1,
             Refresh = refresh,
         };
 
@@ -493,7 +502,12 @@ public class HelpNamesEveryKeyTests
         // board's one dimension rather than a dimension of its own: a row that
         // opened into a flight is never a standing nomination, so the two are
         // exclusive and the cross says so by construction.
-        await Assert.That(members.Count).IsEqualTo(29)
+        // THIRTY-ONE SINCE THE CORNER, whose two keys exist only while a
+        // notification is in it and whose paging exists only with more than
+        // one. Two flags rather than one because they are not the same
+        // question - something to show, and something to page between - and
+        // the second is false for most of the first's life.
+        await Assert.That(members.Count).IsEqualTo(31)
             .Because("Everywhere() crosses every one of these, or OverAMachineSomebodyOwns() "
                    + "holds it beside the cross - and a member in neither would leave the "
                    + "completeness check above quietly incomplete, which is exactly how the "

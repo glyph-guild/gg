@@ -227,11 +227,24 @@ public class TheInstallerVerifiesWhatItInstallsTests
                 esac
                 """);
 
+            // A RELEASED PLATFORM, WHATEVER THIS ONE IS. The script refuses a
+            // machine gg is not released for, which is right for a machine and
+            // wrong for a test: an arm64 Linux container running this suite
+            // would be refused before anything under test ran.
+            Stub("uname", """
+                #!/bin/sh
+                case "$1" in
+                  -s) echo Linux ;;
+                  -m) echo x86_64 ;;
+                  *) echo Linux ;;
+                esac
+                """);
+
             // THE REAL TOOLS, AND NOT THE REAL VERIFIER. A PATH of symlinks
             // rather than /usr/bin, because a build agent has one installed in
             // /usr/bin and the fallback would never be exercised there.
             foreach (var tool in (string[])
-                     ["sh", "uname", "mktemp", "mkdir", "tar", "gzip", "mv", "ln", "rm", "rmdir",
+                     ["sh", "mktemp", "mkdir", "tar", "gzip", "mv", "ln", "rm", "rmdir",
                       "grep", "cut", "sha256sum", "shasum", "chmod", "cat", "stty", "id", "dirname"])
             {
                 var real = ((string[])["/usr/bin", "/bin", "/usr/sbin", "/sbin"])

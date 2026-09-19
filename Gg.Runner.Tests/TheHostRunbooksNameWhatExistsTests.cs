@@ -125,7 +125,7 @@ public class TheHostRunbooksNameWhatExistsTests
     [Test]
     public async Task Nothing_a_person_follows_resolves_latest()
     {
-        // `releases/latest` is whichever release GitHub marks latest, and the
+        // `releases/latest` is whichever release the forge marks latest, and the
         // contracts workflow publishes one on most pushes - so the README's
         // install link resolved to a contract release with no gg assets, and
         // 404'd.

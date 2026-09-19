@@ -481,8 +481,14 @@ public class EndpointSurfaceTests
         // sentence; and a new governed prefix, /v1/fleet, with POST and GET
         // /v1/fleet/tokens and POST /v1/fleet/tokens/{id}/revocation. The types
         // are new, so the contract moves to 0.201.0.
+        //
+        // Moved for bring-up, slice forty-three rule 25: GET /v1/runner/profile,
+        // what a runner enrolled as (404 for one enrolled under none), and POST
+        // /v1/runner/readiness, the agent reading's shape - its own route, 202
+        // and nothing back. Runner audience, no id in either path. The reading
+        // is new, so the contract moves to 0.202.0.
         await Assert.That(Fingerprint())
-            .IsEqualTo("71ea445a6f8039fac3ba342ccc6dcc0cab17e82644ab9cf9006e7be5bdebf55f")
+            .IsEqualTo("fe18ce1dab3de713418ed4a4e3fd64677047b66fc92778f243abd939db3ebf89")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

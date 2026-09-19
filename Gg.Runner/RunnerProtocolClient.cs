@@ -49,6 +49,8 @@ namespace Gg.Runner;
 [JsonSerializable(typeof(MemberCredentialRequest))]
 [JsonSerializable(typeof(MemberCredentialMinted))]
 [JsonSerializable(typeof(RunnerCredentialRenewed))]
+[JsonSerializable(typeof(FleetProfileState))]
+[JsonSerializable(typeof(ReadinessReading))]
 public sealed partial class RunnerJsonContext : JsonSerializerContext;
 
 /// <summary>
@@ -67,7 +69,7 @@ public sealed partial class RunnerJsonContext : JsonSerializerContext;
 /// </para>
 /// </remarks>
 public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerToken)
-    : IRunnerProtocol, Pools.IPoolProtocol, IRunnerCredential, Sweeps.ISweepProtocol
+    : IRunnerProtocol, Pools.IPoolProtocol, IRunnerCredential, Sweeps.ISweepProtocol, IRunnerReadiness
 {
     private readonly HttpClient _httpClient = httpClient;
     private readonly string _runnerToken = runnerToken;
@@ -186,6 +188,38 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
         using var request = Request(HttpMethod.Post, "/v1/allowances/readings");
         request.Content = JsonContent.Create(
             reading, RunnerJsonContext.Default.AllowanceReading);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        ThrowIfProtocolRefused(response);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task<FleetProfileState?> ProfileAsync(CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/runner/profile");
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        ThrowIfProtocolRefused(response);
+
+        // NONE, whether this runner enrolled under no profile or the control
+        // plane is one that has no such door yet - both mean nothing to measure.
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync(
+            RunnerJsonContext.Default.FleetProfileState, cancellationToken);
+    }
+
+    public async Task ReportReadinessAsync(
+        ReadinessReading reading, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(reading);
+
+        using var request = Request(HttpMethod.Post, "/v1/runner/readiness");
+        request.Content = JsonContent.Create(reading, RunnerJsonContext.Default.ReadinessReading);
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         ThrowIfProtocolRefused(response);

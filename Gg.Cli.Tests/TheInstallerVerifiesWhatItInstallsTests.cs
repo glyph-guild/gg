@@ -24,7 +24,17 @@ namespace Gg.Cli.Tests;
 /// a stubbed download, a stubbed verifier and a stubbed gg, on a PATH with no
 /// real verifier on it - the machine this is for has none either.
 /// </para>
+/// <para>
+/// <b>Never beside a real handshake, and one at a time.</b> Each test here runs
+/// a shell that starts a dozen more processes, and a handshake starved of CPU on
+/// a two-core runner reports <c>NoRouteBetweenUs</c> - the flake
+/// <c>AConsoleReachesARunnerTests</c> records and serialises its own peers
+/// against. Run beside these, <c>The_runner_knows_the_console_arrived</c> failed
+/// that way on CI three runs in a row, where it had passed on every recent main.
+/// The key is that class's, because the reason is: CPU a handshake is waiting on.
+/// </para>
 /// </remarks>
+[NotInParallel("a-real-webrtc-handshake")]
 public class TheInstallerVerifiesWhatItInstallsTests
 {
     private const string ControlPlane = "https://cp.example";

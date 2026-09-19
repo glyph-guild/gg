@@ -252,6 +252,13 @@ public sealed record WatchDocument
     public WatchBounds? Bounds { get; init; }
 
     /// <summary>
+    /// Whose work this watch's flights are: <see cref="LinesOfWork.Tenant"/>,
+    /// or one person spelled as <see cref="PersonSpelling"/> reads one. Null
+    /// means the tenant.
+    /// </summary>
+    public string? For { get; init; }
+
+    /// <summary>
     /// The schema's own rule, shared so gg and the control plane cannot
     /// disagree about what a valid watch is. Null means valid; anything else is
     /// the refusal, Article XI-shaped.

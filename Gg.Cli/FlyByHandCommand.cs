@@ -83,7 +83,20 @@ public static class FlyByHandCommand
         // asynchronously, so a launch can answer before it exists - and a gate is
         // asked for by the reference a person types. Saying so beats a prompt
         // that silently never appears.
-        if (launched.Value.FlightNumber is not { Length: > 0 } number)
+        //
+        // AND IT IS ASKED FOR, because "can answer before it exists" was "always
+        // does": the door never sends one, so this said "no number yet" on every
+        // real flight and offered no gate at all. The tests launched with a
+        // number the door does not give. By now the hold has returned - the
+        // flight has been flown - so its number exists, and the id the door DID
+        // give is how to ask for it.
+        var number = launched.Value.FlightNumber is { Length: > 0 } sent
+            ? sent
+            : numberOf is null
+                ? null
+                : await numberOf(launched.Value.FlightId, cancellationToken);
+
+        if (number is not { Length: > 0 })
         {
             say("This flight has no number yet, so anything it is waiting on is not offered "
               + "here. `gg gates` will have it once the number lands.");
@@ -174,5 +187,19 @@ public static class FlyByHandCommand
     }
 
     /// <summary>Whether a decision the person gave here was recorded.</summary>
-    public static bool Recorded(VerbResult decided) => true;
+    /// <remarks>
+    /// <para>
+    /// <b>It was <c>recorded is not null</c></b>, and a <see cref="VerbResult"/>
+    /// always is - so a decision the control plane refused was reported as
+    /// "Recorded". The answer is in the observation.
+    /// </para>
+    /// <para>
+    /// <b>Not yet visible is not a refusal.</b> The bound ran out before the read
+    /// surface caught up, which says nothing about whether the decision was
+    /// written - and "was not recorded, nothing changed" would be the false
+    /// claim, on the path where it is most likely to be believed.
+    /// </para>
+    /// </remarks>
+    public static bool Recorded(VerbResult decided) =>
+        decided is not VerbResult.Decided { Value.Observation.State: ObservationStates.Refused };
 }

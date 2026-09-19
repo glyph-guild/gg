@@ -2265,8 +2265,12 @@ static async Task<int> HandAsync(CliAction.Fly fly)
                 new DecisionObservations { Interactive = true, EvidenceRendered = true },
                 reason);
 
-            return recorded is not null;
-        });
+            return FlyByHandCommand.Recorded(recorded);
+        },
+        // THE NUMBER THE DOOR COULD NOT GIVE, asked for once the flight has been
+        // flown - by the id it did give, on the session that opened it.
+        numberOf: async (flightId, token) =>
+            (await client.GetFlightAsync(session.SessionToken, flightId, token))?.FlightNumber);
 }
 
 /// <summary>

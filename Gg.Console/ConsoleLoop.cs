@@ -371,9 +371,14 @@ public sealed class ConsoleLoop(
                                 HandFlightProblem =
                                     "This console is not configured to fly flights by hand.",
                             }
-                            : flyByHand(
-                                Closed(state),
-                                () => Chosen(outcome.Exit, editor, compose).Edit(""))));
+                            // AND READ AGAIN WHEN THE TERMINAL COMES BACK - the
+                            // FlyByHand arm's reason, which is this arm's too.
+                            : Reloaded(
+                                flyByHand(
+                                    Closed(state),
+                                    () => Chosen(outcome.Exit, editor, compose).Edit("")),
+                                reload,
+                                asked: false)));
                     break;
 
                 case Command.OpenFlight:
@@ -910,7 +915,15 @@ public sealed class ConsoleLoop(
                             HandFlightProblem =
                                 "This console is not configured to fly flights by hand.",
                         }
-                        : flyByHand(state, () => editor.Edit(""));
+                        // AND READ AGAIN WHEN THE TERMINAL COMES BACK. The child
+                        // holds it for as long as the work takes, so the flight
+                        // has been created, flown and usually landed by the time
+                        // this returns - and the console used to come back
+                        // showing the list from before it, until the tick. What
+                        // the loop knows is that the branch that can create a
+                        // flight ran; whether the sentence it got back means one
+                        // was created is prose, and prose does not decide this.
+                        : Reloaded(flyByHand(state, () => editor.Edit("")), reload, asked: false);
 
                     // OVER THE CONSOLE, when nothing was created. The refusal is
                     // three sentences and the activity line is one, so the

@@ -160,8 +160,20 @@ public class WhoAmISaysYourSubjectTests
             Roles.Watch, "my-queue", Roles.Root, personal: true, estateRoot: AnEstate());
 
         await Assert.That(((VerbResult.NameDeclared)declared).Value.For).IsEqualTo(Me);
-        await Assert.That(VerbOutput.ToText(declared)).Contains($"for: {Me}")
-            .Because("the watch is not written yet, so the answer says what its first line is.");
+
+        var line = VerbOutput.ToText(declared)
+            .Split('\n')
+            .Select(l => l.Trim())
+            .Single(l => l.StartsWith("for: ", StringComparison.Ordinal));
+
+        // WHAT A PERSON PASTES MUST READ BACK AS THEM, or the line is a
+        // subject typed wrong on their behalf.
+        var pasted = EnvelopeYaml.ParseWatch(line + "\n" + EnvelopeText.Render(AWatch()));
+
+        await Assert.That(pasted.Diagnosis).IsNull()
+            .Because("the answer said to put this line first, so it has to parse there. "
+                   + "Refused with: " + (pasted.Diagnosis ?? "nothing"));
+        await Assert.That(pasted.Watch!.For).IsEqualTo(Me);
     }
 
     [Test]

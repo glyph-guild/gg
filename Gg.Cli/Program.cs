@@ -91,7 +91,8 @@ return CliArgs.Parse(args) switch
         retiring.Json, c => c.RetireNameAsync(retiring.Name)),
     CliAction.AirspaceName declaring => await EmitAsync(
         declaring.Json,
-        c => c.DeclareNameAsync(declaring.Role, declaring.Name, declaring.Parent)),
+        c => c.DeclareNameAsync(
+            declaring.Role, declaring.Name, declaring.Parent, declaring.Personal, EstateRoot())),
     CliAction.RepositoryRegister entry => await EmitAsync(
         entry.Json,
         c => c.RegisterRepositoryAsync(

@@ -1720,7 +1720,7 @@ public static class ProtocolSurface
             [typeof(SessionIssued)] = ["sessionToken", "expiresAt", "principalDisplay", "tenantId"],
             [typeof(WhoAmI)] =
                 ["principalId", "principalDisplay", "tenantId", "expiresAt", "notices",
-                 "isAdmin"],
+                 "isAdmin", "subject"],
             // An invitation names nobody: no address, no display, no tenant. The
             // request really is empty, and the empty set is the assertion.
             [typeof(InvitationRequest)] = [],
@@ -1916,10 +1916,11 @@ public static class ProtocolSurface
                 ["pool", "action", "outcome", "imageDigest", "scopeProbedAt", "measuredAt",
                  "diagnosis"],
             [typeof(PoolLedger)] = ["pools"],
-            [typeof(DeclareNameRequest)] = ["name", "role", "parent", "subjectBinding"],
+            [typeof(DeclareNameRequest)] =
+                ["name", "role", "parent", "subjectBinding", "personal"],
             [typeof(TopologyName)] =
                 ["name", "role", "parent", "subjectBinding", "description", "declaredBy",
-                 "declaredAt"],
+                 "declaredAt", "for"],
             [typeof(EnvelopeTopology)] = ["names"],
             [typeof(RegisterRepositoryRequest)] =
                 ["name", "provider", "id", "path", "credential", "ref", "narrowings",

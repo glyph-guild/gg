@@ -736,6 +736,7 @@ public static class CliArgs
         "    apply --declare-names        declare names it needs, under root, first",
         "gg airspace retire <name>      retire a name - always opens a gate",
         "gg airspace name <role> <name> [--under <parent>]  declare a name a document can reach",
+        "gg airspace name watch <name> --personal  declare a watch that is yours alone, with no gate",
         "gg airspace repositories add --name <n> --provider <p> --id <id> --path <path>",
         "    [--ref <ref>] [--credential required|none] [--narrowings <dir>]",
         "                               make a repository nameable - a new one rides a gate",
@@ -1138,6 +1139,16 @@ public static class CliArgs
               + "payments --provider forge --id R_123 --path acme/payments. The registry "
               + "itself is on the console's Repositories tab."),
 
+            // THE ASKER'S OWN WATCH. ADR-0024: a watch is the tenant's or one
+            // person's, and only a watch has a person - a personal work kind or
+            // narrowing would be one person's governance of everybody's work.
+            ["airspace", "name", Gg.Contracts.Roles.Watch, var named, "--personal"] =>
+                new CliAction.AirspaceName(
+                    Gg.Contracts.Roles.Watch, named, Gg.Contracts.Roles.Root, json, Personal: true),
+            ["airspace", "name", _, _, "--personal"] => Unknown(
+                "--personal is for a watch and nothing else - gg airspace name watch my-queue "
+              + "--personal. A watch is the tenant's or one person's; a personal work kind or "
+              + "narrowing would be one person's governance of everybody's work."),
             ["airspace", "name", var role, var named, "--under", var parent] =>
                 new CliAction.AirspaceName(role, named, parent, json),
             ["airspace", "name", var role, var named] =>

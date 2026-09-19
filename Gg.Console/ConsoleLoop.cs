@@ -863,10 +863,15 @@ public sealed class ConsoleLoop(
                     // person actually sees: answer a gate and it stayed in the
                     // list, because nothing reloaded. A decision changes what is
                     // waiting, so what is waiting is read again.
-                    state = Reloaded(
+                    //
+                    // AND LOOKED FOR RATHER THAN RE-READ, when the answer was
+                    // taken: the gate closes a moment after the door answers,
+                    // so a re-read here ran before it had. A refusal names no
+                    // gate and is re-read as it always was.
+                    state = ReadAgainUnlessWatching(
+                        state,
                         Decided(state, actions, editor, outcome.Exit == Command.ApproveGate),
-                        reload,
-                        asked: false);
+                        reload);
                     break;
 
                 case Command.OpenNomination:
@@ -1245,10 +1250,9 @@ public sealed class ConsoleLoop(
             }
         }
 
-        return state with
-        {
-            LastDecision = actions.Decide(gate.FlightNumber, gate.ObligationId, approved, reason).Said,
-        };
+        var answered = actions.Decide(gate.FlightNumber, gate.ObligationId, approved, reason);
+
+        return Expect(state with { LastDecision = answered.Said }, answered);
     }
 
     /// <summary>

@@ -106,11 +106,7 @@ public sealed class Expectations(
 
             if (waiting.Running is null && now - waiting.Since >= Patience)
             {
-                state = Raised(Unasked(state, expected), new Notification
-                {
-                    Kind = NotificationKind.NotListedYet,
-                    FlightId = expected.Id,
-                });
+                state = Raised(Unasked(state, expected), About(state, expected, seen: false));
                 _waiting.Remove(expected);
                 raised = true;
                 continue;
@@ -156,14 +152,42 @@ public sealed class Expectations(
     /// request on a task outside the UI thread is the composition root's, as it
     /// is for every other read this console makes.
     /// </remarks>
+    /// <param name="gates">
+    /// The gate list, for a gate this console answered. A console composed
+    /// without one never finds a gate closed, and says so when the patience runs
+    /// out rather than claiming it did.
+    /// </param>
     public static Func<Expectation, Task<Func<AppState, AppState>?>> Looks(
         Func<string, Task<FlightSummary?>> flight,
         Func<Task<GateList?>>? gates = null)
     {
         ArgumentNullException.ThrowIfNull(flight);
-        _ = gates;
 
-        return expected => LookAsync(flight, expected);
+        return expected => LookAsync(flight, gates, expected);
+    }
+
+    /// <summary>
+    /// The gate list as it now is, and the queue folded from it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The queue is re-derived, not edited.</b> It is what needs somebody,
+    /// computed from flights, logs, runners, gates and the board together; a row
+    /// taken out by hand would be a second opinion about which rows those make.
+    /// And the detail under the cursor is re-read the way a refresh re-reads it,
+    /// because the row it was about may be the one that left.
+    /// </remarks>
+    public static AppState GatesNow(AppState state, GateList gates)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(gates);
+
+        return Reducer.Detail(state with
+        {
+            Gates = gates,
+            Queue = state.Flights is { } flights && state.Runners is { } runners
+                ? ConsoleProjection.Queue(flights, state.Logs, runners, gates, state.Board)
+                : state.Queue,
+        });
     }
 
     /// <summary>
@@ -218,15 +242,34 @@ public sealed class Expectations(
     }
 
     private static async Task<Func<AppState, AppState>?> LookAsync(
-        Func<string, Task<FlightSummary?>> flight, Expectation expected)
+        Func<string, Task<FlightSummary?>> flight,
+        Func<Task<GateList?>>? gates,
+        Expectation expected)
     {
-        var found = expected.Kind switch
+        switch (expected.Kind)
         {
-            ExpectationKind.FlightAppears => await flight(expected.Id),
-            _ => null,
-        };
+            case ExpectationKind.FlightAppears:
+                var found = await flight(expected.Id);
+                return found is null ? null : state => Listed(state, found);
 
-        return found is null ? null : state => Listed(state, found);
+            case ExpectationKind.GateAnswered:
+                // NOTHING TO ASK WITH IS NOT AN ANSWER. Without a gate list
+                // there is no way to see it close, so nothing is folded and the
+                // patience says so when it runs out.
+                if (gates is null || await gates() is not { } listed)
+                {
+                    return null;
+                }
+
+                var still = listed.Gates.Any(g =>
+                    string.Equals(g.FlightNumber, expected.Id, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(g.ObligationId, expected.Obligation, StringComparison.Ordinal));
+
+                return still ? null : state => GatesNow(state, listed);
+
+            default:
+                return null;
+        }
     }
 
     /// <summary>A look, never a throw: a delegate that throws is a look that failed.</summary>
@@ -255,17 +298,43 @@ public sealed class Expectations(
     };
 
     /// <summary>What was expected, seen - and said, with what the door could not give.</summary>
-    private static AppState Seen(AppState state, Expectation expected)
-    {
-        var flight = state.Flights?.Flights.FirstOrDefault(f => f.FlightId == expected.Id);
+    private static AppState Seen(AppState state, Expectation expected) =>
+        Raised(Unasked(state, expected), About(state, expected, seen: true));
 
-        return Raised(Unasked(state, expected), new Notification
+    /// <summary>What a notification about an expectation names.</summary>
+    /// <remarks>
+    /// <b>By the flight's id wherever the list has it</b>, because that is what
+    /// going to it looks for. A gate names its flight by number, so the id is
+    /// found through the list, and the number stands in only where the list does
+    /// not have the flight yet.
+    /// </remarks>
+    private static Notification About(AppState state, Expectation expected, bool seen)
+    {
+        var flights = state.Flights?.Flights ?? [];
+
+        return expected.Kind switch
         {
-            Kind = NotificationKind.FlightOpened,
-            FlightId = expected.Id,
-            FlightNumber = flight?.FlightNumber,
-            Name = flight?.Name,
-        });
+            ExpectationKind.GateAnswered => new Notification
+            {
+                Kind = seen ? NotificationKind.GateAnswered : NotificationKind.GateStillWaiting,
+                FlightId = flights.FirstOrDefault(f => string.Equals(
+                        f.FlightNumber, expected.Id, StringComparison.OrdinalIgnoreCase))?.FlightId
+                    ?? expected.Id,
+                FlightNumber = expected.Id,
+                Name = expected.Obligation,
+            },
+
+            _ when seen && flights.FirstOrDefault(f => f.FlightId == expected.Id) is var flight =>
+                new Notification
+                {
+                    Kind = NotificationKind.FlightOpened,
+                    FlightId = expected.Id,
+                    FlightNumber = flight?.FlightNumber,
+                    Name = flight?.Name,
+                },
+
+            _ => new Notification { Kind = NotificationKind.NotListedYet, FlightId = expected.Id },
+        };
     }
 
     /// <summary>

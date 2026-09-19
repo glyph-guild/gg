@@ -3492,6 +3492,8 @@ public static class PaneText
         {
             NotificationKind.FlightOpened => "flight opened",
             NotificationKind.NotListedYet => "not listed yet",
+            NotificationKind.GateAnswered => "gate answered",
+            NotificationKind.GateStillWaiting => "gate still showing",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(state), showing.Kind, "unknown notification"),
         };
@@ -3525,6 +3527,21 @@ public static class PaneText
             [
                 $"accepted, and not listed after {(int)Expectations.Patience.TotalSeconds}s",
                 $"flight {unlisted.FlightId}",
+            ],
+
+            // WHAT IS KNOWN, AND NOT WHAT IT BECAME. The gate closed; whether the
+            // flight then lands or loops again is the flight's to say, on its own
+            // row.
+            { Kind: NotificationKind.GateAnswered } answered =>
+            [
+                $"{answered.FlightNumber ?? answered.FlightId} is waiting on nobody now",
+                Clean(answered.Name ?? ""),
+            ],
+            { Kind: NotificationKind.GateStillWaiting } still =>
+            [
+                $"answered, and {still.FlightNumber ?? still.FlightId} still shows the gate "
+                + $"after {(int)Expectations.Patience.TotalSeconds}s",
+                Clean(still.Name ?? ""),
             ],
             { } other => throw new ArgumentOutOfRangeException(
                 nameof(state), other.Kind, "unknown notification"),

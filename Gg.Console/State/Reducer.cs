@@ -1860,9 +1860,14 @@ public static class Reducer
         var shown = PaneText.Shown(state.Flights);
         var row = -1;
 
+        // BY ID, OR BY NUMBER. A gate names its flight by number, and a console
+        // that had not listed the flight when the gate closed could only say it
+        // that way.
         for (var i = 0; i < shown.Count; i++)
         {
-            if (string.Equals(shown[i].FlightId, about.FlightId, StringComparison.Ordinal))
+            if (string.Equals(shown[i].FlightId, about.FlightId, StringComparison.Ordinal)
+                || (about.FlightNumber is { Length: > 0 } number
+                    && string.Equals(shown[i].FlightNumber, number, StringComparison.OrdinalIgnoreCase)))
             {
                 row = i;
                 break;

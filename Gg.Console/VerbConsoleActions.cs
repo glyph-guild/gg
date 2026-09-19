@@ -66,6 +66,22 @@ public sealed class VerbConsoleActions(
     /// bad trade; the honest answer is that this caller cannot measure it.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Submit and look once: the verb's patience, with none of the waiting.
+    /// </summary>
+    /// <remarks>
+    /// <b>The waiting moved to the watcher.</b> The verb's default watches the
+    /// gate list for up to thirty seconds, which is right for a script that
+    /// needs the answer and wrong between two UI sessions, where it is thirty
+    /// seconds of a screen held with nothing on it.
+    /// </remarks>
+    private static readonly ObservationBound AtOnce = new()
+    {
+        Wait = TimeSpan.Zero,
+        FirstDelay = TimeSpan.Zero,
+        MaxDelay = TimeSpan.Zero,
+    };
+
     public Receipt Decide(string flight, string obligation, bool approved, string? reason)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(flight);
@@ -81,7 +97,7 @@ public sealed class VerbConsoleActions(
 
         try
         {
-            _ = _data.DecideAsync(
+            var decided = _data.DecideAsync(
                 flight, obligation, outcome,
                 new DecisionObservations
                 {
@@ -89,10 +105,28 @@ public sealed class VerbConsoleActions(
                     EvidenceRendered = true,
                     SecondsToDecide = null,
                 },
-                reason).GetAwaiter().GetResult();
+                reason,
+                bound: AtOnce).GetAwaiter().GetResult();
 
-            return new Receipt($"{flight}: {obligation} answered {outcome}. What it became is on "
-                 + "the flight when this refreshes.");
+            // A REFUSAL IS STILL SAID AT ONCE - the door's own no, which the
+            // submit returns before anything is looked at.
+            if (decided is VerbResult.Decided { Value.Observation: { State: ObservationStates.Refused } refused })
+            {
+                return new Receipt($"{flight}: {obligation} was not answered — {refused.Because}");
+            }
+
+            // AND ANYTHING ELSE IS LOOKED FOR. The gate closes when the
+            // decision's cascade reaches the receptor that closes it; whether
+            // the one look already saw that or not, the watcher folds the gate
+            // list and says so.
+            return new Receipt(
+                $"{flight}: {obligation} answered {outcome}. It leaves the queue when the gate closes.",
+                new Expectation
+                {
+                    Kind = ExpectationKind.GateAnswered,
+                    Id = flight,
+                    Obligation = obligation,
+                });
         }
         catch (Exception refusal) when (refusal is DecisionRefusedException
                                             or NotSignedInException

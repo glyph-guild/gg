@@ -160,9 +160,11 @@ public sealed class ConsoleData(
         string outcome,
         DecisionObservations observations,
         string? reason = null,
-        CancellationToken cancellationToken = default) =>
+        CancellationToken cancellationToken = default,
+        ObservationBound? bound = null) =>
         _commands.DecideAsync(
             reference, obligation, outcome, observations, reason,
+            bound: bound,
             cancellationToken: cancellationToken);
 
     /// <summary>

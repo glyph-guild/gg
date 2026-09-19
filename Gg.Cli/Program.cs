@@ -1334,9 +1334,14 @@ static async Task<int> LaunchConsoleAsync()
     // read, because the console has no second way to get data - and the row it
     // finds is folded in with a notification. On a task, AutoRefresh's reason:
     // the tick folds an answer that has landed and never waits for one.
-    var lookFor = Gg.Console.Expectations.Looks(async id =>
-        await data.ListAsync() is VerbResult.Flights { Value: var listed }
-            ? listed.Flights.FirstOrDefault(f => f.FlightId == id)
+    var lookFor = Gg.Console.Expectations.Looks(
+        async id =>
+            await data.ListAsync() is VerbResult.Flights { Value: var listed }
+                ? listed.Flights.FirstOrDefault(f => f.FlightId == id)
+                : null,
+        // AND A GATE ANSWERED, through `gg gates` for the same reason.
+        gates: async () => await data.GatesAsync() is VerbResult.Gates { Value: var waiting }
+            ? waiting
             : null);
     var expectations = new Gg.Console.Expectations(
         expected => Task.Run(() => lookFor(expected)), new SystemClock());

@@ -226,6 +226,15 @@ public sealed record MachineRole
     /// </remarks>
     public bool AirspaceIsRepository { get; init; }
 
+    /// <summary>The gg services installed on this machine, by their file names.</summary>
+    /// <remarks>
+    /// <b>What tells a shell from a unit.</b> A unit carries its own
+    /// environment and runs under its own user with its own runner identity, and
+    /// none of that is visible from the shell a person runs the doctor in - so
+    /// without this, a healthy pool host read as one configured for nothing.
+    /// </remarks>
+    public IReadOnlyList<string> InstalledUnits { get; init; } = [];
+
     /// <summary>A machine configured for nothing in particular.</summary>
     public static MachineRole None { get; } = new();
 
@@ -685,6 +694,11 @@ public sealed class Doctor(
                     + "machine should serve, or set GG_VCS_HOSTS for this shell only.",
             },
 
+        PoolCheck(role),
+    ];
+
+    /// <summary>Whether this host maintains a pool, as far as this process can see.</summary>
+    public static DoctorCheck PoolCheck(MachineRole role) =>
         role.PoolEndpoint is { Length: > 0 } pool
             ? new DoctorCheck
             {
@@ -704,8 +718,7 @@ public sealed class Doctor(
                 // Not fixable, because most machines are not meant to. A fix
                 // offered here would read as something everybody ought to do.
                 Fixable = false,
-            },
-    ];
+            };
 
     /// <summary>
     /// What the control plane says is degraded, said here.
@@ -1453,7 +1466,10 @@ public sealed class Doctor(
         };
     }
 
-    private static DoctorCheck RunnerCheck(StoredSession? stored, StoredSession? honoured) =>
+    /// <summary>Whether a runner can be registered from here.</summary>
+    /// <param name="units">The gg services installed on this machine, if any.</param>
+    public static DoctorCheck RunnerCheck(
+        StoredSession? stored, StoredSession? honoured, IReadOnlyList<string>? units = null) =>
         new()
         {
             Name = DoctorChecks.Runner,

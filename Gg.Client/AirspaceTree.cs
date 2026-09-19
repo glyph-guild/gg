@@ -713,6 +713,12 @@ public sealed record NameDeclared
     /// <summary>The name this one sits under, as it was declared.</summary>
     public required string Parent { get; init; }
 
+    /// <summary>
+    /// Whose name it is, as a person is spelled, when it was declared as one
+    /// person's; null when it is the tenant's.
+    /// </summary>
+    public string? For { get; init; }
+
     /// <summary>Who declared it, when the name is live here now.</summary>
     /// <remarks>
     /// Null while a declaration is riding a flight, because nobody has yet:

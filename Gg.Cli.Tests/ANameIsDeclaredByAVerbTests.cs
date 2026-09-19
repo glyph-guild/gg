@@ -131,6 +131,43 @@ public class ANameIsDeclaredByAVerbTests
     }
 
     [Test]
+    public async Task A_watch_can_be_declared_as_the_askers_own()
+    {
+        // ADR-0024. A personal watch's name is its person's, declared with no
+        // gate, and it sits under root like every watch.
+        var parsed = (CliAction.AirspaceName)CliArgs.Parse(
+            ["airspace", "name", "watch", "my-queue", "--personal"]);
+
+        await Assert.That(parsed.Personal).IsTrue();
+        await Assert.That(parsed.Name).IsEqualTo("my-queue");
+        await Assert.That(parsed.Parent).IsEqualTo("root");
+    }
+
+    [Test]
+    public async Task Personal_is_for_a_watch_and_nothing_else()
+    {
+        // ONLY A WATCH HAS A PERSON. A personal work kind or narrowing would be
+        // one person's governance of everybody's work, which is the in-between
+        // ADR-0024 refuses - so it is refused here, before the door is asked.
+        var parsed = CliArgs.Parse(["airspace", "name", "narrowing", "pci", "--personal"]);
+
+        var unknown = await Assert.That(parsed).IsTypeOf<CliAction.Unknown>();
+
+        await Assert.That(unknown!.Message).Contains("--personal")
+            .Because("the refusal is about the flag, so it has to name the flag - a usage line "
+                   + "that happens to list roles would pass this for the wrong reason.");
+    }
+
+    [Test]
+    public async Task Without_the_flag_a_name_is_the_tenants()
+    {
+        var parsed = (CliAction.AirspaceName)CliArgs.Parse(
+            ["airspace", "name", "watch", "nightly"]);
+
+        await Assert.That(parsed.Personal).IsFalse();
+    }
+
+    [Test]
     public async Task A_declaration_missing_its_name_says_what_the_verb_takes()
     {
         var parsed = CliArgs.Parse(["airspace", "name", "narrowing"]);

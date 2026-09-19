@@ -1046,6 +1046,8 @@ public sealed class FlightCommands(
         string role,
         string name,
         string parent,
+        bool personal = false,
+        string? estateRoot = null,
         CancellationToken cancellationToken = default)
     {
         var (live, pending) = await _client.DeclareNameAsync(
@@ -1236,7 +1238,7 @@ public sealed class FlightCommands(
             // and says nothing about nesting, so anything deeper stays a
             // deliberate --under.
             var answer = await DeclareNameAsync(
-                document.Role, document.Name, "root", cancellationToken);
+                document.Role, document.Name, "root", cancellationToken: cancellationToken);
 
             declared.Add(((VerbResult.NameDeclared)answer).Value);
         }

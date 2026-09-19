@@ -255,6 +255,17 @@ public sealed record DeclareNameRequest
 
     /// <summary>What the name governs, when it binds to something concrete.</summary>
     public string? SubjectBinding { get; init; }
+
+    /// <summary>
+    /// Whether this name is the asker's own: a personal watch's, bound to whoever
+    /// sent this and to nobody else.
+    /// </summary>
+    /// <remarks>
+    /// <b>A flag and never a person.</b> The control plane binds the name to the
+    /// session's principal, never to one a body names - so there is nothing
+    /// here that could put a name in somebody else's hands.
+    /// </remarks>
+    public bool Personal { get; init; }
 }
 
 /// <summary>One envelope name in the topology, and who put it there.</summary>
@@ -269,6 +280,12 @@ public sealed record TopologyName
     public string? Parent { get; init; }
 
     public string? SubjectBinding { get; init; }
+
+    /// <summary>
+    /// Whose name this is, as a person is spelled, when it is one person's;
+    /// null when it is the tenant's.
+    /// </summary>
+    public string? For { get; init; }
 
     /// <summary>
     /// One line saying what this name is for, from its envelope, or null.

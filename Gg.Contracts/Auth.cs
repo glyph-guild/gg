@@ -232,4 +232,10 @@ public sealed record WhoAmI
     /// </para>
     /// </remarks>
     public bool IsAdmin { get; init; }
+
+    /// <summary>
+    /// This person as a document names them, <c>&lt;provider&gt;:&lt;subject&gt;</c>, or
+    /// null from a control plane older than the spelling.
+    /// </summary>
+    public string? Subject { get; init; }
 }

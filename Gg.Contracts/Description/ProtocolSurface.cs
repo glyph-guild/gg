@@ -1837,7 +1837,7 @@ public static class ProtocolSurface
             // /v1/configuration/offered, and a casing split between the two
             // would leave the tier where a person accepts unable to read what
             // the tier that applies unattended had been reading all along.
-            [typeof(OfferedConfiguration)] = ["version", "settings", "offeredAt"],
+            [typeof(OfferedConfiguration)] = ["version", "settings", "offeredAt", "profile"],
             [typeof(OfferedSetting)] = ["key", "value"],
             // `flightId` is absent unless a runner is asking for one flight by
             // name - an attended session, where a person opened the flight and
@@ -1934,6 +1934,10 @@ public static class ProtocolSurface
             [typeof(NamedEnvelopeList)] = ["documents"],
             [typeof(NamedEnvelopeApply)] = ["envelope", "narrowing"],
             [typeof(StrategyList)] = ["strategies"],
+            [typeof(FleetProfile)] =
+                ["roles", "environment", "agent", "forges", "destinations", "sweeps", "credentials"],
+            [typeof(FleetProfileState)] = ["name", "version", "appliedAt", "profile"],
+            [typeof(FleetProfileList)] = ["profiles"],
             // The pools surface. Digests, hashes and stamps only, asserted
             // over the shape as well as declared.
             [typeof(PoolAttestation)] =

@@ -904,6 +904,9 @@ public static class Roles
     /// </summary>
     public const string Watch = "watch";
 
+    /// <summary>What an enrolled machine is. Not yet a role anything reads.</summary>
+    public const string FleetProfile = "fleet-profile";
+
     public static IReadOnlyList<string> All { get; } =
         [Root, WorkKind, Narrowing, Strategy, Watch];
 }

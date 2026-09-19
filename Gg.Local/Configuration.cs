@@ -311,6 +311,25 @@ public sealed record Configuration
     /// </remarks>
     public string? AcceptedOffer { get; init; }
 
+    /// <summary>The fleet profile this machine enrolled under, or null for one that did not enroll.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The machine's consent to its profile</b> (slice forty-three, rule 15).
+    /// An offer that names this profile carries directed keys a person accepted
+    /// at the profile's gate, so this machine takes them without
+    /// <c>gg config accept</c> - and an offer naming any other profile is held
+    /// for a person like every offer. A control plane naming a profile is a
+    /// claim; this line is the machine agreeing to it.
+    /// </para>
+    /// <para>
+    /// <b>Written by enrolling, and not offerable</b>, for
+    /// <see cref="AcceptOffered"/>'s reason: a control plane able to set it
+    /// could grant itself every directed key. No variable either, for the same
+    /// reason that one has none.
+    /// </para>
+    /// </remarks>
+    public string? EnrolledProfile { get; init; }
+
     /// <summary>One member: the variable it answers, its key, and how to read and set it.</summary>
     public sealed record Member
     {

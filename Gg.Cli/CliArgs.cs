@@ -794,6 +794,10 @@ public static class CliArgs
         "gg admin revoke <principal>    take it back",
         "gg runner up                   take work on this machine",
         "gg runner maintain <pool>      keep a managed pool warm, reset and attested",
+        // BESIDE RUNNER UP, because it is how that runs without a terminal: the
+        // platform's own service, written once, as root.
+        "gg service install --control-plane <url> [--enroll] [--user <name>]  make this machine's runner a service",
+        "gg service uninstall           remove exactly what service install wrote",
         "gg version                     binary, protocol and fact vocabulary",
     ];
 
@@ -1208,6 +1212,12 @@ public static class CliArgs
 
             ["doctor"] => new CliAction.Doctor(json),
             ["update"] => new CliAction.Update(json),
+            ["service", "install", .. var installing] => ServiceInstallArguments(installing),
+            ["service", "uninstall"] => new CliAction.ServiceUninstall(),
+            ["service", ..] => Unknown(
+                "gg service takes install or uninstall: `gg service install --control-plane "
+              + "<url>` makes this machine's runner a service, and `gg service uninstall` "
+              + "removes exactly what that wrote."),
             ["bundle"] => new CliAction.Bundle(json),
 
             ["decide", var flight, var obligation, var outcome, var reason] =>
@@ -1443,6 +1453,53 @@ public static class CliArgs
     /// the flight would get a work item, and it would be somebody else's.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// <c>gg service install</c>'s options, each once, and no token among them.
+    /// </summary>
+    /// <remarks>
+    /// <b>--enroll takes no value, and a value after it is refused.</b> The
+    /// token is read at a prompt or from stdin, because an argument is in shell
+    /// history and in <c>ps</c> before any code of ours runs - and a word after
+    /// <c>--enroll</c> is somebody pasting it into exactly that place.
+    /// </remarks>
+    private static CliAction ServiceInstallArguments(ReadOnlySpan<string> arguments)
+    {
+        string? controlPlane = null;
+        string? user = null;
+        var enroll = false;
+
+        for (var at = 0; at < arguments.Length; at++)
+        {
+            switch (arguments[at])
+            {
+                case "--enroll":
+                    enroll = true;
+                    break;
+
+                case "--control-plane" or "--user" when at + 1 >= arguments.Length
+                                                     || arguments[at + 1].StartsWith("--", StringComparison.Ordinal):
+                    return Unknown($"gg service install {arguments[at]} needs a value after it.");
+
+                case "--control-plane":
+                    controlPlane = arguments[++at];
+                    break;
+
+                case "--user":
+                    user = arguments[++at];
+                    break;
+
+                default:
+                    return Unknown(
+                        $"gg service install: '{arguments[at]}' is not one of its options. It takes "
+                      + "--control-plane <url>, --user <name> and --enroll, which reads the "
+                      + "enrollment token at a prompt or from stdin - never from the command "
+                      + "line, where shell history and ps would keep it.");
+            }
+        }
+
+        return new CliAction.ServiceInstall(controlPlane, enroll, user);
+    }
+
     private static CliAction ReadArguments(ReadOnlySpan<string> arguments)
     {
         string? provider = null;

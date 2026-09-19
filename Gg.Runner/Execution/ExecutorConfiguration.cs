@@ -42,6 +42,14 @@ public static class ExecutorConfiguration
     /// exists to remove. One place reads the environment; nothing downstream
     /// reads it again and reaches a different answer.
     /// </remarks>
+    /// <param name="readers">The trackers this runner can read, or null to read the environment.</param>
+    /// <param name="secretFor">This machine's credential lookup, for a tool server's credential.</param>
+    /// <param name="declaration">
+    /// The declaration, or null to read the environment. A composition root
+    /// passes what <c>Settings</c> resolved - the environment, then the file -
+    /// because that is what the doctor reports, and for a release the runner
+    /// read only the first half of it.
+    /// </param>
     public static IExecutorPort? FromEnvironment(
         IReadOnlyList<IntentReader>? readers = null,
         Func<string, string?>? secretFor = null,
@@ -53,7 +61,7 @@ public static class ExecutorConfiguration
         // yet - and the day it is, the second arm is here rather than in a
         // caller that assumed the first.
         ExecutorDeclaration.ParseOrNull(
-            Environment.GetEnvironmentVariable(BinaryVariable), BinaryVariable)
+            declaration ?? Environment.GetEnvironmentVariable(BinaryVariable), BinaryVariable)
             is { } declared
             ? new ClaudeCodeExecutor(
                 declared.Binary,
@@ -118,9 +126,14 @@ public static class ExecutorConfiguration
     /// composition root that needs the adapter beside the executor and cannot
     /// reach into one to ask.
     /// </remarks>
+    /// <param name="declaration">
+    /// The declaration, or null to read the environment - the same one the
+    /// executor beside it was handed, or the two disagree about which agent
+    /// this machine has.
+    /// </param>
     public static IAuthenticateAnAgent? AgentFromEnvironment(string? declaration = null) =>
         ExecutorDeclaration.ParseOrNull(
-            Environment.GetEnvironmentVariable(BinaryVariable), BinaryVariable) is { } declared
+            declaration ?? Environment.GetEnvironmentVariable(BinaryVariable), BinaryVariable) is { } declared
             ? AgentFor(declared)
             : null;
 

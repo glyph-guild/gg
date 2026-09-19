@@ -22,7 +22,7 @@ the labels — arrives from the control plane at startup.
 
 ```sh
 # 1. gg itself, root-owned and outside the runner user's home.
-sudo dotnet tool install --tool-path /usr/local/lib/gg GlyphGuild.Gg
+sudo dotnet tool install GlyphGuild.Gg.Cli --version <v> --tool-path /usr/local/lib/gg
 sudo ln -sf /usr/local/lib/gg/gg /usr/local/bin/gg
 
 # 2. The seed, owned by the user the service runs as.

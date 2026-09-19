@@ -129,9 +129,13 @@ public class TheHostRunbooksNameWhatExistsTests
         // contracts workflow publishes one on most pushes - so the README's
         // install link resolved to a contract release with no gg assets, and
         // 404'd.
+        //
+        // LINKS, not mentions. A first formulation matched the bare words and
+        // fired on the README sentence explaining why there is no such link -
+        // which is the opposite of the defect. A URL is what somebody pastes.
         var floating = (from runbook in Runbooks()
                         from line in runbook.Text.Split('\n')
-                        where line.Contains("releases/latest", StringComparison.Ordinal)
+                        where Regex.IsMatch(line, @"https?://\S*/releases/latest\b")
                         select $"{runbook.File}: {line.Trim()}").ToList();
 
         await Assert.That(floating).IsEmpty()

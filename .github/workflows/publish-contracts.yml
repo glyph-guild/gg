@@ -100,7 +100,14 @@ jobs:
             exit 0
           fi
 
+          # NOT LATEST. GitHub marks the newest release `latest` unless told
+          # otherwise, and this workflow publishes one on most pushes - so
+          # `releases/latest` on this repository resolved to a contract release
+          # carrying no gg binary, and every install link written against it
+          # 404'd. A contract is pinned by version and has no use for the word.
+          # ContractsAreNeverLatestTests holds the flag here and off gg's.
           gh release create "$tag" artifacts/*.nupkg \
+            --latest=false \
             --title "Gg.Contracts $CONTRACT_VERSION" \
             --notes "The runner wire protocol at $CONTRACT_VERSION.
 

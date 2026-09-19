@@ -152,10 +152,19 @@ public class AConsoleReachesARunnerTests
         // whoever reads the journal at the end that worked, which is exactly
         // the wrong-end problem this whole path keeps having.
         //
-        // Short bound so the wrong answer arrives in seconds rather than in the
-        // minute a real runner allows.
+        // THE RUNNER WAITS AS LONG AS THE CONSOLE DOES, and no shorter. This
+        // bound was three seconds, to make the wrong answer arrive quickly -
+        // but the runner starts it at the answer and hangs up when it runs
+        // out, so on a slow CI runner it ended handshakes that were still
+        // going, and the console then reported "no route" for a peer the TEST
+        // had closed. A bound shorter than the far end's patience turns this
+        // side's deadline into that side's network diagnosis.
+        //
+        // The passing path never waits on it: Opened completes the moment the
+        // channel opens. Only a regression waits, and it still fails, in
+        // twenty seconds rather than the minute a real runner allows.
         var (reached, answered, _) = await HandshakeAsync(
-            new ALog("first", "second"), arrivalBound: TimeSpan.FromSeconds(3));
+            new ALog("first", "second"), arrivalBound: TimeSpan.FromSeconds(20));
 
         await Assert.That(reached.Failure).IsEqualTo(ReachFailure.None).Because(reached.Said);
 

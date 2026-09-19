@@ -396,6 +396,13 @@ public abstract record CliAction
     /// <summary>Takes a runner out of the fleet. There is no undo.</summary>
     public sealed record RunnerRetire(string RunnerId, bool Json) : CliAction, IEmitsResult;
 
+    public sealed record FleetEnroll(Gg.Contracts.EnrollmentTokenRequest Request, bool Json)
+        : CliAction, IEmitsResult;
+
+    public sealed record FleetTokens(bool Json) : CliAction, IEmitsResult;
+
+    public sealed record FleetRevoke(string TokenId, bool Json) : CliAction, IEmitsResult;
+
     /// <summary><c>gg runner claim &lt;id&gt;</c>: this machine is mine.</summary>
     public sealed record RunnerClaim(string RunnerId, bool Json) : CliAction, IEmitsResult;
 

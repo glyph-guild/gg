@@ -42,6 +42,13 @@ namespace Gg.Client;
 [JsonSerializable(typeof(RunnerRetirementRequest))]
 [JsonSerializable(typeof(RunnerRetired))]
 [JsonSerializable(typeof(RunnerClaimRequest))]
+[JsonSerializable(typeof(EnrollmentTokenRequest))]
+[JsonSerializable(typeof(EnrollmentTokenMinted))]
+[JsonSerializable(typeof(EnrollmentTokenSummary))]
+[JsonSerializable(typeof(EnrollmentTokenList))]
+[JsonSerializable(typeof(EnrollmentTokenRevocation))]
+[JsonSerializable(typeof(RunnerEnrollmentRequest))]
+[JsonSerializable(typeof(RunnerEnrolled))]
 [JsonSerializable(typeof(FleetProfile))]
 [JsonSerializable(typeof(FleetProfileState))]
 [JsonSerializable(typeof(FleetProfileList))]
@@ -1687,6 +1694,23 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
             ProtocolJsonContext.Default.RunnerRetired, cancellationToken);
     }
 
+    public Task<EnrollmentTokenMinted> MintEnrollmentTokenAsync(
+        string sessionToken, EnrollmentTokenRequest asked, CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+
+    public Task<EnrollmentTokenList> ListEnrollmentTokensAsync(
+        string sessionToken, CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+
+    public Task<EnrollmentTokenSummary?> RevokeEnrollmentTokenAsync(
+        string sessionToken, string tokenId, CancellationToken cancellationToken = default) =>
+        throw new NotImplementedException();
+
+    public Task<RunnerEnrolled> EnrollAsync(
+        string token, string label, CancellationToken cancellationToken = default,
+        string? publicKey = null, string? machine = null) =>
+        throw new NotImplementedException();
+
     /// <summary>Claims a runner for the caller. Null when this tenant has no such runner.</summary>
     /// <remarks>
     /// <b>A refusal is an answer, and it carries the control plane's sentence</b>
@@ -2383,6 +2407,9 @@ public sealed class AdminRefusedException(string message) : Exception(message);
 /// first, unclaim it first. Each is a different thing to do next.
 /// </remarks>
 public sealed class RunnerOwnershipRefusedException(string message) : Exception(message);
+
+/// <summary>Raised when the control plane refuses to mint, or to redeem, an enrollment token.</summary>
+public sealed class EnrollmentRefusedException(string message) : Exception(message);
 
 /// <summary>
 /// Raised when the control plane checked the principal and said no.

@@ -431,6 +431,40 @@ public sealed class ConsoleScreen : Window
     private readonly Label _activity;
 
     /// <summary>
+    /// The notifications, in the corner over the tab strip.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Drawn from the model and nothing else</b>, like every other region:
+    /// what it says is <c>PaneText</c>'s, which keys reach it is the keymap's,
+    /// and whether it holds the keyboard is <see cref="UiMode.Notifications"/>.
+    /// </para>
+    /// <para>
+    /// <b>It never has focus it was not asked for.</b> Unfocused it cannot be
+    /// focused at all, so no stray tab lands in it; a notification that took the
+    /// keyboard when it arrived would swallow whatever key somebody was halfway
+    /// through pressing.
+    /// </para>
+    /// </remarks>
+    private readonly View _notifications;
+
+    private readonly Label _notificationText;
+
+    /// <summary>The corner's two keys, while it is not holding the keyboard.</summary>
+    private readonly Label _notificationHint;
+
+    /// <summary>
+    /// A button per answer while it is, rebuilt only when the answers change -
+    /// <see cref="_modalButtons"/>' rule, for its reason.
+    /// </summary>
+    private readonly List<Button> _notificationButtons = [];
+
+    private readonly Expectations? _expectations;
+
+    /// <summary>How wide the corner is: a flight number, a name, and four buttons.</summary>
+    private const int NotificationsWidth = 50;
+
+    /// <summary>
     /// The bar, and the one view under it.
     /// </summary>
     /// <remarks>
@@ -541,9 +575,13 @@ public sealed class ConsoleScreen : Window
         // A READ A KEYPRESS ASKED FOR, folded on the tick beside the one the
         // timer asks for. Last and defaulted, because every existing caller
         // passes positionally.
-        BackgroundReads? reads = null)
+        BackgroundReads? reads = null,
+        // WHAT THE CONSOLE'S WRITES SAID THEY DID, looked for on a tick of its
+        // own. Last and defaulted, for reads' reason.
+        Expectations? expectations = null)
     {
         _app = app;
+        _expectations = expectations;
         _tails = tails;
         _runnerLog = runnerLog;
         _refresh = refresh;
@@ -1886,7 +1924,49 @@ public sealed class ConsoleScreen : Window
         Muted(_airspaceAbsent, _airspaceNoDocument, _live, _flight, _modalBody,
             _runners, _flightIntent, _flightLogAbsent);
 
-        Add(_bar, _activity, _hints, _hintsStanding, _modal);
+        // THE CORNER, OVER THE RIGHT-HAND END OF THE TAB STRIP - the least
+        // read stretch of the screen - and above the activity line, which is
+        // the receipt it follows. Added before the modal, so a modal draws over
+        // it; it is not drawn under one at all, which Render decides.
+        _notificationText = new Label { X = 1, Y = 0, Width = Dim.Fill(1), Height = 2 };
+        _notificationHint = new Label
+        {
+            X = Pos.AnchorEnd(),
+            Y = 2,
+            Width = Dim.Auto(DimAutoStyle.Text),
+        };
+        _notifications = new View
+        {
+            X = Pos.AnchorEnd(NotificationsWidth + 2),
+            Y = Pos.AnchorEnd(7),
+            Width = NotificationsWidth,
+            Height = 5,
+            CanFocus = false,
+            Visible = false,
+            BorderStyle = Terminal.Gui.Drawing.LineStyle.Rounded,
+            Arrangement = ViewArrangement.Overlapped,
+
+            // ITS OWN GROUP, so tab walks its buttons and does not wander off
+            // into the panes behind it while it holds the keyboard.
+            TabStop = TabBehavior.TabGroup,
+        };
+        _notifications.Add(_notificationText, _notificationHint);
+
+        // A COLOUR OF ITS OWN, the one place this console names one outright:
+        // the corner has to read as something that arrived rather than as a
+        // pane that was always there. Light on a deep blue, and the pair turned
+        // over for whatever has focus inside it.
+        var ink = new Terminal.Gui.Drawing.Color(230, 237, 243);
+        var navy = new Terminal.Gui.Drawing.Color(31, 58, 95);
+        _notifications.SetScheme(new Terminal.Gui.Drawing.Scheme(ConsoleTheme.Grounded())
+        {
+            Normal = new Terminal.Gui.Drawing.Attribute(ink, navy),
+            HotNormal = new Terminal.Gui.Drawing.Attribute(ink, navy),
+            Focus = new Terminal.Gui.Drawing.Attribute(navy, ink),
+            HotFocus = new Terminal.Gui.Drawing.Attribute(navy, ink),
+        });
+
+        Add(_bar, _activity, _hints, _hintsStanding, _notifications, _modal);
 
         KeyDown += OnScreenKeyDown;
 
@@ -1939,6 +2019,28 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private void Watch()
     {
+        if (_expectations is not null)
+        {
+            // WHAT THE CONSOLE IS WAITING TO SEE, on AutoRefresh's terms: the
+            // look runs on a task owned outside this lifetime, and this tick
+            // only folds what has already landed and ages the corner. A quarter
+            // of a second, because the first gap is a quarter of a second and a
+            // coarser tick would stretch it.
+            _app.AddTimeout(TimeSpan.FromMilliseconds(250), () =>
+            {
+                var advanced = _expectations.Advance(State);
+
+                if (ReferenceEquals(advanced, State))
+                {
+                    return true;
+                }
+
+                State = advanced;
+                Render();
+                return true;
+            });
+        }
+
         if (_tails is not null)
         {
             _app.AddTimeout(LookEvery, () =>
@@ -3745,7 +3847,93 @@ public sealed class ConsoleScreen : Window
             }
         }
 
+        RenderNotifications();
+
         Focus();
+    }
+
+    /// <summary>The corner, from the model.</summary>
+    /// <remarks>
+    /// <b>Not under a modal.</b> A corner of it showing past a dialog's edge reads
+    /// as a drawing fault; the notifications wait, and are there when the modal
+    /// closes. Focusable only while it holds the keyboard - set here, before
+    /// <see cref="Focus"/> runs, because SetFocus on a view that cannot take
+    /// focus does nothing.
+    /// </remarks>
+    private void RenderNotifications()
+    {
+        var holding = State.Mode == UiMode.Notifications;
+        var showing = State.Notifications.Count > 0 && (State.Mode == UiMode.Normal || holding);
+
+        _notifications.Visible = showing;
+        _notifications.CanFocus = showing && holding;
+
+        if (!showing)
+        {
+            RenderNotificationButtons([]);
+            return;
+        }
+
+        var inside = NotificationsWidth - 4;
+        _notifications.Title = PaneText.NotificationTitle(State);
+        _notificationText.Text = string.Join("\n", PaneText.NotificationLines(State)
+            .Select(line => line.Length > inside ? line[..(inside - 1)] + "…" : line));
+        _notifications.BorderStyle = holding
+            ? Terminal.Gui.Drawing.LineStyle.Heavy
+            : Terminal.Gui.Drawing.LineStyle.Rounded;
+
+        _notificationHint.Text = PaneText.NotificationHint(Context()) + " ";
+        _notificationHint.Visible = !holding;
+
+        RenderNotificationButtons(holding ? Keymap.Buttons(Context()) : []);
+    }
+
+    private void RenderNotificationButtons(IReadOnlyList<KeyBinding> wanted)
+    {
+        if (_notificationButtons.Count == wanted.Count
+            && _notificationButtons.Zip(wanted).All(p => p.First.Text == p.Second.Label))
+        {
+            return;
+        }
+
+        foreach (var old in _notificationButtons)
+        {
+            _notifications.Remove(old);
+            old.Dispose();
+        }
+
+        _notificationButtons.Clear();
+
+        View? before = null;
+
+        foreach (var binding in wanted)
+        {
+            var button = new Button
+            {
+                Y = 2,
+                X = before is null ? 1 : Pos.Right(before) + 1,
+                Text = binding.Label!,
+                ShadowStyle = ShadowStyles.None,
+
+                // NO HOTKEY OF ITS OWN, _runnerStart's rule: a Button takes a
+                // letter out of its caption, and the keymap is the only place a
+                // printable key means anything here.
+                HotKeySpecifier = new System.Text.Rune('\uffff'),
+            };
+
+            // THE SAME PATH A KEYSTROKE TAKES - the command itself, handed to the
+            // one place that acts on one.
+            var command = binding.Command;
+            button.Accepting += (_, e) =>
+            {
+                e.Handled = true;
+                Dispatch(command);
+            };
+
+            _notificationButtons.Add(button);
+            _notifications.Add(button);
+            before = button;
+        }
     }
 
     /// <summary>
@@ -4863,9 +5051,20 @@ public sealed class ConsoleScreen : Window
             filterView: State.FilterView, landedFilterView: _landedFilterView,
             flightTab: State.FlightTab, landedFlightTab: _landedFlightTab,
             workItemTab: State.WorkItemTab, landedWorkItemTab: _landedWorkItemTab,
-            workKindTab: State.WorkKindTab, landedWorkKindTab: _landedWorkKindTab))
+            workKindTab: State.WorkKindTab, landedWorkKindTab: _landedWorkKindTab,
+            notificationsHaveFocus: _notifications.HasFocus))
         {
             case FocusTarget.LeaveAlone:
+                return;
+
+            case FocusTarget.Notifications:
+                // "GO TO IT", because it is what somebody picked the corner up
+                // to do - and never dismiss, which is the one a reflexive enter
+                // would regret.
+                (_notificationButtons.FirstOrDefault(b => b.Text == "Go to it")
+                    ?? _notificationButtons.FirstOrDefault()
+                    ?? (View)_notifications).SetFocus();
+                _landed = null;
                 return;
 
             case FocusTarget.AirspacePath:

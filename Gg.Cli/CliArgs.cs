@@ -143,7 +143,9 @@ public abstract record CliAction
         /// wants to see what the flight says - the runner opens a channel and an
         /// agent still does the work.
         /// </remarks>
-        bool Attended = false)
+        bool Attended = false,
+        /// <summary>Stay until the flight has a number, and say it.</summary>
+        bool Wait = false)
         : CliAction, IEmitsResult;
 
     /// <summary>
@@ -685,6 +687,7 @@ public static class CliArgs
         "  --work-kind <name>           which work kind's rules govern it",
         "  --environment <name>         which charted environment it runs in",
         "  --attended                   and watch it from wherever you are",
+        "  --wait                       and stay until it has a number, then say it",
         "gg flights [--all] [--intent <provider>#<id>|<uri>]  flights in the air, or every one",
         "gg show <flight>               one flight, by GG-42 or by id",
         "gg log <flight>                a flight's log",
@@ -904,6 +907,10 @@ public static class CliArgs
         // so it is stripped as a PAIR. An option left in the list is matched as
         // a verb, and `fly`'s arms are list patterns.
         var attended = args.Contains("--attended", StringComparer.Ordinal);
+
+        // --wait is stripped for --hand's reason: a flag left in the list is
+        // matched as a verb, and a person types it at either end.
+        var waiting = args.Contains("--wait", StringComparer.Ordinal);
         var declareNames = args.Contains("--declare-names", StringComparer.Ordinal);
         var runner = Value(args, "--runner");
 
@@ -923,7 +930,8 @@ public static class CliArgs
             Without(
                 Without(
                     args.Where(a => a != "--json" && a != "--all" && a != "--hand"
-                                 && a != "--attended" && a != "--declare-names"),
+                                 && a != "--attended" && a != "--declare-names"
+                                 && a != "--wait"),
                     "--runner"),
                 "--work-kind"),
             "--environment");
@@ -1324,9 +1332,11 @@ public static class CliArgs
             // flight that names none, one, or two.
             ["fly", "--uri", var uri] => new CliAction.Fly(null, uri, json,
                 Repositories: repositories, ByHand: byHand,
-                Runner: runner, Attended: attended, WorkKind: workKind, Environment: environment),
+                Runner: runner, Attended: attended, WorkKind: workKind, Environment: environment,
+                Wait: waiting),
             ["fly", "--ticket", var ticket] => Ticket(
-                ticket, json, repositories, byHand, runner, attended, workKind, environment),
+                ticket, json, repositories, byHand, runner, attended, workKind, environment,
+                waiting),
 
             // BEFORE the free-text arm, because that arm accepts anything. A
             // word starting with a dash is an option somebody got wrong, and
@@ -1343,7 +1353,8 @@ public static class CliArgs
 
             ["fly", var text] => new CliAction.Fly(text, null, json,
                 Repositories: repositories, ByHand: byHand,
-                Runner: runner, Attended: attended, WorkKind: workKind, Environment: environment),
+                Runner: runner, Attended: attended, WorkKind: workKind, Environment: environment,
+                Wait: waiting),
             ["fly"] => Unknown(
                 "gg fly needs something to act on: some text, --uri <uri>, "
               + "or --ticket <provider>#<id>."),
@@ -1509,12 +1520,12 @@ public static class CliArgs
     private static CliAction Ticket(
         string token, bool json, IReadOnlyList<string>? repositories = null, bool byHand = false,
         string? runner = null, bool attended = false,
-        string? workKind = null, string? environment = null) =>
+        string? workKind = null, string? environment = null, bool waiting = false) =>
         SplitTicket(token) is var (provider, id) && provider is not null
             ? new CliAction.Fly(
                 null, null, json, Provider: provider, Id: id, Repositories: repositories,
                 ByHand: byHand, Runner: runner, Attended: attended,
-                WorkKind: workKind, Environment: environment)
+                WorkKind: workKind, Environment: environment, Wait: waiting)
             : Unknown(
                 $"gg fly --ticket takes <provider>#<id>, and '{token}' is not that shape. "
               + "Both halves are needed: the id alone does not say which tracker it is in.");

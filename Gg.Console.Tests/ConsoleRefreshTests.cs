@@ -243,32 +243,42 @@ public class ConsoleRefreshTests
     }
 
     [Test]
-    public async Task Opening_a_flight_refreshes_the_queue()
+    public async Task Opening_a_flight_watches_for_it_rather_than_re_reading_before_it_exists()
     {
+        // IT RE-READ, AND THE RULE WAS RIGHT ABOUT WHY. A flight opened is a
+        // flight the console does not have yet - and it still does not have it
+        // a moment later, because the door answers 202 before the row is
+        // projected. So the re-read found nothing; the flight the door named is
+        // watched for instead, and that is what brings the row.
         var reload = new Reloads(Booted() with { Queue = [Row("a", 1), Row("b", 2)] });
         var ui = new Presses(Command.OpenFlight);
 
-        new ConsoleLoop(
+        var final = new ConsoleLoop(
             ui, new SomethingTyped(), actions: new ConsoleDoubles.Records(), reload: reload.Load)
             .Run(Booted());
 
-        await Assert.That(reload.Calls).IsEqualTo(1)
-            .Because("a flight opened is a flight the queue does not have yet.");
+        await Assert.That(reload.Calls).IsEqualTo(0)
+            .Because("a reload that runs before the flight exists costs every read the boot "
+                   + "makes and finds nothing.");
+        await Assert.That(final.Expecting.Select(e => e.Id)).Contains(ConsoleDoubles.Records.Opened)
+            .Because("a flight opened is a flight the console does not have yet, so it asks.");
     }
 
     // ---- S29.5-04, wired here at slice twenty-nine's author's request ----
 
     [Test]
-    public async Task A_flight_opened_from_a_browsed_row_grows_the_queue()
+    public async Task A_flight_opened_from_a_browsed_row_is_watched_for()
     {
         var reload = new Reloads(Booted() with { Queue = [Row("a", 1), Row("b", 2)] });
         var ui = new Presses(Command.FlyPicked);
 
-        new ConsoleLoop(ui, new NoEditor(), actions: new ConsoleDoubles.Records(), reload: reload.Load)
+        var final = new ConsoleLoop(
+                ui, new NoEditor(), actions: new ConsoleDoubles.Records(), reload: reload.Load)
             .Run(Browsing());
 
-        await Assert.That(reload.Calls).IsEqualTo(1)
-            .Because("a flight opened from the browser is a flight the queue does not have.");
+        await Assert.That(reload.Calls).IsEqualTo(0);
+        await Assert.That(final.Expecting.Select(e => e.Id)).Contains(ConsoleDoubles.Records.Opened)
+            .Because("a flight opened from the browser is a flight the console does not have.");
     }
 
     [Test]

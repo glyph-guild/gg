@@ -66,7 +66,23 @@ public sealed class VerbConsoleActions(
     /// bad trade; the honest answer is that this caller cannot measure it.
     /// </para>
     /// </remarks>
-    public string Decide(string flight, string obligation, bool approved, string? reason)
+    /// <summary>
+    /// Submit and look once: the verb's patience, with none of the waiting.
+    /// </summary>
+    /// <remarks>
+    /// <b>The waiting moved to the watcher.</b> The verb's default watches the
+    /// gate list for up to thirty seconds, which is right for a script that
+    /// needs the answer and wrong between two UI sessions, where it is thirty
+    /// seconds of a screen held with nothing on it.
+    /// </remarks>
+    private static readonly ObservationBound AtOnce = new()
+    {
+        Wait = TimeSpan.Zero,
+        FirstDelay = TimeSpan.Zero,
+        MaxDelay = TimeSpan.Zero,
+    };
+
+    public Receipt Decide(string flight, string obligation, bool approved, string? reason)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(flight);
         ArgumentException.ThrowIfNullOrWhiteSpace(obligation);
@@ -81,7 +97,7 @@ public sealed class VerbConsoleActions(
 
         try
         {
-            _ = _data.DecideAsync(
+            var decided = _data.DecideAsync(
                 flight, obligation, outcome,
                 new DecisionObservations
                 {
@@ -89,10 +105,28 @@ public sealed class VerbConsoleActions(
                     EvidenceRendered = true,
                     SecondsToDecide = null,
                 },
-                reason).GetAwaiter().GetResult();
+                reason,
+                bound: AtOnce).GetAwaiter().GetResult();
 
-            return $"{flight}: {obligation} answered {outcome}. What it became is on the flight "
-                 + "when this refreshes.";
+            // A REFUSAL IS STILL SAID AT ONCE - the door's own no, which the
+            // submit returns before anything is looked at.
+            if (decided is VerbResult.Decided { Value.Observation: { State: ObservationStates.Refused } refused })
+            {
+                return new Receipt($"{flight}: {obligation} was not answered — {refused.Because}");
+            }
+
+            // AND ANYTHING ELSE IS LOOKED FOR. The gate closes when the
+            // decision's cascade reaches the receptor that closes it; whether
+            // the one look already saw that or not, the watcher folds the gate
+            // list and says so.
+            return new Receipt(
+                $"{flight}: {obligation} answered {outcome}. It leaves the queue when the gate closes.",
+                new Expectation
+                {
+                    Kind = ExpectationKind.GateAnswered,
+                    Id = flight,
+                    Obligation = obligation,
+                });
         }
         catch (Exception refusal) when (refusal is DecisionRefusedException
                                             or NotSignedInException
@@ -103,7 +137,7 @@ public sealed class VerbConsoleActions(
             // NAMED EXCEPTIONS, and the model stays intact. Swallowing everything
             // here would turn a bug into a console that looks like it answered - the
             // exact shape this whole change exists to remove.
-            return $"{flight}: {obligation} was not answered — {refusal.Message}";
+            return new Receipt($"{flight}: {obligation} was not answered — {refusal.Message}");
         }
     }
 
@@ -122,7 +156,7 @@ public sealed class VerbConsoleActions(
     /// that reported the outcome it hoped for would be deciding.
     /// </para>
     /// </remarks>
-    public string AnswerNomination(string nomination, bool open, string reason)
+    public Receipt AnswerNomination(string nomination, bool open, string reason)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(nomination);
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
@@ -138,18 +172,28 @@ public sealed class VerbConsoleActions(
             // has to say what an unparseable one means. It cannot happen from a
             // row this console drew, which is exactly why it is worth a
             // sentence rather than an exception nobody sees.
-            return $"'{nomination}' is not a nomination this console can answer.";
+            return new Receipt($"'{nomination}' is not a nomination this console can answer.");
         }
 
         try
         {
-            _ = _data.DecideNominationAsync(id, outcome, reason).GetAwaiter().GetResult();
+            var decided = _data.DecideNominationAsync(id, outcome, reason).GetAwaiter().GetResult();
 
-            return $"Answered {outcome}. What it became is on the board when this refreshes.";
+            // THE FLIGHT AN OPENING STARTED, which the report names once the row
+            // has ended. It was discarded, so the row left the board and nothing
+            // took its place until the next tick.
+            var started = open
+                && decided is VerbResult.NominationDecided { Value.Nomination.FlightId: { } flight }
+                    ? flight.ToString()
+                    : null;
+
+            return Receipt.Opened(
+                $"Answered {outcome}. What it became is on the board when this refreshes.",
+                started);
         }
         catch (Exception refusal) when (Expected(refusal))
         {
-            return $"Nothing was answered — {refusal.Message}";
+            return new Receipt($"Nothing was answered — {refusal.Message}");
         }
     }
 
@@ -178,7 +222,7 @@ public sealed class VerbConsoleActions(
         }
     }
 
-    public string Fly(string intent, IReadOnlyList<string> repositories, string? workKind)
+    public Receipt Fly(string intent, IReadOnlyList<string> repositories, string? workKind)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(intent);
 
@@ -187,18 +231,15 @@ public sealed class VerbConsoleActions(
             var opened = _data.FlyAsync(intent, repositories, workKind)
                 .GetAwaiter().GetResult();
 
-            return opened is VerbResult.Launched launched
-                ? $"Opened {launched.Value.FlightId}. Its number is minted when it materializes, "
-                + "so it appears on the next refresh."
-                : "The flight was accepted.";
+            return Launched(opened);
         }
         catch (Exception refusal) when (Expected(refusal))
         {
-            return $"Nothing was opened — {refusal.Message}";
+            return new Receipt($"Nothing was opened — {refusal.Message}");
         }
     }
 
-    public string FlyTicket(
+    public Receipt FlyTicket(
         string provider, string id, IReadOnlyList<string> repositories,
         string? workKind)
     {
@@ -210,16 +251,26 @@ public sealed class VerbConsoleActions(
             var opened = _data.FlyTicketAsync(provider, id, repositories, workKind)
                 .GetAwaiter().GetResult();
 
-            return opened is VerbResult.Launched launched
-                ? $"Opened {launched.Value.FlightId}. Its number is minted when it materializes, "
-                + "so it appears on the next refresh."
-                : "The flight was accepted.";
+            return Launched(opened);
         }
         catch (Exception refusal) when (Expected(refusal))
         {
-            return $"Nothing was opened — {refusal.Message}";
+            return new Receipt($"Nothing was opened — {refusal.Message}");
         }
     }
+
+    /// <summary>What the door answered, and the flight it named.</summary>
+    /// <remarks>
+    /// <b>The id crosses, not only the sentence.</b> It is the one way to ask
+    /// whether the flight has appeared yet, and it used to be written into the
+    /// sentence and dropped.
+    /// </remarks>
+    private static Receipt Launched(VerbResult opened) => opened is VerbResult.Launched launched
+        ? Receipt.Opened(
+            $"Opened {launched.Value.FlightId}. Its number is minted when it materializes, "
+            + "and it appears here when it does.",
+            launched.Value.FlightId)
+        : new Receipt("The flight was accepted.");
 
     /// <summary>
     /// Whether this work item has flown before, and what to say if it has.

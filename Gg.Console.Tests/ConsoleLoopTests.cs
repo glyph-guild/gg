@@ -124,6 +124,11 @@ public class ConsoleLoopTests
         document.Remove(nameof(AppState.LastFlightOpened));
         document.Remove(nameof(AppState.LastAction));
 
+        // AND WHAT THE WRITE IS NOW LOOKING FOR. Opening a flight adds the one
+        // the door named, which is the loop moving the model on rather than the
+        // rebuild losing any of it.
+        document.Remove(nameof(AppState.Expecting));
+
         return document.ToJsonString();
     }
 

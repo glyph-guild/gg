@@ -129,6 +129,13 @@ public class HelpNamesEveryKeyTests
         // which is what a sweep's flight is: the same key as the ticket, and
         // the other arm of it.
         from overALink in (bool[])[false, true]
+
+        // AND HOW MANY NOTIFICATIONS ARE IN THE CORNER, for the reason every
+        // clause above records, seven times now: none offers neither of the two
+        // keys that reach it, one offers them and no paging, two offer paging.
+        // One dimension of three rather than two flags of two, because "several"
+        // with none waiting is not a state anything can be in.
+        from notifications in (int[])[0, 1, 2]
         select new KeymapContext(
             mode, showing, frozen, takeable, handedBack, overADocument,
             ReadingTheDocument: false, OverAFold: overAFold,
@@ -146,6 +153,8 @@ public class HelpNamesEveryKeyTests
             OverALink = overALink,
             AllowanceIsMine = allowanceIsMine,
             FleetAllowancesOffered = fleetOffered,
+            NotificationsWaiting = notifications > 0,
+            NotificationsSeveral = notifications > 1,
             Refresh = refresh,
         };
 
@@ -203,7 +212,9 @@ public class HelpNamesEveryKeyTests
         // TWENTY-TWO SINCE A FLIGHT'S LINK, the ticket key's other arm: a
         // sweep's flight names a page and no provider, so the same key opens a
         // browser where it would otherwise open the item.
-        await Assert.That(members.Count).IsEqualTo(22)
+        // TWENTY-FOUR SINCE THE CORNER, whose two keys exist only while a
+        // notification is in it and whose paging exists only with more than one.
+        await Assert.That(members.Count).IsEqualTo(24)
             .Because("Everywhere() crosses every one of these, and a member left out of it "
                    + "would leave the completeness check above quietly incomplete - which is "
                    + "exactly how the shapes it audits came to be missing one. Found: "

@@ -1329,6 +1329,23 @@ static async Task<int> LaunchConsoleAsync()
         () => auth.StartAsync(Environment.MachineName).GetAwaiter().GetResult(),
         started => auth.AwaitApprovalAsync(started).GetAwaiter().GetResult());
 
+    // WHAT THE CONSOLE'S WRITES SAID THEY DID, looked for until it appears. The
+    // flight a write named is asked about through `gg flights` - the verb's own
+    // read, because the console has no second way to get data - and the row it
+    // finds is folded in with a notification. On a task, AutoRefresh's reason:
+    // the tick folds an answer that has landed and never waits for one.
+    var lookFor = Gg.Console.Expectations.Looks(
+        async id =>
+            await data.ListAsync() is VerbResult.Flights { Value: var listed }
+                ? listed.Flights.FirstOrDefault(f => f.FlightId == id)
+                : null,
+        // AND A GATE ANSWERED, through `gg gates` for the same reason.
+        gates: async () => await data.GatesAsync() is VerbResult.Gates { Value: var waiting }
+            ? waiting
+            : null);
+    var expectations = new Gg.Console.Expectations(
+        expected => Task.Run(() => lookFor(expected)), new SystemClock());
+
     var final = new ConsoleLoop(
         new TerminalGuiSession(
             tails, runnerLog, refresh, signIn.Landed,
@@ -1384,7 +1401,9 @@ static async Task<int> LaunchConsoleAsync()
 
                     // THE FLIGHT'S STORY, which is what this port was built
                     // for - and named rather than defaulted.
-                    Gg.Console.Command.ShowFlight =>
+                    // AND THE SAME FLIGHT REACHED FROM THE CORNER, which opens
+                    // the modal ShowFlight opens and so wants what it wants.
+                    Gg.Console.Command.ShowFlight or Gg.Console.Command.GoToNotification =>
                         Gg.Console.ConsoleFlightLog.Patch(data, current),
 
                     // BROWSING, WHICH THIS READER REFUSED TO SERVE UNTIL THE
@@ -1433,7 +1452,8 @@ static async Task<int> LaunchConsoleAsync()
                         $"'{asked}' is in ShellCommands.Reads and this reader has no arm "
                       + "for it, so a keypress would fetch somebody else's answer. Add "
                       + "one, or take the command out of Reads."),
-                }))),
+                })),
+            expectations: expectations),
         // HOSTED, SO GG KEEPS A ROW WHILE THE EDITOR HAS THE SCREEN. The
         // handoff is the same one it always was - text out, a real process, text
         // back - and the difference is that gg mediates the terminal instead of
@@ -1666,19 +1686,23 @@ static async Task<int> LaunchConsoleAsync()
                 return current with { LastEstate = NoAirspace("apply") };
             }
 
+            // THE RESULT KEPT as well as said, because the flights it diverted
+            // to are named in it and the sentences are not something to parse.
+            VerbResult? applied = null;
+
             var said = ConsoleApply.Applied(
                 // DECLARING, BECAUSE THE QUESTION LISTED THEM. PaneText's apply
                 // question names every undeclared name and the parent it would
                 // use, so the `y` that reached this arm was an answer to that
                 // too. Passing false here would make the question a lie.
-                () => data.ApplyEstateAsync(applyFrom, declareNames: true)
+                () => applied = data.ApplyEstateAsync(applyFrom, declareNames: true)
                     .GetAwaiter().GetResult());
 
-            return current with
+            return ConsoleApply.Watching(current with
             {
                 ApplyOutcome = said,
                 LastEstate = ConsoleApply.Summary(said),
-            };
+            }, applied);
         },
 
         // THE ONE ACT THAT REMOVES GOVERNANCE, wired by name like the rest. A
@@ -2195,7 +2219,8 @@ static Task<VerbResult> Flown(
         fly.Text, fly.Uri, name: null, cancellationToken,
         provider: fly.Provider, id: fly.Id, repositories: fly.Repositories,
         runner: fly.Runner, attended: fly.Attended,
-        workKind: fly.WorkKind, environment: fly.Environment);
+        workKind: fly.WorkKind, environment: fly.Environment,
+        wait: fly.Wait);
 
 static async Task<int> HandAsync(CliAction.Fly fly)
 {
@@ -2250,8 +2275,12 @@ static async Task<int> HandAsync(CliAction.Fly fly)
                 new DecisionObservations { Interactive = true, EvidenceRendered = true },
                 reason);
 
-            return recorded is not null;
-        });
+            return FlyByHandCommand.Recorded(recorded);
+        },
+        // THE NUMBER THE DOOR COULD NOT GIVE, asked for once the flight has been
+        // flown - by the id it did give, on the session that opened it.
+        numberOf: async (flightId, token) =>
+            (await client.GetFlightAsync(session.SessionToken, flightId, token))?.FlightNumber);
 }
 
 /// <summary>

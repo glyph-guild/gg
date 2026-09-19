@@ -1871,8 +1871,11 @@ public static class PlatformToolServer
           + "and is read by nobody. The proposal is then named from whatever the agent "
           + "happened to write first.");
         said.AppendLine(
-            $"  · `branch:` names only the part AFTER `{Gg.Contracts.DestinationBranch.Prefix}`, "
-          + "which gg adds and which is how it recognises its own branches. It must "
+            $"  · `branch:` names the part AFTER `{Gg.Contracts.DestinationBranch.Prefix}`, "
+          + "which gg adds - or, starting with "
+          + $"`{Gg.Contracts.DestinationBranch.WholeBranch}`, the whole branch "
+          + "(`refs/heads/feature/{flight}-{ticket}` pushes `feature/GG-189-18493`). "
+          + "Work kept for a takeover stays under `gg/handoff/` either way. It must "
           + $"contain `{Gg.Contracts.DestinationBranch.FlightPlaceholder}` - without it two "
           + "flights on one ticket want one branch, and a rerun after a halt is exactly "
           + $"that. `{Gg.Contracts.DestinationBranch.TicketPlaceholder}` is the other thing "

@@ -171,7 +171,12 @@ public static class ProtocolSurface
          // do. An undeclared route under it would be an unaudited way to hand
          // somebody authority - the argument /v1/invitations came in on,
          // applied to privilege rather than to membership.
-         "/v1/principals"];
+         "/v1/principals",
+         // What moved in a tenant, as it moves. Governed because a route under
+         // here says which of a tenant's flights, gates and runners changed,
+         // and one the control plane served without declaring would be an
+         // unaudited way to learn that.
+         "/v1/changes"];
 
     /// <summary>Refusal for a caller below the protocol floor.</summary>
     public const int ProtocolTooOld = 426;
@@ -610,6 +615,29 @@ public static class ProtocolSurface
             Response = typeof(BoardPage),
             // 200: the board is a store rather than a perspective, so a read
             // sees what the last write left. Nothing here is asynchronous.
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+
+        // THE CHANGE STREAM. A console refreshes on a timer, and the flight a
+        // person just opened is projected a hop after the write that opened it
+        // - so the re-read misses it and the row arrives on the next tick. This
+        // is held open instead: text/event-stream, one `ready' event with `{}'
+        // as its data, then a `changed' event per change whose data is a
+        // ChangeNotice, and a comment line at least every ChangeEvents.Keepalive.
+        //
+        // A DOORBELL: a notice names a topic and an id, never the row, and the
+        // console reads the row through the route that serves it. Developer
+        // audience for the flight list's reason - it says which of a tenant's
+        // flights moved, and a runner is not allowed that list.
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/changes",
+            Audience = Audience.Developer,
+            Request = null,
+            // EACH EVENT'S DATA, not the body: the body is a stream of events.
+            Response = typeof(ChangeNotice),
             Statuses = [200, 401, 403, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
@@ -1907,6 +1935,7 @@ public static class ProtocolSurface
             [typeof(WatchActionList)] = ["actions"],
             [typeof(SweepNomination)] =
                 ["subject", "version", "intentKey", "workKind", "reason", "note"],
+            [typeof(ChangeNotice)] = ["topic", "id"],
             [typeof(SweepClaim)] = ["serves"],
             [typeof(SweepServes)] = ["host", "credential"],
             [typeof(WatchAttestation)] =

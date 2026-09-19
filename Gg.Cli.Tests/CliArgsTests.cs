@@ -249,7 +249,9 @@ public class CliArgsTests
         // there to find a repository's name is a hint that cannot be followed.
         var refused = (CliAction.Unknown)CliArgs.Parse(["fly", "--ticket", "ado#18490", "--repo"]);
 
-        await Assert.That(refused.Message).DoesNotContain("gg airspace show");
+        // THE HINT'S SENTENCE, not the words: the refusal carries the whole
+        // usage, and that lists `gg airspace show` as the verb it is.
+        await Assert.That(refused.Message).DoesNotContain("Run gg airspace show to see them");
         await Assert.That(refused.Message).Contains("Repositories tab");
     }
 

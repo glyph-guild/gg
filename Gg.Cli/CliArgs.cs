@@ -680,6 +680,7 @@ public static class CliArgs
     [
         "gg                             the console",
         "gg fly <text>|--uri <uri>|--ticket <provider>#<id>  open a flight",
+        "  --repo <name>                which repository it is about, by its registered name",
         "  --runner <id>                open it for one machine",
         "  --work-kind <name>           which work kind's rules govern it",
         "  --environment <name>         which charted environment it runs in",
@@ -945,7 +946,7 @@ public static class CliArgs
             {
                 return Unknown(
                     "gg fly --repo needs the name a repository is registered under, e.g. "
-                  + "--repo payments. Run gg airspace show to see them.");
+                  + "--repo payments. The console's Repositories tab lists them.");
             }
 
             // NAMED TWICE IS REFUSED. Cloning it twice is the cheap harm; the

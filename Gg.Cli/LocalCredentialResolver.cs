@@ -46,6 +46,15 @@ public sealed class LocalCredentialResolver(ICredentialStore store) : ICredentia
             return Task.FromResult<CredentialResolution>(
                 new CredentialResolution.Unresolvable(malformed.Message));
         }
+        catch (CredentialUnavailableException unavailable)
+        {
+            // A VAULT THIS MACHINE COULD NOT READ, said as the store said it:
+            // which reference, and why - no identity, no permission, no such
+            // secret. The sentence names the reference and never the value, so
+            // it may travel to the flight log.
+            return Task.FromResult<CredentialResolution>(
+                new CredentialResolution.Unresolvable(unavailable.Message));
+        }
 
         return Task.FromResult<CredentialResolution>(secret switch
         {

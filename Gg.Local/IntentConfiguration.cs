@@ -435,9 +435,24 @@ public static class IntentConfiguration
             return null;
         }
 
-        return secret is { Length: > 0 }
-            ? null
-            : $"No credential at '{locator}' for '{reader.Key}' on this runner. It is declared in "
+        if (secret is { Length: > 0 })
+        {
+            return null;
+        }
+
+        // A VAULT REFERENCE IS NOT ADDED HERE. Telling a person to run gg
+        // credential add would put a second copy of a secret that has a home
+        // onto this machine; the vault's own refusal is in the runner's log.
+        if (KeyVaultReference.Names(locator))
+        {
+            return $"No credential for '{reader.Key}' on this runner: it is declared in "
+                 + $"{ReadersVariable} as '{locator}', and this machine could not read it from the "
+                 + "vault - its log says why (no managed identity, no read permission, or no such "
+                 + "secret). No agent was invoked, because a tool server started without its "
+                 + "credential fails at the tracker instead.";
+        }
+
+        return $"No credential at '{locator}' for '{reader.Key}' on this runner. It is declared in "
             + $"{ReadersVariable} and this machine does not have it: run `gg credential add`, or "
             + "route this flight to a runner that holds it. No agent was invoked, because a tool "
             + "server started without its credential fails at the tracker instead.";

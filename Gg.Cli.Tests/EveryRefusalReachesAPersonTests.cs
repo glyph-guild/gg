@@ -48,6 +48,13 @@ public class EveryRefusalReachesAPersonTests
               + "catching this one type in an emitter it does not run through would be false "
               + "comfort. That function growing a handler is its own change, and this line "
               + "comes off the list when it does.",
+            ["CredentialUnavailableException"] =
+                "raised only for a keyvault:// reference, and every path that can hold one turns "
+              + "it into a sentence before it could reach here: LocalCredentialResolver makes it "
+              + "the flight log's diagnosis, and MachineCredentialStore.SecretFor writes it to the "
+              + "runner's log for a tool server's secret. The two reads Program.cs makes itself - "
+              + "an agent's token and a sweep's repository credential - derive local: locators, "
+              + "which never reach a vault.",
         };
 
     private static string Root()

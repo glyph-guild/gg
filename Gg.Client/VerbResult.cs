@@ -2962,6 +2962,25 @@ public static class VerbOutput
             text.AppendLine($"{row.NominationId} - {Clean(row.WorkKind)}");
             text.AppendLine($"  nominated by: {Clean(row.Nominator)}");
 
+            // WHOSE ROW IT IS, WHEN IT IS SOMEBODY'S (ADR-0024). A personal
+            // watch's rows stand on the tenant's board and only their person
+            // may answer them, so a listing that did not say would hide the one
+            // line a reader can act on - and the 403 for answering somebody
+            // else's would arrive with no warning. The display first, because
+            // that is the half a person recognises; the subject beside it,
+            // because a display cannot tell two people with one name apart and
+            // is dropped altogether when somebody leaves the tenant.
+            //
+            // NOTHING AT ALL FOR A TENANT ROW, the topology read's rule: it
+            // belongs to nobody and says so by saying nothing, and a line on
+            // every row of an ordinary board would bury the personal ones.
+            if (row.For is { Length: > 0 } whose)
+            {
+                text.AppendLine(row.ForDisplay is { Length: > 0 } display
+                    ? $"  for:          {Clean(display)} ({Clean(whose)})"
+                    : $"  for:          {Clean(whose)}");
+            }
+
             // WHAT IT IS ABOUT, and it is the line a person chooses on. The
             // work kind says which rules would apply; this says which piece of
             // work. Said rather than omitted when there is none, because a

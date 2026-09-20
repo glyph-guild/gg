@@ -119,7 +119,13 @@ public class HelpNamesEveryKeyTests
         // nominations and the watches that make them, and enter is offered only
         // over the first kind - so without this clause the key that answers a
         // nomination is invisible to the completeness check.
-        from aNominationWaits in (bool[])[false, true]
+        // THE BOARD'S CURSOR AS ONE DIMENSION, not two bools. A nomination
+        // waiting is ALWAYS a row under the cursor, so the fourth combination
+        // does not exist - and crossing two correlated flags would double a
+        // product already measured in minutes to enumerate a state the keymap
+        // can never be handed.
+        //   0 = no row   1 = a row nobody can answer   2 = a standing nomination
+        from board in (int[])[0, 1, 2]
 
         // AND WHETHER THE ACTIVITY LINE IS SHOWING PART OF ITS MESSAGE, for the
         // reason every clause above records, six times now. It binds the one
@@ -142,7 +148,8 @@ public class HelpNamesEveryKeyTests
             RunnerIsOurs = ours,
             RunnerIsBeating = flying,
             GateAsksForAgentLogin = gateAsksForAgentLogin,
-            ANominationWaits = aNominationWaits,
+            ABoardRowIsUnderTheCursor = board > 0,
+            ANominationWaits = board == 2,
             SaidIsClipped = saidIsClipped,
             OverALink = overALink,
             AllowanceIsMine = allowanceIsMine,
@@ -463,13 +470,19 @@ public class HelpNamesEveryKeyTests
         // is not claimed by anybody, so no combination of "claimed by you" and
         // "reserved" reaches it, and the key that opens it reads the other way
         // there.
+        // TWENTY-EIGHT SINCE A BOARD ROW COULD BE OPENED, which is the wider
+        // of the two board flags: what can be ANSWERED is a standing
+        // nomination, and what can be READ is any row - a watch's machinery
+        // and an ended row included, because a person opening one is asking
+        // what became of it. Held as ONE dimension with the flag it implies,
+        // for the reason written beside the product.
         // TWENTY-SEVEN SINCE A BRING-UP ASK (step 4), which is the one gate
         // where both answers would be a lie: what clears it is the machine's
         // next reading, so the modal offers neither and says what is missing
         // instead. It is exclusive with the agent-login flag beside it - a gate
         // has one kind - and held beside the cross for the same reason the
         // ownership three are.
-        await Assert.That(members.Count).IsEqualTo(27)
+        await Assert.That(members.Count).IsEqualTo(28)
             .Because("Everywhere() crosses every one of these, or OverAMachineSomebodyOwns() "
                    + "holds it beside the cross - and a member in neither would leave the "
                    + "completeness check above quietly incomplete, which is exactly how the "

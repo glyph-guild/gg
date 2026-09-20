@@ -73,16 +73,19 @@ public class TheBoardSaysAsWhomAWatchReadTests
     }
 
     [Test]
-    public async Task A_watch_with_a_diagnosis_keeps_the_diagnosis_whole()
+    public async Task A_watch_with_a_diagnosis_still_says_what_it_has_spent()
     {
-        // THE COLUMN HOLDS ONE STRING and a diagnosis replaces the cost, so
-        // there is nowhere here to put the account without changing what the
-        // sentence says. Pinned so that a later hand does not append to it.
+        // THE TRADE THIS COLUMN USED TO MAKE, and it made it the wrong way: a
+        // diagnosis REPLACED the cost, so a watch in trouble showed no cost at
+        // all - exactly when somebody is asking what it has been doing. The
+        // prose went to the modal, where it fits whole and sits beside the
+        // cost rather than instead of it.
         var quiet = AWatch("kdeenanauth", diagnosis: "has reported nothing since 04:45Z");
 
-        await Assert.That(WhyOf(quiet)).IsEqualTo("has reported nothing since 04:45Z")
+        await Assert.That(WhyOf(quiet)).IsEqualTo("1 of 5 in 24h, as kdeenanauth");
+        await Assert.That(WhyOf(quiet)).DoesNotContain("has reported nothing")
             .Because("'has reported nothing since 04:45Z, as kdeenanauth' reads as though the "
-                   + "silence were that person's.");
+                   + "silence were that person's - which is why it is not appended here.");
     }
 
     [Test]

@@ -321,6 +321,16 @@ public readonly record struct KeymapContext(
     /// </remarks>
     public bool ANominationWaits { get; init; }
 
+    /// <summary>Whether the board's cursor is on a row at all.</summary>
+    /// <remarks>
+    /// <b>Any row, which is the wider of the two.</b> A watch's row and an
+    /// ended nomination cannot be ANSWERED and can both be read - so opening
+    /// one asks this, and the answers inside ask
+    /// <see cref="ANominationWaits"/>. The two are correlated on purpose: a
+    /// nomination waiting is always a row under the cursor.
+    /// </remarks>
+    public bool ABoardRowIsUnderTheCursor { get; init; }
+
     /// <summary>
     /// What the refresh key has to say for itself: a countdown, or the mark
     /// that says one is happening.
@@ -458,6 +468,11 @@ public readonly record struct KeymapContext(
             // ANSWER, for AGateWaits' reason one field up: two kinds of row
             // share that table and only one of them is a decision.
             ANominationWaits = Rows.StandingUnder(state) is not null,
+
+            // AND WHETHER THERE IS A ROW AT ALL, which is what OPENING one
+            // asks. Derived from the same rows the table draws, so a key
+            // offered here is a key over something a person can see.
+            ABoardRowIsUnderTheCursor = BoardDetails.Under(state) is not null,
 
             // AND WHETHER IT NAMES SOMEWHERE TO GO WITH NO READER FOR IT,
             // derived here with the rest so the hint line and the dispatch
@@ -2236,11 +2251,15 @@ public static class Keymap
         // machinery. A row already ended is a 409 at the door. The flag is
         // derived from the same model the hint line reads, so the key is
         // offered exactly where it does something.
-        TabId.Board => context.ANominationWaits
+        // ANY ROW, BOTH KINDS. This tab holds a nomination somebody can answer
+        // and the watch that made it, which is machinery - and a person needs
+        // to read either. What can be ANSWERED is asked inside the modal,
+        // where the reasons are; what can be OPENED is only "is there a row".
+        TabId.Board => context.ABoardRowIsUnderTheCursor
             ?
             [
-                new(KeyStroke.EnterKey, Command.AskToAnswerNomination, "answer this")
-                    { OffTheHintLine = true, When = "on a standing nomination" },
+                new(KeyStroke.EnterKey, Command.ShowBoardRow, "open this row")
+                    { OffTheHintLine = true, When = "on a board row" },
             ]
             : [],
 
@@ -2376,6 +2395,7 @@ public static class Keymap
         c => c with { OnTheRepositoriesHalf = true },
         c => c with { OverAReadableTicket = true },
         c => c with { AGateWaits = true },
+        c => c with { ABoardRowIsUnderTheCursor = true },
         c => c with { SignInStarted = true },
         c => c with { RunnerIsOurs = true },
         c => c with { RunnerOwnershipIsKnown = true },

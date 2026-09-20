@@ -91,17 +91,132 @@ public static class BoardDetails
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        // SCAFFOLDING. The red commit needs this to compile and nothing else;
-        // what a row says is the green one.
-        return [];
+        var fields = new List<BoardField>();
+
+        if (NominationUnder(state) is { } nomination)
+        {
+            // NAMED IN THE BODY AND NOT ONLY IN THE TITLE. Two nominations
+            // from one watch differ only in their subject, so a question that
+            // does not name it is one nobody can answer safely - and the body
+            // is what `CopyModal' copies, where a title does not travel.
+            fields.Add(new BoardField("subject", ControlText.Strip(nomination.Subject)));
+            fields.Add(new BoardField("nominated by", ControlText.Strip(nomination.Nominator)));
+
+            // WHOSE ROW IT IS, the pair the board page sends: the display a
+            // person reads and the subject a document spells them with.
+            if (nomination.For is { Length: > 0 } whose)
+            {
+                fields.Add(new BoardField(
+                    "for",
+                    nomination.ForDisplay is { Length: > 0 } display
+                        ? $"{ControlText.Strip(display)} ({ControlText.Strip(whose)})"
+                        : ControlText.Strip(whose)));
+            }
+
+            if (nomination.WorkKind is { Length: > 0 } kind)
+            {
+                fields.Add(new BoardField("kind", ControlText.Strip(kind)));
+            }
+
+            fields.Add(new BoardField(
+                "standing",
+                nomination.Ending is { Length: > 0 } ending
+                    ? ControlText.Strip(ending)
+                    : "waiting for somebody"));
+
+            fields.Add(new BoardField("nominated", $"{nomination.MadeAt:u}"));
+
+            return fields;
+        }
+
+        if (WatchUnder(state) is { } watch)
+        {
+            fields.Add(new BoardField("watch", ControlText.Strip(watch.Name)));
+            fields.Add(new BoardField("executor", ControlText.Strip(watch.Executor ?? "none yet")));
+
+            fields.Add(new BoardField(
+                "last heard",
+                watch.LastHeardAt is { } heard ? $"{heard:u}" : "never reported"));
+
+            // WHAT THE CONTROL PLANE SAID about the next one, never a time
+            // computed here: the schedule is timed between two decisions and
+            // latched while a sweep has not reported, so arithmetic on this
+            // side would disagree with the planner exactly when somebody is
+            // asking why nothing has run.
+            fields.Add(new BoardField(
+                "next sweep",
+                watch.NextSweepAt is { } next
+                    ? $"{next:u}"
+                    : watch.NextSweepSaid is { Length: > 0 } said
+                        ? ControlText.Strip(said)
+                        : "not said"));
+
+            fields.Add(new BoardField("cost", Rows.CostOf(watch)));
+
+            if (watch.Account is { Length: > 0 } account)
+            {
+                fields.Add(new BoardField("read as", ControlText.Strip(account)));
+            }
+
+            if (watch.QuietSince is { } since)
+            {
+                fields.Add(new BoardField("quiet since", $"{since:u}"));
+            }
+
+            return fields;
+        }
+
+        return fields;
     }
 
-    /// <summary>The row as one block of text.</summary>
+    /// <summary>
+    /// The row as one block of text: the fields, then the sentence.
+    /// </summary>
+    /// <remarks>
+    /// <b>The sentence last and on its own</b>, because it is prose and the
+    /// rest are scalars - and because it is the long one. It is what the table
+    /// used to clip.
+    /// </remarks>
     internal static string Linear(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return "";
+        if (Under(state) is null)
+        {
+            // SAID, NOT BLANK, and reachable: a board re-read underneath
+            // somebody, or a row answered from another console.
+            return "There is nothing on this row any more.\n"
+                 + "The board may have been read again since you opened it.";
+        }
+
+        var text = new System.Text.StringBuilder();
+
+        foreach (var field in Fields(state))
+        {
+            text.AppendLine($"  {field.Label,-13} {field.Value}");
+        }
+
+        if (Because(state) is { Length: > 0 } because)
+        {
+            text.AppendLine();
+            text.AppendLine(ControlText.Strip(because));
+        }
+
+        if (Rows.StandingUnder(state) is not null)
+        {
+            text.AppendLine();
+            text.AppendLine(
+                "Either answer opens your editor for the reason, and nothing is sent until "
+              + "you save and quit. The reason is the only thing that survives to tell a "
+              + "later reader why.");
+        }
+
+        return text.ToString();
     }
 
+    /// <summary>The row's own sentence: a nominator's reason, or a diagnosis.</summary>
+    private static string Because(AppState state) =>
+        NominationUnder(state) is { } nomination
+            ? nomination.Because ?? ""
+            : WatchUnder(state)?.Diagnosis ?? "";
 }

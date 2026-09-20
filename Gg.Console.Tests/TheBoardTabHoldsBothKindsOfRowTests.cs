@@ -122,7 +122,11 @@ public class TheBoardTabHoldsBothKindsOfRowTests
         await Assert.That(rows[0].State).IsEqualTo("refused")
             .Because("a row reading `auto` that has in fact been refused is the one thing "
                    + "this column must never say.");
-        await Assert.That(rows[0].Cost).Contains("menu");
+        // AND THE SENTENCE IS NOT IN THE ROW ANY MORE. It is a nominator's
+        // prose and a cell clipped it; `ABoardRowOpensIntoAModalTests` holds
+        // it where it went. What stays here is the ending, which is a word.
+        await Assert.That(rows[0].Cost).IsEqualTo("")
+            .Because("a nomination is a question, not a spender.");
     }
 
     [Test]
@@ -145,9 +149,13 @@ public class TheBoardTabHoldsBothKindsOfRowTests
         var sweep = rows.Single(r => r.What == "sweep");
 
         await Assert.That(sweep.State).IsEqualTo(WatchOutcomes.Unreachable);
-        await Assert.That(sweep.Cost).Contains("refused all 3")
-            .Because("the diagnosis was written on the machine that tried, and it is the "
-                   + "only thing anybody can act on.");
+
+        // THE DIAGNOSIS MOVED, AND THE COST STAYED. It was written on the
+        // machine that tried and it is still the only thing anybody can act on
+        // - it is in the modal now, whole, beside the cost it used to replace.
+        // A watch in trouble showing no cost was the worse half of that trade.
+        await Assert.That(sweep.Cost).IsEqualTo("3 of 5 in 24h")
+            .Because("the column is a cost, and it says one even when the watch is unwell.");
     }
 
     [Test]

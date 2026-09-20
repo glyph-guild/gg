@@ -108,15 +108,6 @@ public enum Command
     /// <summary>Answer it no, with a reason. Posts; decides nothing locally.</summary>
     RejectGate,
 
-    /// <summary>Ask what to do about the nomination under the board's cursor.</summary>
-    /// <remarks>
-    /// <b>The question, never one of its answers.</b> Called
-    /// <c>OpenNomination</c> this would be the name of the ask AND the name of
-    /// one of the two things it can produce, which is a command that means two
-    /// things depending on where it is read. <see cref="OpenGate"/> has the
-    /// same shape and the same reason.
-    /// </remarks>
-    AskToAnswerNomination,
 
     /// <summary>Open the row under the cursor on the board.</summary>
     /// <remarks>

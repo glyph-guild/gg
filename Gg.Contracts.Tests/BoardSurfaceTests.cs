@@ -79,6 +79,8 @@ public class BoardSurfaceTests
             nameof(NominationSummary.EndedAt),
             nameof(NominationSummary.IntentKey),
             nameof(NominationSummary.GatedBecause),
+            nameof(NominationSummary.For),
+            nameof(NominationSummary.ForDisplay),
         });
     }
 

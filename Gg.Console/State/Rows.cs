@@ -312,7 +312,16 @@ public static class Rows
     public static string Whose(RunnerRow row)
     {
         ArgumentNullException.ThrowIfNull(row);
-        return "";
+
+        return row.Ownership switch
+        {
+            RunnerOwnerships.Tenant => "the tenant's",
+            RunnerOwnerships.Open => "open",
+            RunnerOwnerships.Claimed when row.Owner is { Length: > 0 } owner =>
+                $"{owner}'s{(row.Reserved ? ", reserved" : "")}",
+            RunnerOwnerships.Claimed => $"claimed{(row.Reserved ? ", reserved" : "")}",
+            _ => "",
+        };
     }
 
     /// <summary>
@@ -329,7 +338,19 @@ public static class Rows
     {
         ArgumentNullException.ThrowIfNull(row);
 
-        return [row.Here, Nested(row), row.State, row.Work, row.Labels, row.Heard];
+        var whose = Whose(row);
+
+        return
+        [
+            row.Here,
+            Nested(row),
+            row.Resident ? (whose.Length > 0 ? whose + " · resident" : "resident") : whose,
+            row.Profile,
+            row.State,
+            row.Work,
+            row.Labels,
+            row.Heard,
+        ];
     }
 
     /// <summary>
@@ -938,8 +959,17 @@ public static class Rows
         // though this one is an id: the doorway cleans, and an exception here
         // would be an exception nobody told the next reader about.
         HostRunnerId: ControlText.Strip(runner.HostRunnerId ?? ""),
-        MachineName: ControlText.Strip(runner.Machine ?? ""));
+        MachineName: ControlText.Strip(runner.Machine ?? ""),
 
+        // CLEANED AT INGRESS like every other string a control plane composes:
+        // an owner's display name is somebody's to choose, and this record is
+        // written to disk, so it goes through the doorway the label goes
+        // through rather than being trusted because it came from us.
+        Ownership: ControlText.Strip(runner.Ownership),
+        Owner: ControlText.Strip(runner.Owner),
+        Reserved: runner.Reserved,
+        Resident: runner.Resident,
+        Profile: ControlText.Strip(runner.Profile ?? ""));
 
     /// <summary>
     /// One advertised label, and a word only when it is worth one.

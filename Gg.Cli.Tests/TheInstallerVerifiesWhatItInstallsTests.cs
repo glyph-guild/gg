@@ -54,6 +54,86 @@ public class TheInstallerVerifiesWhatItInstallsTests
     private static string Script() => Path.Combine(RepoRoot(), "deploy", "install.sh");
 
     [Test]
+    public async Task A_laptop_takes_the_binary_and_no_service()
+    {
+        // THE ONE COMMAND A PERSON RUNS ON THEIR OWN MACHINE. Until this, the
+        // script always ended in `gg service install` - so the only scripted
+        // install made the laptop a runner, with a service user and a second
+        // row in the fleet, and the alternative was four manual steps in the
+        // README where the second one is silently load-bearing.
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.42.0"));
+
+        var installed = await box.RunAsync("--version", "0.42.0");
+
+        await Assert.That(installed.Exit).IsEqualTo(0).Because(installed.Output);
+        await Assert.That(box.GgArguments()).IsEmpty()
+            .Because("nothing on a laptop is a service, and a service install here would "
+                   + "make one - a gg user, a unit, and a runner nobody asked for.");
+        await Assert.That(installed.Output).Contains("not a runner")
+            .Because("said, because the difference between this and a runner install is the "
+                   + "whole question somebody is answering when they run it.");
+        await Assert.That(installed.Output).Contains("gg config set control-plane")
+            .Because("the default control plane is localhost, so a laptop that was told "
+                   + "nothing points at nothing - and this is where a person finds that out.");
+        await Assert.That(installed.Output).Contains("gg login");
+    }
+
+    [Test]
+    public async Task A_control_plane_is_what_makes_it_a_runner()
+    {
+        // THE OTHER HALF, and the reason the laptop case is safe: every
+        // existing caller - cloud-init, the runbooks, a machine being enrolled
+        // - passes --control-plane, and they still get exactly what they got.
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.42.0"));
+
+        var installed = await box.RunAsync("--version", "0.42.0", "--control-plane", ControlPlane);
+
+        await Assert.That(installed.Exit).IsEqualTo(0).Because(installed.Output);
+        await Assert.That(box.GgArguments())
+            .IsEquivalentTo((string[])[$"service install --control-plane {ControlPlane}"]);
+    }
+
+    [Test]
+    [Arguments("Linux", "x86_64", "gg-linux-x64.tar.gz")]
+    [Arguments("Linux", "aarch64", "gg-linux-arm64.tar.gz")]
+    [Arguments("Darwin", "arm64", "gg-osx-arm64.tar.gz")]
+    [Arguments("Darwin", "x86_64", "gg-osx-x64.tar.gz")]
+    public async Task Every_platform_the_release_builds_is_one_this_installs(
+        string kernel, string machine, string asset)
+    {
+        // A PLATFORM THE RELEASE CARRIES AND THE SCRIPT REFUSES is a download
+        // somebody does by hand from a page, with the second install line -
+        // the one that decides whether the console has its bar - left to them.
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.42.0"));
+        box.Uname(kernel, machine);
+
+        var installed = await box.RunAsync("--version", "0.42.0");
+
+        await Assert.That(installed.Exit).IsEqualTo(0).Because(installed.Output);
+        await Assert.That(string.Join(" ", box.Downloads())).Contains(asset);
+    }
+
+    [Test]
+    public async Task Windows_is_sent_to_the_script_that_can_install_it()
+    {
+        // NOT "gg is released for Linux and macOS" any more. The release
+        // carries win-x64, and a person on Windows running this in git-bash
+        // should be told where its installer is rather than that their
+        // platform does not exist.
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.42.0"));
+        box.Uname("MINGW64_NT-10.0", "x86_64");
+
+        var refused = await box.RunAsync("--version", "0.42.0");
+
+        await Assert.That(refused.Exit).IsNotEqualTo(0);
+        await Assert.That(refused.Output).Contains("install.ps1");
+    }
+
+    [Test]
     public async Task A_download_its_attestation_does_not_vouch_for_is_never_installed()
     {
         using var box = new Sandbox();
@@ -142,10 +222,10 @@ public class TheInstallerVerifiesWhatItInstallsTests
         await Assert.That(unnamed.Exit).IsNotEqualTo(0);
         await Assert.That(unnamed.Output).Contains("--version");
 
-        var nowhere = await box.RunAsync("--version", "0.38.0");
-        await Assert.That(nowhere.Exit).IsNotEqualTo(0);
-        await Assert.That(nowhere.Output).Contains("--control-plane");
-
+        // AND A FIRST INSTALL NO LONGER REFUSES WITHOUT ONE, because a laptop
+        // is a first install too and has no control plane to name at install
+        // time. What --control-plane decides now is whether this machine
+        // becomes a RUNNER; the test below holds that half.
         await Assert.That(box.Downloads()).IsEmpty()
             .Because("a refusal the script could make before downloading is made before downloading.");
     }
@@ -303,7 +383,7 @@ public class TheInstallerVerifiesWhatItInstallsTests
             var directory = Path.Combine(_dir, "releases", $"v{version}");
             Directory.CreateDirectory(directory);
 
-            foreach (var rid in (string[])["linux-x64", "osx-arm64"])
+            foreach (var rid in (string[])["linux-x64", "linux-arm64", "osx-arm64", "osx-x64", "win-x64"])
             {
                 System.IO.File.WriteAllBytes(Path.Combine(directory, $"gg-{rid}.tar.gz"), bytes);
             }
@@ -315,6 +395,22 @@ public class TheInstallerVerifiesWhatItInstallsTests
             System.IO.File.WriteAllText(
                 Path.Combine(_dir, "attestations", $"sha256:{digest}"),
                 """{"attestations":[{"bundle":{"mediaType":"application/vnd.dev.sigstore.bundle.v0.3+json"}}]}""");
+
+        /// <summary>What `uname` says this machine is, for one test.</summary>
+        /// <remarks>
+        /// <b>Stubbed rather than skipped.</b> The script picks its asset from
+        /// uname, and a suite that could only test the platform it happens to
+        /// run on would cover one of the four the release builds.
+        /// </remarks>
+        public void Uname(string kernel, string machine) =>
+            Stub("uname", $$"""
+                #!/bin/sh
+                case "$1" in
+                  -s) echo {{kernel}} ;;
+                  -m) echo {{machine}} ;;
+                  *) echo {{kernel}} ;;
+                esac
+                """);
 
         public void Verifier(bool verifies) =>
             Stub("gh", $$"""

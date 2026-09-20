@@ -140,4 +140,25 @@ public class TheConsoleAnswersABringUpGateTests
     {
         await Assert.That(ConsoleBringUp.Said(Gate(GateMaintenanceKinds.AgentLogin))).IsEmpty();
     }
+
+    [Test]
+    public async Task The_flight_actions_approve_shortcut_is_withheld_too()
+    {
+        // FOUND BY THE WALK, on the flight's own actions menu. The decision modal
+        // withheld both answers and this
+        // shortcut still offered one, so the console said two different things
+        // about one gate - and the shortcut is the easier of the two to press.
+        //
+        // The shortcut already knew this shape: it is withheld on an
+        // agent-login gate for the same reason, written one slice earlier.
+        var bringUp = Keymap.Bindings(
+            new KeymapContext(UiMode.FlightActions) { AGateWaits = true, GateIsABringUpAsk = true });
+        var ordinary = Keymap.Bindings(
+            new KeymapContext(UiMode.FlightActions) { AGateWaits = true });
+
+        await Assert.That(bringUp.Select(b => b.Command)).DoesNotContain(Command.ApproveGate);
+        await Assert.That(ordinary.Select(b => b.Command)).Contains(Command.ApproveGate)
+            .Because("an ordinary gate is a person's to answer, and this is a shortcut to "
+                   + "answering it - only the gates that no answer clears lose it.");
+    }
 }

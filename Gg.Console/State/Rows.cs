@@ -318,7 +318,7 @@ public static class Rows
         ["", "subject", "for", "state", "kind", "since", "next", "why"];
 
     public static IReadOnlyList<string> RunnerColumns { get; } =
-        ["", "runner", "whose", "profile", "state", "working on", "advertises", "last heard"];
+        ["", "runner", "whose", "profile", "state", "working on", "lacks", "advertises", "last heard"];
 
     /// <summary>
     /// What a machine lacks, as one cell says it, or empty.
@@ -387,7 +387,8 @@ public static class Rows
             row.Profile,
             row.State,
             row.Work,
-                row.Labels,
+            Lacking(row) is { Count: > 0 } missing ? string.Join(", ", missing) : "",
+            row.Labels,
             row.Heard,
         ];
     }

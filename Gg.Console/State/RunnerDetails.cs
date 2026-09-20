@@ -122,6 +122,18 @@ public static class RunnerDetails
 
         fields.Add(new FlightField("last heard", row.Heard));
 
+        // WHAT IT LACKS, AND WHEN IT LAST LOOKED. Both, because an empty list
+        // means two different things: a machine that meets its profile, and
+        // one that has never measured itself. A modal that showed only the
+        // first would call an unmeasured machine ready.
+        if (row.Measured is { Length: > 0 } measured)
+        {
+            fields.Add(new FlightField(
+                "measured", Rows.Lacking(row) is { Count: > 0 } missing
+                    ? $"{measured} - lacks {string.Join(", ", missing)}"
+                    : $"{measured} - meets its profile"));
+        }
+
         if (row.RegisteredBy is { Length: > 0 } who)
         {
             fields.Add(new FlightField("registered by", who));

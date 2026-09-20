@@ -285,6 +285,60 @@ public class TheInstallerVerifiesWhatItInstallsTests
     }
 
     [Test]
+    public async Task Every_step_that_runs_a_shell_script_says_which_shell()
+    {
+        // WHAT THIS COSTS WHEN IT IS MISSING, measured on the first run that
+        // built win-x64: the step that fetches the pinned SIPSorcery fork had no
+        // `shell:`, so the Windows runner ran it under pwsh, which cannot run a
+        // .sh file. It did not fail. PowerShell could not CreateProcess an
+        // unknown extension, fell back to ShellExecute, Git for Windows'
+        // file association launched it detached, and pwsh exited 0 having waited
+        // for nothing. The step reported success in 0.6 seconds, printed not one
+        // line, and placed no package; the publish that followed failed with
+        // NU1301 on a directory the "successful" step was supposed to create.
+        //
+        // A step that silently does nothing is worse than one that fails, so the
+        // guard is over the shape: a `run:` naming a .sh must say `shell: bash`.
+        // The forge's default shell is bash on Unix and pwsh on Windows, so a step
+        // without one means a different program on each runner in the matrix -
+        // and this workflow's matrix has had a Windows runner in it since 0.43.0.
+        var workflow = Directory
+            .EnumerateFiles(RepoRoot(), "publish-cli.yml", SearchOption.AllDirectories)
+            .Single(f => !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
+                StringComparison.Ordinal));
+
+        var lines = await File.ReadAllLinesAsync(workflow);
+
+        // Steps, by the `- ` that starts one. Cheaper than a YAML parser and it
+        // reads the file a reviewer reads.
+        var steps = new List<List<string>>();
+        foreach (var line in lines)
+        {
+            if (System.Text.RegularExpressions.Regex.IsMatch(line, @"^\s+- "))
+            {
+                steps.Add([]);
+            }
+
+            if (steps.Count > 0)
+            {
+                steps[^1].Add(line);
+            }
+        }
+
+        var unshelled = steps
+            .Where(step => step.Any(l => l.Contains("run:", StringComparison.Ordinal)
+                                      && l.Contains(".sh", StringComparison.Ordinal)))
+            .Where(step => !step.Any(l => l.Contains("shell: bash", StringComparison.Ordinal)))
+            .Select(step => step[0].Trim())
+            .ToList();
+
+        await Assert.That(unshelled).IsEmpty()
+            .Because("a step running a .sh with no `shell: bash` runs under pwsh on a Windows "
+                   + "runner, which launches it detached and exits 0 without it. Found: "
+                   + string.Join(" / ", unshelled));
+    }
+
+    [Test]
     public async Task No_step_pipes_into_a_grep_that_stops_reading()
     {
         // MEASURED IN ANGER. Adding `shell: bash` to the packaging steps - so

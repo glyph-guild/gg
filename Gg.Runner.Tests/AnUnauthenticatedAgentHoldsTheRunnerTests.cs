@@ -146,7 +146,8 @@ public class AnUnauthenticatedAgentHoldsTheRunnerTests
     /// <summary>A loop that stops after the delay delegate has been asked <paramref name="turns"/> times.</summary>
     private static Rig Build(
         FakeAgent agent, AgentStanding? initial, int turns,
-        IExecutorPort? executor = null, IWorkspace? workspace = null, string? token = Token)
+        IExecutorPort? executor = null, IWorkspace? workspace = null, string? token = Token,
+        Func<CancellationToken, Task>? readiness = null)
     {
         var protocol = new FakeProtocol();
         var observer = new RecordingObserver();
@@ -172,7 +173,8 @@ public class AnUnauthenticatedAgentHoldsTheRunnerTests
             executor: executor,
             agent: agent,
             agentToken: () => token,
-            initialStanding: initial);
+            initialStanding: initial,
+            measureReadiness: readiness);
 
         return new Rig(loop, protocol, observer, agent, waited, stop);
     }
@@ -401,5 +403,28 @@ public class AnUnauthenticatedAgentHoldsTheRunnerTests
                 ReadyStanding(T0), AProbe(false, "An agent with only 'read' declared put bytes on disk"), agent))
             .IsEqualTo(StartupOutcome.Refuse)
             .Because("a bound that BROKE is never a hold.");
+    }
+
+    [Test]
+    public async Task A_held_runner_still_measures_itself_against_its_profile()
+    {
+        // MEASURED ON vmlinux002 (S43.8-01): readiness was measured on a plain
+        // idle turn only, and a held runner returns before ever reaching one.
+        // So the machine a bring-up flight is ABOUT was the one machine that
+        // stopped reporting - GG-200 asked it to declare its agent, it declared
+        // it, and the ask could not withdraw, because declaring the agent is
+        // what made it start holding.
+        var agent = new FakeAgent();
+        var measured = 0;
+        var rig = Build(
+            agent, HeldStanding(T0), turns: 4,
+            readiness: _ => { measured++; return Task.CompletedTask; });
+
+        _ = await rig.Loop.RunAsync("runner-1", [], rig.Stop.Token);
+
+        await Assert.That(measured).IsGreaterThan(0)
+            .Because("every item but the agent's login - a credential that arrived, a forge "
+                   + "that came back - verifies on a machine that is holding, and nothing "
+                   + "carries it to the gate except a reading.");
     }
 }

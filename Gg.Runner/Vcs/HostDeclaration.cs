@@ -55,6 +55,9 @@ public readonly record struct HostDeclaration
     /// <summary>Whether this forge scopes repositories by path.</summary>
     public required bool IsPathScoped { get; init; }
 
+    /// <summary>The name a socket connects to.</summary>
+    public string Authority => Host;
+
     /// <summary>
     /// Parses one <c>key=host</c> entry, or throws naming the entry.
     /// </summary>

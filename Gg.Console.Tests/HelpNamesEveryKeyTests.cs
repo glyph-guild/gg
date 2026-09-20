@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 namespace Gg.Console.Tests;
 
 /// <summary>
@@ -250,10 +251,13 @@ public class HelpNamesEveryKeyTests
     /// else entirely.
     /// </para>
     /// <para>
-    /// <b>So CI walks all of it and a developer walks a covering set.</b> CI is
-    /// where the claim has to hold before anything merges, and `CI` is set by
-    /// the runner rather than by us. `GG_EXHAUSTIVE=1` asks for the whole walk
-    /// anywhere.
+    /// <b>So nothing walks it unless somebody asks.</b> Two minutes on every
+    /// pull request buys nothing the covering set does not already give:
+    /// <c>No_arm_needs_three_flags_true_at_once</c> below checks the ONE
+    /// assumption that set rests on, in milliseconds, and that is what CI
+    /// should spend its time on. <c>GG_EXHAUSTIVE=1</c> walks the product -
+    /// worth doing when the keymap's shape changes, and what the equivalence
+    /// test then compares against.
     /// </para>
     /// <para>
     /// <b>And the assertion SAYS which it did</b>, because a covering pass is
@@ -262,8 +266,7 @@ public class HelpNamesEveryKeyTests
     /// </para>
     /// </remarks>
     private static bool Exhaustive =>
-        Environment.GetEnvironmentVariable("CI") is { Length: > 0 }
-        || Environment.GetEnvironmentVariable("GG_EXHAUSTIVE") is { Length: > 0 };
+        Environment.GetEnvironmentVariable("GG_EXHAUSTIVE") is { Length: > 0 };
 
     /// <summary>
     /// Enough of the product to reach every conditional arm, without the cube.
@@ -353,6 +356,42 @@ public class HelpNamesEveryKeyTests
     }
 
     [Test]
+    public async Task No_arm_needs_three_flags_true_at_once()
+    {
+        // THE ONE ASSUMPTION THE COVERING SET RESTS ON, checked in
+        // milliseconds so nothing has to walk the product to be sure of it.
+        // That set raises no flag, each flag, each PAIR, and all of them - so
+        // an arm reachable only with three flags true AT ONCE is an arm it
+        // never reaches, and nothing else in this class would notice.
+        //
+        // NEGATIONS ARE FREE. Every shape leaves the flags it does not raise
+        // false, so `a && !b && !c` is reached by raising a alone: it is the
+        // POSITIVE terms that have to be raised together.
+        var flags = typeof(KeymapContext).GetProperties()
+            .Where(p => p.PropertyType == typeof(bool))
+            .Select(p => p.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var source = Regex.Replace(Sources.Read("Gg.Console", "Keymap.cs"), @"\s+", " ");
+
+        var deep = (from run in Regex.Matches(source, @"!?context\.\w+( && !?context\.\w+)+")
+                        .Select(match => match.Value)
+                    let positives = Regex.Matches(run, @"(^|&& )context\.(\w+)")
+                        .Select(match => match.Groups[2].Value)
+                        .Where(flags.Contains)
+                        .ToList()
+                    where positives.Count > 2
+                    select run + $" ({positives.Count} flags true at once)")
+            .ToList();
+
+        await Assert.That(deep).IsEmpty()
+            .Because("the covering set raises flags one and two at a time, so an arm needing "
+                   + "three at once is one a test run can never reach. Add a shape that raises "
+                   + "them to Covering(), beside the two named sets that already do it for "
+                   + "ownership and gates. Found: " + string.Join("; ", deep));
+    }
+
+    [Test]
     public async Task The_covering_set_finds_every_binding_the_whole_product_does()
     {
         // WHAT MAKES THE SHORTCUT SAFE, and it is checked rather than argued.
@@ -362,8 +401,10 @@ public class HelpNamesEveryKeyTests
         // arm reads a conjunction the covering set cannot reach, CI says which
         // binding it lost rather than quietly agreeing with a cheaper walk.
         //
-        // Skipped where the product is not being walked: comparing the covering
-        // set against itself would assert nothing.
+        // Skipped where the product is not being walked - comparing the
+        // covering set against itself would assert nothing - which is every
+        // run but GG_EXHAUSTIVE=1. What holds the covering set together the
+        // rest of the time is the assumption test above.
         if (!Exhaustive)
         {
             await Assert.That(Covering().Any()).IsTrue()

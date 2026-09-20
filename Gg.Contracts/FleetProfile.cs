@@ -63,6 +63,33 @@ public sealed record FleetProfile
         init;
     } = [];
 
+    /// <summary>
+    /// Where machines under it ask what they look like from outside, in
+    /// <c>stun-servers</c>' spelling: <c>stun:host:port</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The tenant's to choose, and nobody's to default.</b> gg will not put a
+    /// relay in its source - the well-known public ones are run by the companies
+    /// this binary may not name, and a default would point every runner in every
+    /// deployment at somebody's free service, on a path carrying the shape of a
+    /// customer's private network. A pool member gets them from its strategy;
+    /// this is the same sentence for the machine a profile describes.
+    /// </para>
+    /// <para>
+    /// <b>Measured on vmlinux002 (S43.8-01).</b> Without them the agent-login
+    /// ceremony - the remedy a bring-up gate names - reached the runner and then
+    /// ended in "no route between them was found", because host candidates alone
+    /// do not cross a NAT. An enrolled machine could not answer its own bring-up
+    /// ask, and the way through was to set a machine setting by hand.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<string> Relays
+    {
+        get => field ?? [];
+        init;
+    } = [];
+
     /// <summary>Whether it sweeps the tenant's watches when idle.</summary>
     public bool Sweeps { get; init; }
 
@@ -207,6 +234,11 @@ public sealed record FleetProfile
             return ("destinations", $"it lets every machine under it land work at '{destination}'.");
         }
 
+        // RELAYS ARE NOT A WIDENING, and that is the offer rule's decision
+        // rather than a new one: stun-servers is in OfferableKeys.Unwatched,
+        // because a wrong relay degrades a connection while a wrong forge host
+        // fetches code from somewhere nobody chose. A profile that only adds a
+        // relay applies at once, as an offer of one does.
         if (!prior.Sweeps && proposed.Sweeps)
         {
             return ("sweeps", "it has every machine under it sweep the tenant's watches.");
@@ -235,6 +267,9 @@ public sealed record FleetProfile
             ? (value[..at], value[(at + 1)..])
             : null;
     }
+
+    /// <summary>Whether a relay is written with a scheme a peer connection understands.</summary>
+    public static bool IsRelay(string value) => value is { Length: > 0 };
 
     private static bool IsReference(string value) =>
         !value.Any(char.IsWhiteSpace)

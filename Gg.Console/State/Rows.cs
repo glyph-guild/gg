@@ -572,10 +572,11 @@ public static class Rows
                 // NOTHING, BECAUSE A NOMINATION HAS NO SCHEDULE. A dash would
                 // be a claim about a next run it never had.
                 "",
-                // THE SENTENCE THAT ENDED IT, or the one that gated it. A
-                // standing row with neither says nothing here rather than
-                // borrowing a word from somewhere else.
-                nomination.Because ?? "",
+                // NO COST ON A NOMINATION - it is a question, not a spender -
+                // and its SENTENCE is no longer here at all. It used to be, and
+                // a cell clipped it; a nominator's reason is what a person
+                // answers with, so it moved to the modal where it fits whole.
+                "",
 
                 // WHOSE IT IS: the display, because that is what a reader
                 // recognises and this column is narrow - `gg board` prints the
@@ -611,7 +612,7 @@ public static class Rows
                 watch.NextSweepAt is { } next
                     ? PaneText.Until(next)
                     : watch.NextSweepSaid ?? "",
-                Spent(watch)));
+                CostOf(watch)));
         }
 
         return rows;
@@ -674,17 +675,17 @@ public static class Rows
         return one is not null && one.Ending is not { Length: > 0 } ? one : null;
     }
 
-    private static string Spent(Gg.Contracts.WatchStanding watch)
+    /// <summary>What a watch has spent inside its window, and as whom it read.</summary>
+    /// <remarks>
+    /// <b>Always a cost, and never the diagnosis.</b> It used to return the
+    /// diagnosis INSTEAD, so a watch in trouble showed no cost at all - exactly
+    /// when somebody is asking what it has been doing. A diagnosis is prose and
+    /// prose is in the modal now, which is where the nominator's sentence went
+    /// for the same reason.
+    /// </remarks>
+    public static string CostOf(Gg.Contracts.WatchStanding watch)
     {
-        // A DIAGNOSIS REPLACES THE COST rather than joining it, and the account
-        // does not follow it in. The verb prints the two on separate lines and
-        // can afford the account on the first; this is one column, and
-        // "has reported nothing since 04:45Z, as somebody" reads as though the
-        // silence were that person's.
-        if (watch.Diagnosis is { Length: > 0 } why)
-        {
-            return why;
-        }
+        ArgumentNullException.ThrowIfNull(watch);
 
         var cost = watch.Budgeted is { } bound
             ? $"{watch.Opened} of {bound} in {watch.Window}"

@@ -96,34 +96,10 @@ public class AnsweringANominationTakesASentenceTests
     public async Task Enter_on_a_standing_nomination_opens_the_question()
     {
         await Assert.That(Keymap.Resolve(KeyStroke.EnterKey, KeymapContext.For(Board())))
-            .IsEqualTo(Command.AskToAnswerNomination)
+            .IsEqualTo(Command.ShowBoardRow)
             .Because("enter opens what the cursor is on, on every tab that lists something - "
-                   + "and on this one the thing under the cursor is a decision somebody is "
-                   + "being asked for.");
-    }
-
-    [Test]
-    public async Task Enter_on_a_sweep_row_answers_nothing()
-    {
-        // A WATCH IS NOT A DECISION. It is the machinery that made the rows
-        // above it; there is nothing on it for a person to answer, and a key
-        // that resolves and does nothing is the dead key Article XI names -
-        // the `a` on the airspace tab that opened a flight modal about no
-        // flight.
-        await Assert.That(Keymap.Resolve(KeyStroke.EnterKey, KeymapContext.For(Board(selected: 1))))
-            .IsNull()
-            .Because("the second row of this board is the watch, and a watch is not answered.");
-    }
-
-    [Test]
-    public async Task An_ended_nomination_cannot_be_answered_again()
-    {
-        var ended = Board(nominations: [ANomination(ending: NominationEndings.Declined)]);
-
-        await Assert.That(Keymap.Resolve(KeyStroke.EnterKey, KeymapContext.For(ended))).IsNull()
-            .Because("the door answers 409 to a second decision, and offering a key that will "
-                   + "be refused is worse than not offering it - a person presses it and "
-                   + "concludes the console is broken.");
+                   + "and on this one what it opens now carries the reason as well as the "
+                   + "question, which is what a person answers with.");
     }
 
     [Test]

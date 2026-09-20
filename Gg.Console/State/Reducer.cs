@@ -189,10 +189,12 @@ public static class Reducer
             Command.AskHowToFlyByHand => Asked(state, ComposingFor.HandFlight),
             Command.OpenGate => Modal(state, UiMode.GateDecision),
 
-            // THE SAME MOVE OVER THE OTHER DECISION. Asking is a mode change
-            // and nothing else - which is this function's whole job, and the
-            // reason both of its answers below leave the state alone.
-            Command.AskToAnswerNomination => Modal(state, UiMode.BoardDetail),
+            // THE SAME MOVE OVER A BOARD ROW. Opening is a mode change and
+            // nothing else - this function's whole job, and the reason both of
+            // its answers below leave the state alone. Nothing is fetched: the
+            // board and the watches are already held, so the modal is a second
+            // reading of what the table drew.
+            Command.ShowBoardRow => Modal(state, UiMode.BoardDetail),
 
             // ASKING IS A MODE CHANGE AND NOTHING ELSE, which is the reducer's
             // whole job. Both of these were written in the loop, where they

@@ -189,7 +189,9 @@ public class ABoardRowOpensIntoAModalTests
 
         await Assert.That(Keymap.Resolve(KeyStroke.Char('o'), context)).IsNull();
         await Assert.That(Keymap.Resolve(KeyStroke.Char('d'), context)).IsNull()
-            .Because("a watch is machinery: there is nothing on it to open or decline.");
+            .Because("a watch is the machinery that made the rows above it; there is nothing "
+                   + "on it for a person to answer, and a key that resolves and does nothing "
+                   + "is the dead key Article XI names.");
     }
 
     [Test]
@@ -199,7 +201,9 @@ public class ABoardRowOpensIntoAModalTests
             with { Mode = UiMode.BoardDetail };
 
         await Assert.That(Keymap.Resolve(KeyStroke.Char('o'), KeymapContext.For(open))).IsNull()
-            .Because("an ended row is a 409 at the door.");
+            .Because("the door answers 409 to a second decision, and offering a key that will "
+                   + "be refused is worse than not offering it - a person presses it and "
+                   + "concludes the console is broken.");
     }
 
     // ---- the column it left behind ----

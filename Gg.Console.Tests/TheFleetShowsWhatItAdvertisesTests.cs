@@ -115,12 +115,22 @@ public class TheFleetShowsWhatItAdvertisesTests
     }
 
     [Test]
-    public async Task The_view_puts_it_in_the_cell()
+    public async Task The_projection_puts_it_in_the_cell()
     {
-        var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
+        // MOVED, AND THE RATCHET FOLLOWED IT. The cells were a lambda inside a
+        // Terminal.Gui callback in the view, so the only way to hold them was
+        // to read that file for a member name. Slice forty-six gave the fleet a
+        // whose column and moved the projection to `Rows.RunnerCells`, where
+        // the pane and the table are two readers of one function - so this now
+        // asserts over the behaviour rather than over the source of a view.
+        var row = Rows.Runners(Fleet(Advertised("environment=dev", LabelDispositions.Measured)))
+            .Single();
 
-        await Assert.That(screen).Contains("r.Labels")
-            .Because("a column with no cell behind it is a heading over nothing, which is "
-                   + "the shape the fill ratchet in this suite already watches for.");
+        var cells = Rows.RunnerCells(row);
+
+        await Assert.That(cells.Length).IsEqualTo(Rows.RunnerColumns.Count)
+            .Because("a column with no cell behind it is a heading over nothing.");
+        await Assert.That(cells[Rows.RunnerColumns.ToList().IndexOf("advertises")])
+            .IsEqualTo(row.Labels);
     }
 }

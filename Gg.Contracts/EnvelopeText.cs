@@ -681,6 +681,7 @@ public static class EnvelopeText
 
         ListOf(text, "forges", profile.Forges);
         ListOf(text, "destinations", profile.Destinations);
+        ListOf(text, "relays", profile.Relays);
 
         if (profile.Sweeps)
         {

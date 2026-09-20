@@ -165,6 +165,21 @@ public sealed record FleetProfile
             }
         }
 
+        // A SCHEME IS REQUIRED rather than assumed, which is the rule the
+        // machine's own reader already has: `stun:` and `stuns:` are what a peer
+        // connection understands, and quietly prefixing one would turn a typo
+        // into a server nobody meant. Refused here rather than dropped, because
+        // a document a person wrote and a gate approved should not lose entries
+        // silently.
+        foreach (var relay in profile.Relays)
+        {
+            if (!IsRelay(relay))
+            {
+                return $"relays has '{relay}', and a relay is written stun:host:port or "
+                     + "stuns:host:port - the scheme is required, never assumed.";
+            }
+        }
+
         // RULE 14: A REFERENCE, NEVER A SECRET. A reference names its source by
         // scheme - local:, keyvault:// - and a bare value is refused rather
         // than guessed at, because the one mistake this must never allow is a
@@ -269,7 +284,18 @@ public sealed record FleetProfile
     }
 
     /// <summary>Whether a relay is written with a scheme a peer connection understands.</summary>
-    public static bool IsRelay(string value) => value is { Length: > 0 };
+    /// <remarks>
+    /// <b>Public, and shared with the machine's own reader</b>, so a profile and
+    /// a <c>stun-servers</c> value cannot disagree about what a relay is. The
+    /// two readers differ in what they do with a bad one - this refuses the
+    /// document, that drops the entry - and agreeing on the question is the part
+    /// that matters.
+    /// </remarks>
+    public static bool IsRelay(string value) =>
+        value is { Length: > 0 }
+        && !value.Any(char.IsWhiteSpace)
+        && (value.StartsWith("stun:", StringComparison.OrdinalIgnoreCase)
+            || value.StartsWith("stuns:", StringComparison.OrdinalIgnoreCase));
 
     private static bool IsReference(string value) =>
         !value.Any(char.IsWhiteSpace)

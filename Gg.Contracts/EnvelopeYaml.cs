@@ -579,8 +579,8 @@ public static class EnvelopeYaml
     {
         var root = RequireMap(document, "");
         Closed(
-            root, BasedOnKey, "roles", "environment", "agent", "forges", "destinations", "sweeps",
-            "credentials");
+            root, BasedOnKey, "roles", "environment", "agent", "forges", "destinations", "relays",
+            "sweeps", "credentials");
 
         return new FleetProfile
         {
@@ -592,6 +592,9 @@ public static class EnvelopeYaml
             Forges = root.Entries.TryGetValue("forges", out var forges) ? Strings(forges, "forges") : [],
             Destinations = root.Entries.TryGetValue("destinations", out var destinations)
                 ? Strings(destinations, "destinations")
+                : [],
+            Relays = root.Entries.TryGetValue("relays", out var relays)
+                ? Strings(relays, "relays")
                 : [],
             Sweeps = root.Entries.TryGetValue("sweeps", out var sweeps) && Flag(sweeps, "sweeps"),
             Credentials = root.Entries.TryGetValue("credentials", out var credentials)

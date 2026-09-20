@@ -42,9 +42,12 @@ public static class StunConfiguration
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 // A SCHEME IS REQUIRED rather than assumed. `stun:` and `stuns:`
                 // are what a peer connection understands, and quietly prefixing
-                // one would turn a typo into a server nobody meant.
-                .Where(u => u.StartsWith("stun:", StringComparison.OrdinalIgnoreCase)
-                         || u.StartsWith("stuns:", StringComparison.OrdinalIgnoreCase)),
+                // one would turn a typo into a server nobody meant. THE QUESTION
+                // is the contract's, shared with the profile that can now carry
+                // these - the two differ in what they do with a bad entry, this
+                // dropping it and that refusing the document, and agreeing on
+                // what a relay IS is the part that matters.
+                .Where(Gg.Contracts.FleetProfile.IsRelay),
         ];
     }
 }

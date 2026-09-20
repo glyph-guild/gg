@@ -3383,7 +3383,7 @@ public sealed class ConsoleScreen : Window
 
             Fill(_boardTable, _board, Rows.Board(State), Rows.BoardColumns,
                 State.BoardSelected,
-                r => [r.What, r.Subject, r.State, r.Kind, r.Since, r.Next, r.Why]);
+                r => [r.What, r.Subject, r.For, r.State, r.Kind, r.Since, r.Next, r.Why]);
 
             Fill(_browseTable, null, Rows.Browse(State), Rows.BrowseColumns,
                 State.BrowseSelected,

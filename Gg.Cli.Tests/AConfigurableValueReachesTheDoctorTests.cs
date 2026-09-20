@@ -91,6 +91,125 @@ public class AConfigurableValueReachesTheDoctorTests
     }
 
     [Test]
+    public async Task No_read_of_a_setting_is_left_to_answer_from_the_environment_alone()
+    {
+        // THE HOLE THE NEIGHBOURING GUARD LEFT, and the reason this defect came
+        // back after being fixed once. That test demands `Settings.Value(`
+        // appear near every `stunServers:`, which asks whether the call is
+        // THERE and not whether it was given anything to read. All three of
+        //
+        //     Settings.Value(Gg.Runner.StunConfiguration.Variable)
+        //
+        // satisfied it while resolving from the environment only, because
+        // `Settings.Resolve` reads `file is null ? null : Of(file, variable)` -
+        // so the argument nobody passed is the whole difference between reading
+        // the file and not.
+        //
+        // WHAT IT COST: `gg doctor` said "this machine has no STUN server
+        // configured" about a machine with two in its file, and the remedy it
+        // printed - `gg config set stun-servers ...` - writes that same file.
+        // Following the advice could never clear the warning.
+        //
+        // AN OPTIONAL PARAMETER WHOSE OMISSION SILENTLY CHANGES THE ANSWER is
+        // the shape, so this counts arguments rather than matching text, and it
+        // reads every source file rather than the root alone.
+        var offenders = new List<string>();
+
+        foreach (var file in Sources())
+        {
+            var text = File.ReadAllText(file);
+
+            foreach (var call in new[] { "Settings.Value(", "Settings.Resolve(" })
+            {
+                for (var at = text.IndexOf(call, StringComparison.Ordinal); at >= 0;
+                     at = text.IndexOf(call, at + 1, StringComparison.Ordinal))
+                {
+                    // A MENTION IS NOT A CALL: this file names both in its own
+                    // prose, and a scan that cannot tell them apart would fail
+                    // on the sentence describing the fix.
+                    if (Quoted(text, at))
+                    {
+                        continue;
+                    }
+
+                    if (Arguments(text, at + call.Length) < 2)
+                    {
+                        offenders.Add(
+                            $"{Path.GetFileName(file)}: {text.Substring(at, 60).Split('\n')[0].Trim()}");
+                    }
+                }
+            }
+        }
+
+        await Assert.That(offenders).IsEmpty()
+            .Because("a setting read with no configuration answers from the environment and the "
+                   + "built-ins, so anything in the file is invisible to it - and nothing says "
+                   + "so at the call. Reading from the environment alone: "
+                   + string.Join(" / ", offenders));
+    }
+
+    /// <summary>Every C# source file of the product, tests excluded.</summary>
+    private static IEnumerable<string> Sources()
+    {
+        var here = new DirectoryInfo(AppContext.BaseDirectory);
+        while (here is not null && !Directory.Exists(Path.Combine(here.FullName, "Gg.Cli")))
+        {
+            here = here.Parent;
+        }
+
+        return Directory
+            .EnumerateFiles(here!.FullName, "*.cs", SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
+                            StringComparison.Ordinal)
+                     && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+                            StringComparison.Ordinal)
+                     && !f.Contains(".Tests", StringComparison.Ordinal));
+    }
+
+    /// <summary>Whether the text at <paramref name="at"/> sits inside a string.</summary>
+    private static bool Quoted(string text, int at)
+    {
+        var line = text.LastIndexOf('\n', at) + 1;
+
+        return text.AsSpan(line, at - line).Count('"') % 2 == 1;
+    }
+
+    /// <summary>
+    /// How many arguments the call whose parenthesis just opened is given,
+    /// counting commas at the call's own depth so a nested call counts as one.
+    /// </summary>
+    private static int Arguments(string text, int after)
+    {
+        var depth = 1;
+        var arguments = 1;
+
+        for (var i = after; i < text.Length && depth > 0; i++)
+        {
+            switch (text[i])
+            {
+                case '(' or '[':
+                    depth++;
+                    break;
+                case ')' or ']':
+                    depth--;
+                    if (depth == 0 && text.AsSpan(after, i - after).Trim().IsEmpty)
+                    {
+                        return 0;
+                    }
+
+                    break;
+                case ',' when depth == 1:
+                    arguments++;
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return arguments;
+    }
+
+    [Test]
     public async Task A_value_in_the_file_is_what_the_stun_check_would_use()
     {
         // AGAINST A STATED ENVIRONMENT, the neighbouring guard's own lesson:

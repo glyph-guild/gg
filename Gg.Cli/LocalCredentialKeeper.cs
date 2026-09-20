@@ -98,10 +98,40 @@ public sealed class LocalCredentialKeeper(ICredentialStore store)
             AcceptAgentLogin = true,
         };
 
-    /// <summary>What a machine writes when it redeems an enrollment token.</summary>
+    /// <summary>
+    /// The same configuration for a machine that has just redeemed an enrollment
+    /// token: opted in, and holding the profile it agreed to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The member's authority, for the machine the member's argument was
+    /// really about.</b> A member opts itself in on the single-use nonce its
+    /// tenant minted; an enrolled machine redeems a single-use token its tenant
+    /// minted, and is DEFINED by nobody being at it - <c>gg service install</c>
+    /// leaves the token and walks away.
+    /// </para>
+    /// <para>
+    /// <b>Measured on vmlinux002 (S43.8-01).</b> With neither door open, the
+    /// bring-up flight rule 25 opens for a machine's agent cannot be answered at
+    /// all: <c>gg agent login</c> is refused - "its own configuration must say
+    /// 'accept-configured'" - and <c>gg config set</c> refuses both keys by name,
+    /// because neither is a setting. The remedy was a hand-edited JSON file on
+    /// the one class of machine whose premise is that nobody opens a shell on it.
+    /// </para>
+    /// <para>
+    /// <b>Still written, and still not offerable.</b> Both keys stay out of
+    /// <c>OfferableKeys</c> - a control plane that could set them could make a
+    /// machine start a program that mints a credential - so this is the machine's
+    /// own file recording its own decision, on the authority of what it redeemed.
+    /// </para>
+    /// </remarks>
     public static Gg.Local.Configuration EnrolledUnder(
-        Gg.Local.Configuration? existing, string profile) =>
-        (existing ?? new Gg.Local.Configuration()) with { EnrolledProfile = profile };
+        Gg.Local.Configuration? existing, string profile)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(profile);
+
+        return Opened(existing) with { EnrolledProfile = profile };
+    }
 
     /// <summary>
     /// Somewhere to destroy a credential. Always.

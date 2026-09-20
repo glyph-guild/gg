@@ -2490,8 +2490,17 @@ static async Task<int> RunnerUpAsync()
                     var file = Gg.Local.ConfigurationFile.Read(configurationPath).Configuration
                         ?? new Gg.Local.Configuration();
                     Gg.Local.ConfigurationFile.Write(
-                        file with { EnrolledProfile = enrolled.Profile }, configurationPath);
+                        LocalCredentialKeeper.EnrolledUnder(file, enrolled.Profile),
+                        configurationPath);
                     Gg.Local.EnrollmentSeed.Spend(configurationPath);
+
+                    // AND RE-READ IT, which is the member's lesson (gg-pool-ui-1
+                    // and -2) reaching the machine class it was really about: the
+                    // configuration is memoized for the process, so the keeper,
+                    // the login door and the offer this start is about to be
+                    // handed would every one of them be composed from the answer
+                    // from before these lines ran.
+                    InForce.Forget();
 
                     Console.WriteLine(
                         $"enrolled as runner {enrolled.RunnerId} under profile '{enrolled.Profile}', "

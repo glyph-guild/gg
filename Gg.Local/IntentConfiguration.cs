@@ -286,9 +286,31 @@ public static class IntentConfiguration
             var key = entry[..split].Trim();
             var rest = entry[(split + 1)..].Trim();
 
-            var bar = rest.IndexOf('|');
-            var host = (bar < 0 ? rest : rest[..bar]).Trim();
-            var locator = bar < 0 ? null : rest[(bar + 1)..].Trim();
+            // `host | locator | account` - the last two optional, and the
+            // account last because it is the newest and the least load-bearing:
+            // a machine that declared two fields yesterday parses unchanged
+            // today, which a parser demanding three would refuse.
+            var fields = rest.Split('|');
+            var host = fields[0].Trim();
+            var locator = fields.Length > 1 ? fields[1].Trim() : null;
+
+            // THE ACCOUNT THE CREDENTIAL ACTS AS (slice forty-two rule 16). A
+            // fact and never a secret - CredentialReference's own rule for the
+            // locator beside it: knowing the name of an account grants nothing.
+            // It is declared here because the machine holding the credential is
+            // the only side that knows, and it is NOT part of the pair a watch
+            // matches on (rule 18), so an entry that names none pairs exactly
+            // as it did.
+            var account = fields.Length > 2 ? fields[2].Trim() : null;
+
+            if (fields.Length > 3)
+            {
+                throw new InvalidOperationException(
+                    $"'{key}' in {ServedVariable} declares {fields.Length - 1} fields after the "
+                  + "host, and an entry carries at most two: the credential to resolve and the "
+                  + "account it acts as, e.g. "
+                  + "'my-tracker=https://tracker.example/acme|TOKEN=local:acme/board|svc-triage'.");
+            }
 
             if (host.Length == 0)
             {
@@ -299,7 +321,9 @@ public static class IntentConfiguration
             }
 
             trackers.Add(new ServedTracker(
-                key, host, locator is { Length: > 0 } named ? named : null));
+                key, host,
+                locator is { Length: > 0 } named ? named : null,
+                account is { Length: > 0 } acts ? acts : null));
         }
 
         return trackers;

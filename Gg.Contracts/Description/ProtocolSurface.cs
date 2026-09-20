@@ -2093,7 +2093,7 @@ public static class ProtocolSurface
             [typeof(SweepServes)] = ["host", "credential"],
             [typeof(WatchAttestation)] =
                 ["attestationId", "watch", "actionId", "outcome", "nominated", "measuredAt",
-                 "diagnosis", "skillSha", "skillCommit"],
+                 "diagnosis", "skillSha", "skillCommit", "account"],
             [typeof(PoolStatus)] =
                 ["pool", "action", "outcome", "imageDigest", "scopeProbedAt", "measuredAt",
                  "diagnosis"],

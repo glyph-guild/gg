@@ -1187,7 +1187,16 @@ public sealed class ConsoleLoop(
         // a machine this person has claimed is given up, and one that is
         // reserved is let go again. The door refuses everything else in its
         // own words.
-        return state with { LastDecision = "" };
+        return state with
+        {
+            LastDecision = claiming
+                ? actions.ClaimRunner(
+                    row.Id,
+                    mine: !(row.Ownership == RunnerOwnerships.Claimed
+                            && string.Equals(
+                                row.OwnerPrincipalId, state.PrincipalId, StringComparison.Ordinal)))
+                : actions.ReserveRunner(row.Id, kept: !row.Reserved),
+        };
     }
 
     private static AppState Decided(

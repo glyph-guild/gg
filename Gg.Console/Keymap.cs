@@ -639,7 +639,23 @@ public static class Keymap
     /// </para>
     /// </remarks>
     private static IReadOnlyList<KeyBinding> Owning(KeymapContext context) =>
-        context.RunnerOwnershipIsKnown ? [] : [];
+        context.RunnerOwnershipIsKnown
+            ?
+            [
+                new(KeyStroke.Char('m'), Command.ClaimRunner,
+                    context.RunnerIsClaimedByYou ? "give it up" : "claim it for yourself")
+                {
+                    When = "over a machine whose control plane says whose it is",
+                },
+                new(KeyStroke.Char('h'), Command.ReserveRunner,
+                    context.RunnerIsReserved
+                        ? "let it take the tenant's work again"
+                        : "hold it to your own flights")
+                {
+                    When = "over a machine somebody has claimed",
+                },
+            ]
+            : [];
 
     private static KeyBinding Turning { get; } =
         new(KeyStroke.Char('v'), Command.NextRunnerView, "next view");

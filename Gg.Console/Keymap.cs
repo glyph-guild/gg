@@ -1085,6 +1085,7 @@ public static class Keymap
         // scrollback and a screenshot all keep what it painted.
         UiMode.FleetTokens =>
         [
+            new(KeyStroke.Char('x'), Command.AskToRevokeToken, "revoke this one"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 
@@ -1698,6 +1699,18 @@ public static class Keymap
             // that reads is taken: r is repositories, n is new flight, e is
             // envelope. It is in the word and it is free, which is the whole
             // claim - see Tabs.KeyFor.
+            // ENROLLMENT, WHERE THE MACHINES ARE. A conditional arm inside the
+            // Normal list, decided by tab, which is the established shape -
+            // `a` and `v` already do it - because Normal has no free letter
+            // to give a global one and a tab-scoped binding for a letter that
+            // is already global never fires.
+            .. context.Showing == TabId.Runners
+                ? (IReadOnlyList<KeyBinding>)
+                    [new(KeyStroke.Char('t'), Command.ShowFleetTokens, "enrollment tokens")
+                    {
+                        When = "on the runners tab",
+                    }]
+                : [],
             new(KeyStroke.Char('u'), Command.ToggleRunners,
                 Closes(context, TabId.Runners, "runners")) { OffTheHintLine = true },
             // WHAT A SECOND PRESS WILL DO, and under tabs that is "close" only

@@ -88,6 +88,28 @@ public static class RunnerDetails
             new("state", row.State),
         };
 
+        // WHOSE, HIGH UP, because it decides what a person may do with this
+        // machine and every key below it acts on that. A control plane that
+        // does not say gets no field rather than a field reading "open",
+        // which would invite a key that cannot succeed.
+        if (Rows.Whose(row) is { Length: > 0 } whose)
+        {
+            fields.Add(new FlightField("whose", whose));
+        }
+
+        if (row.Profile is { Length: > 0 } profile)
+        {
+            // WHAT IT ENROLLED AS, which is where its labels, forges and relays
+            // come from - so a person reading a machine that advertises
+            // something surprising has the document to go and look at.
+            fields.Add(new FlightField("profile", profile));
+        }
+
+        if (row.Resident)
+        {
+            fields.Add(new FlightField("resident", "mints this pool's members"));
+        }
+
         if (row.Work is { Length: > 0 } work)
         {
             fields.Add(new FlightField("working on", work));

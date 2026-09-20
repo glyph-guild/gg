@@ -2028,8 +2028,17 @@ public static class PaneText
             // THROUGH Rows.Nested, which the table's cell projection also
             // calls: the two nested by different amounts while each decided
             // it for itself, and one shared function is what ended that.
+            // WHOSE, BETWEEN THE NAME AND WHAT IT IS DOING, because that is the
+            // order somebody reads a fleet in: which machine, whose it is, what
+            // it is up to. A machine nobody has said anything about takes no
+            // room at all - empty is not open (Rows.Whose).
+            var whose = Rows.Whose(row) is { Length: > 0 } said ? $"  {said}" : "";
+            var resident = row.Resident ? "  resident" : "";
+            var profile = row.Profile is { Length: > 0 } under ? $"  profile {under}" : "";
+
             text.AppendLine(
-                $"{row.Here} {Rows.Nested(row)}  {row.State}{work}{Spent(state, row.Id)}");
+                $"{row.Here} {Rows.Nested(row)}  {row.State}{work}{whose}{resident}{profile}"
+              + Spent(state, row.Id));
         }
 
         return text.ToString().TrimEnd();

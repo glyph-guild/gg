@@ -55,8 +55,26 @@ public readonly record struct HostDeclaration
     /// <summary>Whether this forge scopes repositories by path.</summary>
     public required bool IsPathScoped { get; init; }
 
-    /// <summary>The name a socket connects to.</summary>
-    public string Authority => Host;
+    /// <summary>The name a socket connects to: the host with any base path removed.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b><see cref="Host"/> is a base, not a name.</b> A path-scoped forge is
+    /// configured as <c>forge.example.com/org</c>, because that is what a clone
+    /// url is built on - and everything that has ever needed it wanted the base.
+    /// Rule 25's readiness check is the first reader that needs to REACH the
+    /// forge rather than build a url on it, and it split the value itself and
+    /// asked a resolver for <c>forge.example.com/org</c>, which is not a name
+    /// any resolver can answer.
+    /// </para>
+    /// <para>
+    /// <b>So it lands here, next to the parsing it belongs with</b>, for this
+    /// type's founding reason: the last time two readers each kept their own
+    /// copy of how to get a host out of that value, reading went on working and
+    /// the first push went somewhere nobody meant.
+    /// </para>
+    /// </remarks>
+    public string Authority =>
+        Host.IndexOf('/', StringComparison.Ordinal) is var at && at > 0 ? Host[..at] : Host;
 
     /// <summary>
     /// Parses one <c>key=host</c> entry, or throws naming the entry.

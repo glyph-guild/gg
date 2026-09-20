@@ -72,10 +72,36 @@ public static class ProfileReadiness
 
         foreach (var forge in profile.Profile.Forges)
         {
-            var at = forge.IndexOf('=', StringComparison.Ordinal);
-            var (key, host) = at > 0 ? (forge[..at], forge[(at + 1)..]) : (forge, forge);
+            // THE ONE PARSER, NOT A THIRD COPY OF IT. A forge is written the way
+            // GG_VCS_HOSTS is written - `key=host`, with `!pathscoped` and a base
+            // path both allowed - and splitting it here on `=` alone asked the
+            // network for `forge.example.com/org!pathscoped`. Measured on
+            // vmlinux002 (S43.8-01): every machine with a path-scoped forge
+            // opened a bring-up flight saying its forge could not be reached,
+            // naming a host that is not one, which nobody could ever clear.
+            string key, authority;
+            try
+            {
+                var declared = Vcs.HostDeclaration.Parse(forge, "this profile's forges");
+                (key, authority) = (declared.Key, declared.Authority);
+            }
+            catch (InvalidOperationException malformed)
+            {
+                // AND A FORGE NOBODY CAN PARSE IS AN UNMET ITEM, not a crash and
+                // not a silence: the profile says this machine needs it, and the
+                // sentence a person needs is the parser's own.
+                items.Add(new ReadinessItem
+                {
+                    Kind = ReadinessKinds.Forge,
+                    Subject = forge,
+                    Met = false,
+                    Diagnosis = malformed.Message,
+                });
 
-            var why = await reach(host, cancellationToken);
+                continue;
+            }
+
+            var why = await reach(authority, cancellationToken);
             items.Add(new ReadinessItem
             {
                 Kind = ReadinessKinds.Forge,

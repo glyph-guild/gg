@@ -892,6 +892,17 @@ public sealed class RunnerLoop(
                 // restart.
                 if (await HeldForLoginAsync(runnerId, labels, cancellationToken))
                 {
+                    // AND IT STILL MEASURES ITSELF AGAINST ITS PROFILE. A held
+                    // machine is precisely the machine a bring-up flight is
+                    // about, and this turn used to be the one place readiness
+                    // was not measured - so a machine that acquired an agent
+                    // needing a login stopped reporting at the moment it became
+                    // interesting, and its gates described it as it was when it
+                    // enrolled. Measured on vmlinux002 (S43.8-01): GG-200 asked
+                    // it to declare its agent, it declared it, and the ask could
+                    // not withdraw because declaring it is what began the hold.
+                    await MeasureReadinessIfDueAsync(cancellationToken);
+
                     continue;
                 }
 

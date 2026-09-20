@@ -189,6 +189,12 @@ public sealed record NominationSummary
     /// </remarks>
     public string? IntentKey { get; init; }
 
+    /// <summary>Whose row this is, as a person's subject; null for the tenant's.</summary>
+    public string? For { get; init; }
+
+    /// <summary>That person's display, when they are still in this tenant.</summary>
+    public string? ForDisplay { get; init; }
+
     /// <summary>Why this row is gated, when nothing authored the gate.</summary>
     /// <remarks>
     /// <para>

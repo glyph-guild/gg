@@ -285,6 +285,34 @@ public class TheInstallerVerifiesWhatItInstallsTests
     }
 
     [Test]
+    public async Task No_step_pipes_into_a_grep_that_stops_reading()
+    {
+        // MEASURED IN ANGER. Adding `shell: bash` to the packaging steps - so
+        // the same steps serve the Windows runner - also sets -o pipefail, and
+        // `tar -tzf … | grep -q` makes grep close the pipe on its first match.
+        // tar then dies of SIGPIPE, the pipeline reports failure, and the step
+        // that exists to catch a missing native library reported both of them
+        // missing from a tarball that carried them.
+        //
+        // THE SHAPE, NOT THAT ONE LINE: any producer piped into a grep that
+        // stops reading is the same bug waiting. List once into a file and grep
+        // the file.
+        var workflow = Directory
+            .EnumerateFiles(RepoRoot(), "publish-cli.yml", SearchOption.AllDirectories)
+            .Single(f => !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
+                StringComparison.Ordinal));
+
+        var piped = (await File.ReadAllLinesAsync(workflow))
+            .Where(line => line.Contains("| grep -q", StringComparison.Ordinal))
+            .ToList();
+
+        await Assert.That(piped).IsEmpty()
+            .Because("grep -q stops reading at its first match, so under pipefail the producer "
+                   + "on its left fails and takes the step with it. Found: "
+                   + string.Join(" / ", piped));
+    }
+
+    [Test]
     public async Task The_windows_installer_makes_no_runner_and_verifies_what_it_unpacks()
     {
         // ASSERTED OVER ITS SOURCE, because a PowerShell script cannot be run

@@ -70,6 +70,8 @@ public class StoryFieldParityTests
             Stage = FlightStoryStages.Reached(entries),
             State = FlightStates.Open,
             Waiting = Reason.For(ReasonKinds.NoRunnerAdvertises, ["linux-x64"]),
+            For = "a-directory:dana-4471",
+            ForDisplay = "Dana",
             HeldBy = new Actor { Kind = ActorKinds.Person, Name = "kevin" },
             HeldUntil = At.AddMinutes(30),
             Outstanding = [entries[1]],
@@ -93,6 +95,12 @@ public class StoryFieldParityTests
             ["what became of it"] = story.State,
             ["what it waits on"] = Reason.Sentence(story.Waiting!.Kind, story.Waiting.Params),
             ["who holds it now"] = story.HeldBy!.Name,
+
+            // WHOSE FLIGHT IT IS, and the member this fixture did not carry
+            // until 2026-09-20. The guard was green over an absent member the
+            // whole time the console was missing the field - parity about
+            // nothing, which is the one failure a parity guard cannot report.
+            ["whose flight it is"] = story.ForDisplay!,
             ["each entry, as a sentence"] =
                 FlightStory.Sentence(story.Entries[0].Kind, story.Entries[0].Params),
             ["what somebody wrote"] = story.Entries[1].Said!,

@@ -2065,7 +2065,8 @@ public static class ProtocolSurface
             [typeof(NamedEnvelopeApply)] = ["envelope", "narrowing"],
             [typeof(StrategyList)] = ["strategies"],
             [typeof(FleetProfile)] =
-                ["roles", "environment", "agent", "forges", "destinations", "sweeps", "credentials"],
+                ["roles", "environment", "agent", "forges", "destinations", "relays", "sweeps",
+                 "credentials"],
             [typeof(FleetProfileState)] = ["name", "version", "appliedAt", "profile"],
             [typeof(FleetProfileList)] = ["profiles"],
             // The pools surface. Digests, hashes and stamps only, asserted

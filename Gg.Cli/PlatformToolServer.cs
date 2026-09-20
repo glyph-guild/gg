@@ -1819,13 +1819,17 @@ public static class PlatformToolServer
         said.AppendLine("  agent:            the agent it runs, by NAME - never a binary's path.");
         said.AppendLine("  forges:           the forges it serves, key=host, as vcs-hosts is written.");
         said.AppendLine("  destinations:     where it may land work, key=api, as destination-apis is.");
+        said.AppendLine(
+            "  relays:           where its machines ask what they look like from outside, "
+          + "stun:host:port - the tenant's choice, because gg defaults none.");
         said.AppendLine("  sweeps:           true when it sweeps the tenant's watches while idle.");
         said.AppendLine(
             "  credentials:      WHERE each secret is - local:<name> or "
           + "keyvault://<vault-host>/<secret> - never what it is.");
         said.AppendLine(
             "  Adding a role, forge, destination or credential, turning sweeps on, or changing "
-          + "environment or agent widens and is reviewed; removing any of them applies at once.");
+          + "environment or agent widens and is reviewed; removing any of them applies at once. "
+          + "A relay is neither: it is taken unwatched, as an offer of one is.");
     }
 
     /// <summary>

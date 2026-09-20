@@ -58,6 +58,11 @@ public static class Modals
         UiMode.ReadingSaid,
         UiMode.ConfirmRetire,
 
+        // ENROLLMENT, WHICH IS ABOUT MACHINES JOINING, so it opens off the
+        // fleet rather than becoming a tab of its own.
+        UiMode.FleetTokens,
+        UiMode.ConfirmRevoke,
+
         // THE ADMIN'S WORD, which is the tenant's machines and not one person's.
         UiMode.ConfirmOwnership,
         UiMode.ComposeChoice,

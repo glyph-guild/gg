@@ -198,6 +198,24 @@ public enum UiMode
 
     ConfirmRetire,
 
+    /// <summary>The tenant's enrollment tokens, and what is left of each.</summary>
+    /// <remarks>
+    /// <b>A modal off the fleet, not a tab.</b> A token is a thing about
+    /// machines joining, so it belongs beside the machines - and a tab costs
+    /// six followers and a letter Normal does not have. Minting is not here at
+    /// all: its one output is a secret shown once, and a console repaints.
+    /// </remarks>
+    FleetTokens,
+
+    /// <summary>Asking whether to revoke the enrollment token under the cursor.</summary>
+    /// <remarks>
+    /// <b>One way, so it asks</b> - an admin's word's rule, and the same shape.
+    /// A token revoked by mistake cannot be un-revoked; another is minted, and
+    /// whoever was about to use the first one is left holding a secret that no
+    /// longer works.
+    /// </remarks>
+    ConfirmRevoke,
+
     /// <summary>Asking whether to say, as an admin, who may claim a machine.</summary>
     /// <remarks>
     /// <b>The shape the other confirmations have, for a different reason.</b>
@@ -1227,6 +1245,18 @@ public sealed record AppState
 
     /// <summary>The fleet, exactly as `gg runners` returned it.</summary>
     public RunnerList? Runners { get; init; }
+    /// <summary>The tenant's enrollment tokens, or null before anybody looked.</summary>
+    /// <remarks>
+    /// <b>Fetched when the modal opens, not at boot.</b> A fleet is read on
+    /// every refresh because it changes on its own; tokens change when a
+    /// person mints or revokes one, and a console that read them every few
+    /// seconds would be asking a question nobody had.
+    /// </remarks>
+    public Gg.Contracts.EnrollmentTokenList? Tokens { get; init; }
+
+    /// <summary>Which token the cursor is on.</summary>
+    public int TokenSelected { get; init; }
+
 
     /// <summary>
     /// The chart: every environment name an envelope may select.

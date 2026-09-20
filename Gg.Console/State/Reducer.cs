@@ -202,6 +202,7 @@ public static class Reducer
             // grounding that broke grounding.
             Command.AskToGround => Modal(state, UiMode.ConfirmGround),
             Command.AskWhoMayClaim => Modal(state, UiMode.ConfirmOwnership),
+            Command.AskToRevokeToken => Modal(state, UiMode.ConfirmRevoke),
             Command.AskToFlyAgain => Modal(state, UiMode.ConfirmFlyAgain),
             Command.AskToApplyEstate => Modal(state, UiMode.ConfirmApply),
             Command.ReadEnvelope => Modal(state, UiMode.ReadingEnvelope),

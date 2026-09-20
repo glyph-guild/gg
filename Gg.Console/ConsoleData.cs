@@ -165,6 +165,15 @@ public sealed class ConsoleData(
             reference, obligation, outcome, observations, reason,
             cancellationToken: cancellationToken);
 
+    /// <summary>`gg fleet tokens` - what is live, never a secret.</summary>
+    public Task<VerbResult> EnrollmentTokensAsync(CancellationToken cancellationToken = default) =>
+        _commands.EnrollmentTokensAsync(cancellationToken);
+
+    /// <summary>`gg fleet revoke`.</summary>
+    public Task<VerbResult> RevokeEnrollmentTokenAsync(
+        string tokenId, CancellationToken cancellationToken = default) =>
+        _commands.RevokeEnrollmentTokenAsync(tokenId, cancellationToken);
+
     /// <summary>`gg runner ownership` - an admin's word: the tenant's, or open.</summary>
     public Task<VerbResult> SetRunnerOwnershipAsync(
         string runnerId, string ownership, CancellationToken cancellationToken = default) =>

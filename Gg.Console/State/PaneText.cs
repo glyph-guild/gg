@@ -2470,6 +2470,47 @@ public static class PaneText
     /// it, and a question that did not say so would be asking about a word
     /// rather than about what happens.
     /// </remarks>
+    /// <summary>
+    /// The tenant's enrollment tokens, and never a secret.
+    /// </summary>
+    /// <remarks>
+    /// <b>Rendered by the function `gg fleet tokens` already uses.</b> A second
+    /// rendering of one list is one that drifts, and this one has a property
+    /// worth keeping exactly: the listed type has no member a secret could
+    /// travel in, so the console cannot print one by mistake.
+    /// </remarks>
+    private static string FleetTokens(AppState state)
+    {
+        if (state.Tokens is not { } tokens)
+        {
+            return "Reading the tenant's enrollment tokens.";
+        }
+
+        var said = Clean(
+            Gg.Client.VerbOutput.ToText(new Gg.Client.VerbResult.EnrollmentTokens(tokens)),
+            lines: true);
+
+        return tokens.Tokens.Count == 0
+            ? said
+            : $"{said}\n\nMinting one is `gg fleet enroll`, at a terminal: a token is shown "
+            + "once, and a console repaints.";
+    }
+
+    /// <summary>What revoking this token costs.</summary>
+    private static string ConfirmRevoke(AppState state)
+    {
+        if (Rows.SelectedToken(state) is not { } token)
+        {
+            return "No token is selected.";
+        }
+
+        return $"Token {token.TokenId} was minted for '{token.Profile}' and has "
+             + $"{token.UsesLeft} use(s) left until {token.ExpiresAt:u}.\n\n"
+             + "Revoking it cannot be undone - another is minted instead - and whoever was "
+             + "about to use this one is left holding a secret that no longer works. Machines "
+             + "that already enrolled with it are untouched.";
+    }
+
     private static string ConfirmOwnership(AppState state)
     {
         if (Rows.Selected(state) is not { } row)
@@ -2869,6 +2910,8 @@ public static class PaneText
         UiMode.ConfirmApply => "apply the working copy?",
         UiMode.ConfirmRetire => "retire these names?",
         UiMode.ConfirmOwnership => "say who may claim this machine?",
+        UiMode.FleetTokens => "enrollment tokens",
+        UiMode.ConfirmRevoke => "revoke this token?",
         UiMode.ReadingEnvelope => "the floor - what governs every flight",
         UiMode.ReadingChangeset => "what would change",
         UiMode.ReadingOutcome => "what the apply came to",
@@ -3165,6 +3208,8 @@ public static class PaneText
             UiMode.ConfirmApply => ConfirmApply(state),
             UiMode.ConfirmRetire => ConfirmRetire(state),
             UiMode.ConfirmOwnership => ConfirmOwnership(state),
+            UiMode.FleetTokens => FleetTokens(state),
+            UiMode.ConfirmRevoke => ConfirmRevoke(state),
             UiMode.ConfirmFlyAgain => ConfirmFlyAgain(state),
             UiMode.NominationDecision => NominationDecision(state),
             UiMode.SignIn => SignIn(state),
@@ -3721,6 +3766,8 @@ public static class PaneText
         UiMode.ConfirmFlight => "when asked whether to open a second flight",
         UiMode.ConfirmGround => "when asked whether to ground a flight",
         UiMode.ConfirmOwnership => "when asked who may claim a machine",
+        UiMode.FleetTokens => "while reading the tenant's enrollment tokens",
+        UiMode.ConfirmRevoke => "when asked whether to revoke one",
         UiMode.ConfirmFlyAgain => "when asked whether to fly one again",
         UiMode.GateDecision => "while answering a gate",
         UiMode.NominationDecision => "while answering a nomination",

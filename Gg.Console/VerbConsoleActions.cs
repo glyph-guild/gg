@@ -71,6 +71,28 @@ public sealed class VerbConsoleActions(
         Answered(() => _data.ClaimRunnerAsync(runnerId, mine));
 
     /// <inheritdoc />
+    public Gg.Contracts.EnrollmentTokenList? EnrollmentTokens()
+    {
+        try
+        {
+            return _data.EnrollmentTokensAsync().GetAwaiter().GetResult()
+                is Gg.Client.VerbResult.EnrollmentTokens listed
+                ? listed.Value
+                : null;
+        }
+        catch (Exception refusal) when (refusal is NotSignedInException
+                                            or ProtocolTooOldException
+                                            or HttpRequestException)
+        {
+            return null;
+        }
+    }
+
+    /// <inheritdoc />
+    public string RevokeEnrollmentToken(string tokenId) =>
+        Answered(() => _data.RevokeEnrollmentTokenAsync(tokenId));
+
+    /// <inheritdoc />
     public string SetRunnerOwnership(string runnerId, string ownership) =>
         Answered(() => _data.SetRunnerOwnershipAsync(runnerId, ownership));
 

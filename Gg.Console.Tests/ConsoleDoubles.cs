@@ -271,6 +271,12 @@ internal static class ConsoleDoubles
         /// <summary>Every admin's word said, in order.</summary>
         internal List<(string Runner, string Ownership)> Ownerships { get; } = [];
 
+        /// <summary>Every token revoked, in order, and what the list says.</summary>
+        internal List<string> Revoked { get; } = [];
+
+        internal Gg.Contracts.EnrollmentTokenList? Tokens { get; set; } =
+            new() { Tokens = [] };
+
         /// <summary>Every nomination answered, in order.</summary>
         /// <remarks>
         /// Beside <see cref="Decided"/> rather than sharing it: a gate and a
@@ -287,6 +293,16 @@ internal static class ConsoleDoubles
         internal int Forgotten { get; private set; }
 
         internal int Invited { get; private set; }
+
+        public Gg.Contracts.EnrollmentTokenList? EnrollmentTokens() => Tokens;
+
+        public string RevokeEnrollmentToken(string tokenId)
+        {
+            Revoked.Add(tokenId);
+            return refusing
+                ? "Only an admin revokes an enrollment token."
+                : $"{tokenId} is revoked; machines that already enrolled with it are untouched.";
+        }
 
         public string SetRunnerOwnership(string runnerId, string ownership)
         {

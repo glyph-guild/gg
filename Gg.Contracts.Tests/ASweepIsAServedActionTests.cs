@@ -131,7 +131,7 @@ public class ASweepIsAServedActionTests
         await Assert.That(ProtocolSurface.JsonMembers[typeof(WatchAttestation)])
             .IsEquivalentTo((string[])
                 ["attestationId", "watch", "actionId", "outcome", "nominated", "measuredAt",
-                 "diagnosis", "skillSha", "skillCommit"]);
+                 "diagnosis", "skillSha", "skillCommit", "account"]);
         await Assert.That(ProtocolSurface.JsonMembers[typeof(SweepNomination)])
             .IsEquivalentTo((string[])
                 ["subject", "version", "intentKey", "workKind", "reason", "note"]);

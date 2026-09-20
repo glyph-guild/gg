@@ -3534,7 +3534,14 @@ static Gg.Runner.Sweeps.SweepLoop SweepLoopFor(
         // NARRATED, because nobody is at a sweeping runner. MaintainLoop's own
         // scar: a pull point that crash-looped for hours looked exactly like
         // one quietly doing its job.
-        narrate: Console.Error.WriteLine);
+        narrate: Console.Error.WriteLine,
+
+        // AND THE PAIRS THIS MACHINE DECLARED, so an attestation can say as
+        // whom it read (slice forty-two rules 16 and 17). The same read the
+        // executor above is handed: one answer to "what does this machine
+        // serve", taken from the same setting.
+        trackers: Gg.Local.IntentConfiguration.ServedTrackers(
+            Settings.Value(Gg.Local.IntentConfiguration.ServedVariable, inForce)));
 
 /// <summary>
 /// The credential this machine reads a skill's repository with, or null.

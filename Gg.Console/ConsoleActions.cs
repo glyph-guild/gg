@@ -68,6 +68,27 @@ public interface IConsoleActions
     string AnswerNomination(string nomination, bool open, string reason);
 
     /// <summary>
+    /// Claims a machine for the person at this console, or gives it up.
+    /// </summary>
+    /// <remarks>
+    /// <b>The door decides whether it applies, not this.</b> A tenant runner
+    /// refuses a claim in a sentence that says what an admin would have to do,
+    /// and repeating that rule in the keymap would be two places to get it
+    /// wrong - so what comes back here is the control plane's own words.
+    /// </remarks>
+    string ClaimRunner(string runnerId, bool mine);
+
+    /// <summary>
+    /// Keeps a machine to its owner's flights, or lets it take the tenant's again.
+    /// </summary>
+    /// <remarks>
+    /// <b>Reservation follows the claim.</b> Nothing is reserved that is not
+    /// claimed - the door refuses it - which is why the console offers this
+    /// beside the claim rather than as a state of its own.
+    /// </remarks>
+    string ReserveRunner(string runnerId, bool kept);
+
+    /// <summary>
     /// Keeps a share of an allowance back, or clears the floor, and says what
     /// happened.
     /// </summary>

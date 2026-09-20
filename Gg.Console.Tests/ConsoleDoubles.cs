@@ -263,6 +263,11 @@ internal static class ConsoleDoubles
         internal List<(string Flight, string Obligation, bool Approved, string? Reason)> Decided
         { get; } = [];
 
+        /// <summary>Every claim and reservation asked for, in order.</summary>
+        internal List<(string Runner, bool Mine)> Claimed { get; } = [];
+
+        internal List<(string Runner, bool Kept)> Reserved { get; } = [];
+
         /// <summary>Every nomination answered, in order.</summary>
         /// <remarks>
         /// Beside <see cref="Decided"/> rather than sharing it: a gate and a
@@ -279,6 +284,22 @@ internal static class ConsoleDoubles
         internal int Forgotten { get; private set; }
 
         internal int Invited { get; private set; }
+
+        public string ClaimRunner(string runnerId, bool mine)
+        {
+            Claimed.Add((runnerId, mine));
+            return refusing
+                ? "This runner is the tenant's: an admin has said nobody claims it."
+                : mine ? $"{runnerId} is yours." : $"{runnerId} is open.";
+        }
+
+        public string ReserveRunner(string runnerId, bool kept)
+        {
+            Reserved.Add((runnerId, kept));
+            return refusing
+                ? "This runner is the tenant's: an admin has said nobody claims it."
+                : kept ? $"{runnerId} is reserved." : $"{runnerId} takes the tenant's work.";
+        }
 
         public string Decide(string flight, string obligation, bool approved, string? reason)
         {

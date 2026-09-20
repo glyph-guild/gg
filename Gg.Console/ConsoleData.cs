@@ -165,6 +165,20 @@ public sealed class ConsoleData(
             reference, obligation, outcome, observations, reason,
             cancellationToken: cancellationToken);
 
+    /// <summary>`gg runner claim` and `gg runner unclaim`.</summary>
+    public Task<VerbResult> ClaimRunnerAsync(
+        string runnerId, bool mine, CancellationToken cancellationToken = default) =>
+        mine
+            ? _commands.ClaimRunnerAsync(runnerId, cancellationToken)
+            : _commands.UnclaimRunnerAsync(runnerId, cancellationToken);
+
+    /// <summary>`gg runner reserve` and `gg runner release`.</summary>
+    public Task<VerbResult> ReserveRunnerAsync(
+        string runnerId, bool kept, CancellationToken cancellationToken = default) =>
+        kept
+            ? _commands.ReserveRunnerAsync(runnerId, cancellationToken)
+            : _commands.ReleaseRunnerAsync(runnerId, cancellationToken);
+
     /// <summary>
     /// `gg board` - what has been nominated and has not become a flight yet.
     /// </summary>

@@ -1,3 +1,4 @@
+using Gg.Contracts;
 namespace Gg.Console;
 
 /// <summary>
@@ -225,6 +226,20 @@ public readonly record struct KeymapContext(
     /// </remarks>
     public bool RunnerIsOurs { get; init; }
 
+    /// <summary>Whether the control plane says whose the selected machine is at all.</summary>
+    /// <remarks>
+    /// <b>Empty is not open, and here it is not a key either.</b> A control
+    /// plane with no claim door leaves every row's ownership blank, and
+    /// offering a claim against one would advertise a refusal.
+    /// </remarks>
+    public bool RunnerOwnershipIsKnown { get; init; }
+
+    /// <summary>Whether the person at this console is the one who claimed it.</summary>
+    public bool RunnerIsClaimedByYou { get; init; }
+
+    /// <summary>Whether it takes only its owner's flights.</summary>
+    public bool RunnerIsReserved { get; init; }
+
     /// <summary>
     /// Whether the selected runner's allowance is one this person may reserve.
     /// </summary>
@@ -384,6 +399,16 @@ public readonly record struct KeymapContext(
             // `x` has to work on it for exactly those seconds - it is the only
             // way to stop something that is starting badly.
             RunnerIsOurs = Rows.Selected(state) is not { Mine: false },
+
+            // FROM THE ROW, which is the only place that knows: the modal is
+            // about whatever the cursor is on, and step 1 put ownership on the
+            // row so that these three could be asked without a second fetch.
+            RunnerOwnershipIsKnown = Rows.Selected(state) is { Ownership.Length: > 0 },
+            RunnerIsClaimedByYou =
+                Rows.Selected(state) is { Ownership: RunnerOwnerships.Claimed } claimed
+                && state.PrincipalId is { Length: > 0 } you
+                && string.Equals(claimed.OwnerPrincipalId, you, StringComparison.Ordinal),
+            RunnerIsReserved = Rows.Selected(state) is { Reserved: true },
 
             // WHETHER THERE IS ANYTHING TO REACH. Derived here with the rest,
             // so the hint line and the dispatch cannot disagree about whether
@@ -593,6 +618,29 @@ public static class Keymap
     /// same side now — keys only — so the condition went with the buttons.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Whose this machine is, changed from the modal that says whose it is.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Two toggles rather than four keys</b>, each labelled with what a
+    /// press will do from here - the shape `Closes` already uses. Claim and
+    /// unclaim are one idea seen from two sides, and so are reserve and
+    /// release.
+    /// </para>
+    /// <para>
+    /// <b>Offered over anybody's machine, exactly as watching is</b>, because
+    /// the door decides: a tenant runner refuses a claim in a sentence naming
+    /// what an admin would have to do, and a keymap that made that decision
+    /// would be a second copy of the rule. What the console will not do is
+    /// offer a key against a control plane that has no such door at all -
+    /// which is `RunnerOwnershipIsKnown`, and is the same "empty is not open"
+    /// the pane draws by.
+    /// </para>
+    /// </remarks>
+    private static IReadOnlyList<KeyBinding> Owning(KeymapContext context) =>
+        context.RunnerOwnershipIsKnown ? [] : [];
+
     private static KeyBinding Turning { get; } =
         new(KeyStroke.Char('v'), Command.NextRunnerView, "next view");
 
@@ -949,12 +997,14 @@ public static class Keymap
                     // bar somebody can already click is two clickable things in
                     // one place.
                 },
+                .. Owning(context),
                 Turning,
                 new(KeyStroke.Esc, Command.CloseModal, "close"),
             ]
             :
             [
                 .. Watching(context),
+                .. Owning(context),
                 Turning,
                 new(KeyStroke.Esc, Command.CloseModal, "close"),
             ],
@@ -2216,6 +2266,9 @@ public static class Keymap
         c => c with { AGateWaits = true },
         c => c with { SignInStarted = true },
         c => c with { RunnerIsOurs = true },
+        c => c with { RunnerOwnershipIsKnown = true },
+        c => c with { RunnerIsClaimedByYou = true },
+        c => c with { RunnerIsReserved = true },
         c => c with { RunnerIsBeating = true },
         c => c with { AllowanceIsMine = true },
         c => c with { FleetAllowancesOffered = true },

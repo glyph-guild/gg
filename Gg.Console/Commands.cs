@@ -546,6 +546,12 @@ public enum Command
     /// </remarks>
     SendCredential,
 
+    /// <summary>Claims the machine this modal is about, or gives it up.</summary>
+    ClaimRunner,
+
+    /// <summary>Keeps it to its owner's flights, or lets it take the tenant's again.</summary>
+    ReserveRunner,
+
     /// <summary>
     /// Logs the agent in on the runner an agent-login gate names.
     /// </summary>
@@ -1186,6 +1192,13 @@ public static class ShellCommands
 
         // It writes, so it is the loop's like every other write.
         Command.FlyPicked,
+
+        // THEY WRITE AND THEY DO NOT WANT THE TERMINAL. Claiming a machine is
+        // one call to the control plane and a sentence back - no child, no
+        // secret read with the echo off - so unlike the four below it these
+        // stay inside the session, as answering a gate does.
+        Command.ClaimRunner,
+        Command.ReserveRunner,
 
         // SPAWNS A CHILD, so both halves of what this set means apply.
         Command.StartRunner,

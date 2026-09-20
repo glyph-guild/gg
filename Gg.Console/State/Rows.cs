@@ -674,12 +674,28 @@ public static class Rows
         return one is not null && one.Ending is not { Length: > 0 } ? one : null;
     }
 
-    private static string Spent(Gg.Contracts.WatchStanding watch) =>
-        watch.Diagnosis is { Length: > 0 } why
-            ? why
-            : watch.Budgeted is { } bound
-                ? $"{watch.Opened} of {bound} in {watch.Window}"
-                : $"{watch.Opened} in {watch.Window}";
+    private static string Spent(Gg.Contracts.WatchStanding watch)
+    {
+        // A DIAGNOSIS REPLACES THE COST rather than joining it, and the account
+        // does not follow it in. The verb prints the two on separate lines and
+        // can afford the account on the first; this is one column, and
+        // "has reported nothing since 04:45Z, as somebody" reads as though the
+        // silence were that person's.
+        if (watch.Diagnosis is { Length: > 0 } why)
+        {
+            return why;
+        }
+
+        var cost = watch.Budgeted is { } bound
+            ? $"{watch.Opened} of {bound} in {watch.Window}"
+            : $"{watch.Opened} in {watch.Window}";
+
+        // AS WHOM IT READ - the same words the verb uses, because a person
+        // reading one and then the other must not wonder whether they disagree.
+        return watch.Account is { Length: > 0 } account
+            ? $"{cost}, as {account}"
+            : cost;
+    }
 
     public static IReadOnlyList<RunnerRow> Runners(AppState state)
     {

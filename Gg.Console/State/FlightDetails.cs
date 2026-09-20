@@ -355,6 +355,17 @@ public static class FlightDetails
             fields.Add(new FlightField("stage", PaneText.Staged(story.Stage)));
             fields.Add(new FlightField("state", PaneText.Stated(story.State)));
 
+            // WHOSE IT IS, beside the pane's own line and for the same reason:
+            // a personal flight and the tenant's read identically without it.
+            if (story.For is { Length: > 0 } answered)
+            {
+                fields.Add(new FlightField(
+                    "for",
+                    story.ForDisplay is { Length: > 0 } display
+                        ? $"{ControlText.Strip(display)} ({ControlText.Strip(answered)})"
+                        : ControlText.Strip(answered)));
+            }
+
             if (story.HeldBy is { } holder)
             {
                 var until = story.HeldUntil is { } expiry ? $" until {expiry:u}" : "";

@@ -558,6 +558,18 @@ public static class PaneText
             text.AppendLine($"  stage         {Staged(story.Stage)}");
             text.AppendLine($"  state         {Stated(story.State)}");
 
+            // WHOSE FLIGHT IT IS, above who is holding it this second: the two
+            // are different questions and a personal flight's whole point is
+            // the first. The display with the subject beside it, because the
+            // display is what a person reads and the subject is what they can
+            // take back to the watch file they wrote.
+            if (story.For is { Length: > 0 } answered)
+            {
+                text.AppendLine(story.ForDisplay is { Length: > 0 } display
+                    ? $"  for           {Clean(display)} ({Clean(answered)})"
+                    : $"  for           {Clean(answered)}");
+            }
+
             if (story.HeldBy is { } holder)
             {
                 var until = story.HeldUntil is { } expiry ? $" until {expiry:u}" : "";

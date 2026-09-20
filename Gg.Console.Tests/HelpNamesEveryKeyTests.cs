@@ -218,8 +218,12 @@ public class HelpNamesEveryKeyTests
             .Select(entry => (entry.Mode, entry.Binding.Key, entry.Binding.Command))
             .ToHashSet();
 
-        var missing = (from context in Everywhere().Concat(OverAMachineSomebodyOwns())
-                                                 .Concat(OverAGateThatAsksForSomething())
+        var contexts = Exhaustive
+            ? Everywhere()
+            : Covering();
+
+        var missing = (from context in contexts.Concat(OverAMachineSomebodyOwns())
+                                               .Concat(OverAGateThatAsksForSomething())
                        from binding in Keymap.Bindings(context)
                        select (context.Mode, binding.Key, binding.Command))
             .Distinct()
@@ -230,7 +234,156 @@ public class HelpNamesEveryKeyTests
         await Assert.That(missing).IsEmpty()
             .Because("a key that resolves somewhere and is in no catalogue entry cannot reach "
                    + "the help page, and the page is where somebody looks for a key they do "
-                   + "not know. Found: " + string.Join(", ", missing));
+                   + $"not know. Walked {(Exhaustive ? "every" : "a covering set of")} context. "
+                   + "Found: " + string.Join(", ", missing));
+    }
+
+    /// <summary>
+    /// Whether to walk the whole product, or a covering set of it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The product is 141,557,760 contexts and takes two minutes</b> - thirty
+    /// modes by nine tabs by eighteen booleans by two countdowns, measured. It
+    /// is the slowest thing in this suite by two orders of magnitude, and it
+    /// runs on every `dotnet test` somebody types while working on something
+    /// else entirely.
+    /// </para>
+    /// <para>
+    /// <b>So CI walks all of it and a developer walks a covering set.</b> CI is
+    /// where the claim has to hold before anything merges, and `CI` is set by
+    /// the runner rather than by us. `GG_EXHAUSTIVE=1` asks for the whole walk
+    /// anywhere.
+    /// </para>
+    /// <para>
+    /// <b>And the assertion SAYS which it did</b>, because a covering pass is
+    /// weaker evidence than a complete one and a message that read the same
+    /// either way would let somebody quote the wrong one.
+    /// </para>
+    /// </remarks>
+    private static bool Exhaustive =>
+        Environment.GetEnvironmentVariable("CI") is { Length: > 0 }
+        || Environment.GetEnvironmentVariable("GG_EXHAUSTIVE") is { Length: > 0 };
+
+    /// <summary>
+    /// Enough of the product to reach every conditional arm, without the cube.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Every flag alone, every PAIR of flags, all of them, and none.</b> An
+    /// arm is a condition over flags, and the deepest conjunctions the keymap
+    /// has are three - <c>AGateWaits &amp;&amp; !GateAsksForAgentLogin &amp;&amp;
+    /// !GateIsABringUpAsk</c> - so a set that crosses every pair with the rest
+    /// false, and then every flag true at once, reaches each arm from both
+    /// sides. What the cube adds over that is combinations no arm reads.
+    /// </para>
+    /// <para>
+    /// <b>It is weaker, and deliberately so.</b> A flag an arm reads in a
+    /// conjunction of four would be reachable in the cube and not here - so CI
+    /// still walks the cube, and this is the thing a person runs while working
+    /// on something else.
+    /// </para>
+    /// </remarks>
+    private static IEnumerable<KeymapContext> Covering()
+    {
+        var flags = typeof(KeymapContext).GetProperties()
+            .Where(p => p.PropertyType == typeof(bool))
+            .ToList();
+
+        var shapes = new List<string[]>
+        {
+            // NONE, AND ALL. The first reaches every arm that reads a flag as
+            // false; the second reaches the ones that read several as true.
+            Array.Empty<string>(),
+            flags.Select(f => f.Name).ToArray(),
+        };
+
+        // AND EVERY FLAG ALONE, AND EVERY PAIR. The deepest conjunction the
+        // keymap has is three, with two of them negated, so a pair raised
+        // against the rest false reaches each arm from both sides.
+        shapes.AddRange(flags.Select(f => (string[])[f.Name]));
+        shapes.AddRange(
+            from a in flags
+            from b in flags
+            where string.CompareOrdinal(a.Name, b.Name) < 0
+            select (string[])[a.Name, b.Name]);
+
+        foreach (var mode in Enum.GetValues<UiMode>())
+        {
+            foreach (var showing in Enum.GetValues<TabId>())
+            {
+                foreach (var raised in shapes)
+                {
+                    var context = new KeymapContext(mode, showing);
+                    foreach (var flag in raised)
+                    {
+                        context = Raise(context, flag);
+                    }
+
+                    yield return context with { Refresh = "5s" };
+                    yield return context;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// One flag raised by name.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Through the box, because <see cref="KeymapContext"/> is a readonly
+    /// record STRUCT.</b> <c>SetValue</c> on a struct sets a copy - the boxed
+    /// one - and the value handed in is untouched, so the first draft of this
+    /// raised nothing at all and every shape came out with all flags false.
+    /// The equivalence test below is what said so, by name, on its first run.
+    /// </para>
+    /// <para>
+    /// <b>An <c>init</c> accessor is a real setter</b>, which is what lets
+    /// reflection do this at all - and is why the covering set can be written
+    /// once rather than as a list of eighteen lambdas the next flag would have
+    /// to be added to twice.
+    /// </para>
+    /// </remarks>
+    private static KeymapContext Raise(KeymapContext context, string flag)
+    {
+        typeof(KeymapContext).GetProperty(flag)!.SetValue(context, true);
+        return context;
+    }
+
+    [Test]
+    public async Task The_covering_set_finds_every_binding_the_whole_product_does()
+    {
+        // WHAT MAKES THE SHORTCUT SAFE, and it is checked rather than argued.
+        // A developer's `dotnet test` walks the covering set in a second; CI
+        // walks all 141,557,760 contexts in two minutes. This is the test that
+        // says the first is not weaker than the second TODAY - so the day some
+        // arm reads a conjunction the covering set cannot reach, CI says which
+        // binding it lost rather than quietly agreeing with a cheaper walk.
+        //
+        // Skipped where the product is not being walked: comparing the covering
+        // set against itself would assert nothing.
+        if (!Exhaustive)
+        {
+            await Assert.That(Covering().Any()).IsTrue()
+                .Because("the covering set is what this run walked, and an empty one would "
+                       + "make every assertion in this class vacuous.");
+            return;
+        }
+
+        static HashSet<string> Live(IEnumerable<KeymapContext> contexts) =>
+            (from context in contexts
+             from binding in Keymap.Bindings(context)
+             select $"{context.Mode}/{binding.Key.Name} {binding.Command}")
+            .ToHashSet(StringComparer.Ordinal);
+
+        var cube = Live(Everywhere());
+        var covering = Live(Covering());
+
+        await Assert.That(cube.Except(covering).OrderBy(x => x, StringComparer.Ordinal)).IsEmpty()
+            .Because("a binding the whole product reaches and the covering set does not is one "
+                   + "a person running the tests would never see fail. Add the shape that "
+                   + "reaches it to Covering(), or say here why the cube is the only way.");
     }
 
     [Test]

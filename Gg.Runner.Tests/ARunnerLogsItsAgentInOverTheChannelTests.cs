@@ -238,8 +238,18 @@ public class ARunnerLogsItsAgentInOverTheChannelTests
     }
 
     [Test]
-    public async Task A_second_begin_while_one_is_open_is_refused_and_says_until_when()
+    public async Task A_second_begin_while_one_is_waiting_rejoins_it_rather_than_refusing()
     {
+        // MEASURED ON vmlinux002 (S43.8-01). A ceremony was begun and the code
+        // was not typed; the client said what it always says - "run this again
+        // to be asked for it" - and running it again was refused by the runner,
+        // because beginning is the only thing a client can ask for. The machine
+        // was locked out of the remedy its own bring-up gate names for ten
+        // minutes, for everybody, including the person who had the code.
+        //
+        // STILL ONE CEREMONY AND ONE CHILD. Two children waiting for one person
+        // is what the refusal was protecting against, and rejoining does not
+        // make a second one.
         var rig = new Rig();
         _ = await rig.Dispatch.AnswerAsync(Beginning(), CancellationToken.None);
 
@@ -247,12 +257,34 @@ public class ARunnerLogsItsAgentInOverTheChannelTests
 
         var begun = again?.LoginBegun;
         await Assert.That(begun).IsNotNull();
-        await Assert.That(begun!.Started).IsFalse();
-        await Assert.That(begun.Diagnosis).Contains("already")
-            .Because("two ceremonies would be two children waiting for one person.");
-        await Assert.That(begun.ExpiresAt).IsEqualTo(T0 + AgentLoginCeremony.Patience);
+        await Assert.That(begun!.Started).IsTrue();
+        await Assert.That(begun.Url).IsEqualTo(TheUrl)
+            .Because("the URL is what a person needs, and it is as safe the second time as "
+                   + "the first: the code it leads to is useless without the verifier the "
+                   + "child holds.");
+        await Assert.That(begun.ExpiresAt).IsEqualTo(T0 + AgentLoginCeremony.Patience)
+            .Because("rejoining does not extend the ceremony - the child began waiting when "
+                   + "it began waiting.");
         await Assert.That(rig.Login.Children).Count().IsEqualTo(1)
-            .Because("refused means nothing was started.");
+            .Because("rejoined means nothing new was started.");
+    }
+
+    [Test]
+    public async Task A_rejoined_ceremony_takes_the_code_from_whoever_brings_it()
+    {
+        // The whole point of the rejoin: the second asker finishes it. Nothing
+        // remembers who began the ceremony, deliberately - a machine's login is
+        // not a conversation between two people, and the runner has already
+        // been introduced to whoever is asking.
+        var rig = new Rig();
+        _ = await rig.Dispatch.AnswerAsync(Beginning(), CancellationToken.None);
+        _ = await rig.Dispatch.AnswerAsync(Beginning(), CancellationToken.None);
+
+        var said = await rig.Dispatch.AnswerAsync(
+            Finishing("the-code-from-the-browser"), CancellationToken.None);
+
+        await Assert.That(said?.LoginFinished?.Written).IsTrue();
+        await Assert.That(rig.Ceremony.InProgress).IsFalse();
     }
 
     [Test]

@@ -1019,7 +1019,7 @@ static async Task<int> DoctorAsync(bool json)
         // nothing. The fallback made the doctor answer "nobody could reach
         // this machine" for a reason it had not looked at.
         stunServers: Gg.Runner.StunConfiguration.FromEnvironment(
-            Settings.Value(Gg.Runner.StunConfiguration.Variable)))
+            Settings.Value(Gg.Runner.StunConfiguration.Variable, InForce.Configuration)))
         .RunAsync(role: role);
 
     var result = new VerbResult.Diagnosis(report);
@@ -1053,7 +1053,7 @@ static async Task<int> BundleAsync(bool json)
         // nothing. The fallback made the doctor answer "nobody could reach
         // this machine" for a reason it had not looked at.
         stunServers: Gg.Runner.StunConfiguration.FromEnvironment(
-            Settings.Value(Gg.Runner.StunConfiguration.Variable)))
+            Settings.Value(Gg.Runner.StunConfiguration.Variable, InForce.Configuration)))
         .RunAsync();
 
     // Observed with no tree: a bundle is taken from wherever somebody happens
@@ -1183,7 +1183,7 @@ static async Task<int> LaunchConsoleAsync()
             addressConfigured: Settings.Resolve("GG_CONTROL_PLANE", InForce.Configuration)
                 .Source != SettingSources.Default,
             stunServers: Gg.Runner.StunConfiguration.FromEnvironment(
-                Settings.Value(Gg.Runner.StunConfiguration.Variable)))
+                Settings.Value(Gg.Runner.StunConfiguration.Variable, InForce.Configuration)))
             .RunAsync(cancellationToken: token);
 
     // WHICH TRACKERS CAN BE READ HERE, READ ONCE AND CARRIED. Parsing a

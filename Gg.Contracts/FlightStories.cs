@@ -125,6 +125,12 @@ public sealed record FlightStory
     /// over an hour ago and cannot say whether they still have it, which is the
     /// ambiguity the takeover routes exist to remove.
     /// </remarks>
+    /// <summary>Whose flight this is, as a person's subject; null for the tenant's.</summary>
+    public string? For { get; init; }
+
+    /// <summary>That person's display, when they are still in this tenant.</summary>
+    public string? ForDisplay { get; init; }
+
     public Actor? HeldBy { get; init; }
 
     /// <summary>Until when, where a hold or a lease has an expiry.</summary>

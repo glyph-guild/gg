@@ -436,6 +436,9 @@ public sealed record WatchState
 [PinnedId("2a6f91c4-7b3e-4d58-9c02-e85d1a43f6b7")]
 public sealed record WatchStanding
 {
+    /// <summary>The account the newest sweep read as, when its pair named one.</summary>
+    public string? Account { get; init; }
+
     /// <summary>The topology name.</summary>
     public required string Name { get; init; }
 

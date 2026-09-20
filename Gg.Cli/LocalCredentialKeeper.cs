@@ -98,6 +98,11 @@ public sealed class LocalCredentialKeeper(ICredentialStore store)
             AcceptAgentLogin = true,
         };
 
+    /// <summary>What a machine writes when it redeems an enrollment token.</summary>
+    public static Gg.Local.Configuration EnrolledUnder(
+        Gg.Local.Configuration? existing, string profile) =>
+        (existing ?? new Gg.Local.Configuration()) with { EnrolledProfile = profile };
+
     /// <summary>
     /// Somewhere to destroy a credential. Always.
     /// </summary>

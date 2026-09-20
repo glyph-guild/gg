@@ -272,7 +272,42 @@ public class TheInstallerVerifiesWhatItInstallsTests
             .Single(f => !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
                 StringComparison.Ordinal));
 
-        await Assert.That(await File.ReadAllTextAsync(workflow)).Contains("deploy/install.sh");
+        var text = await File.ReadAllTextAsync(workflow);
+
+        await Assert.That(text).Contains("deploy/install.sh");
+
+        // AND THE WINDOWS ONE, because the sh script now refuses a Windows
+        // machine by naming a URL - and a refusal pointing at an asset the
+        // release does not carry is worse than the refusal it replaced.
+        await Assert.That(text).Contains("deploy/install.ps1");
+
+        await Assert.That(File.Exists(Path.Combine(RepoRoot(), "deploy", "install.ps1"))).IsTrue();
+    }
+
+    [Test]
+    public async Task The_windows_installer_makes_no_runner_and_verifies_what_it_unpacks()
+    {
+        // ASSERTED OVER ITS SOURCE, because a PowerShell script cannot be run
+        // from this suite: the two claims that matter are that it does not make
+        // a service - gg on Windows is the command line, and a Windows runner
+        // is another slice's - and that it checks the bytes before extracting
+        // them, which is the sh script's rule and the same reason.
+        var script = await File.ReadAllTextAsync(
+            Path.Combine(RepoRoot(), "deploy", "install.ps1"));
+
+        await Assert.That(script).DoesNotContain("service install")
+            .Because("nothing on a laptop is a service, and the console UI Windows would need "
+                   + "is not written - gg there opens an editor and says so.");
+        await Assert.That(script).Contains("attestation verify")
+            .Because("whoever can replace an asset on a release page can replace a checksum "
+                   + "beside it, so the proof is the build's attestation.");
+        await Assert.That(script).Contains("Get-FileHash")
+            .Because("without gh the digest is still printed, so somebody can compare it - "
+                   + "refusing instead would make the attestation a dependency of installing.");
+        await Assert.That(script.IndexOf("Get-FileHash", StringComparison.Ordinal))
+            .IsLessThan(script.IndexOf("tar -xzf", StringComparison.Ordinal))
+            .Because("checked before anything is extracted, which is the whole point of "
+                   + "checking.");
     }
 
     /// <summary>A directory standing in for one machine and one release page.</summary>

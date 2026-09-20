@@ -12,7 +12,9 @@
 # Options:
 #   --version <v>        the release to install. Required, always: this never
 #                        resolves a newest one, so a machine runs what somebody chose.
-#   --control-plane <u>  where the runner reports. A first install needs it.
+#   --control-plane <u>  where the runner reports - and what makes this machine a
+#                        runner at all. Without it (and without --enroll) this
+#                        installs the binary and starts nothing: a laptop.
 #   --enroll             read an enrollment token at a prompt on this terminal.
 #   --enroll-file <path> read it from a file instead, for a machine with no terminal.
 #   --user <name>        the service user, when not the platform's default.
@@ -74,8 +76,17 @@ esac
 # tells a first install from an update.
 manifest="$root/etc/gg/service.manifest"
 
-if [ ! -e "$manifest" ] && [ -z "$control_plane" ]; then
-  refuse "a first install needs --control-plane <url>: nothing else can tell this machine where its control plane is."
+# WHETHER THIS MACHINE BECOMES A RUNNER, which is the one question this script
+# asks and used to answer for you. A control plane or an enrollment token means
+# a runner: `gg service install` makes the user, writes its configuration and
+# starts the service. Neither means a laptop - the binary, and nothing running.
+#
+# IT USED TO REFUSE HERE without --control-plane, which made every scripted
+# install a runner install and left a person who wanted the command line with
+# the README's four manual steps.
+runner=""
+if [ -n "$control_plane" ] || [ -n "$enroll" ] || [ -n "$enroll_file" ] || [ -e "$manifest" ]; then
+  runner=1
 fi
 
 if [ -n "$enroll" ] && [ -n "$enroll_file" ]; then
@@ -89,7 +100,12 @@ fi
 case "$(uname -s)" in
   Linux) os=linux ;;
   Darwin) os=osx ;;
-  *) refuse "gg is released for Linux and macOS, and this is $(uname -s)." ;;
+  # WINDOWS IS RELEASED AND THIS IS NOT ITS INSTALLER. Somebody here is in
+  # git-bash or WSL's borrowed shell, and being told their platform does not
+  # exist would send them to a release page to do it by hand.
+  MINGW* | MSYS* | CYGWIN* | Windows_NT)
+    refuse "gg is released for Windows, and this script installs the Unix builds. In PowerShell: irm https://github.com/$repo/releases/download/v$version/install.ps1 | iex" ;;
+  *) refuse "gg is released for Linux, macOS and Windows, and this is $(uname -s)." ;;
 esac
 
 case "$(uname -m)" in
@@ -100,9 +116,12 @@ esac
 
 rid="$os-$arch"
 
+# THE FOUR UNIX BUILDS A RELEASE CARRIES. win-x64 is the fifth and install.ps1
+# is where it lands; AOT cannot cross-compile, so each of these is a runner of
+# that platform in the publish workflow rather than a flag.
 case "$rid" in
-  linux-x64 | osx-arm64) ;;
-  *) refuse "gg is released for linux-x64 and osx-arm64, and this machine is $rid." ;;
+  linux-x64 | linux-arm64 | osx-arm64 | osx-x64) ;;
+  *) refuse "gg is released for linux-x64, linux-arm64, osx-arm64 and osx-x64, and this machine is $rid." ;;
 esac
 
 asset="gg-$rid.tar.gz"
@@ -187,6 +206,18 @@ ln -s "/usr/local/lib/gg/$version/gg" "$link"
 mv -f "$link" "$bin/gg"
 
 printf 'install.sh: %s, %s; /usr/local/bin/gg points at it.\n' "$installed" "$checked"
+
+# AND WHAT A LAPTOP IS: the binary, and nothing running. Said rather than
+# silent, because "did that make me a runner?" is the question somebody has
+# after typing one line - and because the default control plane is localhost,
+# so a laptop nobody pointed anywhere points at nothing.
+if [ -z "$runner" ]; then
+  printf 'install.sh: this machine is not a runner - nothing was started and no user was made.\n'
+  printf '  gg config set control-plane <url>   # where your tenant is\n'
+  printf '  gg login                            # then sign in\n'
+  printf 'To make it a runner instead, run this again with --control-plane <url>.\n'
+  exit 0
+fi
 
 # AND THE SERVICE, by the gg just installed - not through the link, which under
 # --root points somewhere this run did not write.

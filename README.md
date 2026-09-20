@@ -59,7 +59,50 @@ says so. That covers CI, anything behind a pipe, and Windows, where
 
 ## Install
 
-**No .NET required** — a pool host, a CI runner, a laptop:
+**One command, on a laptop.** macOS or Linux:
+
+```sh
+v=0.42.0
+curl -fsSL https://github.com/glyph-guild/gg/releases/download/v$v/install.sh \
+  | sudo sh -s -- --version $v
+```
+
+Windows, in PowerShell:
+
+```powershell
+$v='0.42.0'
+& ([scriptblock]::Create((irm https://github.com/glyph-guild/gg/releases/download/v$v/install.ps1))) -Version $v
+```
+
+It picks the build for the machine it is on, checks the bytes against the
+build's own attestation before unpacking them, installs the native libraries
+beside the binary, and **starts nothing**. It then says the two things left to
+do — where your tenant is, and signing in:
+
+```sh
+gg config set control-plane <url>
+gg login
+```
+
+**`--control-plane` is what makes a machine a runner**, and its absence is what
+makes this a laptop install. Given one, the same script installs the service
+that runs `gg runner up`, creates the user it runs as, and redeems an
+enrollment token if you hand it one:
+
+```sh
+curl -fsSL .../install.sh | sudo sh -s -- --version $v \
+  --control-plane <url> --agent-binary /usr/local/bin/claude --enroll
+```
+
+That is the fleet path — a machine somebody enrolled, which nobody signs in
+on — rather than something that happens to you for leaving a flag off.
+
+**On Windows gg is the command line.** The console's terminal UI wants
+`SetConsoleMode` and ConPTY, which are not written, so gg there opens `$EDITOR`
+and says so.
+
+**By hand, if you would rather see every step** — and the second `install` line
+is not optional:
 
 ```sh
 v=0.42.0
@@ -69,8 +112,8 @@ sudo install -m 0644 libporta_pty.so libonigwrap.so /usr/local/bin/
 gg --version
 ```
 
-Swap `linux-x64` for `osx-arm64` on an Apple-silicon Mac, and `.so` for
-`.dylib`.
+A release carries `linux-x64`, `linux-arm64`, `osx-arm64`, `osx-x64` and
+`win-x64`; swap the asset for yours, and `.so` for `.dylib` on a Mac.
 
 **A version, not `latest`.** `v` is the release this README was written
 against, and the release that moves the version moves it. `releases/latest`

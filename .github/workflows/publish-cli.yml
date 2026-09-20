@@ -130,7 +130,12 @@ jobs:
       # source at packages/ and NuGet fails a restore when a declared source is
       # missing rather than skipping it - so the directory has to exist before
       # the first build, not before the first use.
+      # AND IN BASH, on the Windows runner too. pwsh cannot run a .sh: it
+      # ShellExecutes it, Git for Windows' association takes it detached, and
+      # the step exits 0 in under a second having fetched nothing. The publish
+      # then fails on the directory this was supposed to create.
       - name: The pinned SIPSorcery fork
+        shell: bash
         run: ./scripts/fetch-sipsorcery.sh
       - name: AOT-publish gg
         run: dotnet publish Gg.Cli -c Release -r ${{ matrix.rid }} -o out

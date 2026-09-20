@@ -268,7 +268,7 @@ public static class Rows
     /// list of two things pretending to be one.
     /// </remarks>
     public static IReadOnlyList<string> BoardColumns { get; } =
-        ["", "subject", "state", "kind", "since", "next", "why"];
+        ["", "subject", "for", "state", "kind", "since", "next", "why"];
 
     public static IReadOnlyList<string> RunnerColumns { get; } =
         ["", "runner", "state", "working on", "advertises", "last heard"];
@@ -415,6 +415,15 @@ public static class Rows
         var rows = new List<BoardRow>();
 
         foreach (var nomination in (state.Board?.Nominations ?? [])
+            // MINE AND THE TENANT'S, UNLESS ASKED OTHERWISE (ADR-0024, slice
+            // forty-two rule 13). One board is what makes a personal watch's
+            // rows readable at all; it also makes a busy tenant's board mostly
+            // rows this person may not answer - the decision door refuses them
+            // - and those bury the ones they can. Absent `for` is the tenant's
+            // and is everybody's to see.
+            .Where(n => state.BoardShowsEverybody
+                || n.For is not { Length: > 0 } whose
+                || string.Equals(whose, state.Subject, StringComparison.Ordinal))
             .OrderByDescending(n => n.MadeAt))
         {
             rows.Add(new BoardRow(
@@ -434,7 +443,17 @@ public static class Rows
                 // THE SENTENCE THAT ENDED IT, or the one that gated it. A
                 // standing row with neither says nothing here rather than
                 // borrowing a word from somewhere else.
-                nomination.Because ?? ""));
+                nomination.Because ?? "",
+
+                // WHOSE IT IS: the display, because that is what a reader
+                // recognises and this column is narrow - `gg board` prints the
+                // subject beside it, where there is room. The subject alone
+                // when a person has left the tenant and their display is gone,
+                // because a blank there would read as a tenant row, which is
+                // the one thing it is not. Blank for the tenant's own rows.
+                nomination.For is { Length: > 0 } whose
+                    ? nomination.ForDisplay is { Length: > 0 } display ? display : whose
+                    : ""));
         }
 
         foreach (var watch in (state.Watches?.Standings ?? [])

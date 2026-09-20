@@ -1653,6 +1653,16 @@ public static class Keymap
                         ]
                         : []]
                 : [],
+            .. context.Showing == TabId.Board
+                ? (KeyBinding[])[
+                    // CHOSEN FOR BEING FREE, AND SAID TO BE - `/`'s rule, one
+                    // tab over. Every letter is a tab key or is spoken for by
+                    // the compose modal, and `p` may never be a tab key; `*` is
+                    // bound in no mode and reads as "all" in a list.
+                    new(KeyStroke.Char('*'), Command.ShowEverybodysRows, "everybody's rows")
+                        { When = "while the board is showing" },
+                ]
+                : [],
             .. context.Showing == TabId.Browse
                 ? (KeyBinding[])[
                     new(KeyStroke.Char('f'), Command.FlyPicked, "fly this")

@@ -18,6 +18,17 @@ public static class Reducer
         {
             Command.ToggleHelp => Modal(state, UiMode.Help),
 
+            // BOTH WAYS, because a view a person can widen and not narrow is a
+            // door with no handle on the inside. The cursor goes back to the
+            // top: the row it indexed is not the row at that index once the
+            // list changes length (Rows.Board's own note about what indexes
+            // what).
+            Command.ShowEverybodysRows => state with
+            {
+                BoardShowsEverybody = !state.BoardShowsEverybody,
+                BoardSelected = 0,
+            },
+
             // NOTHING TO OPEN IS NOT A MODAL. Article XI: a key that appears to
             // work is worse than one that is not offered, and a modal whose
             // only content is the way out is exactly that. The key stays bound

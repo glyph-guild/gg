@@ -723,6 +723,13 @@ public static class ConsoleProjection
                 // console knew who it was and could not say.
                 PrincipalId = identity.Value.PrincipalId,
 
+                // AND HOW A DOCUMENT NAMES THEM, which is the only way this
+                // side can tell its own rows from another person's (slice
+                // forty-two rule 14). A control plane too old to say sends
+                // nothing, and every row then reads as the tenant's - which is
+                // what every row was before this.
+                Subject = identity.Value.Subject ?? "",
+
                 // AND WHETHER THEY ADMINISTER THE TENANT, which arrives in the
                 // same answer. A hint about what a surface would be allowed to
                 // show, never a permission: every route checks the principal

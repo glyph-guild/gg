@@ -97,7 +97,8 @@ public sealed class SweepLoop(
     IClock clock,
     string transcripts,
     Func<TimeSpan, CancellationToken, Task>? delay = null,
-    Action<string>? narrate = null)
+    Action<string>? narrate = null,
+    IReadOnlyList<Gg.Local.ServedTracker>? trackers = null)
 {
     private readonly ISweepProtocol _protocol = protocol;
     private readonly SkillReader _skills = skills;
@@ -106,6 +107,17 @@ public sealed class SweepLoop(
     private readonly string _transcripts = transcripts;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay ?? Task.Delay;
     private readonly Action<string> _narrate = narrate ?? (_ => { });
+
+    /// <summary>
+    /// The pairs this machine declared, so an attestation can say as whom it
+    /// read (slice forty-two rules 16 and 17).
+    /// </summary>
+    /// <remarks>
+    /// <b>The account is the declaring machine's to know.</b> It holds the
+    /// credential; the control plane holds a reference and never resolves one,
+    /// so nothing on that side could say what a token acts as.
+    /// </remarks>
+    private readonly IReadOnlyList<Gg.Local.ServedTracker> _trackers = trackers ?? [];
 
     /// <summary>How long to wait before asking again. Zero while things are well.</summary>
     private TimeSpan _backoff = TimeSpan.Zero;
@@ -319,6 +331,7 @@ public sealed class SweepLoop(
                 Nominated = [.. nominated.Take(WatchAttestation.MaxNominations)],
                 MeasuredAt = _clock.UtcNow,
                 SkillSha = skill.BlobSha,
+                Account = AccountFor(action),
 
                 // WHICH COMMIT THOSE WORDS CAME FROM, and this machine is the
                 // only one that knows since rule 16 was amended: the control
@@ -332,6 +345,18 @@ public sealed class SweepLoop(
                 $"The executor answered {ran.GetType().Name}, which nothing here reports."),
         };
     }
+
+    /// <summary>The account the pair this action names was declared with, or none.</summary>
+    /// <remarks>
+    /// <b>Matched on the host and the credential, the two a watch pairs on.</b>
+    /// The account is not part of that comparison (rule 16): a third field in
+    /// it would unpair every watch whose operator had not written one yet.
+    /// </remarks>
+    private string? AccountFor(WatchAction action) =>
+        _trackers.FirstOrDefault(t =>
+            string.Equals(t.Host, action.Document.Host, StringComparison.Ordinal)
+            && string.Equals(t.Locator, action.Document.Credential, StringComparison.Ordinal))
+            .Account;
 
     private WatchAttestation Unreachable(
         WatchAction action, string diagnosis, string? skillSha = null, string? skillCommit = null) =>

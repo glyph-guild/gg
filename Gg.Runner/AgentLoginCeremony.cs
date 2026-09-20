@@ -73,6 +73,13 @@ public sealed record AgentLoginPorts(IRunAnAgentLogin Runs, IKeepACredential Kee
 /// The dispatch says which flight, so the person knows what to wait for.
 /// </para>
 /// <para>
+/// <b>Which makes a second ASK a rejoin, not a refusal.</b> One child, one
+/// ceremony, and whoever asks is handed the URL it is already waiting on. A
+/// ceremony nobody could rejoin meant an interrupted one locked the machine
+/// out of the remedy its bring-up gate names for ten minutes - including for
+/// the person holding the code.
+/// </para>
+/// <para>
 /// <b>The token is held for exactly as long as it takes to write it.</b> It
 /// is read off the child, handed to the keeper under the agent's locator,
 /// and dropped; nothing here retains it, logs it, or says it. The two journal
@@ -112,6 +119,7 @@ public sealed partial class AgentLoginCeremony(
     private readonly Lock _gate = new();
     private Phase _phase = Phase.Idle;
     private IAgentLoginChild? _child;
+    private string? _url;
     private DateTimeOffset _startedAt;
 
     public string Provider => agent.Provider;
@@ -148,6 +156,38 @@ public sealed partial class AgentLoginCeremony(
         var now = clock.UtcNow;
         lock (_gate)
         {
+            // A BEGUN CEREMONY IS REJOINED RATHER THAN REFUSED, and it is still
+            // one ceremony and one child: this hands back the one already
+            // waiting. The refusal it used to be made the client's own last
+            // sentence false - "run this again to be asked for it" was met by
+            // the runner saying a login was already in progress - so an
+            // interrupted ceremony locked the machine out of the remedy its
+            // bring-up gate names for ten minutes, for everybody, including the
+            // person holding the code. Measured on vmlinux002 (S43.8-01).
+            //
+            // THE URL IS SAFE TO HAND BACK for the reason it was safe to show
+            // the first time: the code it leads to is useless without the
+            // verifier the child holds. And whoever asks has already been
+            // introduced to this runner by the control plane and accepted by
+            // this machine's own file - the same authority that begins one.
+            if (_phase is Phase.Waiting && _url is { Length: > 0 } waiting)
+            {
+                saying?.Invoke(
+                    $"agent login for {Provider} rejoined; it still expires at "
+                  + $"{_startedAt + Patience:u}");
+
+                return new AgentLoginBegun
+                {
+                    Provider = Provider,
+                    Started = true,
+                    Url = waiting,
+                    ExpiresAt = _startedAt + Patience,
+                };
+            }
+
+            // STARTING AND FINISHING ARE STILL REFUSED. One has no URL yet and
+            // the other is being answered by somebody; neither is a ceremony a
+            // second person can join, and both pass within seconds.
             if (_phase is not Phase.Idle)
             {
                 return Refused(
@@ -195,6 +235,7 @@ public sealed partial class AgentLoginCeremony(
         lock (_gate)
         {
             _child = child;
+            _url = url;
             _phase = Phase.Waiting;
         }
 
@@ -244,6 +285,7 @@ public sealed partial class AgentLoginCeremony(
         lock (_gate)
         {
             _child = null;
+            _url = null;
             _phase = Phase.Idle;
         }
 
@@ -332,6 +374,7 @@ public sealed partial class AgentLoginCeremony(
 
             child = _child;
             _child = null;
+            _url = null;
             _phase = Phase.Idle;
         }
 
@@ -346,6 +389,7 @@ public sealed partial class AgentLoginCeremony(
         {
             child = _child;
             _child = null;
+            _url = null;
             _phase = Phase.Idle;
         }
 

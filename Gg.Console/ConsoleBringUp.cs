@@ -52,7 +52,37 @@ public static class ConsoleBringUp
     /// </remarks>
     public static string Said(AppState state)
     {
-        ArgumentNullException.ThrowIfNull(state);
-        return "";
+        if (Asking(state) is not { } asked)
+        {
+            return "";
+        }
+
+        var machine = asked.RunnerLabel is { Length: > 0 } label ? label : asked.Runner;
+        var subject = asked.Subject is { Length: > 0 } named ? named : "it";
+
+        var where = asked.Item switch
+        {
+            ReadinessKinds.Agent =>
+                $"{machine} does not declare the agent its profile names ({subject}). The "
+              + "binary is the machine's to have: give its path to `gg service install "
+              + "--agent-binary <path>` when the machine is built, or set executor-binary on "
+              + "it. Nothing here can do that.",
+
+            ReadinessKinds.Credential =>
+                $"{machine} cannot resolve the credential {subject}. Send it one with "
+              + $"`gg credential send --runner {asked.Runner}`, or put it where that machine's "
+              + "own store looks - the modal for it is on the machine's row, not on this gate.",
+
+            ReadinessKinds.Forge =>
+                $"{machine} cannot reach its forge '{subject}'. That is a route between that "
+              + "machine and that host, and nothing a console does opens one.",
+
+            _ => $"{machine} does not meet its profile, and this build does not know the item "
+               + $"'{asked.Item}'. Its own words are below.",
+        };
+
+        return asked.Diagnosis is { Length: > 0 } why
+            ? $"{where}\n\nWhat the machine said: {why}"
+            : where;
     }
 }

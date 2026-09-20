@@ -1012,7 +1012,7 @@
   },
   {
     "version": "0.208.0",
-    "surface": "df071d55a796ef51a83147684db58e2d921e56b46c94ffdaa58a20128188c4a6",
+    "surface": "8cb5fc26aa0af7bd3bab495bbe185eabd7136812246c865e3c3767746abcea73",
     "note": "A BRING-UP GATE SAYS WHAT IS MISSING. Slice forty-six, step 4, and the kind the control plane has been waiting for: `AttemptLedger` refused to label a bring-up ask at all - \"until the contract has a kind for it, a bring-up gate is an ordinary gate whose intent names the remedy\" - because offering \"sign the agent in\" for a missing credential is the wrong act on the right machine. `GateMaintenanceKinds.BringUp` joins `AgentLogin`, and `GateMaintenance` gains `item` (one of `ReadinessKinds`: agent, credential, forge) and `subject` (what was checked - the agent's name, the credential's reference, the forge's key - never what a check produced). `provider` stops being required: a machine that cannot reach its forge has no provider in the sense that member means, and filling it with the forge's key would put one vocabulary's word in another's field; every agent-login gate still sets it, which is what its own act reads. AN OLDER gg renders an unknown kind as an ordinary gate rather than guessing an act for it, which is this vocabulary's stated rule and unchanged - so a bring-up gate on an older console reads as the gate it always was, with its remedy in the intent."
   }
 ]

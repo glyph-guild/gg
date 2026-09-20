@@ -866,8 +866,13 @@ public static class Keymap
             // fixed. A person offered two answers that do not answer learns to
             // stop reading the surface. What the modal says instead is what is
             // missing and where it is answered.
-            new(KeyStroke.Char('a'), Command.ApproveGate, "approve"),
-            new(KeyStroke.Char('r'), Command.RejectGate, "reject"),
+            .. context.GateIsABringUpAsk
+                ? (IReadOnlyList<KeyBinding>)[]
+                :
+                [
+                    new(KeyStroke.Char('a'), Command.ApproveGate, "approve"),
+                    new(KeyStroke.Char('r'), Command.RejectGate, "reject"),
+                ],
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 

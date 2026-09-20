@@ -1152,7 +1152,7 @@ public static class Rows
 /// </remarks>
 public sealed record BoardRow(
     string Key, string What, string Subject, string State, string Kind, string Since,
-    string Next, string Why)
+    string Next, string Why, string For = "")
 {
     /// <summary>What a nomination's row says it is.</summary>
     /// <remarks>

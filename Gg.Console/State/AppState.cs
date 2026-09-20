@@ -1803,6 +1803,12 @@ public sealed record AppState
     /// </remarks>
     public string PrincipalId { get; init; } = "";
 
+    /// <summary>How a document names this session's person, or empty.</summary>
+    public string Subject { get; init; } = "";
+
+    /// <summary>Whether the board shows everybody's rows rather than mine and the tenant's.</summary>
+    public bool BoardShowsEverybody { get; init; }
+
     /// <summary>
     /// Which runner in the fleet is this machine's, or null when none is
     /// registered here.

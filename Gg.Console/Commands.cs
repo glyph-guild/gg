@@ -746,6 +746,9 @@ public enum Command
     /// </remarks>
     FilterBrowse,
 
+    /// <summary>Show everybody's board rows, or go back to mine and the tenant's.</summary>
+    ShowEverybodysRows,
+
     /// <summary>Open the browse tab's field, to go to an item or find one.</summary>
     /// <remarks>
     /// <b>Opens a field and reads nothing.</b> What is asked for is decided by

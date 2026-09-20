@@ -469,6 +469,14 @@ public sealed class ConsoleLoop(
                     state = Given(state, sendCredential);
                     break;
 
+                case Command.SetOwnership:
+                    // THE ANSWER TO THE QUESTION, and the modal closes on it:
+                    // the question was whether, and a modal that stayed open
+                    // after it was answered would invite a second yes.
+                    state = Reloaded(
+                        Said(state, actions) with { Mode = UiMode.Runner }, reload);
+                    break;
+
                 case Command.ClaimRunner:
                 case Command.ReserveRunner:
                     // INSIDE THE SESSION, unlike the four around it: this is one
@@ -1171,6 +1179,30 @@ public sealed class ConsoleLoop(
     /// `Answered`'s rule: the modal holds no id, and what it is about is
     /// whatever the cursor is on.
     /// </remarks>
+    /// <summary>
+    /// Says the admin's word about the machine the question was asked over.
+    /// </summary>
+    /// <remarks>
+    /// <b>A toggle between the two words an admin may say.</b> Claimed is
+    /// never one of them: an admin says whether a machine may be claimed, and
+    /// who claims it is that person's own act - the door's rule, which this
+    /// does not bend by offering a third answer.
+    /// </remarks>
+    private static AppState Said(AppState state, IConsoleActions? actions)
+    {
+        if (actions is null || Rows.Selected(state) is not { } row)
+        {
+            return state with
+            {
+                LastDecision = actions is null
+                    ? "This console is not configured to say who may claim a machine."
+                    : "No machine is selected.",
+            };
+        }
+
+        return state;
+    }
+
     private static AppState Owned(AppState state, IConsoleActions? actions, bool claiming)
     {
         if (actions is null || Rows.Selected(state) is not { } row)

@@ -420,6 +420,15 @@ public class TheSignInModalReadsTests
         // arm has a class of its own where both are set the other way.
         var exclusive = new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            // THE SECOND PAIR THAT CANNOT BOTH BE TRUE. A machine is the
+            // tenant's or somebody's claim, never both - the doors refuse it -
+            // and this model keeps the claim, because that is the arm with the
+            // two toggles in it. The tenant arm is where the admin's key reads
+            // the other way, and AnAdminsWordAsksFirstTests holds it.
+            [nameof(KeymapContext.RunnerIsTheTenants)] =
+                "a machine is the tenant's or claimed, never both - "
+              + "AnAdminsWordAsksFirstTests holds the other arm.",
+
             [nameof(KeymapContext.OverALink)] =
                 "a flight's intent is a ticket or a link, never both - "
               + "AFlightCanOpenItsLinkTests holds the other arm.",

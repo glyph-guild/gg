@@ -201,6 +201,7 @@ public static class Reducer
             // nothing and `x` stopped grounding - a confirmation added to
             // grounding that broke grounding.
             Command.AskToGround => Modal(state, UiMode.ConfirmGround),
+            Command.AskWhoMayClaim => Modal(state, UiMode.ConfirmOwnership),
             Command.AskToFlyAgain => Modal(state, UiMode.ConfirmFlyAgain),
             Command.AskToApplyEstate => Modal(state, UiMode.ConfirmApply),
             Command.ReadEnvelope => Modal(state, UiMode.ReadingEnvelope),

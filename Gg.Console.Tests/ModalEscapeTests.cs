@@ -329,6 +329,13 @@ public class ModalEscapeTests
                             Label = "a-laptop",
                             State = Gg.Contracts.RunnerStates.Idle,
                             RegisteredByPrincipalId = "me",
+
+                            // A CONTROL PLANE THAT SAYS WHOSE IT IS, because
+                            // one that does not offers no ownership key at all
+                            // - "empty is not open", which is right on a row
+                            // and would make this walk unable to reach the
+                            // question those keys ask.
+                            Ownership = Gg.Contracts.RunnerOwnerships.Open,
                         },
                     ],
                 },

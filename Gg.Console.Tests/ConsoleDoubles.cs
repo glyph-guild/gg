@@ -268,6 +268,9 @@ internal static class ConsoleDoubles
 
         internal List<(string Runner, bool Kept)> Reserved { get; } = [];
 
+        /// <summary>Every admin's word said, in order.</summary>
+        internal List<(string Runner, string Ownership)> Ownerships { get; } = [];
+
         /// <summary>Every nomination answered, in order.</summary>
         /// <remarks>
         /// Beside <see cref="Decided"/> rather than sharing it: a gate and a
@@ -284,6 +287,14 @@ internal static class ConsoleDoubles
         internal int Forgotten { get; private set; }
 
         internal int Invited { get; private set; }
+
+        public string SetRunnerOwnership(string runnerId, string ownership)
+        {
+            Ownerships.Add((runnerId, ownership));
+            return refusing
+                ? "Only an admin says who may claim a machine."
+                : $"{runnerId} is {ownership}.";
+        }
 
         public string ClaimRunner(string runnerId, bool mine)
         {

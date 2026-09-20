@@ -184,6 +184,7 @@ public class HelpNamesEveryKeyTests
                 RunnerIsReserved = true,
             },
             new(UiMode.Runner) { RunnerOwnershipIsKnown = true, RunnerIsReserved = true },
+            new(UiMode.Runner) { RunnerOwnershipIsKnown = true, RunnerIsTheTenants = true },
         ]
         select standing with { RunnerIsOurs = ours, RunnerIsBeating = true };
 
@@ -248,7 +249,12 @@ public class HelpNamesEveryKeyTests
         // the person at this console is the owner and whether it is reserved.
         // The last two decide which way each toggle reads, and a toggle whose
         // label and act can disagree is worse than no key.
-        await Assert.That(members.Count).IsEqualTo(25)
+        // TWENTY-SIX SINCE THE ADMIN'S WORD (step 3), which is the one state
+        // the other three cannot describe: a machine held back for the tenant
+        // is not claimed by anybody, so no combination of "claimed by you" and
+        // "reserved" reaches it, and the key that opens it reads the other way
+        // there.
+        await Assert.That(members.Count).IsEqualTo(26)
             .Because("Everywhere() crosses every one of these, or OverAMachineSomebodyOwns() "
                    + "holds it beside the cross - and a member in neither would leave the "
                    + "completeness check above quietly incomplete, which is exactly how the "

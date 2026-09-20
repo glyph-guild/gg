@@ -240,6 +240,14 @@ public readonly record struct KeymapContext(
     /// <summary>Whether it takes only its owner's flights.</summary>
     public bool RunnerIsReserved { get; init; }
 
+    /// <summary>Whether an admin has held this machine back for the tenant.</summary>
+    /// <remarks>
+    /// <b>Which way the admin's key reads</b>, and nothing else: the act is a
+    /// toggle between the tenant's and open, and a key labelled with the state
+    /// it is already in would be a key that does nothing.
+    /// </remarks>
+    public bool RunnerIsTheTenants { get; init; }
+
     /// <summary>
     /// Whether the selected runner's allowance is one this person may reserve.
     /// </summary>
@@ -409,6 +417,8 @@ public readonly record struct KeymapContext(
                 && state.PrincipalId is { Length: > 0 } you
                 && string.Equals(claimed.OwnerPrincipalId, you, StringComparison.Ordinal),
             RunnerIsReserved = Rows.Selected(state) is { Reserved: true },
+            RunnerIsTheTenants =
+                Rows.Selected(state) is { Ownership: RunnerOwnerships.Tenant },
 
             // WHETHER THERE IS ANYTHING TO REACH. Derived here with the rest,
             // so the hint line and the dispatch cannot disagree about whether
@@ -1036,6 +1046,16 @@ public static class Keymap
         // NEITHER ACTS WITHOUT ASKING. `x` grounded on one keypress - the
         // session ended and an editor opened for a reason before anybody had
         // agreed - and a prompt asks what, not whether.
+        // AN ADMIN'S WORD ABOUT THE TENANT'S MACHINES, which is why it asks at
+        // all: the other two ownership keys act on one keypress because they
+        // act on one person's claim, and this one takes a machine away from
+        // whoever holds it or hands every person here one that was held back.
+        UiMode.ConfirmOwnership =>
+        [
+            new(KeyStroke.Char('y'), Command.SetOwnership, "say so"),
+            new(KeyStroke.Esc, Command.CloseModal, "leave it as it is"),
+        ],
+
         UiMode.ConfirmGround =>
         [
             new(KeyStroke.Char('y'), Command.GroundFlight, "ground it"),
@@ -2285,6 +2305,7 @@ public static class Keymap
         c => c with { RunnerOwnershipIsKnown = true },
         c => c with { RunnerIsClaimedByYou = true },
         c => c with { RunnerIsReserved = true },
+        c => c with { RunnerIsTheTenants = true },
         c => c with { RunnerIsBeating = true },
         c => c with { AllowanceIsMine = true },
         c => c with { FleetAllowancesOffered = true },

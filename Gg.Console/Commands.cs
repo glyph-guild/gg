@@ -552,6 +552,12 @@ public enum Command
     /// <summary>Keeps it to its owner's flights, or lets it take the tenant's again.</summary>
     ReserveRunner,
 
+    /// <summary>Asks whether to say, as an admin, who may claim this machine.</summary>
+    AskWhoMayClaim,
+
+    /// <summary>Says it: the tenant's if anybody had claimed it, open if nobody may.</summary>
+    SetOwnership,
+
     /// <summary>
     /// Logs the agent in on the runner an agent-login gate names.
     /// </summary>
@@ -1199,6 +1205,11 @@ public static class ShellCommands
         // stay inside the session, as answering a gate does.
         Command.ClaimRunner,
         Command.ReserveRunner,
+
+        // THE ADMIN'S WORD, once its question has been answered. The ask
+        // itself is the reducer's - it only opens a modal - and this is the
+        // half that writes.
+        Command.SetOwnership,
 
         // SPAWNS A CHILD, so both halves of what this set means apply.
         Command.StartRunner,

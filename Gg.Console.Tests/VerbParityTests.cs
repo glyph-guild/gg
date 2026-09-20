@@ -264,12 +264,15 @@ public class VerbParityTests
                             + "connect, and the reason if it fails, arrives in the live "
                             + "pane. The verb still exists for a terminal, and the modal "
                             + "still names it.",
-            ["RunnerRetire"] = "absent, and DELIBERATELY so for now. Retiring is one-way "
-                             + "and revokes a credential, and the console's runner modal "
-                             + "is a place a person arrives at by arrow key. A key that "
-                             + "permanently removes whatever row is selected is the wrong "
-                             + "affordance for it; if it lands there it needs a "
-                             + "confirmation the other runner keys do not have.",
+            ["RunnerRetire"] = "absent, and DELIBERATELY so - but not for the reason this entry gave "
+              + "until slice forty-six. It said retiring needed a confirmation the other "
+              + "runner keys do not have, and step 3 built one: an admin's word asks before "
+              + "it lands, and the shape is reusable. What still keeps retire out is the "
+              + "ADJACENCY. `x` in this modal means shut it down, and a machine stopped by "
+              + "mistake is started again by the key beside it; a machine retired by mistake "
+              + "has had its credential revoked and is out of the fleet. One letter away from "
+              + "`x`, in a modal people arrive at by arrow key, is the wrong place for that "
+              + "however many questions it asks first.",
             ["FleetEnroll"] = "absent, and DELIBERATELY so: the one output is a secret shown "
                             + "once, and a console repaints - a token drawn in a pane is one a "
                             + "screen share, a scrollback or a screenshot keeps. A terminal prints "

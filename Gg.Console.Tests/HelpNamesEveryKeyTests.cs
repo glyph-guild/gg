@@ -347,8 +347,9 @@ public class HelpNamesEveryKeyTests
     /// </remarks>
     private static KeymapContext Raise(KeymapContext context, string flag)
     {
-        typeof(KeymapContext).GetProperty(flag)!.SetValue(context, true);
-        return context;
+        object boxed = context;
+        typeof(KeymapContext).GetProperty(flag)!.SetValue(boxed, true);
+        return (KeymapContext)boxed;
     }
 
     [Test]

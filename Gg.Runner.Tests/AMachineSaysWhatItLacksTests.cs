@@ -172,4 +172,54 @@ public class AMachineSaysWhatItLacksTests
                    + "a hand-flight is a person's own machine.");
         await Assert.That(program).Contains("ProfileReadiness.MeasureAsync(");
     }
+
+    [Test]
+    public async Task A_path_scoped_forge_is_measured_against_the_host_it_would_connect_to()
+    {
+        // MEASURED ON vmlinux002 (S43.8-01). The tenant's forge is written the
+        // way GG_VCS_HOSTS is written, base path and suffix and all, and this
+        // check split it on '=' and handed the rest to the network - so the
+        // machine reported that `dev.azure.com/HRTMS!pathscoped` could not be
+        // reached on 443, and opened a bring-up flight telling a person to open
+        // a route to something that is not a host.
+        var asked = new List<string>();
+        var profile = ADevWorker() with
+        {
+            Profile = ADevWorker().Profile with { Forges = ["acme=git.acme.example/org!pathscoped"] },
+        };
+
+        var reading = await ProfileReadiness.MeasureAsync(
+            profile, "claude", Resolves,
+            (host, _) => { asked.Add(host); return Task.FromResult<string?>(null); }, T0);
+
+        await Assert.That(asked).IsEquivalentTo(new[] { "git.acme.example" })
+            .Because("a socket connects to a name, and the base path is how a clone url is "
+                   + "built rather than part of one.");
+
+        var forge = reading.Items.Single(i => i.Kind == ReadinessKinds.Forge);
+        await Assert.That(forge.Subject).IsEqualTo("acme");
+        await Assert.That(forge.Met).IsTrue();
+    }
+
+    [Test]
+    public async Task A_forge_nobody_can_parse_is_an_unmet_item_rather_than_a_reading_nobody_gets()
+    {
+        // The profile says this machine needs it, so it is unmet - and the
+        // sentence is the parser's own, which names the entry and the shape it
+        // expected. Reaching for it as though it were a host would report a
+        // network failure about a typo.
+        var profile = ADevWorker() with
+        {
+            Profile = ADevWorker().Profile with { Forges = ["no-equals-sign"] },
+        };
+
+        var reading = await ProfileReadiness.MeasureAsync(
+            profile, "claude", Resolves,
+            (_, _) => throw new InvalidOperationException("nothing unparseable is dialled"), T0);
+
+        var forge = reading.Items.Single(i => i.Kind == ReadinessKinds.Forge);
+        await Assert.That(forge.Met).IsFalse();
+        await Assert.That(forge.Subject).IsEqualTo("no-equals-sign");
+        await Assert.That(forge.Diagnosis).Contains("key=host", StringComparison.Ordinal);
+    }
 }

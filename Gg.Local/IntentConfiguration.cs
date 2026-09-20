@@ -52,7 +52,8 @@ public readonly record struct IntentReader(
 /// <param name="Key">The provider key, which is also the tool-name prefix an agent sees.</param>
 /// <param name="Host">The tracker root, as the operator wrote it.</param>
 /// <param name="Locator">The credential to resolve, or null for a tracker needing none.</param>
-public readonly record struct ServedTracker(string Key, string Host, string? Locator);
+public readonly record struct ServedTracker(
+    string Key, string Host, string? Locator, string? Account = null);
 
 /// <summary>
 /// Which trackers this runner can resolve a work item in.

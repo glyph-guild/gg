@@ -478,6 +478,9 @@ public sealed record WatchAttestation
     /// </remarks>
     public string? SkillCommit { get; init; }
 
+    /// <summary>The account the credential this sweep read with acts as, when its pair named one.</summary>
+    public string? Account { get; init; }
+
     /// <summary>The most one sweep may nominate.</summary>
     /// <remarks>
     /// A watch's own cap per pass bounds what stands, and is the control plane's

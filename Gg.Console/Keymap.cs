@@ -657,6 +657,13 @@ public static class Keymap
                 {
                     When = "over a machine whose control plane says whose it is",
                 },
+                new(KeyStroke.Char('o'), Command.AskWhoMayClaim,
+                    context.RunnerIsTheTenants
+                        ? "open it for anybody here to claim"
+                        : "hold it back for the tenant")
+                {
+                    When = "over a machine whose control plane says whose it is",
+                },
                 new(KeyStroke.Char('h'), Command.ReserveRunner,
                     context.RunnerIsReserved
                         ? "let it take the tenant's work again"

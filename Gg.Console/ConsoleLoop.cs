@@ -1200,7 +1200,14 @@ public sealed class ConsoleLoop(
             };
         }
 
-        return state;
+        return state with
+        {
+            LastDecision = actions.SetRunnerOwnership(
+                row.Id,
+                row.Ownership == RunnerOwnerships.Tenant
+                    ? RunnerOwnerships.Open
+                    : RunnerOwnerships.Tenant),
+        };
     }
 
     private static AppState Owned(AppState state, IConsoleActions? actions, bool claiming)

@@ -2466,7 +2466,20 @@ public static class PaneText
             return "No machine is selected.";
         }
 
-        return row.Id;
+        var name = row.Label is { Length: > 0 } label ? label : row.Id;
+
+        return row.Ownership == RunnerOwnerships.Tenant
+            ? $"{name} is held back for the tenant: nobody may claim it.\n\n"
+            + "Opening it lets anybody here claim it for themselves, and a person who does "
+            + "may then keep it to their own flights."
+            : row.Ownership == RunnerOwnerships.Claimed
+                ? $"{name} is {(row.Owner is { Length: > 0 } who ? who + "'s" : "claimed")}"
+                + (row.Reserved ? ", and reserved to their flights" : "") + ".\n\n"
+                + "Holding it back for the tenant takes it from them: the claim goes, the "
+                + "reservation with it, and nobody may claim it again until an admin opens it."
+                : $"{name} is open for anybody here to claim.\n\n"
+                + "Holding it back for the tenant means nobody may claim it, and it takes "
+                + "the tenant's work only.";
     }
 
     private static string ConfirmGround(AppState state) =>

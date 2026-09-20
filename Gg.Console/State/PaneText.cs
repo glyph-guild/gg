@@ -2450,6 +2450,25 @@ public static class PaneText
     /// "ground it?" would be a question about whichever flight the person
     /// believes they are looking at.
     /// </remarks>
+    /// <summary>
+    /// What an admin is about to say about one machine, and what it costs.
+    /// </summary>
+    /// <remarks>
+    /// <b>It names the person it takes the machine from.</b> "Hold it back for
+    /// the tenant" over a machine somebody has claimed is that person losing
+    /// it, and a question that did not say so would be asking about a word
+    /// rather than about what happens.
+    /// </remarks>
+    private static string ConfirmOwnership(AppState state)
+    {
+        if (Rows.Selected(state) is not { } row)
+        {
+            return "No machine is selected.";
+        }
+
+        return row.Id;
+    }
+
     private static string ConfirmGround(AppState state) =>
         Detailed(state) is not { } flight
             ? ""
@@ -2816,6 +2835,7 @@ public static class PaneText
         UiMode.ConfirmGround => "ground this flight?",
         UiMode.ConfirmApply => "apply the working copy?",
         UiMode.ConfirmRetire => "retire these names?",
+        UiMode.ConfirmOwnership => "say who may claim this machine?",
         UiMode.ReadingEnvelope => "the floor - what governs every flight",
         UiMode.ReadingChangeset => "what would change",
         UiMode.ReadingOutcome => "what the apply came to",
@@ -3111,6 +3131,7 @@ public static class PaneText
             UiMode.ConfirmGround => ConfirmGround(state),
             UiMode.ConfirmApply => ConfirmApply(state),
             UiMode.ConfirmRetire => ConfirmRetire(state),
+            UiMode.ConfirmOwnership => ConfirmOwnership(state),
             UiMode.ConfirmFlyAgain => ConfirmFlyAgain(state),
             UiMode.NominationDecision => NominationDecision(state),
             UiMode.SignIn => SignIn(state),
@@ -3666,6 +3687,7 @@ public static class PaneText
         UiMode.AirspaceActions => "while the airspace actions are open",
         UiMode.ConfirmFlight => "when asked whether to open a second flight",
         UiMode.ConfirmGround => "when asked whether to ground a flight",
+        UiMode.ConfirmOwnership => "when asked who may claim a machine",
         UiMode.ConfirmFlyAgain => "when asked whether to fly one again",
         UiMode.GateDecision => "while answering a gate",
         UiMode.NominationDecision => "while answering a nomination",

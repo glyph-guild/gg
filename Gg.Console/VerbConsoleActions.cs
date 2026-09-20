@@ -71,6 +71,10 @@ public sealed class VerbConsoleActions(
         Answered(() => _data.ClaimRunnerAsync(runnerId, mine));
 
     /// <inheritdoc />
+    public string SetRunnerOwnership(string runnerId, string ownership) =>
+        Answered(() => _data.SetRunnerOwnershipAsync(runnerId, ownership));
+
+    /// <inheritdoc />
     public string ReserveRunner(string runnerId, bool kept) =>
         Answered(() => _data.ReserveRunnerAsync(runnerId, kept));
 

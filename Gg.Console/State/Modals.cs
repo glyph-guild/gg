@@ -57,6 +57,9 @@ public static class Modals
         // other three are.
         UiMode.ReadingSaid,
         UiMode.ConfirmRetire,
+
+        // THE ADMIN'S WORD, which is the tenant's machines and not one person's.
+        UiMode.ConfirmOwnership,
         UiMode.ComposeChoice,
 
         // ARRIVED ON MAIN WHILE THIS BRANCH WAS OUT, and the ratchet in this

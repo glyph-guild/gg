@@ -89,6 +89,16 @@ public interface IConsoleActions
     string ReserveRunner(string runnerId, bool kept);
 
     /// <summary>
+    /// An admin's word about one machine: the tenant's, or open.
+    /// </summary>
+    /// <remarks>
+    /// <b>Never claimed.</b> An admin says whether a machine may be claimed;
+    /// who claims it is that person's own act, which is the door's rule and
+    /// not this console's to bend.
+    /// </remarks>
+    string SetRunnerOwnership(string runnerId, string ownership);
+
+    /// <summary>
     /// Keeps a share of an allowance back, or clears the floor, and says what
     /// happened.
     /// </summary>

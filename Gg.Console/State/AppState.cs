@@ -198,6 +198,17 @@ public enum UiMode
 
     ConfirmRetire,
 
+    /// <summary>Asking whether to say, as an admin, who may claim a machine.</summary>
+    /// <remarks>
+    /// <b>The shape the other confirmations have, for a different reason.</b>
+    /// Grounding and applying ask because they cannot be undone; this asks
+    /// because it speaks for the TENANT. Making a machine the tenant's takes it
+    /// away from whoever has claimed it, and opening one hands every person
+    /// here a machine an admin had held back - neither is a thing to do with
+    /// one keypress in a modal people arrive at by arrow key.
+    /// </remarks>
+    ConfirmOwnership,
+
 
     /// <summary>Asking whether to open a new flight on this one's intent.</summary>
     /// <remarks>

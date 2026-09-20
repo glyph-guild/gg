@@ -165,6 +165,11 @@ public sealed class ConsoleData(
             reference, obligation, outcome, observations, reason,
             cancellationToken: cancellationToken);
 
+    /// <summary>`gg runner ownership` - an admin's word: the tenant's, or open.</summary>
+    public Task<VerbResult> SetRunnerOwnershipAsync(
+        string runnerId, string ownership, CancellationToken cancellationToken = default) =>
+        _commands.SetRunnerOwnershipAsync(runnerId, ownership, cancellationToken);
+
     /// <summary>`gg runner claim` and `gg runner unclaim`.</summary>
     public Task<VerbResult> ClaimRunnerAsync(
         string runnerId, bool mine, CancellationToken cancellationToken = default) =>

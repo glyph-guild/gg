@@ -124,7 +124,22 @@ public sealed class VerbConsoleActions(
         }
         catch (Exception refusal) when (refusal is NotSignedInException
                                             or ProtocolTooOldException
-                                            or HttpRequestException)
+                                            or HttpRequestException
+
+                                            // THE ONES THESE DOORS ACTUALLY
+                                            // THROW, and the walk is how that
+                                            // was found: pressing claim on a
+                                            // tenant-owned machine ended the
+                                            // console with an unhandled
+                                            // exception whose message was the
+                                            // refusal the pane should have
+                                            // drawn. The double used by the
+                                            // key's own tests RETURNS a
+                                            // sentence for a refusal, so
+                                            // nothing exercised this shape.
+                                            or RunnerOwnershipRefusedException
+                                            or RunnerNotFoundException
+                                            or EnrollmentRefusedException)
         {
             return refusal.Message;
         }

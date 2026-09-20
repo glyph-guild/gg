@@ -161,7 +161,29 @@ public sealed record RunnerRow(
     /// can answer it, and a renderer that tried would disagree with the order.
     /// Empty rather than null, like every other absent string on this record.
     /// </remarks>
-    string Under = "");
+    string Under = "",
+
+    /// <summary>One of <c>RunnerOwnerships</c>, or empty from a control plane that does not say.</summary>
+    /// <remarks>
+    /// <b>The word, not a phrase.</b> A row carrying "the tenant's" could not be
+    /// asked whether a key applies without matching English, and this record is
+    /// written to disk under <c>GG_STATE_DUMP</c> and read back by things that
+    /// are not a renderer. <see cref="Rows.Whose"/> is where it becomes a
+    /// sentence, once, for the pane and the table both.
+    /// </remarks>
+    string Ownership = "",
+
+    /// <summary>Who claimed it, to read, or empty.</summary>
+    string Owner = "",
+
+    /// <summary>Whether it takes only its owner's flights.</summary>
+    bool Reserved = false,
+
+    /// <summary>Whether it is a resident: the machine a pool's members are minted from.</summary>
+    bool Resident = false,
+
+    /// <summary>The fleet profile it enrolled under, or empty for one brought up by hand.</summary>
+    string Profile = "");
 
 /// <summary>
 /// The rows behind the three tables, and the names of their columns.
@@ -271,7 +293,44 @@ public static class Rows
         ["", "subject", "for", "state", "kind", "since", "next", "why"];
 
     public static IReadOnlyList<string> RunnerColumns { get; } =
-        ["", "runner", "state", "working on", "advertises", "last heard"];
+        ["", "runner", "whose", "profile", "state", "working on", "advertises", "last heard"];
+
+    /// <summary>Whose a machine is, as one column says it.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Empty is not open</b>, which is the command line's rule and the same
+    /// reason: a row reading "open" from a control plane with no claim door
+    /// invites a key that cannot succeed. An older one gets no cell at all.
+    /// </para>
+    /// <para>
+    /// <b>Reservation rides the owner rather than standing alone.</b> Nothing is
+    /// reserved that is not claimed - the doors refuse it - so a cell that could
+    /// say "reserved" beside nobody would describe a state the control plane
+    /// will not produce.
+    /// </para>
+    /// </remarks>
+    public static string Whose(RunnerRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        return "";
+    }
+
+    /// <summary>
+    /// What the runners table draws, cell by cell, in <see cref="RunnerColumns"/>' order.
+    /// </summary>
+    /// <remarks>
+    /// <b>Here rather than inside the view</b>, for the reason <see cref="Nested"/>
+    /// already gives: the pane and the table are two readers of one row, and a
+    /// projection living inside a Terminal.Gui callback is one no test can reach
+    /// without a screen. It moved when the fleet learned whose a machine is,
+    /// which is the change that would have made the two drift.
+    /// </remarks>
+    public static string[] RunnerCells(RunnerRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        return [row.Here, Nested(row), row.State, row.Work, row.Labels, row.Heard];
+    }
 
     /// <summary>
     /// The repositories' columns, the first of which has no name.
@@ -880,6 +939,7 @@ public static class Rows
         // would be an exception nobody told the next reader about.
         HostRunnerId: ControlText.Strip(runner.HostRunnerId ?? ""),
         MachineName: ControlText.Strip(runner.Machine ?? ""));
+
 
     /// <summary>
     /// One advertised label, and a word only when it is worth one.

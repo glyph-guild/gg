@@ -3404,7 +3404,7 @@ public sealed class ConsoleScreen : Window
             // top on every render under the person moving it.
             Fill(_runnersTable, _runners, Rows.Runners(State), Rows.RunnerColumns,
                 State.RunnerSelected,
-                r => [r.Here, Rows.Nested(r), r.State, r.Work, r.Labels, r.Heard]);
+                Rows.RunnerCells);
 
             // THE NOTICE LABEL ONLY WHEN THE TABLE IS SHOWING. With no rows the
             // empty-state label already leads with it, and the same sentence

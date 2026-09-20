@@ -273,4 +273,69 @@ public class AProfileNamesAndTheMachineResolvesTests
         await Assert.That(OfferableKeys.All).DoesNotContain("enrolled-profile");
         await Assert.That(ProtocolSurface.JsonMembers[typeof(OfferedConfiguration)]).Contains("profile");
     }
+
+    // ---- the relays its machines use ----
+
+    [Test]
+    [Arguments("stun:relay.example.net:19302")]
+    [Arguments("stuns:relay.example.net:5349")]
+    public async Task A_relay_is_written_with_a_scheme(string relay)
+    {
+        await Assert.That(FleetProfile.Validate(ADevWorker() with { Relays = [relay] })).IsNull();
+    }
+
+    [Test]
+    [Arguments("relay.example.net:19302")]
+    [Arguments("https://relay.example.net")]
+    [Arguments("stun relay.example.net")]
+    public async Task A_relay_without_one_is_refused_rather_than_guessed_at(string relay)
+    {
+        // The machine's own reader DROPS an entry like this, deliberately -
+        // prefixing a scheme would turn a typo into a server nobody meant. A
+        // document a person wrote and a gate approved must not lose lines
+        // silently, so the same question gets a refusal here.
+        var refused = FleetProfile.Validate(ADevWorker() with { Relays = [relay] });
+
+        await Assert.That(refused).IsNotNull();
+        await Assert.That(refused!).Contains("relays");
+        await Assert.That(FleetProfile.IsRelay(relay)).IsFalse();
+    }
+
+    [Test]
+    public async Task A_relay_added_is_not_a_widening()
+    {
+        // NOT A NEW DECISION: stun-servers is in OfferableKeys.Unwatched, where
+        // it was put because a wrong relay degrades a connection while a wrong
+        // forge host fetches code from somewhere nobody chose. A profile that
+        // adds one applies at once, exactly as an offer of one does.
+        var prior = ADevWorker();
+
+        await Assert.That(FleetProfile.Widening(
+                prior, prior with { Relays = ["stun:relay.example.net:19302"] }))
+            .IsNull();
+        await Assert.That(OfferableKeys.Unwatched).Contains(OfferableKeys.StunServers)
+            .Because("this test's whole argument is that entry.");
+    }
+
+    [Test]
+    public async Task Relays_survive_being_written_and_read_back()
+    {
+        var written = EnvelopeText.Render(
+            ADevWorker() with { Relays = ["stun:relay.example.net:19302"] });
+
+        await Assert.That(written).Contains("relays:");
+
+        var read = EnvelopeYaml.ParseProfile(written);
+
+        await Assert.That(read.Diagnosis).IsNull();
+        await Assert.That(read.Profile!.Relays).IsEquivalentTo(new[] { "stun:relay.example.net:19302" });
+    }
+
+    [Test]
+    public async Task A_profile_that_says_nothing_about_relays_writes_no_line()
+    {
+        // The rendering rule every other member follows: absent is not written,
+        // or a pull reports a change nobody made on every profile in force.
+        await Assert.That(EnvelopeText.Render(ADevWorker())).DoesNotContain("relays");
+    }
 }

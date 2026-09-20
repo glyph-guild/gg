@@ -14,7 +14,9 @@ public enum ServicePlatform
 /// <param name="ControlPlane">Where the runner reports; required for a first install.</param>
 /// <param name="Enroll">Whether an enrollment token is to be read, prompted or piped - never an argument.</param>
 /// <param name="User">The service user, or null for the platform's default.</param>
-public sealed record ServiceRequest(string? ControlPlane, bool Enroll, string? User);
+/// <param name="AgentBinary">Where the agent this machine runs is, or null to declare none.</param>
+public sealed record ServiceRequest(
+    string? ControlPlane, bool Enroll, string? User, string? AgentBinary = null);
 
 /// <summary>What happened, in sentences, and whether it was done or refused.</summary>
 public sealed record ServiceOutcome(bool Done, IReadOnlyList<string> Said);

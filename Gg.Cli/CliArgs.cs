@@ -95,7 +95,8 @@ public abstract record CliAction
     /// <param name="ControlPlane">Where the runner reports; a first install needs one.</param>
     /// <param name="Enroll">Whether to read an enrollment token.</param>
     /// <param name="User">The service user, when not the platform's default.</param>
-    public sealed record ServiceInstall(string? ControlPlane, bool Enroll, string? User) : CliAction;
+    public sealed record ServiceInstall(
+        string? ControlPlane, bool Enroll, string? User, string? AgentBinary = null) : CliAction;
 
     /// <summary>Removes exactly what <see cref="ServiceInstall"/> wrote.</summary>
     public sealed record ServiceUninstall : CliAction;
@@ -829,7 +830,8 @@ public static class CliArgs
         "gg runner maintain <pool>      keep a managed pool warm, reset and attested",
         // BESIDE RUNNER UP, because it is how that runs without a terminal: the
         // platform's own service, written once, as root.
-        "gg service install --control-plane <url> [--enroll] [--user <name>]  make this machine's runner a service",
+        "gg service install --control-plane <url> [--enroll] [--user <name>] [--agent-binary <path>]",
+        "                               make this machine's runner a service",
         "gg service uninstall           remove exactly what service install wrote",
         "gg version                     binary, protocol and fact vocabulary",
     ];
@@ -1536,6 +1538,7 @@ public static class CliArgs
     {
         string? controlPlane = null;
         string? user = null;
+        string? agentBinary = null;
         var enroll = false;
 
         for (var at = 0; at < arguments.Length; at++)
@@ -1546,8 +1549,9 @@ public static class CliArgs
                     enroll = true;
                     break;
 
-                case "--control-plane" or "--user" when at + 1 >= arguments.Length
-                                                     || arguments[at + 1].StartsWith("--", StringComparison.Ordinal):
+                case "--control-plane" or "--user" or "--agent-binary"
+                    when at + 1 >= arguments.Length
+                      || arguments[at + 1].StartsWith("--", StringComparison.Ordinal):
                     return Unknown($"gg service install {arguments[at]} needs a value after it.");
 
                 case "--control-plane":
@@ -1558,16 +1562,23 @@ public static class CliArgs
                     user = arguments[++at];
                     break;
 
+                // A PATH, NOT A NAME, and the asymmetry with `gg agent login
+                // --agent <name>` is deliberate: a profile says WHICH agent by
+                // name, and this says WHERE this machine's copy of it is.
+                case "--agent-binary":
+                    agentBinary = arguments[++at];
+                    break;
+
                 default:
                     return Unknown(
                         $"gg service install: '{arguments[at]}' is not one of its options. It takes "
-                      + "--control-plane <url>, --user <name> and --enroll, which reads the "
-                      + "enrollment token at a prompt or from stdin - never from the command "
-                      + "line, where shell history and ps would keep it.");
+                      + "--control-plane <url>, --user <name>, --agent-binary <path> and --enroll, "
+                      + "which reads the enrollment token at a prompt or from stdin - never from "
+                      + "the command line, where shell history and ps would keep it.");
             }
         }
 
-        return new CliAction.ServiceInstall(controlPlane, enroll, user);
+        return new CliAction.ServiceInstall(controlPlane, enroll, user, agentBinary);
     }
 
     /// <summary>

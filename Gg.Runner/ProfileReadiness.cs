@@ -52,8 +52,16 @@ public static class ProfileReadiness
                 Diagnosis = met
                     ? null
                     : declaredAgent is null
-                        ? $"the profile runs {wanted}, and this machine declares no agent - set "
-                        + "executor-binary to where its binary is."
+                        // BOTH WAYS TO SAY IT, because the reader may be
+                        // standing anywhere. A bring-up ask reaches somebody who
+                        // has never opened a shell on this machine, and the
+                        // machine may not be built yet: at build time the answer
+                        // is one flag on the install line, and afterwards it is
+                        // one command on the machine.
+                        ? $"the profile runs {wanted}, and this machine declares no agent. The "
+                        + "binary is the machine's to have; say where it is with "
+                        + "`gg service install --agent-binary <path>` when the machine is "
+                        + "built, or `gg config set executor-binary <path>` on it."
                         : $"the profile runs {wanted}, and this machine declares {declaredAgent}.",
             });
         }

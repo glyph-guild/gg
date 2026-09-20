@@ -334,6 +334,18 @@ public static class Rows
         return row.Lacks ?? [];
     }
 
+    /// <summary>The enrollment token the cursor is on, or null.</summary>
+    public static Gg.Contracts.EnrollmentTokenSummary? SelectedToken(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var tokens = state.Tokens?.Tokens ?? [];
+
+        return tokens.Count == 0
+            ? null
+            : tokens[Math.Clamp(state.TokenSelected, 0, tokens.Count - 1)];
+    }
+
     /// <summary>Whose a machine is, as one column says it.</summary>
     /// <remarks>
     /// <para>

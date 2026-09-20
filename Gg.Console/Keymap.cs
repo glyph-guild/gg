@@ -1080,6 +1080,23 @@ public static class Keymap
         // all: the other two ownership keys act on one keypress because they
         // act on one person's claim, and this one takes a machine away from
         // whoever holds it or hands every person here one that was held back.
+        // THE LIST, AND ONE ACT ON IT. Minting is not here: its one output is a
+        // secret shown once, and a console repaints - a screen share, a
+        // scrollback and a screenshot all keep what it painted.
+        UiMode.FleetTokens =>
+        [
+            new(KeyStroke.Esc, Command.CloseModal, "close"),
+        ],
+
+        // ONE WAY, SO IT ASKS. A token revoked by mistake cannot be
+        // un-revoked; another is minted, and whoever was about to use the
+        // first is left holding a secret that no longer works.
+        UiMode.ConfirmRevoke =>
+        [
+            new(KeyStroke.Char('y'), Command.RevokeToken, "revoke it"),
+            new(KeyStroke.Esc, Command.CloseModal, "leave it live"),
+        ],
+
         UiMode.ConfirmOwnership =>
         [
             new(KeyStroke.Char('y'), Command.SetOwnership, "say so"),

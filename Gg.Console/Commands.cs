@@ -552,6 +552,15 @@ public enum Command
     /// <summary>Keeps it to its owner's flights, or lets it take the tenant's again.</summary>
     ReserveRunner,
 
+    /// <summary>Shows the tenant's enrollment tokens, and reads them if nobody has.</summary>
+    ShowFleetTokens,
+
+    /// <summary>Asks whether to revoke the token under the cursor.</summary>
+    AskToRevokeToken,
+
+    /// <summary>Revokes it.</summary>
+    RevokeToken,
+
     /// <summary>Asks whether to say, as an admin, who may claim this machine.</summary>
     AskWhoMayClaim,
 
@@ -1205,6 +1214,12 @@ public static class ShellCommands
         // stay inside the session, as answering a gate does.
         Command.ClaimRunner,
         Command.ReserveRunner,
+
+        // READ WHEN ASKED FOR, because tokens change when a person mints or
+        // revokes one rather than on their own - so this is a fetch the loop
+        // makes, not a refresh the console keeps making.
+        Command.ShowFleetTokens,
+        Command.RevokeToken,
 
         // THE ADMIN'S WORD, once its question has been answered. The ask
         // itself is the reducer's - it only opens a modal - and this is the

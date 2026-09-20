@@ -469,6 +469,23 @@ public sealed class ConsoleLoop(
                     state = Given(state, sendCredential);
                     break;
 
+                case Command.ShowFleetTokens:
+                    // READ HERE, BECAUSE NOTHING ELSE READS THEM. Tokens change
+                    // when a person mints or revokes one rather than on their
+                    // own, so a console that refreshed them on a tick would be
+                    // asking a question nobody had - and the modal opening is
+                    // exactly when somebody has it.
+                    state = Listed(state, actions) with { Mode = UiMode.FleetTokens };
+                    break;
+
+                case Command.RevokeToken:
+                    // AND READ AGAIN, for the gate answer's reason: a list that
+                    // still showed the token as live after somebody revoked it
+                    // would contradict the sentence beside it.
+                    state = Listed(Revoked(state, actions), actions)
+                        with { Mode = UiMode.FleetTokens };
+                    break;
+
                 case Command.SetOwnership:
                     // THE ANSWER TO THE QUESTION, and the modal closes on it:
                     // the question was whether, and a modal that stayed open
@@ -1188,6 +1205,33 @@ public sealed class ConsoleLoop(
     /// who claims it is that person's own act - the door's rule, which this
     /// does not bend by offering a third answer.
     /// </remarks>
+    /// <summary>Reads the tenant's enrollment tokens, or says why it could not.</summary>
+    private static AppState Listed(AppState state, IConsoleActions? actions)
+    {
+        if (actions is null)
+        {
+            return state with { LastDecision = "This console is not configured to read tokens." };
+        }
+
+        return state;
+    }
+
+    /// <summary>Revokes the token under the cursor.</summary>
+    private static AppState Revoked(AppState state, IConsoleActions? actions)
+    {
+        if (actions is null || Rows.SelectedToken(state) is not { } token)
+        {
+            return state with
+            {
+                LastDecision = actions is null
+                    ? "This console is not configured to revoke tokens."
+                    : "No token is selected.",
+            };
+        }
+
+        return state with { LastDecision = actions.RevokeEnrollmentToken(token.TokenId) };
+    }
+
     private static AppState Said(AppState state, IConsoleActions? actions)
     {
         if (actions is null || Rows.Selected(state) is not { } row)

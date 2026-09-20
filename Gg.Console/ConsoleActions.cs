@@ -98,6 +98,18 @@ public interface IConsoleActions
     /// </remarks>
     string SetRunnerOwnership(string runnerId, string ownership);
 
+    /// <summary>The tenant's enrollment tokens, or null when they could not be read.</summary>
+    /// <remarks>
+    /// <b>A read on this port, unlike every other read in the console.</b> The
+    /// fleet, the flights and the gates are fetched by the refresh and held on
+    /// the model; tokens are not, because they change when a person acts rather
+    /// than on their own - so the one place that wants them asks for them.
+    /// </remarks>
+    Gg.Contracts.EnrollmentTokenList? EnrollmentTokens();
+
+    /// <summary>Revokes one enrollment token, and says what came back.</summary>
+    string RevokeEnrollmentToken(string tokenId);
+
     /// <summary>
     /// Keeps a share of an allowance back, or clears the floor, and says what
     /// happened.

@@ -122,6 +122,21 @@ public class ModalEscapeTests
           + "The_escape_hatch_always_returns_to_a_non_modal_state already walks arbitrary "
           + "key sequences out of this one.",
 
+        [UiMode.FleetTokens] =
+            "opened by ConsoleLoop when `t` on the fleet asks for the tenant's enrollment "
+          + "tokens - a read, so it cannot happen inside a UI session and cannot be reached "
+          + "by pressing a key against a fresh state. Tokens are not on the model at boot "
+          + "deliberately: they change when a person mints or revokes one rather than on "
+          + "their own, so a console that refreshed them on a tick would be asking a question "
+          + "nobody had. EnrollmentInTheConsoleTests drives the real loop into it, and the "
+          + "escape above covers getting back out.",
+
+        [UiMode.ConfirmRevoke] =
+            "asked from inside FleetTokens, which the loop opens - so the walk cannot reach "
+          + "it for the same reason it cannot reach that one, a key deeper. The question "
+          + "itself is the reducer's and EnrollmentInTheConsoleTests presses it; a token "
+          + "revoked by mistake cannot be un-revoked, which is why it is a question at all.",
+
         [UiMode.ConfirmFlight] =
             "opened by ConsoleLoop.FlewPicked after asking the control plane whether this "
           + "work item has already flown - a read, so it cannot happen inside a UI session "

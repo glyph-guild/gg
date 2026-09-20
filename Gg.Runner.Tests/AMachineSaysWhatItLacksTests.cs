@@ -179,9 +179,11 @@ public class AMachineSaysWhatItLacksTests
         // MEASURED ON vmlinux002 (S43.8-01). The tenant's forge is written the
         // way GG_VCS_HOSTS is written, base path and suffix and all, and this
         // check split it on '=' and handed the rest to the network - so the
-        // machine reported that `dev.azure.com/HRTMS!pathscoped` could not be
+        // machine reported that `forge.example.com/org!pathscoped` could not be
         // reached on 443, and opened a bring-up flight telling a person to open
-        // a route to something that is not a host.
+        // a route to something that is not a host. (The host is written neutral
+        // here for the reason the ratchet that caught it gives: a provider name
+        // in this repository is that boundary leaking into a public binary.)
         var asked = new List<string>();
         var profile = ADevWorker() with
         {

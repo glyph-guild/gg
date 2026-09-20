@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.RegularExpressions;
 using System.Text;
 using System.Text.Json;
 using Gg.Client;
@@ -210,7 +211,12 @@ public class AMachineEnrollsItselfTests
         var up = program[program.IndexOf("static async Task<int> RunnerUpAsync()", StringComparison.Ordinal)..];
         up = up[..up.IndexOf("var inForce = InForce.Configuration;", StringComparison.Ordinal)];
 
-        foreach (var step in new[] { "EnrollmentSeed.Read(", ".EnrollAsync(", "EnrolledProfile = enrolled.Profile", "EnrollmentSeed.Spend(" })
+        // THE PROFILE IS RECORDED THROUGH THE DOOR THAT ALSO OPENS THE MACHINE,
+        // rather than by setting the one member: a machine that wrote down which
+        // profile it agreed to and stayed closed to both of that profile's
+        // remedies is the vmlinux002 walk, and it is the reason this names a
+        // call rather than an assignment.
+        foreach (var step in new[] { "EnrollmentSeed.Read(", ".EnrollAsync(", "LocalCredentialKeeper.EnrolledUnder(", "EnrollmentSeed.Spend(" })
         {
             await Assert.That(up).Contains(step);
         }
@@ -218,5 +224,113 @@ public class AMachineEnrollsItselfTests
         await Assert.That(up.IndexOf("EnrollAsync(", StringComparison.Ordinal))
             .IsLessThan(up.IndexOf("RegisterRunnerAsync(", StringComparison.Ordinal))
             .Because("an install that left a token said how this machine joins.");
+    }
+
+    // ---- redeeming: what the machine writes about itself ----
+
+    [Test]
+    public async Task An_enrolled_machine_opens_both_doors_on_the_authority_of_its_token()
+    {
+        // MEASURED ON vmlinux002 (S43.8-01), and it is the member's lesson
+        // arriving at the machine class the member's argument was about. A
+        // member opts itself in on its nonce because nobody can open a shell
+        // on it; an enrolled machine redeems a token and nobody is at it
+        // either - the install leaves the token and walks away.
+        //
+        // With neither door open, rule 25's own bring-up ask cannot be
+        // answered: `gg agent login` is refused for want of accept-configured,
+        // and `gg config set` refuses both keys because neither is a setting.
+        var opened = LocalCredentialKeeper.EnrolledUnder(new Configuration(), "dev-worker");
+
+        await Assert.That(opened.EnrolledProfile).IsEqualTo("dev-worker");
+        await Assert.That(opened.AcceptConfigured).IsTrue()
+            .Because("a machine that will not keep a credential cannot be sent one, and "
+                   + "sending one is the other half of the agent remedy.");
+        await Assert.That(opened.AcceptAgentLogin).IsTrue()
+            .Because("the ceremony is the remedy a bring-up gate names, and a machine that "
+                   + "answers 'closed' to it is a machine nobody can bring up.");
+    }
+
+    [Test]
+    public async Task Redeeming_keeps_what_the_file_already_said()
+    {
+        // The member's other lesson: ConfigurationFile.Write replaces the whole
+        // document, so an enrolled machine's control plane - written by the
+        // installer, before any of this - must survive the redemption that
+        // follows it.
+        var opened = LocalCredentialKeeper.EnrolledUnder(
+            new Configuration { ControlPlane = "https://control.example", AcceptOffered = true },
+            "dev-worker");
+
+        await Assert.That(opened.ControlPlane).IsEqualTo("https://control.example");
+        await Assert.That(opened.AcceptOffered).IsTrue();
+    }
+
+    [Test]
+    public async Task An_enrolled_machine_must_name_the_profile_it_agreed_to()
+    {
+        // The consent is to a NAME. A blank one would open both doors on a
+        // machine that agreed to nothing, which is the one thing the token's
+        // authority does not extend to.
+        await Assert.That(() => LocalCredentialKeeper.EnrolledUnder(new Configuration(), " "))
+            .Throws<ArgumentException>();
+    }
+
+    [Test]
+    public async Task The_enrolling_start_re_reads_the_file_it_just_wrote()
+    {
+        // gg-pool-ui-1 and -2 again, one machine class along: the configuration
+        // is memoized for the process, and the enrolling start writes the file
+        // AFTER the process began. Everything composed from the stale answer -
+        // the keeper, the login door - says this machine is closed, which is
+        // exactly what it was before it enrolled.
+        var body = Body("RunnerUpAsync");
+
+        var wrote = body.IndexOf("LocalCredentialKeeper.EnrolledUnder(", StringComparison.Ordinal);
+        var forgot = body.IndexOf("InForce.Forget()", StringComparison.Ordinal);
+        var keeps = body.IndexOf("keepCredential:", StringComparison.Ordinal);
+
+        await Assert.That(wrote).IsGreaterThan(-1)
+            .Because("the doors are opened where the token is redeemed, and nowhere else.");
+        await Assert.That(forgot).IsGreaterThan(wrote)
+            .Because("a re-read before the write reads the file the machine arrived with.");
+        await Assert.That(keeps).IsGreaterThan(forgot)
+            .Because("the keeper is what the heartbeat's accepts-configuration is derived "
+                   + "from, so it has to be built after the re-read.");
+    }
+
+    /// <summary>The source of one method in the composition root.</summary>
+    private static string Body(string method)
+    {
+        var source = File.ReadAllText(Path.Combine(Root(), "Gg.Cli", "Program.cs"));
+        var at = Regex.Match(source, $@"static async Task<int> {Regex.Escape(method)}\(");
+        if (!at.Success)
+        {
+            throw new InvalidOperationException($"{method} was not found in Program.cs");
+        }
+
+        var open = source.IndexOf('{', at.Index);
+        var depth = 0;
+        for (var i = open; i < source.Length; i++)
+        {
+            depth += source[i] switch { '{' => 1, '}' => -1, _ => 0 };
+            if (depth == 0)
+            {
+                return source[at.Index..(i + 1)];
+            }
+        }
+
+        throw new InvalidOperationException($"{method}'s body never closed");
+    }
+
+    private static string Root()
+    {
+        var here = new DirectoryInfo(AppContext.BaseDirectory);
+        while (here is not null && !File.Exists(Path.Combine(here.FullName, "Gg.sln")))
+        {
+            here = here.Parent;
+        }
+
+        return here?.FullName ?? throw new InvalidOperationException("Gg.sln not found");
     }
 }

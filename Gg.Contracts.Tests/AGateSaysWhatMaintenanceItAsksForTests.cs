@@ -72,8 +72,14 @@ public class AGateSaysWhatMaintenanceItAsksForTests
     [Test]
     public async Task The_kinds_are_closed()
     {
+        // TWO SINCE SLICE FORTY-SIX'S STEP 4, and they are two because the ACT
+        // is two: signing an agent in is something a console does over a
+        // channel, and a machine that cannot reach its forge needs somebody to
+        // open a route. The control plane refused to label a bring-up ask at
+        // all while there was one kind, because offering "sign the agent in"
+        // for a missing credential is the wrong act on the right machine.
         await Assert.That(GateMaintenanceKinds.All).IsEquivalentTo(
-            (string[])[GateMaintenanceKinds.AgentLogin]);
+            (string[])[GateMaintenanceKinds.AgentLogin, GateMaintenanceKinds.BringUp]);
     }
 
     [Test]
@@ -85,7 +91,7 @@ public class AGateSaysWhatMaintenanceItAsksForTests
 
         await Assert.That(ProtocolSurface.JsonMembers[typeof(PendingGate)]).Contains("maintenance");
         await Assert.That(ProtocolSurface.JsonMembers[typeof(GateMaintenance)]).IsEquivalentTo(
-            (string[])["kind", "runner", "runnerLabel", "provider", "diagnosis"]);
+            (string[])["kind", "runner", "runnerLabel", "provider", "item", "subject", "diagnosis"]);
     }
 
     [Test]

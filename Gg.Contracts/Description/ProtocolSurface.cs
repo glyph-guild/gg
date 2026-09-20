@@ -1794,7 +1794,7 @@ public static class ProtocolSurface
             [typeof(GateNomination)] =
                 ["reason", "workKind", "note", "environment", "repository"],
             [typeof(GateMaintenance)] =
-                ["kind", "runner", "runnerLabel", "provider", "diagnosis"],
+                ["kind", "runner", "runnerLabel", "provider", "item", "subject", "diagnosis"],
             [typeof(BranchPush)] = ["branch", "baseRef", "slug", "reason"],
             [typeof(FlightAttribution)] =
                 ["flightNumber", "envelopeVersion", "obligations", "halt"],

@@ -425,6 +425,15 @@ public class TheSignInModalReadsTests
             // and this model keeps the claim, because that is the arm with the
             // two toggles in it. The tenant arm is where the admin's key reads
             // the other way, and AnAdminsWordAsksFirstTests holds it.
+            // AND THE THIRD. A gate asks for one kind of maintenance: a
+            // machine's agent cannot start, or a machine does not meet its
+            // profile. This model keeps the agent login, because that is the
+            // arm with an act on it; TheConsoleAnswersABringUpGateTests holds
+            // the other, where both answers are withheld instead.
+            [nameof(KeymapContext.GateIsABringUpAsk)] =
+                "a gate asks for one kind of maintenance, never both - "
+              + "TheConsoleAnswersABringUpGateTests holds the other arm.",
+
             [nameof(KeymapContext.RunnerIsTheTenants)] =
                 "a machine is the tenant's or claimed, never both - "
               + "AnAdminsWordAsksFirstTests holds the other arm.",

@@ -194,7 +194,21 @@ public sealed record RunnerRow(
     bool Resident = false,
 
     /// <summary>The fleet profile it enrolled under, or empty for one brought up by hand.</summary>
-    string Profile = "");
+    string Profile = "",
+
+    /// <summary>
+    /// What it last said it lacks, shortest first, or empty.
+    /// </summary>
+    /// <remarks>
+    /// <b>Empty is not health.</b> A machine that has never measured itself
+    /// says nothing here, exactly as one that meets its profile does, so
+    /// <see cref="Measured"/> is what tells them apart and the pane says which
+    /// it is rather than drawing a blank for both.
+    /// </remarks>
+    IReadOnlyList<string> Lacks = null!,   // read through Lacking, never directly
+
+    /// <summary>When it last measured itself, or empty when it never has.</summary>
+    string Measured = "");
 
 /// <summary>
 /// The rows behind the three tables, and the names of their columns.
@@ -306,6 +320,20 @@ public static class Rows
     public static IReadOnlyList<string> RunnerColumns { get; } =
         ["", "runner", "whose", "profile", "state", "working on", "advertises", "last heard"];
 
+    /// <summary>
+    /// What a machine lacks, as one cell says it, or empty.
+    /// </summary>
+    /// <remarks>
+    /// <b>Through here rather than off the member</b>, because a positional
+    /// record cannot default a list to an empty one and a row built by a test
+    /// that named every other member would carry null into a renderer.
+    /// </remarks>
+    public static IReadOnlyList<string> Lacking(RunnerRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        return row.Lacks ?? [];
+    }
+
     /// <summary>Whose a machine is, as one column says it.</summary>
     /// <remarks>
     /// <para>
@@ -359,7 +387,7 @@ public static class Rows
             row.Profile,
             row.State,
             row.Work,
-            row.Labels,
+                row.Labels,
             row.Heard,
         ];
     }
@@ -981,7 +1009,18 @@ public static class Rows
         OwnerPrincipalId: ControlText.Strip(runner.OwnerPrincipalId),
         Reserved: runner.Reserved,
         Resident: runner.Resident,
-        Profile: ControlText.Strip(runner.Profile ?? ""));
+        Profile: ControlText.Strip(runner.Profile ?? ""),
+
+        // WHAT IT SAID, IN ITS OWN TWO WORDS PER ITEM. The kind names which
+        // sort of thing is missing and the subject names which one, and a row
+        // that joined them into prose would be the modal's sentence squeezed
+        // into a cell.
+        Lacks:
+        [
+            .. runner.Lacks.Select(item =>
+                $"{ControlText.Strip(item.Kind)} {ControlText.Strip(item.Subject)}"),
+        ],
+        Measured: runner.ReadinessMeasuredAt is { } when ? when.ToString("u") : "");
 
     /// <summary>
     /// One advertised label, and a word only when it is worth one.

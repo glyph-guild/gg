@@ -2039,6 +2039,8 @@ public static class PaneText
             text.AppendLine(
                 $"{row.Here} {Rows.Nested(row)}  {row.State}{work}{whose}{resident}{profile}"
               + Spent(state, row.Id));
+
+
         }
 
         return text.ToString().TrimEnd();

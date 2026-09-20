@@ -2030,7 +2030,7 @@ public static class ProtocolSurface
                 ["runnerId", "label", "state", "currentFlightId", "currentFlightNumber", "lastHeartbeatAt",
                  "labels", "registeredByPrincipalId", "registeredBy",
                  "parkedAt", "parkedBecause", "hostRunnerId", "machine",
-                 "ownership", "owner", "ownerPrincipalId", "reserved", "resident", "profile"],
+                 "ownership", "owner", "ownerPrincipalId", "reserved", "resident", "profile", "lacks", "readinessMeasuredAt"],
             [typeof(RunnerList)] = ["runners"],
             [typeof(ChartEnvironmentRequest)] = ["name", "meaning"],
             [typeof(EnvironmentCharted)] = ["name", "meaning", "disposition", "chartedBy", "chartedAt"],

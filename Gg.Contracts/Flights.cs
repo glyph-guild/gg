@@ -891,6 +891,34 @@ public sealed record RunnerSummary
 
     /// <summary>The fleet profile it enrolled under, or null for one that enrolled under none.</summary>
     public string? Profile { get; init; }
+
+    /// <summary>
+    /// What this machine last said it lacks: the unmet items of its most recent
+    /// readiness reading, and empty for a machine that meets its profile or has
+    /// never reported.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>On the fleet read rather than behind a second call.</b> A console
+    /// draws the fleet in one request and a person scanning it is asking which
+    /// machines are not working; a round trip per row to answer that is the
+    /// thing this avoids.
+    /// </para>
+    /// <para>
+    /// <b>Unmet only, and silence is not health.</b> A machine that has never
+    /// reported carries an empty list exactly as one that meets everything
+    /// does - which is why <see cref="ReadinessMeasuredAt"/> is beside it. A
+    /// console that read empty as ready would call an unmeasured machine fine.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<ReadinessItem> Lacks
+    {
+        get => field ?? [];
+        init;
+    } = [];
+
+    /// <summary>When this machine last measured itself, or null if it never has.</summary>
+    public DateTimeOffset? ReadinessMeasuredAt { get; init; }
 }
 
 /// <summary>The states a runner may be derived to be in.</summary>

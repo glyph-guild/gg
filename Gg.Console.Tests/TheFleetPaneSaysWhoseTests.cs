@@ -128,4 +128,69 @@ public class TheFleetPaneSaysWhoseTests
             .Because("Mine has meant 'registered on this machine' since before ownership "
                    + "existed, and this slice does not quietly move it to mean 'claimed by me'.");
     }
+
+    // ---- what a machine lacks (step 5) ----
+
+    [Test]
+    public async Task A_row_says_what_the_machine_last_said_it_lacks()
+    {
+        var state = Fleet(A("vmlinux002", RunnerOwnerships.Open) with
+        {
+            ReadinessMeasuredAt = new DateTimeOffset(2026, 9, 20, 2, 27, 21, TimeSpan.Zero),
+            Lacks =
+            [
+                new ReadinessItem
+                {
+                    Kind = ReadinessKinds.Forge, Subject = "ado", Met = false,
+                    Diagnosis = "forge.example.com could not be reached on 443: HostNotFound.",
+                },
+            ],
+        });
+
+        var pane = PaneText.ForTab(state, TabId.Runners);
+
+        await Assert.That(pane).Contains("lacks forge ado", StringComparison.Ordinal)
+            .Because("a person scanning a fleet is asking which machines are not working, and "
+                   + "the item sends them to the right place where a count sends them into a "
+                   + "modal to find out.");
+    }
+
+    [Test]
+    public async Task A_machine_that_never_measured_itself_is_not_drawn_as_ready()
+    {
+        var never = Rows.Runners(Fleet(A("vmlinux001")))[0];
+        var met = Rows.Runners(Fleet(A("vmlinux002") with
+        {
+            ReadinessMeasuredAt = new DateTimeOffset(2026, 9, 20, 2, 27, 21, TimeSpan.Zero),
+        }))[0];
+
+        await Assert.That(Rows.Lacking(never)).IsEmpty();
+        await Assert.That(Rows.Lacking(met)).IsEmpty();
+        await Assert.That(never.Measured).IsEmpty();
+        await Assert.That(met.Measured).IsNotEmpty()
+            .Because("an empty list means two things - meets everything, and never looked - "
+                   + "and the instant beside it is what tells them apart.");
+    }
+
+    [Test]
+    public async Task The_modal_says_when_it_looked_and_what_it_found()
+    {
+        var state = Fleet(A("vmlinux002") with
+        {
+            ReadinessMeasuredAt = new DateTimeOffset(2026, 9, 20, 2, 27, 21, TimeSpan.Zero),
+            Lacks =
+            [
+                new ReadinessItem
+                {
+                    Kind = ReadinessKinds.Credential, Subject = "local:forge-token", Met = false,
+                },
+            ],
+        });
+
+        var measured = RunnerDetails.Fields(state)
+            .FirstOrDefault(f => f.Label == "measured")?.Value ?? "";
+
+        await Assert.That(measured).Contains("2026-09-20", StringComparison.Ordinal);
+        await Assert.That(measured).Contains("credential local:forge-token", StringComparison.Ordinal);
+    }
 }

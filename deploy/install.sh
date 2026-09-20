@@ -16,6 +16,10 @@
 #   --enroll             read an enrollment token at a prompt on this terminal.
 #   --enroll-file <path> read it from a file instead, for a machine with no terminal.
 #   --user <name>        the service user, when not the platform's default.
+#   --agent-binary <p>   where the agent this machine runs is, as an absolute path.
+#                        gg declares it; it never installs it - this script does not
+#                        install git either, and a profile names an agent by name
+#                        because the binary is the machine's to have.
 #   --root <dir>         install as if <dir> were /. For staging and for tests; the
 #                        service always runs /usr/local/bin/gg.
 #
@@ -29,6 +33,7 @@ repo="glyph-guild/gg"
 version=""
 control_plane=""
 user=""
+agent_binary=""
 enroll=""
 enroll_file=""
 root=""
@@ -49,10 +54,11 @@ while [ $# -gt 0 ]; do
     --version) value "$1" $# "${2-}"; version="$2"; shift 2 ;;
     --control-plane) value "$1" $# "${2-}"; control_plane="$2"; shift 2 ;;
     --user) value "$1" $# "${2-}"; user="$2"; shift 2 ;;
+    --agent-binary) value "$1" $# "${2-}"; agent_binary="$2"; shift 2 ;;
     --enroll) enroll=1; shift ;;
     --enroll-file) value "$1" $# "${2-}"; enroll_file="$2"; shift 2 ;;
     --root) value "$1" $# "${2-}"; root="$2"; shift 2 ;;
-    *) refuse "'$1' is not an option. It takes --version, --control-plane, --user, --enroll or --enroll-file, and --root." ;;
+    *) refuse "'$1' is not an option. It takes --version, --control-plane, --user, --agent-binary, --enroll or --enroll-file, and --root." ;;
   esac
 done
 
@@ -188,6 +194,7 @@ gg="$target/gg"
 set -- service install
 [ -z "$control_plane" ] || set -- "$@" --control-plane "$control_plane"
 [ -z "$user" ] || set -- "$@" --user "$user"
+[ -z "$agent_binary" ] || set -- "$@" --agent-binary "$agent_binary"
 
 if [ -n "$enroll_file" ]; then
   "$gg" "$@" --enroll < "$enroll_file"

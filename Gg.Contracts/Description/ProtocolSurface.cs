@@ -2013,6 +2013,7 @@ public static class ProtocolSurface
             [
                 "flightId", "flightNumber", "workKind", "stage", "state",
                 "waiting", "heldBy", "heldUntil", "outstanding", "entries",
+                "for", "forDisplay",
             ],
             [typeof(FlightLog)] = ["flightId", "flightNumber", "entries"],
             [typeof(RecordedFact)] = ["fact", "disposition", "recordedAt"],
@@ -2051,7 +2052,7 @@ public static class ProtocolSurface
             [typeof(WatchStanding)] =
                 ["name", "version", "executor", "lastHeardAt", "outcome", "nominated",
                  "diagnosis", "quietSince", "opened", "window", "budgeted",
-                 "nextSweepAt", "nextSweepSaid"],
+                 "nextSweepAt", "nextSweepSaid", "account"],
             [typeof(WatchStandingList)] = ["standings"],
             [typeof(EnvironmentStrategy)] =
                 ["kind", "environment", "inventory", "pullPoint", "image", "bounds", "build",

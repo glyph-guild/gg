@@ -788,7 +788,7 @@ public static class CliArgs
         "    apply --declare-names        declare names it needs, under root, first",
         "gg airspace retire <name>      retire a name - always opens a gate",
         "gg airspace name <role> <name> [--under <parent>]  declare a name a document can reach",
-        "gg airspace name watch <name> --personal  declare a watch that is yours alone, with no gate",
+        "gg airspace name watch <name> --personal  declare a watch that is yours alone; its gate is yours",
         "gg airspace repositories add --name <n> --provider <p> --id <id> --path <path>",
         "    [--ref <ref>] [--credential required|none] [--narrowings <dir>]",
         "                               make a repository nameable - a new one rides a gate",

@@ -1668,6 +1668,18 @@ public static class VerbOutput
         // WHO HAS IT THIS SECOND, and until when. Without the second half a reader
         // learns somebody took the flight over and cannot tell whether they still
         // have it, which is the ambiguity the three takeover routes exist to remove.
+        // WHO ANSWERS FOR IT: a personal watch's person, a tenant watch's
+        // steward, or whoever opened it by hand. The walk found a flight only
+        // one person's machines could take and a read that said nothing about
+        // whose it was. Nothing at all for a flight nobody is answerable for,
+        // which is the board row's rule.
+        if (story.For is { Length: > 0 } answered)
+        {
+            text.AppendLine(story.ForDisplay is { Length: > 0 } display
+                ? $"  for:        {Clean(display)} ({Clean(answered)})"
+                : $"  for:        {Clean(answered)}");
+        }
+
         if (story.HeldBy is { } holder)
         {
             var until = story.HeldUntil is { } expiry ? $" until {expiry:u}" : "";
@@ -2159,7 +2171,11 @@ public static class VerbOutput
 
             text.AppendLine(
                 $"  {Cost(watch)}"
-              + (watch.Outcome is { Length: > 0 } ? $", {watch.Nominated} nominated" : ""));
+              + (watch.Outcome is { Length: > 0 } ? $", {watch.Nominated} nominated" : "")
+              // AS WHOM IT READ, when the pair that served it named an account.
+              // "swept, 1 nominated" reads the same whoever it read as, and
+              // this is the half that says whose queue was emptied.
+              + (watch.Account is { Length: > 0 } account ? $", as {Clean(account)}" : ""));
 
             if (watch.QuietSince is { } since)
             {
@@ -3325,9 +3341,9 @@ public static class VerbOutput
         {
             var line = $"for: {whose}";
             return declared.WroteTo is { Length: > 0 } wrote
-                ? $"{declared.Name}: declared as your own {declared.Role}, with no gate. "
+                ? $"{declared.Name}: declared as your own {declared.Role}. "
                 + $"Wrote {line} into {wrote}.\n"
-                : $"{declared.Name}: declared as your own {declared.Role}, with no gate. Its "
+                : $"{declared.Name}: declared as your own {declared.Role}. Its "
                 + $"file names you on its first line:\n  {line}\n";
         }
 

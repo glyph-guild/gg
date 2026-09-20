@@ -25,7 +25,7 @@ namespace Gg.Cli.Tests;
 /// </remarks>
 public class AReadSaysWhoAnsweredForItTests
 {
-    private const string Subject = "entra:dd4520ce-d238-4afd-a246-ac62248712de/d383-1676";
+    private const string Subject = "a-directory:dd4520ce-d238/d383-1676";
 
     private static FlightStory AStory(string? forWhom = null, string? display = null) => new()
     {

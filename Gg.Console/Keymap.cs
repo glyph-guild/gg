@@ -240,6 +240,16 @@ public readonly record struct KeymapContext(
     /// <summary>Whether it takes only its owner's flights.</summary>
     public bool RunnerIsReserved { get; init; }
 
+    /// <summary>
+    /// Whether the gate on screen is a machine saying what it lacks.
+    /// </summary>
+    /// <remarks>
+    /// <b>The one gate with no answer on it.</b> Every other gate is a person's
+    /// to approve or reject; this one is cleared by the machine's next reading,
+    /// so both keys would be answers that do not answer.
+    /// </remarks>
+    public bool GateIsABringUpAsk { get; init; }
+
     /// <summary>Whether an admin has held this machine back for the tenant.</summary>
     /// <remarks>
     /// <b>Which way the admin's key reads</b>, and nothing else: the act is a
@@ -427,6 +437,7 @@ public readonly record struct KeymapContext(
             // through the one method that knows which kinds this build can
             // act on, so the key and the act cannot disagree.
             GateAsksForAgentLogin = ConsoleAgentLogin.Asking(state) is not null,
+            GateIsABringUpAsk = ConsoleBringUp.Asking(state) is not null,
 
             // BEATING, NOT MERELY NOT OFFLINE: a maintainer is alive and never
             // beats, and an introduction is picked up on a heartbeat.
@@ -848,6 +859,13 @@ public static class Keymap
                         When = "when this gate is a runner's agent-login ask",
                     }]
                 : [],
+            // AND NEITHER ANSWER ON A BRING-UP ASK, which is the one gate where
+            // both would be a lie. What clears it is the machine's next
+            // reading: approving ends this flight and the next reading opens
+            // another, and rejecting ends it without the item ever having been
+            // fixed. A person offered two answers that do not answer learns to
+            // stop reading the surface. What the modal says instead is what is
+            // missing and where it is answered.
             new(KeyStroke.Char('a'), Command.ApproveGate, "approve"),
             new(KeyStroke.Char('r'), Command.RejectGate, "reject"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
@@ -2317,6 +2335,7 @@ public static class Keymap
         c => c with { AllowanceIsMine = true },
         c => c with { FleetAllowancesOffered = true },
         c => c with { GateAsksForAgentLogin = true },
+        c => c with { GateIsABringUpAsk = true },
         c => c with { ANominationWaits = true },
         c => c with { SaidIsClipped = true },
         c => c with { OverALink = true },

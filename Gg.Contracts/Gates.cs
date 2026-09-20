@@ -162,7 +162,7 @@ public sealed record PendingGate
 
 /// <summary>The kinds of maintenance a gate can ask a person for.</summary>
 /// <remarks>
-/// <b>One, and closed.</b> The console dispatches an act on this value, so a
+/// <b>Two, and closed.</b> The console dispatches an act on this value, so a
 /// kind this build does not know is a gate it renders as ordinary rather than
 /// one it guesses an act for.
 /// </remarks>
@@ -172,7 +172,21 @@ public static class GateMaintenanceKinds
     /// <summary>A runner's agent is not logged in; a person can log it in from the console.</summary>
     public const string AgentLogin = "agent-login";
 
-    public static IReadOnlyList<string> All { get; } = [AgentLogin];
+    /// <summary>
+    /// A machine does not meet the profile it enrolled under, and says which item.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not an agent login, and the difference is the act.</b> Both are
+    /// runner incidents and both reach one person, but signing an agent in is
+    /// something a console does over a channel, while a missing credential is
+    /// sent and an unreachable forge is somebody opening a route. Offering
+    /// "sign the agent in" for a missing credential is the wrong act on the
+    /// right machine - which is why the control plane refused to label these
+    /// at all until this kind existed.
+    /// </remarks>
+    public const string BringUp = "bring-up";
+
+    public static IReadOnlyList<string> All { get; } = [AgentLogin, BringUp];
 }
 
 /// <summary>
@@ -197,8 +211,38 @@ public sealed record GateMaintenance
     /// <summary>The runner's label, for the person; null when the platform no longer has one.</summary>
     public string? RunnerLabel { get; init; }
 
-    /// <summary>Which agent adapter: the key <c>GG_EXECUTOR_BINARY</c> declares.</summary>
-    public required string Provider { get; init; }
+    /// <summary>
+    /// Which agent adapter: the key <c>GG_EXECUTOR_BINARY</c> declares. Empty
+    /// on a bring-up ask about anything but an agent.
+    /// </summary>
+    /// <remarks>
+    /// <b>No longer required, and that is <see cref="GateMaintenanceKinds.BringUp"/>'s
+    /// doing.</b> A machine that cannot reach its forge has no provider in the
+    /// sense this member means, and filling it with the forge's key to satisfy
+    /// a requirement would put one vocabulary's word in another's field. Every
+    /// agent-login gate still sets it, which is what its own act reads.
+    /// </remarks>
+    public string Provider { get; init; } = "";
+
+    /// <summary>
+    /// What the machine lacks, for a bring-up ask: one of <see cref="ReadinessKinds"/>.
+    /// </summary>
+    /// <remarks>
+    /// <b>The item, so a console can tell which act applies without parsing an
+    /// intent sentence.</b> Null on an agent-login gate, where the kind already
+    /// says everything.
+    /// </remarks>
+    public string? Item { get; init; }
+
+    /// <summary>
+    /// What was checked: the agent's name, the credential's reference, the forge's key.
+    /// </summary>
+    /// <remarks>
+    /// <b>What was checked, never what a check produced</b> - the readiness
+    /// reading's own rule, carried through to the gate, so a credential item
+    /// names its reference and nothing that resolving it returned.
+    /// </remarks>
+    public string? Subject { get; init; }
 
     /// <summary>The runner's own sentence about why, as it last reported.</summary>
     public string? Diagnosis { get; init; }

@@ -2800,10 +2800,19 @@ public static class PaneText
                  + "Somebody may have answered it already.";
         }
 
-        return Clean(
+        var said = Clean(
             Gg.Client.VerbOutput.ToText(
                 new Gg.Client.VerbResult.Gates(new Gg.Contracts.GateList { Gates = [gate] })),
             lines: true);
+
+        // AND, ON A BRING-UP ASK, WHAT IS MISSING AND WHERE IT IS ANSWERED.
+        // The gate's own rendering says which obligation waits and on whom,
+        // which is the truth and not the useful part here: this modal offers
+        // neither answer, so a person reading it needs the item and the place
+        // rather than a decision they are not being asked for.
+        return ConsoleBringUp.Said(state) is { Length: > 0 } missing
+            ? $"{said}\n\n{missing}"
+            : said;
     }
 
     /// <summary>

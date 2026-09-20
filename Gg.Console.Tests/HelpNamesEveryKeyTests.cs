@@ -170,6 +170,19 @@ public class HelpNamesEveryKeyTests
     /// toggles included.
     /// </para>
     /// </remarks>
+    /// <summary>The gate kinds a modal changes its keys for.</summary>
+    /// <remarks>
+    /// <b>Beside the cross, for `OverAMachineSomebodyOwns`'s reason.</b> A gate
+    /// has one kind, so the two flags are exclusive and crossing them would ask
+    /// for a gate that is both.
+    /// </remarks>
+    private static IEnumerable<KeymapContext> OverAGateThatAsksForSomething() =>
+    [
+        new(UiMode.GateDecision) { GateAsksForAgentLogin = true },
+        new(UiMode.GateDecision) { GateIsABringUpAsk = true },
+        new(UiMode.GateDecision),
+    ];
+
     private static IEnumerable<KeymapContext> OverAMachineSomebodyOwns() =>
         from ours in (bool[])[false, true]
         from standing in (KeymapContext[])
@@ -206,6 +219,7 @@ public class HelpNamesEveryKeyTests
             .ToHashSet();
 
         var missing = (from context in Everywhere().Concat(OverAMachineSomebodyOwns())
+                                                 .Concat(OverAGateThatAsksForSomething())
                        from binding in Keymap.Bindings(context)
                        select (context.Mode, binding.Key, binding.Command))
             .Distinct()
@@ -254,7 +268,13 @@ public class HelpNamesEveryKeyTests
         // is not claimed by anybody, so no combination of "claimed by you" and
         // "reserved" reaches it, and the key that opens it reads the other way
         // there.
-        await Assert.That(members.Count).IsEqualTo(26)
+        // TWENTY-SEVEN SINCE A BRING-UP ASK (step 4), which is the one gate
+        // where both answers would be a lie: what clears it is the machine's
+        // next reading, so the modal offers neither and says what is missing
+        // instead. It is exclusive with the agent-login flag beside it - a gate
+        // has one kind - and held beside the cross for the same reason the
+        // ownership three are.
+        await Assert.That(members.Count).IsEqualTo(27)
             .Because("Everywhere() crosses every one of these, or OverAMachineSomebodyOwns() "
                    + "holds it beside the cross - and a member in neither would leave the "
                    + "completeness check above quietly incomplete, which is exactly how the "

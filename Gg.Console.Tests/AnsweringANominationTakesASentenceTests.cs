@@ -129,7 +129,7 @@ public class AnsweringANominationTakesASentenceTests
     [Test]
     public async Task The_question_offers_both_answers_and_exactly_one_way_out()
     {
-        var asking = Board() with { Mode = UiMode.NominationDecision };
+        var asking = Board() with { Mode = UiMode.BoardDetail };
         var context = KeymapContext.For(asking);
 
         await Assert.That(Keymap.Resolve(KeyStroke.Char('o'), context))
@@ -153,7 +153,7 @@ public class AnsweringANominationTakesASentenceTests
     [Test]
     public async Task The_question_names_the_row_and_says_what_each_answer_costs()
     {
-        var text = PaneText.Modal(Board() with { Mode = UiMode.NominationDecision });
+        var text = PaneText.Modal(Board() with { Mode = UiMode.BoardDetail });
 
         await Assert.That(text).Contains("4242")
             .Because("two nominations from one watch differ only in their subject, so a "
@@ -183,7 +183,7 @@ public class AnsweringANominationTakesASentenceTests
     [Test]
     public async Task The_reducer_settles_nothing_because_the_control_plane_does()
     {
-        var asking = Board() with { Mode = UiMode.NominationDecision };
+        var asking = Board() with { Mode = UiMode.BoardDetail };
 
         foreach (var answer in (Command[])[Command.OpenNomination, Command.DeclineNomination])
         {
@@ -204,7 +204,7 @@ public class AnsweringANominationTakesASentenceTests
                 new ConsoleDoubles.TypesKeys(Command.OpenNomination),
                 new ConsoleDoubles.Writes("the tracker has had this open for three weeks"),
                 actions: records)
-            .Run(Board() with { Mode = UiMode.NominationDecision });
+            .Run(Board() with { Mode = UiMode.BoardDetail });
 
         await Assert.That(records.Answered).IsEquivalentTo(new[]
         {
@@ -229,7 +229,7 @@ public class AnsweringANominationTakesASentenceTests
                 new ConsoleDoubles.TypesKeys(Command.DeclineNomination),
                 new ConsoleDoubles.Writes("this repository is being retired next month"),
                 actions: records)
-            .Run(Board() with { Mode = UiMode.NominationDecision });
+            .Run(Board() with { Mode = UiMode.BoardDetail });
 
         await Assert.That(records.Answered).IsEquivalentTo(new[]
         {
@@ -255,7 +255,7 @@ public class AnsweringANominationTakesASentenceTests
                     new ConsoleDoubles.TypesKeys(answer),
                     new ConsoleDoubles.Writes("   \n  "),
                     actions: records)
-                .Run(Board() with { Mode = UiMode.NominationDecision });
+                .Run(Board() with { Mode = UiMode.BoardDetail });
 
             await Assert.That(records.Answered).IsEmpty()
                 .Because("whitespace is not a reason, and the door refuses one anyway - "
@@ -280,7 +280,7 @@ public class AnsweringANominationTakesASentenceTests
                 new ConsoleDoubles.Writes("it is the third time this week"),
                 actions: new ConsoleDoubles.Records(),
                 reload: reloads.Load)
-            .Run(Board() with { Mode = UiMode.NominationDecision });
+            .Run(Board() with { Mode = UiMode.BoardDetail });
 
         await Assert.That(reloads.Calls).IsEqualTo(1)
             .Because("rule 4: answering changes what is on this board, and a row still "

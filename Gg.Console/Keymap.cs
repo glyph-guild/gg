@@ -891,13 +891,21 @@ public static class Keymap
         // sentence the door demands next, and a yes/no in front of that would
         // be two confirmations where the second one is the one with something
         // in it afterwards.
-        UiMode.NominationDecision =>
+        UiMode.BoardDetail =>
         [
-            new(KeyStroke.Char('o'), Command.OpenNomination, "open it") { Label = "Open" },
-            new(KeyStroke.Char('d'), Command.DeclineNomination, "decline it")
-                { Label = "Decline" },
-            new(KeyStroke.Esc, Command.CloseModal, "leave it standing")
-                { Label = "Leave it" },
+            // BOTH ANSWERS, AND ONLY WHERE THERE IS SOMETHING TO ANSWER. A
+            // watch's row is machinery and an ended row is a 409 at the door,
+            // so on either the modal is a read and Esc is the whole arm.
+            .. context.ANominationWaits
+                ? (KeyBinding[])
+                [
+                    new(KeyStroke.Char('o'), Command.OpenNomination, "open it")
+                        { Label = "Open", When = "on a standing nomination" },
+                    new(KeyStroke.Char('d'), Command.DeclineNomination, "decline it")
+                        { Label = "Decline", When = "on a standing nomination" },
+                ]
+                : [],
+            new(KeyStroke.Esc, Command.CloseModal, "close") { Label = "Close" },
         ],
 
         // A CONFIRMATION IS A MODAL LIKE ANY OTHER: it captures the keyboard,

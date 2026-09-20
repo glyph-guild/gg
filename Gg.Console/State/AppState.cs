@@ -265,7 +265,24 @@ public enum UiMode
     /// place the subject can still be named.
     /// </para>
     /// </remarks>
-    NominationDecision,
+    /// <summary>
+    /// One board row, opened: what it is, who it is for, and why it stands -
+    /// and, when it is a nomination still standing, both answers.
+    /// </summary>
+    /// <remarks>
+    /// <b>It replaces <c>NominationDecision</c> rather than sitting beside
+    /// it.</b> That modal asked "open this?" over a subject line and showed
+    /// none of what a person needs to answer with: the sentence the nominator
+    /// wrote was in a table cell behind it, clipped. One modal per row, the way
+    /// the flights tab has one per flight, and the answers live where the
+    /// reasons are.
+    /// </remarks>
+    /// <remarks>
+    /// <b>One mode for both kinds of row</b>, because <see cref="BoardRow"/> is
+    /// already one record for two shapes - they share a pane and a cursor, and
+    /// two modes would be two cursors again.
+    /// </remarks>
+    BoardDetail,
 
     /// <summary>
     /// Nobody is signed in on this machine, and what to do about it.

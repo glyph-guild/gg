@@ -108,7 +108,7 @@ public class TheBoardTabHoldsBothKindsOfRowTests
         await Assert.That(sweep.Kind).IsEqualTo(WatchExecutors.Instructions)
             .Because("the executor in force is what would run this watch's next sweep, and "
                    + "it is one of the three facts the criterion names.");
-        await Assert.That(sweep.Why).IsEqualTo("3 of 5 in 24h")
+        await Assert.That(sweep.Cost).IsEqualTo("3 of 5 in 24h")
             .Because("`3` says nothing and `3 of 5 in 24h` says whether the next nomination "
                    + "will stand.");
     }
@@ -122,7 +122,7 @@ public class TheBoardTabHoldsBothKindsOfRowTests
         await Assert.That(rows[0].State).IsEqualTo("refused")
             .Because("a row reading `auto` that has in fact been refused is the one thing "
                    + "this column must never say.");
-        await Assert.That(rows[0].Why).Contains("menu");
+        await Assert.That(rows[0].Cost).Contains("menu");
     }
 
     [Test]
@@ -145,7 +145,7 @@ public class TheBoardTabHoldsBothKindsOfRowTests
         var sweep = rows.Single(r => r.What == "sweep");
 
         await Assert.That(sweep.State).IsEqualTo(WatchOutcomes.Unreachable);
-        await Assert.That(sweep.Why).Contains("refused all 3")
+        await Assert.That(sweep.Cost).Contains("refused all 3")
             .Because("the diagnosis was written on the machine that tried, and it is the "
                    + "only thing anybody can act on.");
     }
@@ -155,7 +155,7 @@ public class TheBoardTabHoldsBothKindsOfRowTests
     {
         var rows = Rows.Board(Board(watches: [AWatch(opened: 7, budgeted: null)]));
 
-        await Assert.That(rows.Single(r => r.What == "sweep").Why).IsEqualTo("7 in 24h")
+        await Assert.That(rows.Single(r => r.What == "sweep").Cost).IsEqualTo("7 in 24h")
             .Because("unbounded is a state rather than a bound of zero.");
     }
 

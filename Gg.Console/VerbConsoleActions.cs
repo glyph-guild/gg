@@ -66,6 +66,44 @@ public sealed class VerbConsoleActions(
     /// bad trade; the honest answer is that this caller cannot measure it.
     /// </para>
     /// </remarks>
+    /// <inheritdoc />
+    public string ClaimRunner(string runnerId, bool mine) =>
+        Answered(() => _data.ClaimRunnerAsync(runnerId, mine));
+
+    /// <inheritdoc />
+    public string ReserveRunner(string runnerId, bool kept) =>
+        Answered(() => _data.ReserveRunnerAsync(runnerId, kept));
+
+    /// <summary>
+    /// Runs one ownership door and gives back what it said.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The control plane's sentence, unedited.</b> Every one of these doors
+    /// already answers in words a person can act on - "an admin can open it
+    /// with gg runner ownership &lt;id&gt; open" - and a console that composed
+    /// its own would be a second vocabulary for one set of rules.
+    /// </para>
+    /// <para>
+    /// <b>Named exceptions, and the model stays intact</b>, for `Decide`'s
+    /// reason: swallowing everything here would turn a bug into a console that
+    /// looks like it acted.
+    /// </para>
+    /// </remarks>
+    private static string Answered(Func<Task<VerbResult>> door)
+    {
+        try
+        {
+            return VerbOutput.ToText(door().GetAwaiter().GetResult());
+        }
+        catch (Exception refusal) when (refusal is NotSignedInException
+                                            or ProtocolTooOldException
+                                            or HttpRequestException)
+        {
+            return refusal.Message;
+        }
+    }
+
     public string Decide(string flight, string obligation, bool approved, string? reason)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(flight);

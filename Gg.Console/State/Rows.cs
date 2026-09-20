@@ -176,6 +176,17 @@ public sealed record RunnerRow(
     /// <summary>Who claimed it, to read, or empty.</summary>
     string Owner = "",
 
+    /// <summary>
+    /// Who claimed it, as the control plane identifies them, or empty.
+    /// </summary>
+    /// <remarks>
+    /// <b>Beside the display name rather than instead of it.</b> Whether the
+    /// person at this console is the owner decides which key is offered, and
+    /// deciding it by comparing what two surfaces chose to call somebody would
+    /// be a string format standing in for an identity.
+    /// </remarks>
+    string OwnerPrincipalId = "",
+
     /// <summary>Whether it takes only its owner's flights.</summary>
     bool Reserved = false,
 
@@ -967,6 +978,7 @@ public static class Rows
         // through rather than being trusted because it came from us.
         Ownership: ControlText.Strip(runner.Ownership),
         Owner: ControlText.Strip(runner.Owner),
+        OwnerPrincipalId: ControlText.Strip(runner.OwnerPrincipalId),
         Reserved: runner.Reserved,
         Resident: runner.Resident,
         Profile: ControlText.Strip(runner.Profile ?? ""));

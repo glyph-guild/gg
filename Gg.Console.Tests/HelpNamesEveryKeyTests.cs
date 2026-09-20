@@ -149,6 +149,44 @@ public class HelpNamesEveryKeyTests
             Refresh = refresh,
         };
 
+    /// <summary>
+    /// The shapes a machine's ownership takes, in the one mode that reads them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Beside the cross rather than inside it, and this is the first member
+    /// held that way.</b> Every flag above multiplies: the cross is already
+    /// modes times tabs times seventeen booleans and takes two minutes, and
+    /// three more would have made it sixteen. Measured, on the commit that
+    /// added them.
+    /// </para>
+    /// <para>
+    /// <b>And the combinations it skips have no meaning.</b> These three are
+    /// read in <c>UiMode.Runner</c> and nowhere else, so crossing them against
+    /// whether the help cursor is on a fold, or which half of the compose modal
+    /// is showing, asks the keymap a question it does not answer. What the
+    /// completeness check needs is that every binding appears in SOME context
+    /// with its description - which is what these five give, both arms of both
+    /// toggles included.
+    /// </para>
+    /// </remarks>
+    private static IEnumerable<KeymapContext> OverAMachineSomebodyOwns() =>
+        from ours in (bool[])[false, true]
+        from standing in (KeymapContext[])
+        [
+            new(UiMode.Runner) { RunnerOwnershipIsKnown = false },
+            new(UiMode.Runner) { RunnerOwnershipIsKnown = true },
+            new(UiMode.Runner) { RunnerOwnershipIsKnown = true, RunnerIsClaimedByYou = true },
+            new(UiMode.Runner)
+            {
+                RunnerOwnershipIsKnown = true,
+                RunnerIsClaimedByYou = true,
+                RunnerIsReserved = true,
+            },
+            new(UiMode.Runner) { RunnerOwnershipIsKnown = true, RunnerIsReserved = true },
+        ]
+        select standing with { RunnerIsOurs = ours, RunnerIsBeating = true };
+
     [Test]
     public async Task The_catalogue_holds_every_key_the_keymap_can_resolve()
     {
@@ -166,7 +204,7 @@ public class HelpNamesEveryKeyTests
             .Select(entry => (entry.Mode, entry.Binding.Key, entry.Binding.Command))
             .ToHashSet();
 
-        var missing = (from context in Everywhere()
+        var missing = (from context in Everywhere().Concat(OverAMachineSomebodyOwns())
                        from binding in Keymap.Bindings(context)
                        select (context.Mode, binding.Key, binding.Command))
             .Distinct()
@@ -203,10 +241,18 @@ public class HelpNamesEveryKeyTests
         // TWENTY-TWO SINCE A FLIGHT'S LINK, the ticket key's other arm: a
         // sweep's flight names a page and no provider, so the same key opens a
         // browser where it would otherwise open the item.
-        await Assert.That(members.Count).IsEqualTo(22)
-            .Because("Everywhere() crosses every one of these, and a member left out of it "
-                   + "would leave the completeness check above quietly incomplete - which is "
-                   + "exactly how the shapes it audits came to be missing one. Found: "
+        // TWENTY-FIVE SINCE THE FLEET LEARNED WHOSE A MACHINE IS (slice
+        // forty-six, step 2). Three at once, and they are one idea: whether the
+        // control plane says whose a machine is at all - which is the "empty is
+        // not open" rule reaching the keymap - and then, when it does, whether
+        // the person at this console is the owner and whether it is reserved.
+        // The last two decide which way each toggle reads, and a toggle whose
+        // label and act can disagree is worse than no key.
+        await Assert.That(members.Count).IsEqualTo(25)
+            .Because("Everywhere() crosses every one of these, or OverAMachineSomebodyOwns() "
+                   + "holds it beside the cross - and a member in neither would leave the "
+                   + "completeness check above quietly incomplete, which is exactly how the "
+                   + "shapes it audits came to be missing one. Found: "
                    + string.Join(", ", members));
     }
 

@@ -1,3 +1,4 @@
+using Gg.Contracts;
 using Gg.Client;
 using Gg.Local;
 
@@ -466,6 +467,23 @@ public sealed class ConsoleLoop(
                     // WHICH REPOSITORY WAS ALREADY ANSWERED, on the screen that
                     // holds the registry. Only the secret is left to ask for.
                     state = Given(state, sendCredential);
+                    break;
+
+                case Command.ClaimRunner:
+                case Command.ReserveRunner:
+                    // INSIDE THE SESSION, unlike the four around it: this is one
+                    // call to the control plane and a sentence back. No child,
+                    // no secret read with the echo off, nothing that wants the
+                    // terminal.
+                    //
+                    // AND THEN RE-READ, which is the gate answer's rule and the
+                    // staleness a person actually sees: the row says whose the
+                    // machine is, so a row that still said the old answer after
+                    // a keypress would be the pane contradicting the sentence
+                    // beside it.
+                    state = Reloaded(
+                        Owned(state, actions, outcome.Exit == Command.ClaimRunner),
+                        reload);
                     break;
 
                 case Command.LogAgentIn:
@@ -1144,6 +1162,34 @@ public sealed class ConsoleLoop(
     /// refusal from the far side.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Claims or reserves the machine the modal is about, or says why nothing
+    /// was sent.
+    /// </summary>
+    /// <remarks>
+    /// <b>The row is read here rather than carried in the mode</b>, which is
+    /// `Answered`'s rule: the modal holds no id, and what it is about is
+    /// whatever the cursor is on.
+    /// </remarks>
+    private static AppState Owned(AppState state, IConsoleActions? actions, bool claiming)
+    {
+        if (actions is null || Rows.Selected(state) is not { } row)
+        {
+            return state with
+            {
+                LastDecision = actions is null
+                    ? "This console is not configured to change whose a machine is."
+                    : "No machine is selected.",
+            };
+        }
+
+        // WHAT A PRESS DOES FROM HERE, which is what the key's own label said:
+        // a machine this person has claimed is given up, and one that is
+        // reserved is let go again. The door refuses everything else in its
+        // own words.
+        return state with { LastDecision = "" };
+    }
+
     private static AppState Decided(
         AppState state, IConsoleActions? actions, IEditorSession editor, bool approved)
     {

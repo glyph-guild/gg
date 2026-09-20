@@ -205,6 +205,19 @@ public class TheSignInModalReadsTests
                         // own inference about one machine - so both have to be
                         // true here and they are set from different places.
                         RegisteredByPrincipalId = "01a078bb-4b97-779b-81ff-554c4ea662c1",
+
+                        // AND CLAIMED BY THEM, AND RESERVED, which is three
+                        // more facts and not one: the control plane says whose
+                        // this machine is at all, it says this person, and it
+                        // says the machine takes only their flights. Each is a
+                        // flag the runner modal's ownership keys branch on, and
+                        // a model that left any of them false would leave those
+                        // keys outside the completeness check - the mistake
+                        // this file exists to catch.
+                        Ownership = Gg.Contracts.RunnerOwnerships.Claimed,
+                        Owner = "the owner",
+                        OwnerPrincipalId = "01a078bb-4b97-779b-81ff-554c4ea662c1",
+                        Reserved = true,
                     },
                 ],
             },

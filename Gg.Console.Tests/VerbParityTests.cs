@@ -278,18 +278,17 @@ public class VerbParityTests
                             + "once enrollment has a place in the console to live.",
             ["FleetRevoke"] = "absent, for FleetTokens' reason: it acts on a row the console "
                             + "does not yet draw.",
-            ["RunnerClaim"] = "absent, and a GAP rather than a decision (slice forty-three, "
-                            + "step 2). Claiming is reversible and the runner modal is where "
-                            + "a person already looks at a machine, so a key there is the "
-                            + "natural home - but the modal shows no ownership yet, and a "
-                            + "key that changes a fact the pane cannot draw acts blind. The "
-                            + "pane learns whose first; the keys follow it.",
-            ["RunnerUnclaim"] = "absent, for RunnerClaim's reason: the two arrive together "
-                              + "or neither does.",
-            ["RunnerReserve"] = "absent, for RunnerClaim's reason. Reserving changes which "
-                              + "flights a machine takes, and a person pressing it needs "
-                              + "to see whose the machine is at the same moment.",
-            ["RunnerRelease"] = "absent, for RunnerReserve's reason.",
+            ["RunnerClaim"] = "reachable: `m` in the runner modal, which draws whose the machine is "
+              + "beside it - the pane learned first, which is what this entry asked for. The "
+              + "key is one toggle with the claim: over a machine this person owns it reads "
+              + "'give it up'.",
+            ["RunnerUnclaim"] = "reachable: the other arm of `m`, for the reason it always had - the "
+              + "two arrive together or neither does.",
+            ["RunnerReserve"] = "reachable: `h` in the runner modal, beside the claim and under the "
+              + "line that says whose the machine is. A person pressing it can see who owns "
+              + "what they are keeping.",
+            ["RunnerRelease"] = "reachable: the other arm of `h`, which reads 'let it take the "
+              + "tenant's work again' over a machine that is reserved.",
             ["RunnerOwnershipSet"] = "absent, and DELIBERATELY so for now: an admin's word "
                                    + "about the tenant's machines is a rare, considered act, "
                                    + "and the console is a place people arrive at by arrow "

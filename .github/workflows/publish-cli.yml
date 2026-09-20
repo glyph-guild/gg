@@ -47,7 +47,12 @@ jobs:
       # source at packages/ and NuGet fails a restore when a declared source is
       # missing rather than skipping it - so the directory has to exist before
       # the first build, not before the first use.
+      # BASH, INCLUDING ON WINDOWS, or this does not run at all there: the
+      # default shell on that runner is pwsh, which reported success and
+      # created nothing - and every restore then failed NU1301 on a local
+      # source that was never made.
       - name: The pinned SIPSorcery fork
+        shell: bash
         run: ./scripts/fetch-sipsorcery.sh
       - run: dotnet pack Gg.Cli -c Release -p:PublishAot=false -o artifacts
       - uses: actions/upload-artifact@v4
@@ -107,8 +112,10 @@ jobs:
           - { os: ubuntu-24.04-arm, rid: linux-arm64 }
           - { os: macos-latest, rid: osx-arm64 }
           # macos-latest IS APPLE SILICON, so an Intel Mac needs its own runner
-          # rather than a flag on that one.
-          - { os: macos-13, rid: osx-x64 }
+          # rather than a flag on that one - and macos-13 is retired: a job
+          # asking for it queues for ever rather than failing, which is the
+          # worse of the two ways to be wrong.
+          - { os: macos-15-intel, rid: osx-x64 }
           # AND WINDOWS, where gg is the command line rather than the console:
           # the terminal UI wants SetConsoleMode and ConPTY, which are not
           # written, and gg says so and opens $EDITOR instead.
@@ -163,13 +170,20 @@ jobs:
         shell: bash
         run: |
           missing=0
+          # THE LISTING ONCE, INTO A FILE, rather than a pipe per library.
+          # `shell: bash` sets -o pipefail, and a quiet grep closes the pipe on
+          # its first match - so the tar on its left dies of SIGPIPE and the
+          # pipeline reports failure for a library that IS there. It read as
+          # "MISSING FROM THE RELEASE" for the two libraries this step exists
+          # to find.
+          tar -tzf "artifacts/gg-${{ matrix.rid }}.tar.gz" > artifacts/listing
           # .dll TOO, for the same reason the other two are here: a P/Invoke
           # resolves on first call, so a release missing one builds clean,
           # starts clean, and dies on the keypress that reaches it.
           for lib in out/*.so out/*.dylib out/*.dll; do
             [ -e "$lib" ] || continue
             name=$(basename "$lib")
-            if tar -tzf "artifacts/gg-${{ matrix.rid }}.tar.gz" | grep -qx "./$name"; then
+            if grep -qx "./$name" artifacts/listing; then
               echo "carried: $name"
             else
               echo "MISSING FROM THE RELEASE: $name"

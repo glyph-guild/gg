@@ -225,6 +225,33 @@ public static partial class ServiceInstaller
               + "plane. Nothing was written.");
         }
 
+        // THE AGENT IS DECLARED, NEVER INSTALLED BY THIS. gg does not install
+        // its dependencies - this script does not install git either - and
+        // downloading another vendor's binary as root, from a line somebody
+        // pipes to sh, is not a thing gg should start doing. What was missing
+        // is the DECLARATION: a profile names an agent by name, and no offer
+        // can carry a path, so the binary is the machine's to have and its
+        // location is the machine's to say. Without this, the first thing typed
+        // on a machine that was meant to need nothing typed on it is
+        // `gg config set executor-binary` (vmlinux002, S43.8-01, one of six).
+        var agentBinary = request.AgentBinary is { Length: > 0 } declared ? declared : null;
+
+        if (agentBinary is not null && !Path.IsPathRooted(agentBinary))
+        {
+            return Refused(
+                $"'{agentBinary}' is not an absolute path, and --agent-binary takes one: the "
+              + "service runs as its own user, whose PATH is not the PATH of whoever typed "
+              + "this. Nothing was written.");
+        }
+
+        if (agentBinary is not null && !host.Exists(agentBinary))
+        {
+            return Refused(
+                $"nothing is at '{agentBinary}', so declaring it would make this machine hold "
+              + "for a login on a binary that will never run. Install the agent first, then "
+              + "install the service. Nothing was written.");
+        }
+
         var user = request.User ?? DefaultUser(platform);
 
         if (!ServiceUser().IsMatch(user) || user == Root)
@@ -364,6 +391,15 @@ public static partial class ServiceInstaller
                     // no variable, deliberately, so a machine that takes what
                     // its control plane offers is one whose file says so.
                     AcceptOffered = true,
+
+                    // AND WHERE ITS AGENT IS, when the install line said. The
+                    // profile names an agent by NAME and no offer can carry a
+                    // path - the binary is the machine's to have - so without
+                    // this the first thing anybody does on a machine that was
+                    // meant to need nothing typed on it is type
+                    // `gg config set executor-binary`. Measured on vmlinux002
+                    // (S43.8-01), where that was one of six.
+                    ExecutorBinary = agentBinary,
                 }),
                 user,
                 OwnerOnly);
@@ -373,9 +409,9 @@ public static partial class ServiceInstaller
             {
                 host.WriteFile(enrollment, token + "\n", user, OwnerOnly);
                 said.Add(
-                    $"wrote {enrollment} ({user}, 0600): the enrollment token. `gg runner up` "
-                  + "does not redeem it yet - that is slice forty-three's step 4 - so until "
-                  + $"then the runner still needs a person to sign in as '{user}' once.");
+                    $"wrote {enrollment} ({user}, 0600): the enrollment token. The runner "
+                  + "redeems it on its first start and registers itself; nobody signs in on "
+                  + "this machine.");
             }
             else
             {

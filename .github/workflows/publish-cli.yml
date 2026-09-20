@@ -83,10 +83,15 @@ jobs:
       # attested with the binaries it installs: the release job attaches and
       # signs everything that arrives in incoming/, and a script a person pipes
       # into sudo sh deserves the same proof the bytes it fetches have.
+      # BOTH INSTALLERS. install.ps1 is the Windows one, and a person on
+      # Windows is sent to it by name when they pipe the sh one into git-bash -
+      # a URL in a refusal that 404s is worse than the refusal it replaced.
       - uses: actions/upload-artifact@v4
         with:
           name: installer
-          path: deploy/install.sh
+          path: |
+            deploy/install.sh
+            deploy/install.ps1
 
   binaries:
     name: ${{ matrix.rid }}
@@ -95,10 +100,19 @@ jobs:
       matrix:
         include:
           # AOT CANNOT CROSS-COMPILE: each runtime identifier needs a runner of
-          # that platform. Both are free on a public repository. win-x64 on
-          # windows-latest is one entry away if it is ever wanted.
+          # that platform, and all five are free on a public repository. The
+          # laptop is why there are five - somebody joining should not have to
+          # own the right shape of machine to get one command.
           - { os: ubuntu-latest, rid: linux-x64 }
+          - { os: ubuntu-24.04-arm, rid: linux-arm64 }
           - { os: macos-latest, rid: osx-arm64 }
+          # macos-latest IS APPLE SILICON, so an Intel Mac needs its own runner
+          # rather than a flag on that one.
+          - { os: macos-13, rid: osx-x64 }
+          # AND WINDOWS, where gg is the command line rather than the console:
+          # the terminal UI wants SetConsoleMode and ConPTY, which are not
+          # written, and gg says so and opens $EDITOR instead.
+          - { os: windows-latest, rid: win-x64 }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -113,7 +127,11 @@ jobs:
         run: ./scripts/fetch-sipsorcery.sh
       - name: AOT-publish gg
         run: dotnet publish Gg.Cli -c Release -r ${{ matrix.rid }} -o out
+      # `gg` OR `gg.exe`, and bash on every runner including the Windows one -
+      # git-bash is there, and it is what makes one set of steps serve five
+      # platforms instead of a second copy for one of them.
       - name: The published binary actually runs
+        shell: bash
         run: ./out/gg --version
       # Named by platform, because a release carrying two files called `gg`
       # helps nobody.
@@ -130,6 +148,7 @@ jobs:
       # keeps being true: a list is correct until the next dependency brings an
       # asset, and then it is silently wrong again.
       - name: Name it after the platform it runs on
+        shell: bash
         run: |
           mkdir -p artifacts
           # Debug symbols are larger than the binary and nobody downloading a
@@ -141,9 +160,13 @@ jobs:
       # file and check it packages a directory; only the real publish knows
       # what the real publish produced.
       - name: Every native library the publish produced is in the tarball
+        shell: bash
         run: |
           missing=0
-          for lib in out/*.so out/*.dylib; do
+          # .dll TOO, for the same reason the other two are here: a P/Invoke
+          # resolves on first call, so a release missing one builds clean,
+          # starts clean, and dies on the keypress that reaches it.
+          for lib in out/*.so out/*.dylib out/*.dll; do
             [ -e "$lib" ] || continue
             name=$(basename "$lib")
             if tar -tzf "artifacts/gg-${{ matrix.rid }}.tar.gz" | grep -qx "./$name"; then

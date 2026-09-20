@@ -2569,40 +2569,6 @@ public static class PaneText
             + "opened until you save and quit, and a flight opened by accident is a record "
             + "somebody has to explain and a number that is now taken.";
 
-    /// <summary>
-    /// What was found, what a flight for it would be for, and what each answer
-    /// costs.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>It names the subject, because two nominations from one watch differ
-    /// in nothing else.</b> A question reading "open this?" over a table a
-    /// person has stopped looking at is one nobody can answer safely - and by
-    /// the time either answer lands, the console is gone and <c>$EDITOR</c> has
-    /// the screen.
-    /// </para>
-    /// <para>
-    /// <b>And it says the editor comes next</b>, which is
-    /// <c>ConfirmFlyAgain</c>'s rule for the same reason: the key does not
-    /// finish this, and a question that implied it did would have somebody
-    /// press `o' and walk away.
-    /// </para>
-    /// </remarks>
-    private static string NominationDecision(AppState state) =>
-        Rows.StandingUnder(state) is not { } nomination
-            // SAID, NOT BLANK - GateDecision's arm, and reachable the same way:
-            // a board re-read underneath somebody, or a row answered from
-            // another console.
-            ? "There is nothing on this row waiting to be answered any more.\n"
-            + "Somebody may have answered it already."
-            : $"{nomination.Subject}\n\n"
-            + $"{nomination.Nominator} found this. Opening it starts a {nomination.WorkKind} "
-            + "flight, which is a record somebody has to explain and a number that is now "
-            + "taken.\n\n"
-            + "Either answer opens your editor for the reason, and nothing is sent until you "
-            + "save and quit. The reason is the only thing that survives to tell a later "
-            + "reader why.";
-
     private static string ConfirmFlight(AppState state) =>
         state.PendingFlight is not { } pending
             ? ""
@@ -2781,6 +2747,7 @@ public static class PaneText
         return state.Mode switch
         {
             UiMode.FlightDetail => FlightDetails.Title(state),
+            UiMode.BoardDetail => BoardDetails.Title(state),
             UiMode.Runner => RunnerDetails.Title(state),
             UiMode.WorkItemDetail => WorkItemDetails.Title(state),
             _ => ModalTitle(state.Mode),
@@ -2939,7 +2906,7 @@ public static class PaneText
         // you" because a gate is by definition addressed to the person reading
         // it; a nomination is a thing somebody found, and the question is
         // whether it is worth a flight.
-        UiMode.NominationDecision => "open this?",
+        UiMode.BoardDetail => "this row",
         UiMode.SignIn => "nobody is signed in",
         UiMode.FloorChoice => "how much to keep back",
         UiMode.ComposeChoice => "how do you want to write this flight?",
@@ -3076,7 +3043,7 @@ public static class PaneText
     /// as something having gone wrong.
     /// </remarks>
     public static bool ModalIsADocument(UiMode mode) =>
-        mode is UiMode.Help or UiMode.FlightDetail or UiMode.Runner
+        mode is UiMode.Help or UiMode.FlightDetail or UiMode.Runner or UiMode.BoardDetail
              or UiMode.ReadingEnvelope or UiMode.ReadingChangeset
              or UiMode.ReadingOutcome
 
@@ -3223,7 +3190,7 @@ public static class PaneText
             UiMode.FleetTokens => FleetTokens(state),
             UiMode.ConfirmRevoke => ConfirmRevoke(state),
             UiMode.ConfirmFlyAgain => ConfirmFlyAgain(state),
-            UiMode.NominationDecision => NominationDecision(state),
+            UiMode.BoardDetail => BoardDetails.Linear(state),
             UiMode.SignIn => SignIn(state),
             UiMode.GateDecision => GateDecision(state),
             UiMode.FloorChoice => FloorChoice(state),
@@ -3782,7 +3749,7 @@ public static class PaneText
         UiMode.ConfirmRevoke => "when asked whether to revoke one",
         UiMode.ConfirmFlyAgain => "when asked whether to fly one again",
         UiMode.GateDecision => "while answering a gate",
-        UiMode.NominationDecision => "while answering a nomination",
+        UiMode.BoardDetail => "while a board row is open",
         _ => "",
     };
 

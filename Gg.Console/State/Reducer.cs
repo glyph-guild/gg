@@ -192,7 +192,7 @@ public static class Reducer
             // THE SAME MOVE OVER THE OTHER DECISION. Asking is a mode change
             // and nothing else - which is this function's whole job, and the
             // reason both of its answers below leave the state alone.
-            Command.AskToAnswerNomination => Modal(state, UiMode.NominationDecision),
+            Command.AskToAnswerNomination => Modal(state, UiMode.BoardDetail),
 
             // ASKING IS A MODE CHANGE AND NOTHING ELSE, which is the reducer's
             // whole job. Both of these were written in the loop, where they

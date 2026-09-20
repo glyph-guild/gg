@@ -54,7 +54,7 @@ public class TheBoardSaysAsWhomAWatchReadTests
     };
 
     private static string WhyOf(WatchStanding standing) =>
-        Rows.Board(WithWatch(standing)).Single(r => r.What == BoardRow.Sweep).Why;
+        Rows.Board(WithWatch(standing)).Single(r => r.What == BoardRow.Sweep).Cost;
 
     [Test]
     public async Task A_watchs_row_says_as_whom_it_read()

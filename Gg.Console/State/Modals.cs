@@ -44,9 +44,9 @@ public static class Modals
         UiMode.ConfirmApply,
         UiMode.GateDecision,
 
-        // THE OTHER DECISION, and the same shape: a title, what is being
-        // decided, and both answers as buttons.
-        UiMode.NominationDecision,
+        // ONE BOARD ROW, READ: the reasons a person answers with, and the
+        // answers beside them.
+        UiMode.BoardDetail,
         UiMode.SignIn,
         UiMode.ReadingEnvelope,
         UiMode.ReadingChangeset,

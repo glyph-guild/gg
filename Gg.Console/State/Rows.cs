@@ -315,7 +315,7 @@ public static class Rows
     /// list of two things pretending to be one.
     /// </remarks>
     public static IReadOnlyList<string> BoardColumns { get; } =
-        ["", "subject", "for", "state", "kind", "since", "next", "why"];
+        ["", "subject", "for", "state", "kind", "since", "next", "cost"];
 
     public static IReadOnlyList<string> RunnerColumns { get; } =
         ["", "runner", "whose", "profile", "state", "working on", "lacks", "advertises", "last heard"];
@@ -1341,7 +1341,7 @@ public static class Rows
 /// </remarks>
 public sealed record BoardRow(
     string Key, string What, string Subject, string State, string Kind, string Since,
-    string Next, string Why, string For = "")
+    string Next, string Cost, string For = "")
 {
     /// <summary>What a nomination's row says it is.</summary>
     /// <remarks>

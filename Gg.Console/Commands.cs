@@ -118,6 +118,14 @@ public enum Command
     /// </remarks>
     AskToAnswerNomination,
 
+    /// <summary>Open the row under the cursor on the board.</summary>
+    /// <remarks>
+    /// <b>Any row, not only one that can be answered.</b> A watch's row is
+    /// machinery and has nothing to decide, and a person still needs to read
+    /// how it is doing - which is the half the old key could not reach.
+    /// </remarks>
+    ShowBoardRow,
+
     /// <summary>Open the nominated work. Posts; decides nothing locally.</summary>
     /// <remarks>
     /// <b>The word the CONTRACT uses for this ending</b>, so the console is not

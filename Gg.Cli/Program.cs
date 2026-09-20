@@ -56,7 +56,8 @@ return CliArgs.Parse(args) switch
     CliAction.RunnerSweep sweeping => await RunnerSweepAsync(sweeping.Watch),
     CliAction.ServiceInstall installing => Serviced(ServiceInstaller.Install(
         ServiceHost(),
-        new ServiceRequest(installing.ControlPlane, installing.Enroll, installing.User),
+        new ServiceRequest(
+            installing.ControlPlane, installing.Enroll, installing.User, installing.AgentBinary),
         () => new ConsoleSecretPrompt().ReadSecret("Enrollment token (not echoed): "))),
     CliAction.ServiceUninstall => Serviced(ServiceInstaller.Uninstall(ServiceHost())),
 

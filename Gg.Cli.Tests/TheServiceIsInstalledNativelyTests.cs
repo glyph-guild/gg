@@ -35,8 +35,9 @@ public class TheServiceIsInstalledNativelyTests
 
     private static ServiceOutcome Install(
         FakeServiceHost host, string? controlPlane = ControlPlane, bool enroll = false,
-        string? user = null, string token = "enroll-abc") =>
-        ServiceInstaller.Install(host, new ServiceRequest(controlPlane, enroll, user), () => token);
+        string? user = null, string token = "enroll-abc", string? agentBinary = null) =>
+        ServiceInstaller.Install(
+            host, new ServiceRequest(controlPlane, enroll, user, agentBinary), () => token);
 
     [Test]
     public async Task A_systemd_machine_gets_a_root_owned_unit_that_runs_the_runner_as_its_own_user()
@@ -323,6 +324,109 @@ public class TheServiceIsInstalledNativelyTests
         await Assert.That(CliArgs.Parse(["service", "install", "--control-plane"]))
             .IsTypeOf<CliAction.Unknown>();
     }
+
+    // ---- the agent this machine runs ----
+
+    [Test]
+    public async Task The_install_line_can_say_where_the_agent_is_and_the_seed_carries_it()
+    {
+        // MEASURED ON vmlinux002 (S43.8-01). A profile names an agent by NAME,
+        // and no offer can carry a path - the binary is the machine's to have -
+        // so the machine came up declaring none, and the first thing typed on a
+        // machine meant to need nothing typed on it was
+        // `gg config set executor-binary`.
+        var host = Machine();
+        host.Files["/opt/agents/claude"] = new("(the agent)", "root", Mode(0x1ED));
+
+        var outcome = Install(host, agentBinary: "/opt/agents/claude");
+
+        await Assert.That(outcome.Done).IsTrue().Because(string.Join(" ", outcome.Said));
+
+        var home = ServiceInstaller.DefaultHome(ServicePlatform.Systemd, "gg");
+        var seed = host.Files[$"{home}/.config/good-grief/config.json"];
+
+        await Assert.That(seed.Content).Contains("executor-binary");
+        await Assert.That(seed.Content).Contains("/opt/agents/claude");
+    }
+
+    [Test]
+    public async Task An_agent_that_is_not_an_absolute_path_is_refused_by_name()
+    {
+        // The service runs as its own user, whose PATH is not the PATH of
+        // whoever typed the install line, so a bare name would resolve to
+        // nothing - or worse, to something else.
+        var host = Machine();
+
+        var outcome = Install(host, agentBinary: "claude");
+
+        await Assert.That(outcome.Done).IsFalse();
+        await Assert.That(string.Join(" ", outcome.Said)).Contains("absolute path");
+        await Assert.That(host.Files.ContainsKey("/etc/systemd/system/gg-runner-up.service")).IsFalse()
+            .Because("refused before a download means refused before a write.");
+    }
+
+    [Test]
+    public async Task An_agent_that_is_not_there_is_refused_rather_than_declared()
+    {
+        // Declaring a binary that does not exist makes the machine hold for a
+        // login on something that will never run - a state whose sentence
+        // appears on a bring-up gate minutes later, miles from the typo.
+        var host = Machine();
+
+        var outcome = Install(host, agentBinary: "/opt/agents/claude");
+
+        await Assert.That(outcome.Done).IsFalse();
+        await Assert.That(string.Join(" ", outcome.Said)).Contains("Install the agent first");
+    }
+
+    [Test]
+    public async Task What_it_says_about_the_token_is_what_the_runner_now_does_with_it()
+    {
+        // The sentence promised step 4 was still to come, and step 4 shipped:
+        // `gg runner up` redeems the seed on its first start. A machine told it
+        // still needs a person to sign in is a machine somebody signs into.
+        var host = Machine();
+
+        var outcome = Install(host, enroll: true);
+
+        var said = string.Join(" ", outcome.Said);
+        await Assert.That(said).DoesNotContain("does not redeem it yet");
+        await Assert.That(said).Contains("nobody signs in on this machine");
+    }
+
+    [Test]
+    public async Task Service_install_takes_the_agents_path_on_the_command_line()
+    {
+        var parsed = CliArgs.Parse(
+            ["service", "install", "--control-plane", ControlPlane, "--agent-binary", "/opt/a/claude"]);
+
+        await Assert.That(parsed).IsTypeOf<CliAction.ServiceInstall>();
+        await Assert.That(((CliAction.ServiceInstall)parsed).AgentBinary).IsEqualTo("/opt/a/claude");
+
+        var missing = CliArgs.Parse(["service", "install", "--agent-binary"]);
+        await Assert.That(missing).IsTypeOf<CliAction.Unknown>();
+    }
+
+    [Test]
+    public async Task The_installer_script_hands_the_agents_path_through()
+    {
+        var here = new DirectoryInfo(AppContext.BaseDirectory);
+        while (here is not null && !File.Exists(Path.Combine(here.FullName, "Gg.sln")))
+        {
+            here = here.Parent;
+        }
+
+        var script = await File.ReadAllTextAsync(
+            Path.Combine(here!.FullName, "deploy", "install.sh"));
+
+        await Assert.That(script).Contains("--agent-binary")
+            .Because("the one command typed on the machine is this one, so whatever the "
+                   + "machine needs to be told has to fit in it.");
+        await Assert.That(script).DoesNotContain("claude.ai")
+            .Because("gg declares its agent and never installs it - this script does not "
+                   + "install git either, and pulling another vendor's installer as root "
+                   + "from a line somebody pipes to sh is not something to start doing.");
+    }
 }
 
 /// <summary>A machine that exists only in memory: files, users, and a service manager's log.</summary>
@@ -451,4 +555,5 @@ internal sealed class FakeServiceHost(ServicePlatform? platform) : IServiceHost
             or "/Library" or "/Library/LaunchDaemons"
             or "/var" or "/var/lib" or "/private" or "/private/var"
             or "/usr" or "/usr/local" or "/usr/local/bin";
+
 }

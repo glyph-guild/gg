@@ -2036,8 +2036,17 @@ public static class PaneText
             var resident = row.Resident ? "  resident" : "";
             var profile = row.Profile is { Length: > 0 } under ? $"  profile {under}" : "";
 
+            // WHAT IT LACKS, LAST ON THE LINE AND IN ITS OWN WORDS. A person
+            // scanning a fleet is asking which machines are not working, and
+            // the answer is the item rather than a count: "lacks forge ado"
+            // sends somebody to the right place, where "1 item" sends them
+            // into a modal to find out.
+            var lacks = Rows.Lacking(row) is { Count: > 0 } missing
+                ? $"  lacks {string.Join(", ", missing)}"
+                : "";
+
             text.AppendLine(
-                $"{row.Here} {Rows.Nested(row)}  {row.State}{work}{whose}{resident}{profile}"
+                $"{row.Here} {Rows.Nested(row)}  {row.State}{work}{whose}{resident}{profile}{lacks}"
               + Spent(state, row.Id));
 
 

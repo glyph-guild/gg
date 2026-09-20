@@ -1213,7 +1213,9 @@ public sealed class ConsoleLoop(
             return state with { LastDecision = "This console is not configured to read tokens." };
         }
 
-        return state;
+        return actions.EnrollmentTokens() is { } tokens
+            ? state with { Tokens = tokens, TokenSelected = 0 }
+            : state with { LastDecision = "The tokens could not be read." };
     }
 
     /// <summary>Revokes the token under the cursor.</summary>

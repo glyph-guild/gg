@@ -956,11 +956,19 @@ public static class Keymap
             // that runner next reports ready. An approval typed here closes the
             // ask while the member still cannot fly.
             //
+            // AND A BRING-UP ASK IS THE SAME ARGUMENT, one slice later and
+            // stronger: what clears it is the machine's next reading, so an
+            // approval here ends the flight with the item still missing and the
+            // next reading opens another. FOUND BY THE WALK - the decision
+            // modal withheld both keys and this shortcut still offered one, so
+            // the console said two different things about one gate.
+            //
             // NOT A CAPABILITY REMOVED. Decide still reaches both answers for
             // somebody who means one, and giving up on a machine has its own
             // verb - `x` grounds the flight, one level in, which the escalation
             // now handles so a later reading asks again rather than vanishing.
             .. context.AGateWaits && !context.GateAsksForAgentLogin
+                                 && !context.GateIsABringUpAsk
                 ? (KeyBinding[])
                 [
                     new(KeyStroke.Char('a'), Command.ApproveGate, "approve it")

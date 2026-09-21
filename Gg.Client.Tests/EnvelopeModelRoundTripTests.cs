@@ -37,6 +37,14 @@ public class EnvelopeModelRoundTripTests
         Accepts = [SubjectKinds.Repository],
         Produces = [FactKinds.ChangeManifest],
         Targeting = AllowanceTargeting.LeastSpent,
+        Offers =
+        [
+            new OfferedSetting
+            {
+                Key = OfferableKeys.StunServers,
+                Value = "stun:relay.example:3478",
+            },
+        ],
         Obligations =
         [
             new Obligation
@@ -289,7 +297,8 @@ public class EnvelopeModelRoundTripTests
             // do not appear in the text form is in TheBoundIsASetTests.
             nameof(Envelope.Environment), nameof(Envelope.Repository),
             nameof(Envelope.Accepts), nameof(Envelope.Produces),
-            nameof(Envelope.Targeting),
+            nameof(Envelope.Targeting), nameof(Envelope.Offers),
+            nameof(OfferedSetting.Key), nameof(OfferedSetting.Value),
             nameof(Envelope.Obligations), nameof(Envelope.Loops), nameof(Envelope.Destinations),
             nameof(Envelope.Instructions),
             nameof(ContextBinding.Scope), nameof(ContextBinding.Constitution),

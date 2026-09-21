@@ -141,11 +141,16 @@ public static class TrackerConfiguration
         {
             var split = entry.IndexOf('=', StringComparison.Ordinal);
 
+            // SKIPPED, NOT THROWN, for rule 2's reason. This value can now arrive
+            // from a profile - offered to a machine by a document applied
+            // somewhere else - and the shape a NEWER contract writes is exactly
+            // what an older build cannot parse. Refusing to start is the one
+            // response that cannot be corrected, because the correction arrives
+            // as configuration. What a machine lacks is reported by readiness,
+            // which reads the same declaration and can say so.
             if (split <= 0 || split == entry.Length - 1)
             {
-                throw new InvalidOperationException(
-                    $"{ApisVariable} entry '{entry}' is not `destination=uri`. Each entry names "
-                  + "the destination id an envelope declares and the tracker root to write to.");
+                continue;
             }
 
             var id = entry[..split];
@@ -162,10 +167,7 @@ public static class TrackerConfiguration
 
             if (host.Length == 0)
             {
-                throw new InvalidOperationException(
-                    $"{ApisVariable} entry '{entry}' declares no host. A destination with "
-                  + "nowhere to write to would be advertised as writable and then write "
-                  + "nothing: name the tracker root, or remove the entry.");
+                continue;
             }
 
             // THE CREDENTIAL BELONGS TO THE TRACKER, not to the name of a
@@ -179,20 +181,23 @@ public static class TrackerConfiguration
             var locator = named is { Length: > 0 } ? named : LocatorFor(host);
 
             // THE CONTRACT DECIDES WHETHER IT IS ONE, and this asks rather than
-            // assuming. A derived locator that the store would refuse is worse
-            // than a refusal here: PathFor throws on it, so the runner would
-            // fail at the first admitted write in front of nobody - which is
-            // the failure this class's own remark says start-up exists to
-            // prevent.
-            if (Gg.Contracts.CredentialLocator.Validate(locator) is { } problem)
+            // assuming. A locator the store would refuse is one PathFor throws
+            // on, so a sink built around it would fail at the first admitted
+            // write - which is what this skip avoids without taking the runner
+            // down with it.
+            if (Gg.Contracts.CredentialLocator.Validate(locator) is not null)
             {
-                throw new InvalidOperationException(
-                    $"{ApisVariable} entry '{entry}' resolves to credential locator "
-                  + $"'{locator}', which this platform refuses: {problem} Name the credential "
-                  + "explicitly after a '|', as 'destination=host|local:some-name'.");
+                continue;
             }
 
-            sinks[id] = new WiqlWorkItemSink(host, secretFor?.Invoke(locator), clientFor(host));
+            // DECLARED EITHER WAY, and the write is what refuses when the secret
+            // is not here. See LackingWorkItemSink for why the destination keeps
+            // its entry rather than being left out.
+            var secret = secretFor?.Invoke(locator);
+
+            sinks[id] = secret is { Length: > 0 }
+                ? new WiqlWorkItemSink(host, secret, clientFor(host))
+                : new LackingWorkItemSink(id, locator);
         }
 
         return sinks;

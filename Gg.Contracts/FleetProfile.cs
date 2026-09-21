@@ -90,6 +90,47 @@ public sealed record FleetProfile
         init;
     } = [];
 
+    /// <summary>
+    /// The trackers machines under it READ work items from, in
+    /// <c>intent-hosts</c>' spelling: <c>key=host|reference</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The gap this closes is an agent with no tool.</b>
+    /// <c>IntentConfiguration</c> states it: a flight about a work item reaches
+    /// an agent that cannot read one, because <c>--strict-mcp-config</c> with no
+    /// <c>--mcp-config</c> removes the operator's own servers and leaves nothing
+    /// behind. No runner in the fleet declares one, so no fleet machine can read
+    /// the ticket its flight is about.
+    /// </para>
+    /// <para>
+    /// <b>Keyed by provider</b>, which is what a ticket names, where
+    /// <see cref="Triage"/> is keyed by a destination id. The two lists are that
+    /// difference and not a style.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<string> Trackers
+    {
+        get => field ?? [];
+        init;
+    } = [];
+
+    /// <summary>
+    /// The trackers machines under it WRITE work items to, in
+    /// <c>tracker-apis</c>' spelling: <c>key=api|reference</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Only a machine that triages has one</b>, which is
+    /// <c>TrackerConfiguration</c>'s sentence: the same binary runs on a machine
+    /// that triages and one that never will, and absence is ordinary rather than
+    /// degraded.
+    /// </remarks>
+    public IReadOnlyList<string> Triage
+    {
+        get => field ?? [];
+        init;
+    } = [];
+
     /// <summary>Whether it sweeps the tenant's watches when idle.</summary>
     public bool Sweeps { get; init; }
 
@@ -180,6 +221,27 @@ public sealed record FleetProfile
             }
         }
 
+        // THE SAME REFUSAL AS `credentials`, and for the same one mistake: a
+        // tracker entry carries its reference inline, which is the first place
+        // somebody will write a token into a document the whole tenant reads.
+        // A tracker with NO credential is refused too - a machine told where to
+        // write with nothing to open it is an incomplete document, and saying so
+        // here is cheaper than a bring-up gate explaining it later.
+        foreach (var (field, entries) in
+                 (IReadOnlyList<(string, IReadOnlyList<string>)>)
+                 [("trackers", profile.Trackers), ("triage", profile.Triage)])
+        {
+            foreach (var tracker in entries)
+            {
+                if (!IsTracker(tracker))
+                {
+                    return $"{field} has '{tracker}', and a tracker is written "
+                         + "key=host|reference - the host says where it is and the reference says "
+                         + "where its secret is, which is never the secret itself.";
+                }
+            }
+        }
+
         // RULE 14: A REFERENCE, NEVER A SECRET. A reference names its source by
         // scheme - local:, keyvault:// - and a bare value is refused rather
         // than guessed at, because the one mistake this must never allow is a
@@ -249,6 +311,20 @@ public sealed record FleetProfile
             return ("destinations", $"it lets every machine under it land work at '{destination}'.");
         }
 
+        // READING A TRACKER WIDENS AS MUCH AS WRITING ONE. Both point a machine
+        // at a host and hand it a credential to open it, which is what the forge
+        // and destination rows above are about; neither is stun-servers, which
+        // is data that grants nothing.
+        if (Added(prior.Trackers, proposed.Trackers) is { } tracker)
+        {
+            return ("trackers", $"it has every machine under it read work items from '{tracker}'.");
+        }
+
+        if (Added(prior.Triage, proposed.Triage) is { } triage)
+        {
+            return ("triage", $"it lets every machine under it write work items to '{triage}'.");
+        }
+
         // RELAYS ARE NOT A WIDENING, and that is the offer rule's decision
         // rather than a new one: stun-servers is in OfferableKeys.Unwatched,
         // because a wrong relay degrades a connection while a wrong forge host
@@ -296,6 +372,36 @@ public sealed record FleetProfile
         && !value.Any(char.IsWhiteSpace)
         && (value.StartsWith("stun:", StringComparison.OrdinalIgnoreCase)
             || value.StartsWith("stuns:", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Whether <paramref name="value"/> is <c>key=host|reference</c>: a key, a
+    /// host, and a reference that names where a secret is rather than being one.
+    /// </summary>
+    public static bool IsTracker(string value)
+    {
+        if (value is not { Length: > 0 } || value.Any(char.IsWhiteSpace))
+        {
+            return false;
+        }
+
+        var equals = value.IndexOf('=', StringComparison.Ordinal);
+        if (equals <= 0 || equals == value.Length - 1)
+        {
+            return false;
+        }
+
+        // THE LAST BAR, not the first: a host may carry one and a reference may
+        // not, so splitting from the right is what keeps a url intact.
+        var bar = value.LastIndexOf('|');
+        if (bar < 0)
+        {
+            return false;
+        }
+
+        var host = value[(equals + 1)..bar];
+
+        return host.Length > 0 && bar > equals && IsReference(value[(bar + 1)..]);
+    }
 
     private static bool IsReference(string value) =>
         !value.Any(char.IsWhiteSpace)

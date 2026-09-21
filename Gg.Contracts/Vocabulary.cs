@@ -60,6 +60,7 @@ public static class Vocabulary
         typeof(RunnerKeyOffer),
         typeof(RunnerMachineOffer),
         typeof(RunnerRetirementRequest),
+        typeof(TenantNameRequest),
         typeof(RunnerRetired),
         typeof(RunnerParkRequest),
         typeof(RunnerParked),

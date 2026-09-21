@@ -173,6 +173,13 @@ public static class ProtocolSurface
          // unaudited way to mint that decision - the /v1/invitations argument,
          // applied to machines rather than to people.
          "/v1/fleet",
+
+         // WHAT A TENANT IS CALLED, and the argument is /v1/principals': that
+         // prefix is governed because it is the only surface that changes what
+         // one PERSON may do, and this is the only one that changes anything
+         // about the tenant they are all in. A second, undeclared door onto a
+         // tenant's own row is the thing worth refusing by construction.
+         "/v1/tenant",
          // The only surface in this protocol that changes what one PERSON may
          // do. An undeclared route under it would be an unaudited way to hand
          // somebody authority - the argument /v1/invitations came in on,
@@ -242,6 +249,15 @@ public static class ProtocolSurface
             Audience = Audience.Developer,
             Response = typeof(WhoAmI),
             Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "PUT",
+            Path = "/v1/tenant/name",
+            Audience = Audience.Developer,
+            Request = typeof(TenantNameRequest),
+            Statuses = [204, 400, 401, 403, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
         new()
@@ -1952,6 +1968,7 @@ public static class ProtocolSurface
             [typeof(LogTail)] = ["lines", "truncated"],
             [typeof(RunnerStatusReport)] = ["doing", "diagnosis", "at", "flightNumber", "beatAt"],
             [typeof(RunnerRetirementRequest)] = [],
+            [typeof(TenantNameRequest)] = ["name"],
             [typeof(RunnerRetired)] = ["runnerId", "retiredAt"],
             [typeof(RunnerParkRequest)] = ["reason"],
             [typeof(RunnerParked)] = ["runnerId", "parkedAt", "parkedBy", "reason"],

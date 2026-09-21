@@ -109,6 +109,8 @@ return CliArgs.Parse(args) switch
         await EmitAsync(repin.Json, c => c.RepinRunnerAsync(repin.RunnerId)),
     CliAction.RunnerRetire retire =>
         await EmitAsync(retire.Json, c => c.RetireRunnerAsync(retire.RunnerId)),
+    CliAction.TenantName naming =>
+        await EmitAsync(naming.Json, c => c.RenameTenantAsync(naming.Name)),
     CliAction.FleetEnroll enrolling =>
         await EmitAsync(enrolling.Json, c => c.MintEnrollmentTokenAsync(enrolling.Request)),
     CliAction.FleetTokens tokens =>

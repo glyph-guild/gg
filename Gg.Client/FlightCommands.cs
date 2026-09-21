@@ -1708,6 +1708,21 @@ public sealed class FlightCommands(
         return new VerbResult.RunnerRetired(retired);
     }
 
+    /// <summary>Says what this tenant is called.</summary>
+    /// <remarks>
+    /// <b>The name comes back from here rather than from the route.</b> It
+    /// answers 204 - the house answer for a change with nothing to say - so
+    /// what a person reads is the name they just set, echoed by the side that
+    /// knows the request succeeded.
+    /// </remarks>
+    public async Task<VerbResult> RenameTenantAsync(
+        string name, CancellationToken cancellationToken = default)
+    {
+        await _client.RenameTenantAsync(Session(), name, cancellationToken);
+
+        return new VerbResult.TenantNamed(name);
+    }
+
     /// <summary>
     /// Forgets a runner's pinned key, so the next introduction trusts afresh.
     /// </summary>

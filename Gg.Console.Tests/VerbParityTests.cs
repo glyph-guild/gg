@@ -292,6 +292,13 @@ public class VerbParityTests
               + "what they are keeping.",
             ["RunnerRelease"] = "reachable: the other arm of `h`, which reads 'let it take the "
               + "tenant's work again' over a machine that is reserved.",
+            ["TenantName"] = "absent, and DELIBERATELY so, for RunnerOwnershipSet's reason: naming the "
+              + "tenant is an administrator's word about the thing everybody in it is "
+              + "inside, and it is done about once. The console is a place people arrive "
+              + "at by arrow key, and a rare considered act does not belong one keypress "
+              + "from a queue. The console already SAYS the name - whoami carries it and "
+              + "every surface can read it - which is the half a person needs while they "
+              + "work; changing it is a terminal's job.",
             ["RunnerOwnershipSet"] = "absent, and DELIBERATELY so for now: an admin's word "
                                    + "about the tenant's machines is a rare, considered act, "
                                    + "and the console is a place people arrive at by arrow "

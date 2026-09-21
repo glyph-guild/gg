@@ -771,6 +771,8 @@ public static class CliArgs
         "gg take <flight> [--return <outcome> [--note <note>]]  take a flight over, and hand it back",
         "gg runner labels               what each runner advertises, with its disposition",
         "gg runner retire <id>          take a runner out of the fleet, for good",
+        "gg tenant name <name>          what this tenant is called; only somebody who",
+        "                                 administers it may say",
         "gg fleet enroll --profile <name> --uses <n> --expires <duration> [--tenant | --claim [--reserve]]",
         "                                 a token some machines may join with, shown once",
         "gg fleet tokens                this tenant's enrollment tokens, without their secrets",
@@ -1130,6 +1132,11 @@ public static class CliArgs
               + "gg watches to see which ones are in force."),
             ["runner", "labels"] => new CliAction.RunnerLabels(json),
             ["runner", "retire", var retireId] => new CliAction.RunnerRetire(retireId, json),
+
+            // ONE ARGUMENT AND IT IS REQUIRED. `gg tenant name` alone reads as
+            // a question - what is it called - and the one thing it must not
+            // do is answer that by erasing the name.
+            ["tenant", "name", var tenantName] => new CliAction.TenantName(tenantName, json),
             // WHOSE A MACHINE IS, AND WHAT IT TAKES (slice forty-three). The
             // control plane decides who may; this side refuses only what no
             // control plane could accept.
@@ -1180,6 +1187,10 @@ public static class CliArgs
                 "gg runner repin needs one runner id - the one whose key changed."),
             ["runner", "retire", ..] => Unknown(
                 "gg runner retire needs one runner id. Run gg runners to see the fleet."),
+            ["tenant", "name", ..] => Unknown(
+                "gg tenant name needs the name, in one argument - gg tenant name \"Acme\". "
+              + "Run gg whoami to see what this tenant is called now."),
+            ["tenant", ..] => Unknown("gg tenant takes name - gg tenant name \"Acme\"."),
             ["runner", "watch"] => Unknown(
                 "gg runner watch needs one runner id. Run gg runners to see the fleet - a "
               + "runner answers whenever it is beating, so it can be watched while it waits "

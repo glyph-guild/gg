@@ -560,6 +560,24 @@ public sealed record FlightSummary
 public sealed record FlightList
 {
     public required IReadOnlyList<FlightSummary> Flights { get; init; }
+
+    /// <summary>
+    /// Where this page stopped, to ask for the next one - or null when this is
+    /// all of them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Opaque, and composed by the side that ordered the rows</b> (<see
+    /// cref="Paging"/>). It travels out and comes back; nothing here reads it.
+    /// </para>
+    /// <para>
+    /// <b>Absent means the end.</b> A cursor on the last page sends a reader
+    /// round once more for nothing, and an empty string is a value somebody has
+    /// to decide about twice. Every answer written before paging says nothing
+    /// about it, and that absence reads correctly: it was all of them.
+    /// </para>
+    /// </remarks>
+    public string? Next { get; init; }
 }
 
 /// <summary>One thing that happened to a flight.</summary>

@@ -2021,7 +2021,7 @@ public static class ProtocolSurface
                  "attempts",
                  "facts",
                  "requiredLabels", "waiting", "state", "workKind"],
-            [typeof(FlightList)] = ["flights"],
+            [typeof(FlightList)] = ["flights", "next"],
             [typeof(FlightLogEntry)] = ["at", "kind", "detail"],
             [typeof(Actor)] = ["kind", "name"],
             [typeof(StoryEntry)] =
@@ -2041,7 +2041,7 @@ public static class ProtocolSurface
                 ["nominationId", "nominator", "subject", "version", "workKind", "mode",
                  "state", "ending", "because", "flightId", "flightNumber", "madeAt", "endedAt",
                  "intentKey", "gatedBecause", "for", "forDisplay"],
-            [typeof(BoardPage)] = ["nominations", "includedEnded"],
+            [typeof(BoardPage)] = ["nominations", "includedEnded", "next"],
             [typeof(NominationDecision)] = ["outcome", "because"],
             [typeof(RunnerSummary)] =
                 ["runnerId", "label", "state", "currentFlightId", "currentFlightNumber", "lastHeartbeatAt",

@@ -240,6 +240,17 @@ public sealed record BoardPage
 
     /// <summary>Whether ended rows were included, rather than simply absent.</summary>
     public required bool IncludedEnded { get; init; }
+
+    /// <summary>
+    /// Where this page stopped, to ask for the next one - or null when this is
+    /// all of them.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="FlightList.Next"/>'s member, for the same reason and read the
+    /// same way: opaque, composed by the side that ordered the rows, and absent
+    /// on the last page.
+    /// </remarks>
+    public string? Next { get; init; }
 }
 
 /// <summary>What a person answers a standing nomination with.</summary>

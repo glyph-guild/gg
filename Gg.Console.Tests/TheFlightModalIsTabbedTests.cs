@@ -161,6 +161,52 @@ public class TheFlightModalIsTabbedTests
     }
 
     [Test]
+    public async Task Every_tab_the_modal_can_be_on_has_a_widget_to_be_on()
+    {
+        // ENUMERATED, NOT LISTED. The test above names three tabs by hand, so
+        // a FOURTH added to the enum, the reducer's cycle and the linear text
+        // passed it untouched - and `FlightTab.Facts` was exactly that for as
+        // long as it has existed: reachable by the cycle AND by a key of its
+        // own, and silently drawing the details tab instead, because the
+        // render switch and the change handler both fall through to Details.
+        //
+        // A person pressed for a flight's facts, the read was fetched, and the
+        // screen showed what it was already showing.
+        var screen = ConsoleSource.Text("Gg.Console", Path.Combine("Views", "ConsoleScreen.cs"));
+
+        var missing = Enum.GetValues<FlightTab>()
+            .Where(tab => !screen.Contains(
+                $"_flightTabs.Add(_flight{tab}Tab)", StringComparison.Ordinal))
+            .ToList();
+
+        await Assert.That(missing).IsEmpty()
+            .Because("a tab the model can hold and the strip does not have is a keypress "
+                   + "that appears to do nothing. Found: " + string.Join(", ", missing));
+    }
+
+    [Test]
+    public async Task Choosing_a_tab_never_silently_lands_on_another()
+    {
+        // THE OTHER HALF, and the half that made the first one invisible: with
+        // no arm, `FlightTab.Facts` fell to the `_ =>` default and the modal
+        // drew Details while the model said Facts. Both directions are named
+        // here - what the screen draws for a tab, and what the model becomes
+        // when somebody clicks one.
+        var screen = ConsoleSource.Text("Gg.Console", Path.Combine("Views", "ConsoleScreen.cs"));
+
+        var unnamed = Enum.GetValues<FlightTab>()
+            .Where(tab => tab is not FlightTab.Details)
+            .Where(tab => !screen.Contains($"FlightTab.{tab} => _flight{tab}Tab", StringComparison.Ordinal)
+                       || !screen.Contains($"_flight{tab}Tab) ? FlightTab.{tab}", StringComparison.Ordinal))
+            .ToList();
+
+        await Assert.That(unnamed).IsEmpty()
+            .Because("Details is the default arm and earns its silence; every other tab has "
+                   + "to be named in both directions or it is a tab that reads as another. "
+                   + "Found: " + string.Join(", ", unnamed));
+    }
+
+    [Test]
     public async Task The_evidence_tab_renders_the_same_evidence_the_pane_did()
     {
         // ONE RENDERER. A second copy would agree with this one until somebody

@@ -2793,7 +2793,14 @@ public static class VerbOutput
         var lines = new List<string>
         {
             $"  Principal:  {Clean(who.PrincipalDisplay)} ({Clean(who.PrincipalId)})",
-            $"  Tenant:     {Clean(who.TenantId)}",
+            // THE PAIR THE LINE ABOVE HAS ALWAYS PRINTED: the display a person
+            // recognises, the id they can take to a support conversation. An
+            // older control plane sends no name and the id stands alone -
+            // never empty brackets, which read as a tenant called nothing
+            // rather than one this side has not been told about.
+            who.TenantDisplay is { Length: > 0 } named
+                ? $"  Tenant:     {Clean(named)} ({Clean(who.TenantId)})"
+                : $"  Tenant:     {Clean(who.TenantId)}",
             $"  Expires:    {who.ExpiresAt:u}",
         };
 

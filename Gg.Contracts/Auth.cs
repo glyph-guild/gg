@@ -180,6 +180,29 @@ public sealed record WhoAmI
 
     public required string TenantId { get; init; }
 
+    /// <summary>What this tenant is called. Absent from an older control plane.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The asymmetry this closes.</b> A principal has had a display beside
+    /// its id since the first version of this record, and a tenant has had
+    /// only the id - so a person read their own name and then a GUID for the
+    /// thing that owns all of their work. The two ids differ in their last few
+    /// characters, which is the worst case for telling them apart.
+    /// </para>
+    /// <para>
+    /// <b>Not <c>required</c>, because an older control plane does not send
+    /// it</b> and a reader that threw on a response valid when it was written
+    /// would make a version skew look like a broken session. Absent means "not
+    /// told", which a reader says by printing the id alone.
+    /// </para>
+    /// <para>
+    /// <b>A name and never a secret.</b> It is what an organisation calls
+    /// itself, held on the tenant's own row since the day it signed up; the
+    /// thing that grants anything is the session, and that is elsewhere.
+    /// </para>
+    /// </remarks>
+    public string? TenantDisplay { get; init; }
+
     public required DateTimeOffset ExpiresAt { get; init; }
 
     /// <summary>

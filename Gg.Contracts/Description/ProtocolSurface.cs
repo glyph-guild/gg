@@ -1881,8 +1881,8 @@ public static class ProtocolSurface
             [typeof(DeviceTokenRequest)] = ["deviceCode"],
             [typeof(SessionIssued)] = ["sessionToken", "expiresAt", "principalDisplay", "tenantId"],
             [typeof(WhoAmI)] =
-                ["principalId", "principalDisplay", "tenantId", "expiresAt", "notices",
-                 "isAdmin", "subject"],
+                ["principalId", "principalDisplay", "tenantId", "tenantDisplay", "expiresAt",
+                 "notices", "isAdmin", "subject"],
             // An invitation names nobody: no address, no display, no tenant. The
             // request really is empty, and the empty set is the assertion.
             [typeof(InvitationRequest)] = [],

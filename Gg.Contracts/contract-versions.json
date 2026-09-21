@@ -1019,5 +1019,10 @@
     "version": "0.209.0",
     "surface": "2ebe9e060c33d7b8b70f6bca204380f201fe6dc014853a0181f855abb8a0ab09",
     "note": "THE FLEET SAYS WHAT A MACHINE LACKS. Slice forty-six, step 5. `RunnerSummary` gains `lacks` - the UNMET items of a machine's most recent readiness reading, in `ReadinessItem`'s own shape so one vocabulary describes a reading whichever direction it travels - and `readinessMeasuredAt`. On the fleet read rather than behind a second call: a console draws the fleet in one request and a person scanning it is asking which machines are not working, so a round trip per row is the thing this avoids. SILENCE IS NOT HEALTH, which is why the instant is beside the list: a machine that has never measured itself carries an empty list exactly as one that meets everything does, and a console that read empty as ready would call an unmeasured machine fine. AN OLDER CONTROL PLANE sends neither, which reads as a fleet that has never measured itself - true of it, and the honest answer."
+  },
+  {
+    "version": "0.210.0",
+    "surface": "f9d2ecb90454b79783012f4e61deb4f2aa9fbf73aa874e7a2514de07b38fceca",
+    "note": "A TENANT HAS A NAME AND NOBODY COULD READ IT. `identity.gg_tenant.name` is `text NOT NULL` and has been written by the sign-up path since the day it existed; `WhoAmI` carried `PrincipalDisplay` beside `PrincipalId` and nothing at all beside `TenantId`. So a person read their own name and then a GUID for the thing that owns all of their work - and on a machine with access to more than one tenant, no way to confirm which one they were about to open a flight in. `TenantDisplay` is that name. Optional and not `required`, because an older control plane sends none and a reader that threw on a response valid when it was written would make a version skew look like a broken session; absent means \"not told\", which a reader says by printing the id alone rather than an empty pair of brackets. A name, never a secret: it is what an organisation calls itself, and the thing that grants anything is the session."
   }
 ]

@@ -68,8 +68,12 @@ public class AListSaysWhereItStoppedTests
         // ONE NUMBER, DECLARED WHERE BOTH SIDES READ IT. The control plane
         // clamps to it and gg asks with it; two spellings of a page size is two
         // pages of different length depending on who asked.
-        await Assert.That(Paging.DefaultLimit).IsEqualTo(100);
-        await Assert.That(Paging.MaxLimit).IsGreaterThanOrEqualTo(Paging.DefaultLimit);
+        // READ INTO LOCALS: TUnit's analyzer refuses Assert.That on a constant
+        // expression (TUnitAssertions0005), and these are consts by design.
+        int page = Paging.DefaultLimit, ceiling = Paging.MaxLimit;
+
+        await Assert.That(page).IsEqualTo(100);
+        await Assert.That(ceiling).IsGreaterThanOrEqualTo(page);
     }
 
     [Test]

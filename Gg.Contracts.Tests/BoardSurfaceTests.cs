@@ -195,6 +195,11 @@ public class BoardSurfaceTests
         {
             nameof(BoardPage.Nominations),
             nameof(BoardPage.IncludedEnded),
+
+            // AND WHERE THE PAGE STOPPED (2026-09-20), which a reader cannot
+            // infer either: a page of a hundred and a tenant with exactly a
+            // hundred nominations look identical without it.
+            nameof(BoardPage.Next),
         });
     }
 }

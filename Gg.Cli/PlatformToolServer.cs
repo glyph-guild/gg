@@ -1822,14 +1822,23 @@ public static class PlatformToolServer
         said.AppendLine(
             "  relays:           where its machines ask what they look like from outside, "
           + "stun:host:port - the tenant's choice, because gg defaults none.");
+        said.AppendLine(
+            "  trackers:         where its machines READ work items from, key=host|reference, "
+          + "as intent-hosts is written - without one, a flight about a ticket reaches an agent "
+          + "with no tool able to read it.");
+        said.AppendLine(
+            "  triage:           where they WRITE work items to, key=api|reference, as "
+          + "tracker-apis is - only a machine that triages has one, and absence is ordinary.");
         said.AppendLine("  sweeps:           true when it sweeps the tenant's watches while idle.");
         said.AppendLine(
             "  credentials:      WHERE each secret is - local:<name> or "
           + "keyvault://<vault-host>/<secret> - never what it is.");
         said.AppendLine(
-            "  Adding a role, forge, destination or credential, turning sweeps on, or changing "
-          + "environment or agent widens and is reviewed; removing any of them applies at once. "
-          + "A relay is neither: it is taken unwatched, as an offer of one is.");
+            "  Adding a role, forge, destination, tracker, triage entry or credential, turning "
+          + "sweeps on, or changing environment or agent widens and is reviewed; removing any of "
+          + "them applies at once. A relay is neither: it is taken unwatched, as an offer of one "
+          + "is. A tracker widens because it points a machine at a host AND hands it a credential "
+          + "to open it, which is what a forge does.");
     }
 
     /// <summary>

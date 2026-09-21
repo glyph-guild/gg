@@ -364,6 +364,8 @@ public sealed class ConsoleScreen : Window
     private readonly View _flightDetailsTab;
     private readonly View _flightGateTab;
     private readonly View _flightLogTab;
+    private readonly View _flightFactsTab;
+    private readonly Label _flightFacts;
     private readonly FrameView _flightLogDetailPane;
     private readonly ListView _flightLogDetail;
     private readonly Label _flightGate;
@@ -1596,6 +1598,22 @@ public sealed class ConsoleScreen : Window
         };
         _flightLogTab.Add(_flightLogPane, _flightLogDetailPane);
 
+        // THE FOURTH TAB, and it existed everywhere but here. `FlightTab.Facts`
+        // was in the enum, the cycle and the linear text with no widget behind
+        // it, so pressing for a flight's facts fetched the read and drew the
+        // details tab. A Label and not a table, because what a flight recorded
+        // reads as prose - the gate tab's shape, for the gate tab's reason.
+        _flightFacts = new Label { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() };
+        _flightFactsTab = new View
+        {
+            Title = FlightDetails.FactsTitle,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
+        _flightFactsTab.Add(_flightFacts);
+
         // THE SAME WIDGET THE CONSOLE'S OWN BAR USES, one level in. A second
         // way of drawing a row of tabs would be a second set of behaviours for
         // one act, and this one already answers arrow keys the way a person
@@ -1610,6 +1628,7 @@ public sealed class ConsoleScreen : Window
         _flightTabs.Add(_flightDetailsTab);
         _flightTabs.Add(_flightGateTab);
         _flightTabs.Add(_flightLogTab);
+        _flightTabs.Add(_flightFactsTab);
         _flightTabs.ValueChanged += OnFlightTabChanged;
 
         _flightBody.Add(_flightTabs);
@@ -2279,6 +2298,7 @@ public sealed class ConsoleScreen : Window
 
         var wanted = ReferenceEquals(chosen, _flightGateTab) ? FlightTab.Gate
             : ReferenceEquals(chosen, _flightLogTab) ? FlightTab.Log
+            : ReferenceEquals(chosen, _flightFactsTab) ? FlightTab.Facts
             : FlightTab.Details;
 
         if (wanted == State.FlightTab)
@@ -4004,6 +4024,14 @@ public sealed class ConsoleScreen : Window
     {
         _flightGate.Text = FlightDetails.Gate(State);
 
+        // THE ABSENCE OR THE FACTS, and the absence is three different
+        // sentences on purpose: nobody has looked, the read is still coming,
+        // and the flight recorded nothing are three different things, and only
+        // the last is a fact about the flight.
+        _flightFacts.Text = FlightDetails.FactsAbsence(State) is { Length: > 0 } absent
+            ? absent
+            : FlightDetails.FactsLines(State);
+
         // WHICH TAB HAS THE BODY IS THE MODEL'S TO SAY. Guarded the way the
         // console's own bar is: assigning Value raises ValueChanged, and
         // without the flag the assignment answers its own event and reduces a
@@ -4015,6 +4043,7 @@ public sealed class ConsoleScreen : Window
             {
                 FlightTab.Gate => _flightGateTab,
                 FlightTab.Log => _flightLogTab,
+                FlightTab.Facts => _flightFactsTab,
                 _ => _flightDetailsTab,
             };
 
@@ -4891,6 +4920,10 @@ public sealed class ConsoleScreen : Window
                 {
                     FlightTab.Log when _flightLog.Visible => _flightLog,
                     FlightTab.Gate => (View)_flightGate,
+
+                    // AND THE FACTS, which scroll for the same reason the gate
+                    // does: it is one Label of prose and it can outrun the tab.
+                    FlightTab.Facts => _flightFacts,
 
                     // THE INTENT, which is the half of this tab with anything to
                     // move. The fields below it are read, and Terminal.Gui would

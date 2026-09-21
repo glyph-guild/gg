@@ -183,6 +183,12 @@ public class ProjectionParityTests
                               + "reason is written out at ConsoleDataTests' exemption "
                               + "for RetireRunnerAsync, and both go together or "
                               + "neither does.",
+            ["TenantNamed"] = "no arm because no console verb: naming the tenant is an "
+                            + "administrator's word about the thing everybody in it is "
+                            + "inside, done about once, and a console is arrived at by "
+                            + "arrow key. The reason is written out at ConsoleDataTests' "
+                            + "exemption for RenameTenantAsync, and both go together or "
+                            + "neither does.",
             ["EnrollmentMinted"] = "no arm, and none coming: a secret shown once is not a "
                                  + "projection - VerbParityTests' FleetEnroll entry says why.",
             ["EnrollmentTokens"] = "no arm because no console verb yet; the reason is at "

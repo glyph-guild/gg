@@ -40,6 +40,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(RunnerSealedOffer))]
 [JsonSerializable(typeof(RunnerSealedAnswer))]
 [JsonSerializable(typeof(RunnerRetirementRequest))]
+[JsonSerializable(typeof(TenantNameRequest))]
 [JsonSerializable(typeof(RunnerRetired))]
 [JsonSerializable(typeof(RunnerClaimRequest))]
 [JsonSerializable(typeof(EnrollmentTokenRequest))]
@@ -1692,6 +1693,27 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.RunnerRetired, cancellationToken);
+    }
+
+    /// <summary>Says what this tenant is called.</summary>
+    /// <remarks>
+    /// <b>The tenant is the session's and is named nowhere in this call.</b> A
+    /// caller may be a tenant and may never name one, so there is no id in the
+    /// path and none in the body - which also means there is no way to ask
+    /// this question about somebody else's tenant.
+    /// </remarks>
+    public async Task RenameTenantAsync(
+        string sessionToken, string name, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Put, "/v1/tenant/name", sessionToken);
+        request.Content = JsonContent.Create(
+            new TenantNameRequest { Name = name },
+            ProtocolJsonContext.Default.TenantNameRequest);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        response.EnsureSuccessStatusCode();
     }
 
     /// <summary>Mints an enrollment token (slice forty-three, rules 17 and 18).</summary>

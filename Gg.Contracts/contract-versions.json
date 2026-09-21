@@ -1024,5 +1024,10 @@
     "version": "0.210.0",
     "surface": "f9d2ecb90454b79783012f4e61deb4f2aa9fbf73aa874e7a2514de07b38fceca",
     "note": "A TENANT HAS A NAME AND NOBODY COULD READ IT. `identity.gg_tenant.name` is `text NOT NULL` and has been written by the sign-up path since the day it existed; `WhoAmI` carried `PrincipalDisplay` beside `PrincipalId` and nothing at all beside `TenantId`. So a person read their own name and then a GUID for the thing that owns all of their work - and on a machine with access to more than one tenant, no way to confirm which one they were about to open a flight in. `TenantDisplay` is that name. Optional and not `required`, because an older control plane sends none and a reader that threw on a response valid when it was written would make a version skew look like a broken session; absent means \"not told\", which a reader says by printing the id alone rather than an empty pair of brackets. A name, never a secret: it is what an organisation calls itself, and the thing that grants anything is the session."
+  },
+  {
+    "version": "0.211.0",
+    "surface": "b07f130f86645a08dff242651c74c0ad75111940809268234f20d49b53f227bc",
+    "note": "A TENANT CAN BE GIVEN A NAME. Every tenant in existence is called \"somebody's tenant\": the sign-up path takes a name, the identity provider composes the callback and never appends one, so the fallback - the first administrator's display, made possessive - is what every tenant is named, and nothing could change it. `PUT /v1/tenant/name` is the first thing this protocol ever changes about a tenant. It names no tenant: which one comes from the session, as everything tenant-scoped here does - a caller may BE a tenant and may never NAME one. `/v1/tenant` joins the governed prefixes by `/v1/principals`' own argument: that one is governed because it is the only surface that changes what one PERSON may do, and this is the only one that changes anything about the tenant they are all in. A tenant's POLICY stays out of band with no route at all, which is a different rule for a different reason: a tenant raising its own classification ceiling would be the attack, and a name grants nothing."
   }
 ]

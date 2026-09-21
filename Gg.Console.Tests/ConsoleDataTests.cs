@@ -196,6 +196,14 @@ public class ConsoleDataTests
             // and that confirmation is the work, not the wiring.
             "RetireRunnerAsync",
 
+            // WHAT THE TENANT IS CALLED, changed from a terminal. It is an
+            // administrator's word about the thing everybody in this tenant is
+            // inside, and it is done about once - the console is a place people
+            // arrive at by arrow key, and a rare considered act does not belong
+            // one keypress from a queue. The console already SAYS the name,
+            // which is the half a person needs while they work.
+            "RenameTenantAsync",
+
             // WHOSE A MACHINE IS, changed from a terminal until the modal can
             // show it (slice forty-three, step 2). All five are reversible or an
             // admin's considered word, and none belongs on a key whose pane

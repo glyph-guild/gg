@@ -487,8 +487,14 @@ public class EndpointSurfaceTests
         // /v1/runner/readiness, the agent reading's shape - its own route, 202
         // and nothing back. Runner audience, no id in either path. The reading
         // is new, so the contract moves to 0.202.0.
+        //
+        // AND 0.211.0 ADDS PUT /v1/tenant/name, the first route in this
+        // protocol that changes anything about a tenant. Developer audience,
+        // no id in the path - which tenant comes from the session, because a
+        // caller may BE a tenant and may never NAME one - and 204 on success,
+        // the house answer for a change with nothing to say back.
         await Assert.That(Fingerprint())
-            .IsEqualTo("fe18ce1dab3de713418ed4a4e3fd64677047b66fc92778f243abd939db3ebf89")
+            .IsEqualTo("b20ea99007f04fee4c477ccd051d127a264a0dd74a10b183432c9d7f5d2d1511")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

@@ -262,3 +262,25 @@ public sealed record WhoAmI
     /// </summary>
     public string? Subject { get; init; }
 }
+
+/// <summary>What a tenant is to be called.</summary>
+/// <remarks>
+/// <para>
+/// <b>The first thing this protocol ever changes about a tenant.</b> A
+/// tenant's POLICY - its classification ceiling, its rules - is written out of
+/// band by an operator and has no route, because a tenant raising its own
+/// ceiling would be the attack. A name grants nothing, so it is not that, and
+/// it is the one thing about a tenant that every person in it reads.
+/// </para>
+/// <para>
+/// <b>It names no tenant.</b> Which tenant is being renamed comes from the
+/// session, as everything tenant-scoped in this protocol does - a caller may
+/// BE a tenant and may never NAME one.
+/// </para>
+/// </remarks>
+[PinnedId("6f3c1b08-52a7-4e93-8d41-b7e0a95c2f16")]
+public sealed record TenantNameRequest
+{
+    /// <summary>What to call it.</summary>
+    public required string Name { get; init; }
+}

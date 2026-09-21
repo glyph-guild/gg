@@ -278,6 +278,18 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.RunnerRetired;
     }
 
+    /// <summary>What this tenant is called now.</summary>
+    /// <remarks>
+    /// <b>It carries the name back rather than nothing.</b> The route answers
+    /// 204 and a verb that printed nothing would leave a person wondering
+    /// whether it took - and this is the one act whose result they cannot see
+    /// anywhere else without running a second command.
+    /// </remarks>
+    public sealed record TenantNamed(string Name) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.TenantNamed;
+    }
+
     /// <summary>An enrollment token, minted - the one time its secret is shown.</summary>
     public sealed record EnrollmentMinted(Gg.Contracts.EnrollmentTokenMinted Value) : VerbResult
     {
@@ -530,6 +542,7 @@ public static class VerbResultKinds
     public const string CredentialAdded = "credential-added";
     public const string CredentialRemoved = "credential-removed";
     public const string RunnerRetired = "runner-retired";
+    public const string TenantNamed = "tenant-named";
     public const string RunnerOwned = "runner-owned";
     public const string EnrollmentMinted = "enrollment-minted";
     public const string EnrollmentTokens = "enrollment-tokens";
@@ -832,6 +845,8 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.CredentialRemoved))),
         VerbResultKinds.RunnerRetired => new VerbResult.RunnerRetired(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.RunnerRetired))),
+        VerbResultKinds.TenantNamed => new VerbResult.TenantNamed(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.String))),
         VerbResultKinds.RunnerOwned => new VerbResult.RunnerOwned(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.RunnerOwnership))),
         VerbResultKinds.EnrollmentMinted => new VerbResult.EnrollmentMinted(Require(
@@ -916,6 +931,9 @@ public static class VerbOutput
         VerbResult.CredentialAdded r => CredentialAdded(r.Value),
         VerbResult.CredentialRemoved r => CredentialRemoved(r.Value),
         VerbResult.RunnerRetired r => RunnerRetiredText(r.Value),
+        VerbResult.TenantNamed named =>
+            $"  This tenant is called {Clean(named.Name)} now. Everybody in it reads that "
+          + "name; nothing else about it changed.",
         VerbResult.RunnerOwned r => RunnerOwnedText(r.Value),
         VerbResult.EnrollmentMinted r => EnrollmentMintedText(r.Value),
         VerbResult.EnrollmentTokens r => EnrollmentTokensText(r.Value),

@@ -549,7 +549,7 @@ public static class FlightDetails
     /// wants is when the thing HAPPENED.
     /// </para>
     /// </remarks>
-    private static string FactsLines(AppState state)
+    internal static string FactsLines(AppState state)
     {
         var text = new StringBuilder();
 

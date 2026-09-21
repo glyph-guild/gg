@@ -206,6 +206,32 @@ public static class EnvelopeDirection
             return loops;
         }
 
+        // WHAT EVERY MACHINE HERE IS OFFERED. Adding one, or changing what one
+        // says, repoints every machine in the tenant - which is the same act a
+        // forge host is gated for, at a wider blast radius. Taking one away
+        // offers less and applies at once: an offer is a thing to TAKE, so a
+        // machine keeps what it already accepted either way, and removing the
+        // line only stops the next one being told.
+        foreach (var offer in proposed.Offers.OrderBy(o => o.Key, StringComparer.Ordinal))
+        {
+            var was = applied.Offers.FirstOrDefault(
+                o => string.Equals(o.Key, offer.Key, StringComparison.Ordinal));
+
+            if (was is null)
+            {
+                return Widen(
+                    $"offers.{offer.Key}",
+                    $"it tells every machine in this tenant '{offer.Key}: {offer.Value}'.");
+            }
+
+            if (!string.Equals(was.Value, offer.Value, StringComparison.Ordinal))
+            {
+                return Widen(
+                    $"offers.{offer.Key}",
+                    $"it changes what every machine in this tenant is told '{offer.Key}' is.");
+            }
+        }
+
         return Destinations(applied.Destinations, proposed.Destinations);
     }
 

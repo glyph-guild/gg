@@ -1887,6 +1887,35 @@ public sealed record Envelope
     }
 
     /// <summary>
+    /// What every machine in this tenant is offered, by <c>OfferableKeys</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The other offer channel, and the one a laptop can reach.</b> A
+    /// profile's offer follows a runner's enrolment; this one is the tenant's and
+    /// is read by any signed-in machine, which is what <c>gg config offered</c>
+    /// and <c>gg config accept</c> drive. It had no author at all: its prefix is
+    /// governed, gg declares only the read on it, and so nothing could write the
+    /// row - applying this document is what does.
+    /// </para>
+    /// <para>
+    /// <b>ROOT ONLY, because it is the tenant's.</b> A narrowing speaks for one
+    /// repository or one work kind, and what every machine here is told is not
+    /// that kind of statement.
+    /// </para>
+    /// <para>
+    /// <b>Empty is the ordinary state.</b> Every tenant that exists offers
+    /// nothing, and none of them should have to say so.
+    /// </para>
+    /// </remarks>
+    [Composes(MergeOperators.RootOnly)]
+    public IReadOnlyList<OfferedSetting> Offers
+    {
+        get => field ?? [];
+        init;
+    } = [];
+
+    /// <summary>
     /// The single environment this envelope bound before the bound became a
     /// set. Read for compatibility and never written.
     /// </summary>
@@ -2040,6 +2069,41 @@ public sealed record Envelope
     {
         ArgumentNullException.ThrowIfNull(envelope);
         ArgumentNullException.ThrowIfNull(moveKindOf);
+
+        // WHAT EVERY MACHINE HERE IS OFFERED, and only what one will take. A
+        // key outside OfferableKeys is a document that cannot do what it says:
+        // the machine refuses the offer, nothing applies, and nothing anywhere
+        // explains why. In front of whoever wrote it is the only place that is
+        // cheap to learn.
+        foreach (var offer in envelope.Offers)
+        {
+            if (!OfferableKeys.All.Contains(offer.Key, StringComparer.Ordinal))
+            {
+                return $"offers names '{offer.Key}', which is not a setting a machine will "
+                     + "take. An offer carries only " + string.Join(", ", OfferableKeys.All)
+                     + ".";
+            }
+
+            // A REFERENCE, NEVER A SECRET, and here it matters more than on a
+            // profile: this row is read by every signed-in machine in the
+            // tenant, not only the ones enrolled under one document.
+            if (offer.Key is not (OfferableKeys.IntentHosts or OfferableKeys.TrackerApis))
+            {
+                continue;
+            }
+
+            foreach (var entry in offer.Value.Split(
+                ',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (!FleetProfile.IsTracker(entry))
+                {
+                    return $"offers.{offer.Key} has '{entry}', and a tracker is written "
+                         + "key=host|reference - the reference says where its secret is, which "
+                         + "is never the secret itself.";
+                }
+            }
+        }
+
 
         if (Cardinality(envelope) is { } slipped)
         {

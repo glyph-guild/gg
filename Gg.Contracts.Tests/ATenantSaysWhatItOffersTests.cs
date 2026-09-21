@@ -32,92 +32,107 @@ namespace Gg.Contracts.Tests;
 /// </remarks>
 public class ATenantSaysWhatItOffersTests
 {
-    private static string AnEnvelopeOffering(string body) =>
-        $"""
-        context:
-          scope: "**"
-          constitution: "1.0.0"
-        offers:
-        {body}
-        obligations:
-          in-scope:
-            check: machine
-            rule: no-file-outside-scope
-        loops:
-          implement:
-            executor: frontier
-            discharges:
-              - in-scope
-            moves:
-              - anything
-        destinations:
-          pull-request:
-            kind: pull-request
-            requires:
-              - in-scope
-        """;
+    private static Envelope Offering(params OfferedSetting[] offers) => new()
+    {
+        Context = new ContextBinding { Scope = "src/**", Constitution = "1.0.0" },
+        Offers = offers,
+        Obligations =
+        [
+            new Obligation
+            {
+                Id = "in-scope",
+                Check = ObligationChecks.Machine,
+                Rule = ObligationPredicates.NoFileOutsideScope,
+            },
+        ],
+        Loops =
+        [
+            new Loop
+            {
+                Id = "implement",
+                Executor = ExecutorRungs.Frontier,
+                Discharges = ["in-scope"],
+                Moves = [LoopMoves.Read, LoopMoves.Edit],
+                Budget = new LoopBudget { WallClock = "30m" },
+                OnExhaustion = ExhaustionPolicies.HandoffToHuman,
+            },
+        ],
+        Destinations =
+        [
+            new Destination
+            {
+                Id = "pull-request",
+                Kind = DestinationKinds.PullRequest,
+                Requires = ["in-scope"],
+            },
+        ],
+    };
+
+    private static OfferedSetting A(string key, string value) => new() { Key = key, Value = value };
 
     [Test]
-    public async Task A_tenants_document_carries_what_it_offers_and_renders_it_back()
+    public async Task What_a_tenant_offers_survives_being_written_and_read_again()
     {
-        var parsed = EnvelopeYaml.Parse(AnEnvelopeOffering(
-            "  stun-servers: \"stun:relay.example:3478\""));
+        // THE ROUND TRIP IS THE PRODUCT, as the description's own test says:
+        // pull renders the estate into the working copy and apply parses it
+        // back, so a line that does not survive both halves is a line nobody can
+        // keep - and an offer nobody can keep is a machine configured by hand.
+        var rendered = EnvelopeText.Render(
+            Offering(A(OfferableKeys.StunServers, "stun:relay.example:3478")));
 
-        await Assert.That(parsed.Envelope).IsNotNull()
-            .Because("a document refused here offers nothing, and the assertions below would "
-                   + "then be about a null.");
+        await Assert.That(rendered).Contains("offers:", StringComparison.Ordinal);
 
-        await Assert.That(parsed.Envelope!.Offers.Single().Key).IsEqualTo("stun-servers");
-        await Assert.That(parsed.Envelope.Offers.Single().Value)
-            .IsEqualTo("stun:relay.example:3478");
+        var read = EnvelopeYaml.Parse(rendered);
 
-        // AND BACK OUT AGAIN, because show-after-apply is what a person reads to
-        // see what is in force, and a section that parses and does not render is
-        // a value that disappears the first time anybody looks.
-        var again = EnvelopeYaml.Parse(EnvelopeText.Render(parsed.Envelope));
-
-        await Assert.That(again.Envelope!.Offers.Single().Value)
+        await Assert.That(read.Envelope).IsNotNull().Because(read.Diagnosis ?? "no diagnosis");
+        await Assert.That(read.Envelope!.Offers.Single().Key)
+            .IsEqualTo(OfferableKeys.StunServers);
+        await Assert.That(read.Envelope.Offers.Single().Value)
             .IsEqualTo("stun:relay.example:3478");
     }
 
     [Test]
     public async Task A_key_no_machine_would_take_is_refused_where_it_is_written()
     {
-        var refused = EnvelopeYaml.Parse(AnEnvelopeOffering(
-            "  gg-take-command: \"rm -rf /\""));
+        var refused = Envelope.Validate(Offering(A("gg-take-command", "rm -rf /")));
 
-        await Assert.That(refused.Diagnosis).IsNotNull()
+        await Assert.That(refused).IsNotNull()
             .Because("a machine refuses an offer naming a key it does not know, so a document "
-                   + "carrying one cannot do what it says - and the place to find that out is "
-                   + "in front of whoever wrote it.");
+                   + "carrying one cannot do what it says - and in front of whoever wrote it is "
+                   + "the only place that is cheap to learn.");
 
-        await Assert.That(refused.Diagnosis!).Contains("gg-take-command", StringComparison.Ordinal)
+        await Assert.That(refused!).Contains("gg-take-command", StringComparison.Ordinal)
             .Because("naming the key is the difference between a fix and a hunt.");
     }
 
     [Test]
     public async Task A_secret_where_a_reference_belongs_does_not_become_a_row_anybody_can_read()
     {
-        // THE OFFER IS READ BY EVERY SIGNED-IN MACHINE IN THE TENANT, which is a
-        // wider audience than a profile's - so the rule `credentials` keeps is at
-        // least as important here: a reference names where a secret is, and a
-        // bare value IS one.
-        var refused = EnvelopeYaml.Parse(AnEnvelopeOffering(
-            "  intent-hosts: \"ado=https://forge.example/acme|glpat-0123456789\""));
+        // WIDER THAN A PROFILE'S. This row is read by every signed-in machine in
+        // the tenant, not only those enrolled under one document, so the rule
+        // `credentials` keeps matters at least as much here.
+        var refused = Envelope.Validate(Offering(
+            A(OfferableKeys.IntentHosts, "ado=https://forge.example/acme|glpat-0123456789")));
 
-        await Assert.That(refused.Diagnosis).IsNotNull()
+        await Assert.That(refused).IsNotNull()
             .Because("a token written here would be handed to every machine that accepts, and "
                    + "read by every one that merely asks.");
+
+        await Assert.That(Envelope.Validate(Offering(
+                A(OfferableKeys.IntentHosts, "ado=https://forge.example/acme|local:ticket"))))
+            .IsNull()
+            .Because("and the well-formed one is accepted, or the refusal above proves nothing.");
     }
 
     [Test]
     public async Task A_document_offering_nothing_is_ordinary()
     {
-        var parsed = EnvelopeYaml.Parse(AnEnvelopeOffering("").Replace("offers:\n\n", ""));
+        var rendered = EnvelopeText.Render(Offering());
 
-        await Assert.That(parsed.Envelope).IsNotNull();
-        await Assert.That(parsed.Envelope!.Offers).IsEmpty()
-            .Because("every tenant that exists today offers nothing, and none of them should "
-                   + "have to say so.");
+        await Assert.That(rendered).DoesNotContain("offers:", StringComparison.Ordinal)
+            .Because("every tenant that exists offers nothing, and none of them should have to "
+                   + "say so - an empty section rendered would be a diff on every estate.");
+
+        await Assert.That(EnvelopeYaml.Parse(rendered).Envelope!.Offers).IsEmpty();
     }
 }

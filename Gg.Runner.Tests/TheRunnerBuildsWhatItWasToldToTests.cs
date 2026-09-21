@@ -105,20 +105,36 @@ public class TheRunnerBuildsWhatItWasToldToTests
     }
 
     [Test]
-    public async Task A_declared_api_with_no_credential_is_refused_rather_than_built_useless()
+    public async Task A_declared_api_with_no_credential_refuses_the_write_and_not_the_start_up()
     {
-        // THE CONSTRUCTOR ALREADY REFUSES AN ABSENT CREDENTIAL, and this is
-        // where that refusal has to surface: at start-up, where a person is
-        // configuring the machine, rather than at the first admitted write.
-        var refused = Assert.Throws<InvalidOperationException>(() =>
-            TrackerConfiguration.FromEnvironment(
-                _ => new HttpClient(),
-                apis: "backlog=https://tracker.example/team/project",
-                secretFor: _ => null));
+        // CORRECTED BY SLICE FORTY-SEVEN, RULE 2, and the old sentence is worth
+        // keeping to show what changed: "this is where that refusal has to
+        // surface: at start-up, where a person is configuring the machine". That
+        // was true while tracker-apis was typed by hand. A profile can now offer
+        // it, so the value arrives from a document applied somewhere else, and
+        // the person at start-up is a systemd unit - a machine that will not
+        // start cannot be told anything, including that it was wrong.
+        //
+        // The refusal did not go away; it moved to the write, where there IS
+        // somebody to tell. LackingWorkItemSink carries it.
+        var sinks = TrackerConfiguration.FromEnvironment(
+            _ => new HttpClient(),
+            apis: "backlog=https://tracker.example/team/project",
+            secretFor: _ => null);
+
+        await Assert.That(sinks.ContainsKey("backlog")).IsTrue()
+            .Because("the destination is declared, so it keeps its entry - the loop's refusal "
+                   + "for an UNKNOWN destination would otherwise say this runner has no tracker "
+                   + "declared for it, which is false and points at the wrong document.");
+
+        var refused = await Assert.That(async () => await sinks["backlog"].PerformAsync(
+                [new Gg.Contracts.WorkItemProposal { Operation = "comment", Reason = "why" }],
+                "a-key"))
+            .Throws<InvalidOperationException>();
 
         await Assert.That(refused!.Message.Length).IsGreaterThan(60)
-            .Because("a machine that would fail at the first write should say so while "
-                   + $"somebody is looking at it. Said: {refused.Message}");
+            .Because("a machine that cannot write should say so to whoever asked it to. "
+                   + $"Said: {refused.Message}");
     }
 
     [Test]
@@ -198,20 +214,26 @@ public class TheRunnerBuildsWhatItWasToldToTests
     }
 
     [Test]
-    public async Task A_host_that_reduces_to_no_locator_is_refused_rather_than_guessed()
+    public async Task A_host_that_reduces_to_no_locator_declares_nothing_rather_than_guessing()
     {
-        // ARTICLE XI, and the alternative is worse than a refusal: a host this
-        // cannot derive a locator from would otherwise ask the store for "" and
-        // report the absent-credential error, sending somebody to add a secret
-        // under a name nothing could ever hold.
-        var refused = Assert.Throws<InvalidOperationException>(() =>
-            TrackerConfiguration.FromEnvironment(
-                _ => new HttpClient(),
-                apis: "backlog=https://",
-                secretFor: _ => "a-token"));
+        // ARTICLE XI STILL HOLDS - a locator this cannot derive is never guessed
+        // at, because asking the store for "" reports the absent-credential error
+        // and sends somebody to add a secret under a name nothing could hold.
+        //
+        // WHAT SLICE FORTY-SEVEN CHANGED is only whether that takes the runner
+        // with it. The entry is skipped, so the destination is not declared and
+        // the loop's own refusal - "this runner has no tracker declared for it" -
+        // is the true sentence for this case, where it would be false for a
+        // tracker that is declared and merely has no secret here. Readiness is
+        // what says the entry could not be read.
+        var sinks = TrackerConfiguration.FromEnvironment(
+            _ => new HttpClient(),
+            apis: "backlog=https://",
+            secretFor: _ => "a-token");
 
-        await Assert.That(refused!.Message.Length).IsGreaterThan(60)
-            .Because($"it has to say which entry and why. Said: {refused.Message}");
+        await Assert.That(sinks).IsEmpty()
+            .Because("a locator nothing could hold declares no destination, and a runner that "
+                   + "will not start cannot be told that either.");
     }
 
     [Test]

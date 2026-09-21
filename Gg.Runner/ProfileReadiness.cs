@@ -78,6 +78,51 @@ public static class ProfileReadiness
             });
         }
 
+        // A TRACKER'S CREDENTIAL, DERIVED FROM THE ENTRY. A profile states a
+        // tracker once - `key=host|reference` - so asking it to repeat the
+        // reference under `credentials` would be two places to keep in agreement
+        // and one to forget. Measured the same way a named credential is, which
+        // is what lets a bring-up ask name it.
+        //
+        // AND A DECLARATION THIS BUILD CANNOT READ IS ALSO SOMETHING IT LACKS.
+        // TrackerConfiguration skips an entry it cannot parse rather than
+        // refusing to start (rule 2), so without this the machine would simply
+        // not write and say nothing about why.
+        foreach (var (field, entries) in
+                 (IReadOnlyList<(string, IReadOnlyList<string>)>)
+                 [("trackers", profile.Profile.Trackers), ("triage", profile.Profile.Triage)])
+        {
+            foreach (var entry in entries)
+            {
+                if (!Gg.Contracts.FleetProfile.IsTracker(entry))
+                {
+                    items.Add(new ReadinessItem
+                    {
+                        Kind = ReadinessKinds.Credential,
+                        Subject = entry,
+                        Met = false,
+                        Diagnosis = $"this build cannot read the {field} entry '{entry}'. It is "
+                                  + "written key=host|reference; a value from a newer contract "
+                                  + "reaches an older machine this way, and the machine says so "
+                                  + "rather than refusing to start.",
+                    });
+
+                    continue;
+                }
+
+                var reference = entry[(entry.LastIndexOf('|') + 1)..];
+                var unresolved = await resolve(reference, cancellationToken);
+
+                items.Add(new ReadinessItem
+                {
+                    Kind = ReadinessKinds.Credential,
+                    Subject = reference,
+                    Met = unresolved is null,
+                    Diagnosis = unresolved,
+                });
+            }
+        }
+
         foreach (var forge in profile.Profile.Forges)
         {
             // THE ONE PARSER, NOT A THIRD COPY OF IT. A forge is written the way

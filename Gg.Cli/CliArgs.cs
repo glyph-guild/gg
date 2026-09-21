@@ -397,6 +397,15 @@ public abstract record CliAction
     /// <summary>Takes a runner out of the fleet. There is no undo.</summary>
     public sealed record RunnerRetire(string RunnerId, bool Json) : CliAction, IEmitsResult;
 
+    /// <summary><c>gg tenant name</c>: what this tenant is called.</summary>
+    /// <remarks>
+    /// <b>The first thing anybody can change about a tenant.</b> Every tenant
+    /// in existence is called "somebody's tenant" - the sign-up path takes a
+    /// name and nothing supplies one - and until now there was no way to say
+    /// otherwise.
+    /// </remarks>
+    public sealed record TenantName(string Name, bool Json) : CliAction, IEmitsResult;
+
     /// <summary><c>gg fleet enroll</c>: some machines may join as one profile.</summary>
     public sealed record FleetEnroll(Gg.Contracts.EnrollmentTokenRequest Request, bool Json)
         : CliAction, IEmitsResult;

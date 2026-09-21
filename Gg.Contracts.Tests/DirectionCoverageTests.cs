@@ -232,6 +232,22 @@ public class DirectionCoverageTests
             Doc(), WithDestination(Doc(), d => d with { Id = "the-fork" }),
             ReverseAlsoWidens: true),
 
+        // WHAT EVERY MACHINE HERE IS OFFERED. Adding one repoints every machine
+        // in the tenant, which is what a widening is; taking it away offers less
+        // and applies at once - a machine keeps what it already accepted either
+        // way, because an offer is a thing to take rather than a thing in force.
+        new("Envelope.Offers", "offers",
+            Doc(),
+            Doc() with
+            {
+                Offers = [new OfferedSetting
+                {
+                    Key = OfferableKeys.StunServers,
+                    Value = "stun:relay.example:3478",
+                }],
+            },
+            ReverseAlsoWidens: false),
+
         new("Loop.Executor", "executor",
             Doc(), WithLoop(Doc(), l => l with { Executor = ExecutorRungs.Human, Moves = [] }),
             ReverseAlsoWidens: true),

@@ -167,6 +167,21 @@ public static class EnvelopeText
             AsWritten(text, "instructions", [.. envelope.Instructions.Select(i => i.Text)], depth: 0);
         }
 
+        // WHAT EVERY MACHINE HERE IS OFFERED, before what governs its flights:
+        // a person reads what the tenant IS first, and an offer is that kind of
+        // statement. BY KEY, ORDINAL, for the reason the obligations below give -
+        // at one entry an unspecified order is unobservable, so "twice gives
+        // identical bytes" would pass with no ordering rule existing.
+        if (envelope.Offers.Count > 0)
+        {
+            text.Append("offers:\n");
+
+            foreach (var offer in envelope.Offers.OrderBy(o => o.Key, StringComparer.Ordinal))
+            {
+                text.Append($"  {offer.Key}: {Scalar(offer.Value)}\n");
+            }
+        }
+
         text.Append("obligations:\n");
 
         // BY ID, ORDINAL, AND SAID SO. The emitter used to iterate the collection

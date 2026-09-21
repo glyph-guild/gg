@@ -846,10 +846,28 @@ public static class EnvelopeYaml
         var root = RequireMap(document, "");
         Closed(root, BasedOnKey, "description", "brief", "context", "environment", "environments",
                "repository", "repositories", "accepts", "produces", "targeting", "instructions",
-               "obligations", "loops", "destinations");
+               "obligations", "loops", "destinations", "offers");
 
         var context = RequireMap(Require(root, "context"), "context");
         Closed(context, "scope", "constitution");
+
+        // WHAT EVERY MACHINE HERE IS OFFERED. Read as written; WHICH keys are
+        // allowed and what a value may carry are Validate's, so a document the
+        // parser accepts and apply refuses says so in one voice - and a model
+        // built in code is held to the same rule as one read off disk.
+        var offers = new List<OfferedSetting>();
+
+        if (root.Entries.TryGetValue("offers", out var offered))
+        {
+            foreach (var (key, value) in RequireMap(offered, "offers").Entries)
+            {
+                offers.Add(new OfferedSetting
+                {
+                    Key = key,
+                    Value = RequireScalar(value, $"offers.{key}"),
+                });
+            }
+        }
 
         return new Envelope
         {
@@ -878,6 +896,7 @@ public static class EnvelopeYaml
             // key back as "" would be a different document on disk and the
             // same value to the engine, so show-after-apply would not round
             // trip.
+            Offers = offers,
             Environments = BoundOf(root, "environments", "environment"),
             Repositories = BoundOf(root, "repositories", "repository"),
             // AND THE ONE WHOSE EMPTY VALUE MEANS SOMETHING. `accepts: []` is

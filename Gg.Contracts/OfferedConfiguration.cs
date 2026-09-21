@@ -70,8 +70,15 @@ public static class OfferableKeys
     /// <summary>The control plane a machine reads and writes.</summary>
     public const string ControlPlane = "control-plane";
 
+    /// <summary>Which trackers a machine reads work items from.</summary>
+    public const string IntentHosts = "intent-hosts";
+
+    /// <summary>Which trackers a machine may write work items to.</summary>
+    public const string TrackerApis = "tracker-apis";
+
     public static IReadOnlyList<string> All { get; } =
-        [StunServers, RunnerLabels, VcsHosts, DestinationApis, ControlPlane];
+        [StunServers, RunnerLabels, VcsHosts, DestinationApis, ControlPlane,
+         IntentHosts, TrackerApis];
 
     /// <summary>
     /// The keys that may apply with nobody watching.

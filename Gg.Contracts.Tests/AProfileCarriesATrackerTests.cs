@@ -1,3 +1,4 @@
+using Gg.Contracts.Authoring;
 namespace Gg.Contracts.Tests;
 
 /// <summary>
@@ -22,8 +23,8 @@ namespace Gg.Contracts.Tests;
 /// </remarks>
 public class AProfileCarriesATrackerTests
 {
-    private const string AReadTracker = "ado=https://dev.azure.com/acme/widgets|local:acme/widgets";
-    private const string AWriteTracker = "backlog=https://dev.azure.com/acme/widgets|local:acme/widgets";
+    private const string AReadTracker = "ado=https://forge.example/acme/widgets|local:acme/widgets";
+    private const string AWriteTracker = "backlog=https://forge.example/acme/widgets|local:acme/widgets";
 
     private static FleetProfile AProfile() => new()
     {
@@ -59,13 +60,13 @@ public class AProfileCarriesATrackerTests
         // a tracker entry carries its reference inline, which is the first place
         // somebody will be tempted to put one.
         var secret = FleetProfile.Validate(
-            AProfile() with { Trackers = ["ado=https://dev.azure.com/acme|glpat-0123456789"] });
+            AProfile() with { Trackers = ["ado=https://forge.example/acme|glpat-0123456789"] });
 
         await Assert.That(secret).IsNotNull()
             .Because("a reference names where a secret is; a bare value IS one.");
 
         var write = FleetProfile.Validate(
-            AProfile() with { Triage = ["backlog=https://dev.azure.com/acme|glpat-0123456789"] });
+            AProfile() with { Triage = ["backlog=https://forge.example/acme|glpat-0123456789"] });
 
         await Assert.That(write).IsNotNull().Because("the write list is refused the same way.");
     }
@@ -78,10 +79,10 @@ public class AProfileCarriesATrackerTests
         // simply an incomplete document, and refusing it here is cheaper than a
         // bring-up gate explaining it later.
         await Assert.That(FleetProfile.Validate(
-            AProfile() with { Trackers = ["ado=https://dev.azure.com/acme"] })).IsNotNull();
+            AProfile() with { Trackers = ["ado=https://forge.example/acme"] })).IsNotNull();
 
         await Assert.That(FleetProfile.Validate(
-            AProfile() with { Triage = ["backlog=https://dev.azure.com/acme"] })).IsNotNull();
+            AProfile() with { Triage = ["backlog=https://forge.example/acme"] })).IsNotNull();
 
         await Assert.That(FleetProfile.Validate(AProfile())).IsNull()
             .Because("and the well-formed one is accepted, or the two above prove nothing.");

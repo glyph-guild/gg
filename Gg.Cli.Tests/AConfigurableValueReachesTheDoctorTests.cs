@@ -227,4 +227,36 @@ public class AConfigurableValueReachesTheDoctorTests
                    + "nothing outside could reach this machine and the reason is a file it "
                    + "never opened.");
     }
+
+    /// <summary>
+    /// Every fact the doctor reports is one the root actually fills in.
+    /// </summary>
+    /// <remarks>
+    /// <b>A member added to <c>MachineRole</c> and never set reads as "this
+    /// machine has none".</b> The doctor is handed facts rather than reading
+    /// them - deliberately, because <c>Gg.Client</c> sees only the contracts -
+    /// which puts the whole of that decision in a composition root no other
+    /// test opens. Absent is a legal state for every one of these, so the
+    /// compiler is silent and the report is confidently wrong.
+    /// </remarks>
+    [Test]
+    public async Task Every_fact_the_doctor_reports_is_one_the_root_fills_in()
+    {
+        var root = ProgramText();
+
+        var start = root.IndexOf("var role = new MachineRole", StringComparison.Ordinal);
+        await Assert.That(start).IsGreaterThan(-1);
+
+        var built = root[start..root.IndexOf("\n    };", start, StringComparison.Ordinal)];
+
+        foreach (var fact in typeof(Gg.Client.MachineRole).GetProperties(
+                     System.Reflection.BindingFlags.Public
+                   | System.Reflection.BindingFlags.Instance))
+        {
+            await Assert.That(built).Contains(fact.Name)
+                .Because($"the doctor reports '{fact.Name}' about this machine, and a fact the "
+                       + "root never reads is reported as absent - which is a sentence about "
+                       + "the machine that nobody measured.");
+        }
+    }
 }

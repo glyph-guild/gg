@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -26,14 +27,16 @@ internal sealed class AConsolePlane : HttpMessageHandler
 
     private readonly int _flights;
     private readonly int _inTheAir;
+    private readonly int _nominations;
 
     private int _live;
     private int _liveLogs;
 
-    internal AConsolePlane(int flights = DefaultFlights, int inTheAir = 0)
+    internal AConsolePlane(int flights = DefaultFlights, int inTheAir = 0, int nominations = 0)
     {
         _flights = flights;
         _inTheAir = inTheAir;
+        _nominations = nominations;
     }
 
     internal int Peak;
@@ -41,6 +44,14 @@ internal sealed class AConsolePlane : HttpMessageHandler
     internal int Requests;
 
     internal List<string> Paths { get; } = [];
+
+    /// <summary>Every page size asked for, in the order it was asked.</summary>
+    /// <remarks>
+    /// <b>The whole point of a page is a number somebody chose</b>, and a double
+    /// that answered every list identically could not tell a refresh asking for
+    /// what is on screen from one asking for the first hundred rows.
+    /// </remarks>
+    internal List<int> Limits { get; } = [];
 
     internal IReadOnlyList<string> LogsRead =>
         [.. Paths.Where(p => p.EndsWith("/log", StringComparison.Ordinal))];
@@ -73,10 +84,31 @@ internal sealed class AConsolePlane : HttpMessageHandler
         Facts = [],
     };
 
-    internal static (ConsoleData Data, AConsolePlane Plane) Console(
-        int flights = DefaultFlights, int inTheAir = 0)
+    /// <summary>A nomination a board page can carry.</summary>
+    internal static NominationSummary ANomination(int n) => new()
     {
-        var plane = new AConsolePlane(flights, inTheAir);
+        NominationId = new Guid(n, 1, 0, [0, 0, 0, 0, 0, 0, 0, 0]),
+        Nominator = "a watch",
+        Subject = $"nominated {n}",
+        Version = "1",
+        WorkKind = "ticket",
+        Mode = DestinationOpening.Gated,
+        State = NominationStates.Standing,
+        MadeAt = T0.AddMinutes(n),
+    };
+
+    /// <summary>A watch standing, which is a board row under the nominations.</summary>
+    internal static WatchStanding AStanding(int n) => new()
+    {
+        Name = $"watch-{n}",
+        Version = "1",
+        Window = "24h",
+    };
+
+    internal static (ConsoleData Data, AConsolePlane Plane) Console(
+        int flights = DefaultFlights, int inTheAir = 0, int nominations = 0)
+    {
+        var plane = new AConsolePlane(flights, inTheAir, nominations);
         var http = new HttpClient(plane) { BaseAddress = new Uri("http://console.test/") };
         var client = new ControlPlaneClient(http);
         var sessions = new HasSession();
@@ -110,12 +142,19 @@ internal sealed class AConsolePlane : HttpMessageHandler
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var path = request.RequestUri?.AbsolutePath ?? string.Empty;
+        var query = request.RequestUri?.Query ?? string.Empty;
         var log = path.EndsWith("/log", StringComparison.Ordinal);
 
         Interlocked.Increment(ref Requests);
         lock (Paths)
         {
             Paths.Add(path);
+
+            if (Asked(query, "limit") is { } size
+                && int.TryParse(size, CultureInfo.InvariantCulture, out var many))
+            {
+                Limits.Add(many);
+            }
         }
 
         Highest(ref Peak, Interlocked.Increment(ref _live));
@@ -134,11 +173,67 @@ internal sealed class AConsolePlane : HttpMessageHandler
 
         return new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = new StringContent(Body(path), Encoding.UTF8, "application/json"),
+            Content = new StringContent(Body(path, query), Encoding.UTF8, "application/json"),
         };
     }
 
-    private string Body(string path)
+    /// <summary>One value out of a query string, or null.</summary>
+    /// <remarks>
+    /// By hand because there is no query parser in this assembly's reach and a
+    /// package reference for two parameters would be a dependency in the double.
+    /// </remarks>
+    private static string? Asked(string query, string name)
+    {
+        foreach (var pair in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var at = pair.IndexOf('=', StringComparison.Ordinal);
+
+            if (at > 0 && string.Equals(pair[..at], name, StringComparison.Ordinal))
+            {
+                return Uri.UnescapeDataString(pair[(at + 1)..]);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Newest first, as many as were asked for, and where it stopped.
+    /// </summary>
+    /// <remarks>
+    /// <b>One more row than the page, to know whether there is another.</b> The
+    /// control plane's own shape - <c>PageCursor</c> and the two endpoints that
+    /// compose it take <c>size + 1</c> for exactly this reason - because a page
+    /// exactly as long as the limit is otherwise indistinguishable from the last
+    /// one, and a cursor on the last page makes a reader ask for ever.
+    /// </remarks>
+    private static (IReadOnlyList<int> Rows, string? Next) Page(
+        int count, string query, int whenUnasked)
+    {
+        var newest = Enumerable.Range(1, count).Reverse();
+
+        // WHERE THE LAST PAGE STOPPED. Opaque to the console, which hands it
+        // back untouched; the number is this double's own composition.
+        if (Asked(query, "after") is { } after
+            && int.TryParse(after, CultureInfo.InvariantCulture, out var stopped))
+        {
+            newest = newest.Where(n => n < stopped);
+        }
+
+        var size = Asked(query, "limit") is { } limit
+                && int.TryParse(limit, CultureInfo.InvariantCulture, out var many)
+            ? many
+            : whenUnasked;
+
+        var taken = newest.Take(size + 1).ToList();
+        var rows = taken.Take(size).ToList();
+
+        return (rows, taken.Count > size && rows.Count > 0
+            ? rows[^1].ToString(CultureInfo.InvariantCulture)
+            : null);
+    }
+
+    private string Body(string path, string query)
     {
         if (path.EndsWith("/log", StringComparison.Ordinal))
         {
@@ -232,9 +327,11 @@ internal sealed class AConsolePlane : HttpMessageHandler
 
         return path switch
         {
-            "/v1/flights" => JsonSerializer.Serialize(
-                new FlightList { Flights = [.. Enumerable.Range(1, _flights).Select(AFlight)] },
-                ProtocolJsonContext.Default.FlightList),
+            "/v1/flights" => Listed(query),
+            "/v1/board" => Nominated(query),
+            "/v1/watches" => JsonSerializer.Serialize(
+                new WatchStandingList { Standings = [] },
+                ProtocolJsonContext.Default.WatchStandingList),
             "/v1/runners" => JsonSerializer.Serialize(
                 new RunnerList { Runners = [] }, ProtocolJsonContext.Default.RunnerList),
             // EMPTY, WHICH IS WHAT A FLEET THAT NAMES NO ALLOWANCE REPORTS.
@@ -262,6 +359,41 @@ internal sealed class AConsolePlane : HttpMessageHandler
                 ProtocolJsonContext.Default.WhoAmI),
             _ => "{}",
         };
+    }
+
+    /// <summary>The flights, paged.</summary>
+    /// <remarks>
+    /// <b>Unpaged answers everything, as the route still does.</b> Every console
+    /// read now names a size, so what this arm mostly serves is a page - but a
+    /// double that forced one would make a test about the unpaged answer
+    /// impossible to write.
+    /// </remarks>
+    private string Listed(string query)
+    {
+        var (rows, next) = Page(_flights, query, _flights);
+
+        return JsonSerializer.Serialize(
+            new FlightList { Flights = [.. rows.Select(AFlight)], Next = next },
+            ProtocolJsonContext.Default.FlightList);
+    }
+
+    private string Nominated(string query)
+    {
+        var (rows, next) = Page(_nominations, query, _nominations);
+
+        return JsonSerializer.Serialize(
+            new BoardPage
+            {
+                Nominations = [.. rows.Select(ANomination)],
+
+                // WHAT WAS ASKED, rather than a constant: the console reads
+                // this to caption the pane, and a board that reported ended
+                // rows it had not been asked for would caption the wrong
+                // absence.
+                IncludedEnded = Asked(query, "ended") is "true",
+                Next = next,
+            },
+            ProtocolJsonContext.Default.BoardPage);
     }
 
     /// <summary>A session, so the verbs ask rather than refusing.</summary>

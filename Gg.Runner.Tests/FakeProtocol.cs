@@ -217,6 +217,24 @@ internal sealed class FakeProtocol : IRunnerProtocol
         });
     }
 
+    /// <summary>Every machine reading this fake was handed.</summary>
+    internal List<MachineReading> Machines { get; } = [];
+
+    /// <summary>Failures to raise from the machine route, in order.</summary>
+    internal Queue<Exception> MachineThrows { get; } = new();
+
+    public Task ReportMachineAsync(
+        MachineReading reading, CancellationToken cancellationToken = default)
+    {
+        Calls.Add("machine");
+
+        if (MachineThrows.Count > 0) { throw MachineThrows.Dequeue(); }
+
+        Machines.Add(reading);
+
+        return Task.CompletedTask;
+    }
+
     public Task ReportAllowanceAsync(
         string runnerId, AllowanceReading reading, CancellationToken cancellationToken = default)
     {

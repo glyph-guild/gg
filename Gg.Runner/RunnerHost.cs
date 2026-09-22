@@ -281,7 +281,14 @@ public static class RunnerHost
         // runner that does not (slice forty-three, rule 25). A factory for the
         // sweep's reason: it speaks with the SAME client and credential this
         // runner claims with, which is built below.
-        Func<IRunnerReadiness, Func<CancellationToken, Task>?>? readiness = null)
+        Func<IRunnerReadiness, Func<CancellationToken, Task>?>? readiness = null,
+
+        // WHAT THIS MACHINE HAS AND HOW MUCH OF IT IS IN USE, or null for a
+        // runner that measures nothing. Handed in rather than built here for
+        // the reason every reading above it is: what a machine reads about
+        // itself is the root's to decide, and a host that made its own meter
+        // would be a second answer to which files get read.
+        MachineReporter? machine = null)
     {
         // Longer than the claim's long poll, or the client aborts every idle
         // claim and the long poll becomes a busy loop with extra steps.
@@ -488,7 +495,8 @@ public static class RunnerHost
             sweepWhenIdle: sweeps?.Invoke(protocol),
             credential: credentialRenewed is null ? null : protocol,
             credentialRenewed: credentialRenewed,
-            measureReadiness: readiness?.Invoke(protocol))
+            measureReadiness: readiness?.Invoke(protocol),
+            machine: machine is null ? null : machine.Read)
         {
             HoldFor = holdFor,
         };

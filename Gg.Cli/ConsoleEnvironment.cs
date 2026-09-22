@@ -94,6 +94,16 @@ public static class ConsoleEnvironment
            "the agent binary a runner invokes. Unset means the runner takes work, "
          + "materializes it and ships facts, and invokes no agent at all."),
 
+        // WHICH BYTES MAY REPLACE THIS BINARY, which is why it is the
+        // machine's own and never offerable: a control plane able to set this
+        // could repoint a whole tenant at an installer of its choosing. It
+        // says which VERSION is current; this says where an installer comes
+        // from.
+        Of("GG_INSTALLER", file, environment,
+           "where `gg update` gets this machine's installer. A path is run; anything "
+         + "else is fetched first, which is the same act as the line this machine was "
+         + "installed with. Unset means gg update says so rather than choosing one."),
+
         Of("GG_RUNNER_LABELS", file, environment,
            "the labels this machine's runner advertises, as key=value pairs. A flight "
          + "is offered only to a runner carrying what it asks for."),

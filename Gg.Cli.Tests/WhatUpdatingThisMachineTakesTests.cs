@@ -44,7 +44,8 @@ public class WhatUpdatingThisMachineTakesTests
         bool writable = true,
         string? installer = Installer) =>
         UpdatePlans.For(
-            new InstallShape(kind, toolPath), installed, target, installer, writable);
+            new InstallShape(kind, toolPath), installed, target, installer, writable,
+            scratch: "/tmp/gg-install.sh");
 
     // ---- what it refuses, and why ----
 
@@ -172,6 +173,31 @@ public class WhatUpdatingThisMachineTakesTests
         await Assert.That(plan.Restarts).IsTrue()
             .Because("the installer swaps the symlink and restarts the unit, so a caller has "
                    + "to know a service is going to move under it.");
+    }
+
+    [Test]
+    public async Task An_installer_that_is_a_url_is_fetched_as_its_own_step()
+    {
+        var plan = For(InstallKind.Native, installer: "https://example.invalid/install.sh");
+
+        await Assert.That(plan.Steps.Count).IsEqualTo(2);
+        await Assert.That(plan.Steps[0].Program).IsEqualTo("curl");
+        await Assert.That(plan.Steps[1].Program).IsEqualTo("sh")
+            .Because("a URL cannot be executed, and the obvious way round it - one step "
+                   + "reading `curl … | sh` - is a shell line, which is the shape this "
+                   + "structure exists to avoid. Two steps: the fetch is visible, carries "
+                   + "its own reason, and fails on its own.");
+    }
+
+    [Test]
+    public async Task An_installer_already_on_disk_is_simply_run()
+    {
+        var plan = For(InstallKind.Native, installer: "/usr/local/lib/gg/install.sh");
+
+        await Assert.That(plan.Steps.Count).IsEqualTo(1)
+            .Because("a machine that has been given its installer does not fetch one, and a "
+                   + "download nobody needed is a download that can fail.");
+        await Assert.That(plan.Steps[0].Program).IsEqualTo("/usr/local/lib/gg/install.sh");
     }
 
     [Test]

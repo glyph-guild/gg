@@ -542,8 +542,8 @@ public class TheInstallerVerifiesWhatItInstallsTests
     [Test]
     public async Task Another_gg_on_the_path_is_not_overwritten_and_a_name_is_asked_for()
     {
-        // github.com/u-quark/gg is a git GUI shipped as a single binary a person
-        // puts on their PATH themselves. Installing over it would end with
+        // u-quark's gg is a git GUI shipped as a single binary a person puts on
+        // their PATH themselves. Installing over it would end with
         // /usr/local/bin/gg pointing at ours and theirs unreachable, or with
         // theirs winning and every line this script prints being false - and
         // the script never looked. A collision is a question for the person,

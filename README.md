@@ -86,6 +86,13 @@ gg config set control-plane <url>
 gg login
 ```
 
+**If another program called `gg` is already on your PATH** — there is one, a
+git GUI — the installer stops and asks for a different name rather than
+installing over it: answer the prompt, or pass `--as goodgrief` (`-Alias
+goodgrief` on Windows) for a run with nobody at the keyboard. Every hint it
+prints then uses the name you chose, and it is remembered, so an update needs
+no flag. A runner is always `gg`: its service runs `/usr/local/bin/gg`.
+
 **`--control-plane` is what makes a machine a runner**, and its absence is what
 makes this a laptop install. Given one, the same script installs the service
 that runs `gg runner up`, creates the user it runs as, and redeems an

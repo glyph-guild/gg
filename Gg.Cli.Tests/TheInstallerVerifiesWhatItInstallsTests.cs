@@ -537,6 +537,141 @@ public class TheInstallerVerifiesWhatItInstallsTests
                    + "which on an empty user PATH is a leading empty entry.");
     }
 
+    // ---- another program is already called gg ----
+
+    [Test]
+    public async Task Another_gg_on_the_path_is_not_overwritten_and_a_name_is_asked_for()
+    {
+        // github.com/u-quark/gg is a git GUI shipped as a single binary a person
+        // puts on their PATH themselves. Installing over it would end with
+        // /usr/local/bin/gg pointing at ours and theirs unreachable, or with
+        // theirs winning and every line this script prints being false - and
+        // the script never looked. A collision is a question for the person,
+        // and with no terminal to ask on it is a refusal that names the flag.
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.42.0"));
+        var theirs = box.ForeignGg();
+
+        var refused = await box.RunAsync("--version", "0.42.0");
+
+        await Assert.That(refused.Exit).IsNotEqualTo(0);
+        await Assert.That(refused.Output).Contains(theirs)
+            .Because("the person is told WHICH gg is in the way, not just that one is.");
+        await Assert.That(refused.Output).Contains("--as")
+            .Because("and how to install ours under another name without being asked at a "
+                   + "prompt this run has no terminal for.");
+        await Assert.That(box.Downloads()).IsEmpty()
+            .Because("everything that can be refused without a download is refused before one.");
+        await Assert.That(box.Exists("gg")).IsFalse();
+    }
+
+    [Test]
+    public async Task A_file_already_at_the_link_is_never_overwritten()
+    {
+        // THE WORST CASE: theirs IS /usr/local/bin/gg. The link used to land by
+        // `mv -f` over whatever was there, which for a real file is deleting
+        // somebody's program without a word. PATH need not even contain the
+        // directory for this to matter, so it is checked at the path itself.
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.42.0"));
+        var theirs = box.FileAtTheLink("#!/bin/sh\necho theirs\n");
+
+        var refused = await box.RunAsync("--version", "0.42.0");
+
+        await Assert.That(refused.Exit).IsNotEqualTo(0);
+        await Assert.That(await File.ReadAllTextAsync(theirs)).Contains("theirs")
+            .Because("a program that was there before this ran is there after it.");
+        await Assert.That(box.LinkOf("gg")).IsNull();
+    }
+
+    [Test]
+    public async Task An_alias_installs_the_link_under_that_name_and_every_hint_uses_it()
+    {
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.42.0"));
+        box.ForeignGg();
+
+        var installed = await box.RunAsync("--version", "0.42.0", "--as", "goodgrief");
+
+        await Assert.That(installed.Exit).IsEqualTo(0).Because(installed.Output);
+        await Assert.That(box.LinkOf("goodgrief")).IsEqualTo("/usr/local/lib/gg/0.42.0/gg");
+        await Assert.That(box.Exists("gg")).IsFalse()
+            .Because("theirs keeps the name; ours has the one the person chose.");
+        await Assert.That(installed.Output).Contains("goodgrief config set control-plane")
+            .Because("every next step this prints is typed by the person, under the name they "
+                   + "will actually type.");
+        await Assert.That(installed.Output).Contains("goodgrief login");
+        await Assert.That(installed.Output).DoesNotContain("  gg config set");
+    }
+
+    [Test]
+    public async Task The_name_is_remembered_so_an_update_needs_no_flag()
+    {
+        // The update path is running the script again with a newer version.
+        // A person who chose a name once must not have to remember to say it
+        // every release, and forgetting must not quietly install a second link
+        // called gg beside the program they were avoiding.
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.42.0"));
+        box.Attest(box.Release("0.43.0"));
+        box.ForeignGg();
+
+        await box.RunAsync("--version", "0.42.0", "--as", "goodgrief");
+        var updated = await box.RunAsync("--version", "0.43.0");
+
+        await Assert.That(updated.Exit).IsEqualTo(0).Because(updated.Output);
+        await Assert.That(box.LinkOf("goodgrief")).IsEqualTo("/usr/local/lib/gg/0.43.0/gg");
+        await Assert.That(box.Exists("gg")).IsFalse();
+    }
+
+    [Test]
+    public async Task A_runner_keeps_the_name_the_service_runs()
+    {
+        // The service unit runs /usr/local/bin/gg, spelled once in
+        // ServiceInstaller.Binary. A renamed command on a runner is a service
+        // that starts nothing, so the flag is refused there by name.
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.42.0"));
+
+        var refused = await box.RunAsync(
+            "--version", "0.42.0", "--as", "goodgrief", "--control-plane", ControlPlane);
+
+        await Assert.That(refused.Exit).IsNotEqualTo(0);
+        await Assert.That(refused.Output).Contains(ServiceInstaller.Binary);
+        await Assert.That(box.Downloads()).IsEmpty();
+    }
+
+    [Test]
+    public async Task A_name_that_is_not_a_command_is_refused()
+    {
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.42.0"));
+
+        var refused = await box.RunAsync("--version", "0.42.0", "--as", "../evil");
+
+        await Assert.That(refused.Exit).IsNotEqualTo(0);
+        await Assert.That(box.Downloads()).IsEmpty();
+    }
+
+    [Test]
+    public async Task The_windows_installer_asks_the_same_question()
+    {
+        // Asserted over its source, as its sibling is. The three things that
+        // matter: it looks for another gg on PATH before writing the shim, it
+        // takes the name as a parameter for the run with nobody at the
+        // keyboard, and the shim it writes carries that name.
+        var script = await File.ReadAllTextAsync(
+            Path.Combine(RepoRoot(), "deploy", "install.ps1"));
+
+        await Assert.That(script).Contains("[string] $Alias");
+        await Assert.That(script).Contains("Get-Command")
+            .Because("a collision is found by asking PowerShell what `gg` resolves to, not by "
+                   + "guessing directories.");
+        await Assert.That(script).Contains("\"$Alias.cmd\"")
+            .Because("the shim is the command a person types, so it carries the name they chose.");
+        await Assert.That(script).DoesNotContain("'gg.cmd'");
+    }
+
     /// <summary>A directory standing in for one machine and one release page.</summary>
     private sealed class Sandbox : IDisposable
     {
@@ -556,6 +691,30 @@ public class TheInstallerVerifiesWhatItInstallsTests
 
         /// <summary>Whether /usr/local/bin is already on the PATH the script sees.</summary>
         public bool BinAlreadyOnPath { get; set; }
+
+        /// <summary>Somebody else's program called gg, earlier on PATH than ours would be.</summary>
+        public string ForeignGg()
+        {
+            Stub("gg", "#!/bin/sh\necho 'gg - git (G)UI'\n");
+            return Path.Combine(Stubs, "gg");
+        }
+
+        /// <summary>A plain file already sitting where the link would go.</summary>
+        public string FileAtTheLink(string content)
+        {
+            var bin = Path.Combine(Root, "usr", "local", "bin");
+            Directory.CreateDirectory(bin);
+            var path = Path.Combine(bin, "gg");
+            System.IO.File.WriteAllText(path, content);
+            return path;
+        }
+
+        /// <summary>Where the link named <paramref name="command"/> points, or null for no link.</summary>
+        public string? LinkOf(string command) =>
+            new FileInfo(Path.Combine(Root, "usr", "local", "bin", command)).LinkTarget;
+
+        public bool Exists(string command) =>
+            System.IO.File.Exists(Path.Combine(Root, "usr", "local", "bin", command));
 
         public Sandbox()
         {
@@ -606,7 +765,8 @@ public class TheInstallerVerifiesWhatItInstallsTests
             // /usr/bin and the fallback would never be exercised there.
             foreach (var tool in (string[])
                      ["sh", "mktemp", "mkdir", "tar", "gzip", "mv", "ln", "rm", "rmdir",
-                      "grep", "cut", "sha256sum", "shasum", "chmod", "cat", "stty", "id", "dirname"])
+                      "grep", "cut", "sha256sum", "shasum", "chmod", "cat", "stty", "id", "dirname",
+                      "readlink"])
             {
                 var real = ((string[])["/usr/bin", "/bin", "/usr/sbin", "/sbin"])
                     .Select(d => Path.Combine(d, tool))

@@ -152,20 +152,38 @@ public class ATableHoldsAtItsEdgeTests
     [Test]
     public async Task The_row_blinks_rather_than_glowing_while_a_key_is_held()
     {
-        var presses = new EdgePresses(0, T0, true);
-
+        // A FINGER DOWN: the press keeps being re-armed, as auto-repeat does,
+        // so the only thing that can make it go dark is the phase.
         var lit = new List<bool>();
-        for (var ms = 0; ms < 700; ms += 60)
+        var step = TableEdge.HalfABlink / 4;
+
+        for (var tick = 0; tick < 24; tick++)
         {
-            lit.Add(TableEdge.Lit(presses with { At = T0.AddMilliseconds(ms) },
-                                  T0.AddMilliseconds(ms)));
+            var at = T0 + (step * tick);
+            lit.Add(TableEdge.Lit(new EdgePresses(0, at, true), at));
         }
 
-        await Assert.That(lit).Contains(true);
-        await Assert.That(lit).Contains(false)
+        var flips = lit.Zip(lit.Skip(1)).Count(pair => pair.First != pair.Second);
+
+        await Assert.That(flips).IsGreaterThanOrEqualTo(2)
             .Because("the phase comes off the wall clock rather than off the last press: "
                    + "measured from the newest repeat it would restart every 30ms and the "
-                   + "row would glow steadily instead of blinking.");
+                   + "row would glow steadily instead of flashing. Sampled four times a "
+                   + "half-cycle so the step cannot alias with the period.");
+    }
+
+    [Test]
+    public async Task A_single_tap_is_a_blip_rather_than_a_pulse()
+    {
+        var cycles = TableEdge.Blinking / (TableEdge.HalfABlink * 2);
+
+        await Assert.That(cycles).IsLessThanOrEqualTo(3)
+            .Because("one tap flashing six times reads as something loading rather than as "
+                   + "the table answering a key - and a held key keeps re-arming the window, "
+                   + "so it does not need to be long to flash for as long as somebody holds.");
+        await Assert.That(cycles).IsGreaterThanOrEqualTo(1)
+            .Because("and it has to complete at least one, or a tap could land entirely "
+                   + "inside the lit half and show nothing at all.");
     }
 
     [Test]

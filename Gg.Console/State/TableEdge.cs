@@ -41,23 +41,39 @@ namespace Gg.Console;
 public static class TableEdge
 {
     /// <summary>
-    /// Presses closer together than this are the OS repeating, not a person.
+    /// Presses closer together than this are one gesture continuing, not a
+    /// person deciding again.
     /// </summary>
     /// <remarks>
-    /// Auto-repeat lands every 30-50ms on the platforms this runs on, and the
-    /// fastest a person sustains a deliberate tap is nearer 120ms. Seventy sits
-    /// between them with room on both sides.
+    /// <para>
+    /// <b>This was 70ms and it was measured wrong.</b> The reasoning was that
+    /// auto-repeat lands every 30-50ms while the fastest deliberate tap is
+    /// nearer 120ms, so 70 separates them. The rate is right and the
+    /// MEASUREMENT is not: the gap seen here is between two runs of a handler,
+    /// which is the console's own pace and not the keyboard's. A key held on a
+    /// machine whose repeat is 30ms - measured, `defaults read -g KeyRepeat` is
+    /// 2 - still arrived 100ms and more apart while the table was busy drawing
+    /// a hundred rows and flashing a row, so a hold read as tapping and the
+    /// third one left. Reported from use, on the board's last row.
+    /// </para>
+    /// <para>
+    /// <b>So the default is CONTINUATION, and leaving is what has to be
+    /// proven.</b> Latency can only stretch a gap, never shrink one - so a
+    /// threshold well above any plausible stretch cannot turn a hold into a
+    /// tap, while the reverse mistake was one frame of lag away.
+    /// </para>
+    /// <para>
+    /// <b>What it costs, said plainly:</b> mashing the key as fast as a person
+    /// can now reads as holding it, and the three taps that leave have to be
+    /// deliberate ones. Tapping quickly and a slow repeat rate are the same
+    /// stream of bytes, so no threshold tells them apart; this one is chosen so
+    /// the gesture that CANNOT go wrong is the one somebody does by accident.
+    /// The terminal itself knows - the kitty protocol reports press against
+    /// repeat - but <c>AnsiInputProcessor</c> drops every event that is not a
+    /// press before any view sees it, so that answer is a library change away.
+    /// </para>
     /// </remarks>
-    public static readonly TimeSpan Repeating = TimeSpan.FromMilliseconds(70);
-
-    /// <summary>A gap at least this long means the key came back up.</summary>
-    /// <remarks>
-    /// <b>Wider than the repeat rate on purpose.</b> Auto-repeat is not evenly
-    /// spaced - a loaded scheduler stretches an interval - and treating one
-    /// stretched gap as a release would let a hold leave the table, which is the
-    /// one thing it may never do.
-    /// </remarks>
-    public static readonly TimeSpan Released = TimeSpan.FromMilliseconds(250);
+    public static readonly TimeSpan Continuing = TimeSpan.FromMilliseconds(300);
 
     /// <summary>After this long, the next tap is a new thought and counts as one.</summary>
     public static readonly TimeSpan Forgotten = TimeSpan.FromMilliseconds(1500);
@@ -102,15 +118,10 @@ public static class TableEdge
 
         var gap = at - last;
 
-        // THE OS REPEATING, which is a finger still down. The count goes back to
-        // nothing so that no length of hold can add up to leaving.
-        if (gap < Repeating)
-        {
-            return (new EdgePresses(0, at, true), false);
-        }
-
-        // STILL THAT SAME HOLD: too soon to be a release, so it is not a tap.
-        if (were.Holding && gap < Released)
+        // ONE GESTURE CONTINUING - a finger down, or a key being mashed. The
+        // count goes back to nothing so that no length of it can add up to
+        // leaving, and stays there until somebody pauses.
+        if (gap < Continuing)
         {
             return (new EdgePresses(0, at, true), false);
         }

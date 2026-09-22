@@ -753,14 +753,36 @@ public sealed class Doctor(
         ArgumentNullException.ThrowIfNull(role);
         ArgumentNullException.ThrowIfNull(unresolved);
 
-        var lacking = role.Trackers
-            .Where(t => t.Locator is { Length: > 0 } locator && unresolved(locator))
+        // ASKED BEFORE THE STORE IS, because a string that could never be a
+        // credential name is not one somebody forgot to add. Reporting it as
+        // absent prints `gg credential add --repo <that string>`, which cannot
+        // be followed - and sends a person to the store when the line to
+        // correct is the declaration. Measured: gg's own refusal offered an
+        // example in a sibling variable's spelling, and this is what a person
+        // copying it saw.
+        var misspelled = role.Trackers
+            .Where(t => t.Locator is { Length: > 0 } locator
+                     && CredentialLocator.Validate(locator) is not null)
             .Select(t => $"{t.Key} ({t.Locator})")
             .ToList();
 
-        if (role.TrackerProblems.Count > 0 || lacking.Count > 0)
+        var lacking = role.Trackers
+            .Where(t => t.Locator is { Length: > 0 } locator
+                     && CredentialLocator.Validate(locator) is null
+                     && unresolved(locator))
+            .Select(t => $"{t.Key} ({t.Locator})")
+            .ToList();
+
+        if (role.TrackerProblems.Count > 0 || misspelled.Count > 0 || lacking.Count > 0)
         {
             var wrong = new List<string>(role.TrackerProblems);
+
+            if (misspelled.Count > 0)
+            {
+                wrong.Add(
+                    "declared here naming something that could not be a credential: "
+                  + string.Join(", ", misspelled));
+            }
 
             if (lacking.Count > 0)
             {
@@ -780,7 +802,11 @@ public sealed class Doctor(
                 Blocking = false,
                 Detail = string.Join(" ", wrong),
                 Fixable = true,
-                Fix = lacking.Count > 0
+                // THE STORE ONLY WHEN THE STORE IS THE ANSWER. A declaration
+                // to correct and a credential to add are two different days'
+                // work, and the wrong one of them is a person opening a
+                // credential store to look for something that was never there.
+                Fix = lacking.Count > 0 && misspelled.Count == 0
                     ? "gg credential add --repo <slug>, on this machine, for each one listed - "
                     + "the slug is the locator without its 'local:' prefix."
                     : "Correct the entry the sentence names, with `gg config set intent-hosts` "

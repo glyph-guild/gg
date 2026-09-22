@@ -100,9 +100,18 @@ public class ARunningLoopSaysWhatItCouldNotTakeTests
     [Test]
     public async Task And_an_offer_already_in_force_says_nothing_at_all()
     {
+        // THE STEADY STATE IS RECORDED, NOT INFERRED. `AcceptedOffer` is what
+        // makes this beat quiet - holding the same VALUE at an unrecorded
+        // version is a version this file has not taken, and the runner is
+        // right to stop and let the next start record it.
         var steady = OfferedAtStartup.OnABeat(
             Offering("v3", OfferableKeys.StunServers, "stun:relay.invalid:3478"),
-            new Configuration { AcceptOffered = true, StunServers = "stun:relay.invalid:3478" },
+            new Configuration
+            {
+                AcceptOffered = true,
+                StunServers = "stun:relay.invalid:3478",
+                AcceptedOffer = "v3",
+            },
             Path,
             alreadySaid: null);
 
@@ -110,5 +119,54 @@ public class ARunningLoopSaysWhatItCouldNotTakeTests
         await Assert.That(steady.Stop).IsFalse()
             .Because("every beat after the first meets an offer already in force, and a line "
                    + "about it each time is a line in every machine's log for ever.");
+    }
+
+    /// <summary>
+    /// Every part of the beat is read by the root, which is where it was lost.
+    /// </summary>
+    /// <remarks>
+    /// <b>The defect was never in a decision - it was in a lambda ignoring one.</b>
+    /// The old callback called <c>Decide</c>, read <c>Write</c>, and returned;
+    /// the <c>Note</c> beside it was thrown away unread, and `Program.cs` is
+    /// the one file in this repository no test opens. Reflected over the record
+    /// rather than written as a list of three names, so a part added later is
+    /// one the root must answer for too.
+    /// </remarks>
+    [Test]
+    public async Task And_the_root_reads_every_part_of_it()
+    {
+        var root = ProgramText();
+
+        var marker = root.IndexOf("offered: carried =>", StringComparison.Ordinal);
+        await Assert.That(marker).IsGreaterThan(-1)
+            .Because("the loop's offer callback is what this asserts about, and a rename here "
+                   + "leaves the assertion measuring nothing.");
+
+        var end = root.IndexOf("\n            },", marker, StringComparison.Ordinal);
+        var callback = root[marker..end];
+
+        await Assert.That(callback).Contains("OfferedAtStartup.OnABeat")
+            .Because("a decision spelled out in a composition root is a decision no test can "
+                   + "reach, which is how this one was wrong in production and green here.");
+
+        foreach (var part in typeof(OfferedAtStartup.Beat).GetProperties())
+        {
+            await Assert.That(callback).Contains(part.Name)
+                .Because($"'{part.Name}' is part of what the beat decided, and a part the root "
+                       + "does not read is a decision made and discarded - exactly what "
+                       + "happened to the sentence this file exists for.");
+        }
+    }
+
+    private static string ProgramText()
+    {
+        var here = new DirectoryInfo(AppContext.BaseDirectory);
+        while (here is not null
+               && !Directory.Exists(System.IO.Path.Combine(here.FullName, "Gg.Cli")))
+        {
+            here = here.Parent;
+        }
+
+        return File.ReadAllText(System.IO.Path.Combine(here!.FullName, "Gg.Cli", "Program.cs"));
     }
 }

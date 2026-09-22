@@ -2543,6 +2543,15 @@ static async Task<int> HoldAsync(
         // on the disk, including the one a person is sitting in front of, and
         // that is exactly the spending a reserve exists to protect.
         allowance: Allowance(),
+        // AND WHAT THE MACHINE ITSELF HAS. Four numbers about silicon, on
+        // their own route with their own MeasuredAt: no path, no hostname, no
+        // account, nothing a customer wrote - so the data boundary is not in
+        // question here, which is worth saying rather than assuming.
+        //
+        // One reporter per host, because it holds the previous sample: both cpu
+        // sources are cumulative counters, so a rate is a difference and a
+        // second instance would keep restarting the interval.
+        machine: Gg.Runner.MachineReporter.OfThisMachine(),
         // THE ONE READER, HANDED ACROSS. Gg.Runner cannot see Gg.Client - the
         // runner is treated as hostile and the reference graph keeps them
         // apart - so this project, which is the only one that sees both, passes
@@ -2892,6 +2901,15 @@ static async Task<int> RunnerUpAsync()
             new LocalCredentialResolver(MachineCredentialStore.ThisMachine()), workspace, stopping.Token,
             destinations: destinations, trackers: trackers, executor: executor,
             allowance: Allowance(),
+            // AND WHAT THE MACHINE ITSELF HAS. Four numbers about silicon, on
+            // their own route with their own MeasuredAt: no path, no hostname, no
+            // account, nothing a customer wrote - so the data boundary is not in
+            // question here, which is worth saying rather than assuming.
+            //
+            // One reporter per host, because it holds the previous sample: both cpu
+            // sources are cumulative counters, so a rate is a difference and a
+            // second instance would keep restarting the interval.
+            machine: Gg.Runner.MachineReporter.OfThisMachine(),
             // HOW THE AGENT AUTHENTICATES, from the same declaration the
             // executor came from, and the token from the same store the
             // channel's keeper writes - so a token sent over the channel is
@@ -3260,6 +3278,15 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
         new LocalCredentialResolver(MachineCredentialStore.ThisMachine()), workspace, stopping.Token,
         destinations: destinations, trackers: trackers, executor: executor,
         allowance: Allowance(),
+        // AND WHAT THE MACHINE ITSELF HAS. Four numbers about silicon, on
+        // their own route with their own MeasuredAt: no path, no hostname, no
+        // account, nothing a customer wrote - so the data boundary is not in
+        // question here, which is worth saying rather than assuming.
+        //
+        // One reporter per host, because it holds the previous sample: both cpu
+        // sources are cumulative counters, so a rate is a difference and a
+        // second instance would keep restarting the interval.
+        machine: Gg.Runner.MachineReporter.OfThisMachine(),
         // A MEMBER IS THE MACHINE THIS EXISTS FOR: no login of its own, so it
         // holds until a token is sent, and the hold is what keeps it reachable.
         agent: agent,

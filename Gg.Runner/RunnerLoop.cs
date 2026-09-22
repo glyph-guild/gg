@@ -348,6 +348,14 @@ public sealed class RunnerLoop(
     //
     // LAST and defaulted, for the reason beatPace and offered above it are.
     Func<DateTimeOffset, Task<Gg.Contracts.AllowanceReading?>>? allowance = null,
+    // WHAT THIS MACHINE HAS, on the allowance's shape beside it. Null is a
+    // machine that measures nothing, which is every machine composed without a
+    // meter - and the reporter answers null between cadences, so the loop asks
+    // on every beat and is told nothing most times.
+    //
+    // Synchronous, unlike the allowance: reading four files is not a round trip
+    // and a Task here would be ceremony over a value already in hand.
+    Func<DateTimeOffset, Gg.Contracts.MachineReading?>? machine = null,
     // WHEN THIS RUNNER'S OWN CREDENTIAL ENDS, so a 401 can be told apart from a
     // revocation. Null is a real value and means "not recorded" - every runner
     // registered before a member existed is in that state - and it is
@@ -613,6 +621,34 @@ public sealed class RunnerLoop(
         }
     }
 
+    /// <summary>
+    /// Says what this machine has, and never stands the runner down over it.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="ReportAllowanceAsync"/>'s guard, for its reason: the control
+    /// plane is the authority on liveness, and a runner that took itself out of
+    /// the fleet because a measurement was refused would have turned a
+    /// bookkeeping route into an availability dependency.
+    /// </remarks>
+    private async Task ReportMachineAsync(CancellationToken cancellationToken)
+    {
+        if (machine is null) { return; }
+
+        try
+        {
+            if (machine(_clock.UtcNow) is { } reading)
+            {
+                await _protocol.ReportMachineAsync(reading, cancellationToken);
+            }
+        }
+        catch (HttpRequestException)
+        {
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
     /// <summary>The flight this loop is holding, or null while it is idle.</summary>
     /// <remarks>
     /// <b>What "idle" is asked of now.</b> It used to be asked of the attended
@@ -713,6 +749,12 @@ public sealed class RunnerLoop(
             // and the minutes a machine is busy are exactly the minutes its
             // allowance is moving.
             await ReportAllowanceAsync(runnerId, cancellationToken);
+
+            // AND WHAT IT HAS TO SPEND IT WITH, beside the beat for the same
+            // reason and reported while holding a flight for the same one: the
+            // minutes a machine is busy are exactly the minutes worth knowing
+            // its load.
+            await ReportMachineAsync(cancellationToken);
 
             // A SERVED BEAT CLEARS IT, so an hour of health does not inherit a
             // bad minute's wait.

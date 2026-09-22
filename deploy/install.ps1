@@ -111,12 +111,21 @@ try {
         "`"%~dp0$Version\gg.exe`" %*"
     )
 
+    # THE USER'S PATH, NEVER THE MACHINE'S - a per-user install is the whole
+    # point of the default prefix, and nothing here has administrator. Joined
+    # from the entries that exist rather than with a separator regardless: on a
+    # profile whose user PATH is empty, the old join wrote a leading empty
+    # entry, and an empty PATH entry means the current directory to cmd.exe -
+    # a PATH that runs whatever is in the folder you happen to be in.
     $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-    if (($userPath -split ';') -notcontains $Prefix) {
-        [Environment]::SetEnvironmentVariable('Path', "$userPath;$Prefix", 'User')
+    $entries = @($userPath -split ';' | Where-Object { $_ })
+    if ($entries -notcontains $Prefix) {
+        [Environment]::SetEnvironmentVariable('Path', (($entries + $Prefix) -join ';'), 'User')
         Write-Host "install.ps1: added $Prefix to your PATH - open a new terminal for it"
     }
-    $env:Path = "$env:Path;$Prefix"
+    if (($env:Path -split ';') -notcontains $Prefix) {
+        $env:Path = "$env:Path;$Prefix"
+    }
 
     & $shim --version
 

@@ -76,8 +76,10 @@ $v='0.49.0'
 
 It picks the build for the machine it is on, checks the bytes against the
 build's own attestation before unpacking them, installs the native libraries
-beside the binary, and **starts nothing**. It then says the two things left to
-do — where your tenant is, and signing in:
+beside the binary, makes sure `/usr/local/bin` is on the PATH of the shell you
+ran it from — adding it to that shell's startup file if it is not, and naming
+the file — and **starts nothing**. It then says the two things left to do —
+where your tenant is, and signing in:
 
 ```sh
 gg config set control-plane <url>

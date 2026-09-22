@@ -207,6 +207,71 @@ mv -f "$link" "$bin/gg"
 
 printf 'install.sh: %s, %s; /usr/local/bin/gg points at it.\n' "$installed" "$checked"
 
+# AND WHETHER A SHELL WILL FIND IT. "gg: command not found" after a successful
+# install is what a person meets on a machine whose PATH lacks /usr/local/bin -
+# a stripped container, an rc file that rewrites PATH, a distro with no
+# /etc/environment. A Mac's path_helper and most distros put it there already,
+# so usually this says so and writes nothing; when it is missing, the line goes
+# in the startup file of the shell the PERSON is in.
+#
+# THE PERSON'S SHELL, NOT THIS ONE. This script is /bin/sh, and under sudo $HOME
+# and $SHELL are root's, so the invoking user's are read from the passwd
+# database - and a file this creates in their home is made theirs, not root's.
+who="${SUDO_USER-}"
+home="${HOME-}"
+shell="${SHELL-}"
+if [ -n "$who" ]; then
+  entry="$(getent passwd "$who" 2>/dev/null || true)"
+  if [ -n "$entry" ]; then
+    home="$(printf '%s' "$entry" | cut -d: -f6)"
+    shell="$(printf '%s' "$entry" | cut -d: -f7)"
+  elif command -v dscl >/dev/null 2>&1; then
+    home="$(dscl . -read "/Users/$who" NFSHomeDirectory 2>/dev/null | cut -d' ' -f2-)"
+    shell="$(dscl . -read "/Users/$who" UserShell 2>/dev/null | cut -d' ' -f2-)"
+  fi
+fi
+
+path_line='export PATH="/usr/local/bin:$PATH"'
+marker="# added by gg's installer, so the shell finds the command"
+
+case ":$PATH:" in
+  *":/usr/local/bin:"*)
+    printf 'install.sh: /usr/local/bin is on PATH.\n' ;;
+  *)
+    # ONE FILE PER SHELL, THE ONE IT READS FOR A NEW TERMINAL. bash differs by
+    # platform: Terminal on a Mac opens login shells, which read .bash_profile
+    # and not .bashrc. fish does not read POSIX `export` at all - a line that is
+    # a syntax error in its startup file breaks every new shell, worse than the
+    # missing PATH - so it gets its own spelling in the directory fish reads
+    # for exactly this, and fish_add_path is idempotent on its own.
+    startup=""
+    case "${shell##*/}" in
+      zsh) startup="$home/.zshrc" ;;
+      bash) if [ "$os" = osx ]; then startup="$home/.bash_profile"; else startup="$home/.bashrc"; fi ;;
+      fish) startup="$home/.config/fish/conf.d/gg.fish" ;;
+      sh | dash | ash | ksh) startup="$home/.profile" ;;
+    esac
+
+    if [ -z "$home" ] || [ -z "$startup" ]; then
+      # GUESSING A FILE IS HOW SOMEBODY'S STARTUP GETS A LINE FOR A SHELL THEY DO
+      # NOT USE. The line itself is the one thing this can still hand over.
+      printf 'install.sh: /usr/local/bin is not on PATH, and this shell is not one this script knows. Add this to your shell'\''s startup file:\n  %s\n' "$path_line"
+    elif [ -f "$startup" ] && grep -qF -- "$marker" "$startup" 2>/dev/null; then
+      printf 'install.sh: /usr/local/bin was already added to %s.\n' "$startup"
+    else
+      mkdir -p "$(dirname "$startup")"
+      created=""
+      [ -e "$startup" ] || created=1
+      if [ "${shell##*/}" = fish ]; then
+        printf '%s\nfish_add_path -g /usr/local/bin\n' "$marker" >> "$startup"
+      else
+        printf '\n%s\n%s\n' "$marker" "$path_line" >> "$startup"
+      fi
+      [ -z "$who" ] || [ -z "$created" ] || chown "$who" "$startup" "$(dirname "$startup")" 2>/dev/null || true
+      printf 'install.sh: /usr/local/bin was not on PATH; added it to %s for %s. Open a new terminal, or run: %s\n' "$startup" "${shell##*/}" "$path_line"
+    fi ;;
+esac
+
 # AND WHAT A LAPTOP IS: the binary, and nothing running. Said rather than
 # silent, because "did that make me a runner?" is the question somebody has
 # after typing one line - and because the default control plane is localhost,

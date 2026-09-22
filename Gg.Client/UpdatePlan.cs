@@ -241,11 +241,23 @@ public static class UpdatePlans
     /// The native shape, which the installer owns.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The installer puts the release in its own versioned directory, checks
     /// the bytes against an attestation before writing any, renames the symlink
     /// rather than deleting and recreating it - so the path is never absent -
     /// and restarts the unit if there is one. None of which this binary should
     /// reimplement.
+    /// </para>
+    /// <para>
+    /// <b>It always wants root, and that is not a property of the machine.</b>
+    /// Read off the script rather than assumed: its destination is
+    /// <c>/usr/local/lib/gg</c> and the link it swaps is
+    /// <c>/usr/local/bin/gg</c>, both root's on every platform this ships to.
+    /// Its <c>--root</c> is a staging prefix for building an image - the
+    /// symlink it writes still points at the absolute <c>/usr/local</c> path -
+    /// so there is no user-prefix install to fall back to and a laptop is no
+    /// different from a host here.
+    /// </para>
     /// </remarks>
     private static UpdatePlan ByInstaller(
         InstallShape shape, string? installed, string target, string? installer)
@@ -272,7 +284,13 @@ public static class UpdatePlans
                   + "any, installs beside what is there, and swaps the link by rename"),
             ],
             Refusal: null,
-            NeedsRoot: false,
+
+            // ALWAYS, rather than when a probe says so. The installer's
+            // destination is root's on every platform gg ships to, so a plan
+            // that said otherwise would be wrong everywhere rather than
+            // sometimes - and a caller that learns it needs root from a
+            // permission error has already started.
+            NeedsRoot: true,
             Restarts: true);
     }
 

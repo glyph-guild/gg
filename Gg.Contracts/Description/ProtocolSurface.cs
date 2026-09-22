@@ -616,6 +616,21 @@ public static class ProtocolSurface
         },
         new()
         {
+            // WHAT ITS MACHINE HAS, on the readiness reading's shape one entry
+            // up and for the same reason: a measurement on its own route, 202
+            // and nothing back. Not a field on the beat, which is liveness only
+            // - a machine that could report its load on the beat could report
+            // it while dead, and a stale "plenty spare" is that hazard with a
+            // number on it.
+            Method = "POST",
+            Path = "/v1/runner/machine/reading",
+            Audience = Audience.Runner,
+            Request = typeof(MachineReading),
+            Statuses = [202, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
+        new()
+        {
             Method = "POST",
             Path = "/v1/runners/{id}/heartbeat",
             Audience = Audience.Runner,
@@ -1867,6 +1882,9 @@ public static class ProtocolSurface
             [typeof(AgentReading)] = ["provider", "standing", "source", "measuredAt", "diagnosis"],
             [typeof(ReadinessItem)] = ["kind", "subject", "met", "diagnosis"],
             [typeof(ReadinessReading)] = ["profile", "version", "items", "measuredAt"],
+            [typeof(MachineReading)] = [
+                "measuredAt", "overSeconds", "cpuMilliLimit", "cpuMilliUsed",
+                "memoryLimitBytes", "memoryUsedBytes"],
             [typeof(AllowanceSummary)] =
                 ["name", "measuredAt", "windows", "runners", "owners", "floor", "override"],
             [typeof(AllowanceFloor)] = ["sessionFraction", "weekFraction"],

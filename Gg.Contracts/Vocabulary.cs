@@ -29,6 +29,7 @@ public static class Vocabulary
         typeof(RunnerClaimRequest),
         typeof(ReadinessItem),
         typeof(ReadinessReading),
+        typeof(MachineReading),
         typeof(EnrollmentTokenRequest),
         typeof(EnrollmentTokenMinted),
         typeof(EnrollmentTokenSummary),

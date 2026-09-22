@@ -368,3 +368,111 @@ public sealed record RunnerRetired
     /// <summary>When it left the fleet.</summary>
     public required DateTimeOffset RetiredAt { get; init; }
 }
+
+/// <summary>
+/// What a runner's machine has, and how much of it is in use.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>A reading, on <see cref="ReadinessReading"/>'s argument</b>: its own route
+/// and its own <see cref="MeasuredAt"/>, never a field on the beat. The
+/// heartbeat is liveness ONLY - "a runner that could report busy could also
+/// report it while dead" - and a machine's load is the same hazard with a
+/// number on it: a stale reading still saying "plenty spare" is worse than no
+/// reading at all.
+/// </para>
+/// <para>
+/// <b>Of the thing that would be THROTTLED.</b> A pool member is a container on
+/// a host and both are runners, so each reports for itself: the cgroup's
+/// figures from inside one, the machine's from a host. Neither ever reports the
+/// other's.
+/// </para>
+/// <para>
+/// <b>The limit travels WITH the usage, rather than as a static offer.</b>
+/// <see cref="RunnerMachineOffer"/> is the precedent for a fact about a machine
+/// that arrives once, and a limit looks like one - but
+/// <see cref="AllowanceWindow"/> puts its counts and its ceiling in one reading
+/// for a better reason: a limit that arrives separately can disagree with the
+/// numbers it is supposed to bound, and then nobody can tell which of the two
+/// is stale.
+/// </para>
+/// <para>
+/// <b>Every number is optional, and absence is the answer.</b> A machine that
+/// cannot measure something says nothing about it; a zero would be a claim that
+/// it has none. A developer's Mac reports its cores and nothing else until
+/// somebody writes the interop for it, and four absences are honest where four
+/// zeroes would describe an idle machine with no memory.
+/// </para>
+/// <para>
+/// <b>Millicores, as a scheduler expresses them.</b> A cgroup quota is
+/// genuinely fractional - half a core is legal - and a core count rounds such a
+/// quota up, so thousandths are what can carry the answer. The used figure may
+/// exceed the limit briefly, because a quota is enforced over a period and an
+/// average across period boundaries can land above it; it is reported as
+/// measured rather than clamped, since a number held at its ceiling cannot show
+/// a machine being throttled.
+/// </para>
+/// </remarks>
+[PinnedId("7e1c9a54-3b28-4d6f-8c07-a95e2f4b8d31")]
+public sealed record MachineReading
+{
+    /// <summary>When this machine looked.</summary>
+    public required DateTimeOffset MeasuredAt { get; init; }
+
+    /// <summary>
+    /// How many seconds <see cref="CpuMilliUsed"/> averages over, or null when
+    /// there is no figure yet.
+    /// </summary>
+    /// <remarks>
+    /// <b>Both cpu sources are cumulative counters</b>, so a rate is a
+    /// difference over an elapsed time and a machine's first reading has
+    /// neither. The limits do not wait for it.
+    /// </remarks>
+    public int? OverSeconds { get; init; }
+
+    /// <summary>How much cpu this machine may use, in thousandths of a core.</summary>
+    public int? CpuMilliLimit { get; init; }
+
+    /// <summary>How much of it was used over the interval, in the same unit.</summary>
+    public int? CpuMilliUsed { get; init; }
+
+    /// <summary>The ceiling in bytes: the cgroup's, or what is installed.</summary>
+    public long? MemoryLimitBytes { get; init; }
+
+    /// <summary>
+    /// What is in use in bytes, not counting what the kernel would take back.
+    /// </summary>
+    public long? MemoryUsedBytes { get; init; }
+
+    /// <summary>
+    /// Why this is not something a machine can lie about usefully, and what to
+    /// refuse anyway.
+    /// </summary>
+    /// <remarks>
+    /// <b>Negative is the only refusal.</b> A machine over its own stated limit
+    /// is a real state - see the note on the type about periods - so a used
+    /// figure above the limit is accepted and shown. What no reading can mean is
+    /// a negative quantity of anything.
+    /// </remarks>
+    public static string? Validate(MachineReading reading)
+    {
+        ArgumentNullException.ThrowIfNull(reading);
+
+        foreach (var (what, value) in ((string, long?)[])
+                 [("overSeconds", reading.OverSeconds),
+                  ("cpuMilliLimit", reading.CpuMilliLimit),
+                  ("cpuMilliUsed", reading.CpuMilliUsed),
+                  ("memoryLimitBytes", reading.MemoryLimitBytes),
+                  ("memoryUsedBytes", reading.MemoryUsedBytes)])
+        {
+            if (value < 0)
+            {
+                return $"'{what}' is {value}, and no machine uses or is allowed a negative "
+                     + "quantity of anything. Leave a figure out when it could not be "
+                     + "measured; absent and zero are different answers.";
+            }
+        }
+
+        return null;
+    }
+}

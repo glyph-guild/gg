@@ -51,6 +51,7 @@ namespace Gg.Runner;
 [JsonSerializable(typeof(RunnerCredentialRenewed))]
 [JsonSerializable(typeof(FleetProfileState))]
 [JsonSerializable(typeof(ReadinessReading))]
+[JsonSerializable(typeof(MachineReading))]
 public sealed partial class RunnerJsonContext : JsonSerializerContext;
 
 /// <summary>
@@ -211,6 +212,22 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync(
             RunnerJsonContext.Default.FleetProfileState, cancellationToken);
+    }
+
+    public async Task ReportMachineAsync(
+        MachineReading reading, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(reading);
+
+        // NO RUNNER ID IN THE PATH, as the readiness reading has none: the
+        // credential says which runner this is, and a runner naming another
+        // would be a runner speaking for it.
+        using var request = Request(HttpMethod.Post, "/v1/runner/machine/reading");
+        request.Content = JsonContent.Create(reading, RunnerJsonContext.Default.MachineReading);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        ThrowIfProtocolRefused(response);
+        response.EnsureSuccessStatusCode();
     }
 
     public async Task ReportReadinessAsync(

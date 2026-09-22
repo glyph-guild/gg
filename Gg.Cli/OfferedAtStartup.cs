@@ -66,6 +66,82 @@ public static class OfferedAtStartup
         public string? Note { get; init; }
     }
 
+    /// <summary>What a RUNNING loop should do with the offer it was handed.</summary>
+    /// <param name="alreadySaid">
+    /// The offer version this loop has already spoken about, so the same
+    /// refusal is said once rather than every beat.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// <b>A function because the root cannot be tested.</b> This was a lambda
+    /// that read only <see cref="Outcome.Write"/> and returned - so an offer
+    /// that could not be taken produced a <see cref="Outcome.Note"/> which
+    /// nothing printed, in the one place where nobody is present to notice it
+    /// any other way.
+    /// </para>
+    /// <para>
+    /// <b>Measured on slice forty-seven's walk:</b> a runner one version behind
+    /// sat on the old configuration for four minutes with a new offer in force
+    /// and wrote nothing at all. It was behaving correctly - a machine refuses a
+    /// key it does not know - and the silence is what sent the walk looking at
+    /// the control plane instead.
+    /// </para>
+    /// <para>
+    /// <b>ONCE PER OFFER, NOT PER BEAT.</b> A loop beats every few seconds, and
+    /// the same refusal repeated is how a log stops being read - which is the
+    /// failure the note's own remark warns about.
+    /// </para>
+    /// </remarks>
+    public static Beat OnABeat(
+        OfferedConfiguration? offered, Configuration? file, string path, string? alreadySaid)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        if (offered is null)
+        {
+            return new Beat();
+        }
+
+        var decided = Decide(offered, file, path);
+
+        // TAKEN BY STOPPING, which is the behaviour that already worked: nothing
+        // is applied to a running loop, so the next start is what takes it.
+        if (decided.Write is not null)
+        {
+            return new Beat
+            {
+                Say = $"offered configuration {offered.Version} is not what this runner is "
+                    + "running on, and nothing is applied to a running loop. Stopping so the "
+                    + "next start takes it.",
+                Stop = true,
+                Said = offered.Version,
+            };
+        }
+
+        // AND SAID ONCE. Restarting would not help - this build will not take
+        // this offer however often it starts - so the sentence is all there is.
+        if (decided.Note is { Length: > 0 } note
+            && !string.Equals(alreadySaid, offered.Version, StringComparison.Ordinal))
+        {
+            return new Beat { Say = note, Said = offered.Version };
+        }
+
+        return new Beat { Said = alreadySaid };
+    }
+
+    /// <summary>What a running loop says and does about one beat's offer.</summary>
+    public sealed record Beat
+    {
+        /// <summary>The line to write, or null for the steady state.</summary>
+        public string? Say { get; init; }
+
+        /// <summary>Whether to stop, so the next start takes what was offered.</summary>
+        public bool Stop { get; init; }
+
+        /// <summary>The offer version spoken about, to hand back on the next beat.</summary>
+        public string? Said { get; init; }
+    }
+
     /// <summary>What this machine should do with the offer it was handed.</summary>
     public static Outcome Decide(OfferedConfiguration? offered, Configuration? file, string path)
     {

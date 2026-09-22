@@ -186,6 +186,51 @@ public class WhatUpdatingThisMachineTakesTests
                    + "configuration and the planner only passes it on.");
     }
 
+    // ---- what a version may be ----
+
+    [Test]
+    public async Task A_target_that_is_not_a_version_is_refused()
+    {
+        foreach (var pretender in (string[])
+                 ["0.49.0; rm -rf /", "../../etc/passwd", "0.49.0 --tool-path /", "latest",
+                  "v0.49.0", "0.49.0\n--version"])
+        {
+            var plan = For(InstallKind.ToolPath, target: pretender, toolPath: "/usr/local/lib/gg");
+
+            await Assert.That(plan.CanApply).IsFalse()
+                .Because($"'{pretender}' arrived from a control plane and is not a version. "
+                       + "Nothing downstream is shell-interpreted, so this is not the last "
+                       + "line of defence - it is the one that makes the others easy to "
+                       + "reason about.");
+        }
+    }
+
+    [Test]
+    public async Task A_prerelease_is_still_a_version()
+    {
+        var plan = For(InstallKind.ToolPath, target: "0.50.0-rc.1", toolPath: "/usr/local/lib/gg");
+
+        await Assert.That(plan.CanApply).IsTrue()
+            .Because("refusing a legitimate prerelease would make this rule the thing that "
+                   + "stops a release going out.");
+    }
+
+    [Test]
+    public async Task A_step_is_a_program_and_its_arguments_rather_than_a_line()
+    {
+        var plan = For(InstallKind.ToolPath, toolPath: "/usr/local/lib/gg");
+        var update = plan.Steps.Last();
+
+        await Assert.That(update.Program).IsEqualTo("dotnet");
+        await Assert.That(update.Arguments).Contains("0.49.0")
+            .Because("the version is its own argument, so no quoting rule stands between "
+                   + "what was planned and what runs.");
+        await Assert.That(update.Arguments.Any(a => a.Contains(' ', StringComparison.Ordinal)))
+            .IsFalse()
+            .Because("an argument carrying a space is the shape that has to be quoted, and "
+                   + "quoting is what this structure exists to avoid.");
+    }
+
     [Test]
     public async Task Every_step_says_what_it_is_for()
     {

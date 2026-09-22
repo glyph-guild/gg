@@ -118,9 +118,6 @@ public interface IWorkItemSink
 /// </remarks>
 public sealed record DeclaredSink
 {
-    /// <summary>The entry exactly as the operator wrote it.</summary>
-    public required string Entry { get; init; }
-
     /// <summary>The destination id, when there was one to read.</summary>
     public string? Id { get; init; }
 
@@ -231,7 +228,6 @@ public static class TrackerConfiguration
             {
                 entries.Add(new DeclaredSink
                 {
-                    Entry = entry,
                     Problem = $"'{entry}' in {ApisVariable} is not 'destination=api'. Each entry "
                             + "names a destination id an admitted change can land at and the "
                             + "tracker to write it to, e.g. "
@@ -256,7 +252,6 @@ public static class TrackerConfiguration
             {
                 entries.Add(new DeclaredSink
                 {
-                    Entry = entry,
                     Id = id,
                     Problem = $"'{id}' in {ApisVariable} declares no tracker to write to, so "
                             + "nothing was built for it. Name the tracker root after the '=', "
@@ -284,7 +279,6 @@ public static class TrackerConfiguration
             {
                 entries.Add(new DeclaredSink
                 {
-                    Entry = entry,
                     Id = id,
                     Host = host,
                     Problem = $"'{id}' in {ApisVariable} resolves to a credential name this "
@@ -293,10 +287,7 @@ public static class TrackerConfiguration
                 continue;
             }
 
-            entries.Add(new DeclaredSink
-            {
-                Entry = entry, Id = id, Host = host, Locator = locator,
-            });
+            entries.Add(new DeclaredSink { Id = id, Host = host, Locator = locator });
         }
 
         return entries;

@@ -1548,8 +1548,24 @@ public static class VerbOutput
                 text.AppendLine($"            {Clean(Reason.Sentence(waiting.Kind, waiting.Params))}");
             }
         }
-        return text.ToString().TrimEnd();
+
+        return text.ToString().TrimEnd() + More("flights", list.Next);
     }
+
+    /// <summary>
+    /// How to ask for the page after this one, or nothing when this was all of
+    /// them.
+    /// </summary>
+    /// <remarks>
+    /// <b>Said, because rows that stop with nothing said about why read as a
+    /// tenant with no more work.</b> One helper for both listings: two wordings
+    /// for one instruction is two instructions to keep agreeing, and the day
+    /// they stop is the day one of them names a flag the verb does not take.
+    /// </remarks>
+    private static string More(string verb, string? next) =>
+        next is { Length: > 0 } cursor
+            ? $"{Environment.NewLine}{Environment.NewLine}More: gg {verb} --after {cursor}"
+            : string.Empty;
 
     /// <summary>How a flight's state prints, and what happens when it cannot.</summary>
     /// <remarks>
@@ -3076,7 +3092,7 @@ public static class VerbOutput
             text.AppendLine($"  nominated:    {row.MadeAt:u}");
         }
 
-        return text.ToString().TrimEnd();
+        return text.ToString().TrimEnd() + More("board", board.Next);
     }
 
     /// <summary>

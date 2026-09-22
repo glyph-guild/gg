@@ -49,4 +49,17 @@ public static class GgVersions
     public static string Binary { get; } =
         typeof(GgVersions).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
             ?.InformationalVersion ?? "0.0.0";
+
+    /// <summary>
+    /// The same thing without the commit behind it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every build carries a commit, released or not</b> - measured, a
+    /// released binary reports <c>0.48.0+50b2518c…</c> exactly as a local one
+    /// does - so anything comparing this binary's version to a published one
+    /// has to drop it first. Here rather than at each caller, because three
+    /// places splitting on the same character is three chances to split on a
+    /// different one.
+    /// </remarks>
+    public static string Number { get; } = Binary.Split('+')[0];
 }

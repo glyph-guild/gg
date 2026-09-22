@@ -175,6 +175,19 @@ public class WhatUpdatingThisMachineTakesTests
     }
 
     [Test]
+    public async Task A_native_install_always_wants_root()
+    {
+        await Assert.That(For(InstallKind.Native).NeedsRoot).IsTrue()
+            .Because("read off the installer rather than assumed: it writes "
+                   + "/usr/local/lib/gg and swaps /usr/local/bin/gg, both root's on every "
+                   + "platform gg ships to. Its --root is a staging prefix for building an "
+                   + "image - the symlink still points at the absolute /usr/local path - so "
+                   + "there is no user-prefix install to fall back to, and a laptop is no "
+                   + "different from a host. A caller that learns this from a permission "
+                   + "error has already started.");
+    }
+
+    [Test]
     public async Task No_forge_is_named_by_the_planner_itself()
     {
         var plan = For(InstallKind.Native);

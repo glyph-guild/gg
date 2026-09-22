@@ -129,4 +129,30 @@ public class TheDoctorSaysWhichTrackersTests
         await Assert.That(check.Blocking).IsFalse();
         await Assert.That(check.Detail).IsNotEmpty();
     }
+
+    [Test]
+    public async Task And_which_credential_each_one_will_use()
+    {
+        // FOUND BY WALKING IT. On the machine this was written on, the line
+        // read `reads ado (https://dev.azure.com/…)` and passed - and the
+        // entry names no credential at all, so the reader gg spawns for it
+        // reaches that tracker as nobody. A locator is optional because a
+        // tracker may need none; which of the two this is, is a fact somebody
+        // should not have to reconstruct from a 401 inside an agent.
+        var check = Check(
+            Declaring(
+                new DeclaredTracker { Key = "open", Host = "https://forge.example/open" },
+                new DeclaredTracker
+                {
+                    Key = "backlog", Host = Backlog, Locator = "local:forge.example/acme",
+                }),
+            "local:forge.example/acme");
+
+        await Assert.That(check.Passed).IsTrue()
+            .Because("naming no credential is not a fault - it is what a tracker needing "
+                   + "none looks like.");
+
+        await Assert.That(check.Detail).Contains("local:forge.example/acme");
+        await Assert.That(check.Detail).Contains("no credential named");
+    }
 }

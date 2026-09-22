@@ -3808,32 +3808,147 @@ static async Task<int> UpdateReportAsync(bool json)
     using var http = new HttpClient { BaseAddress = new Uri(ControlPlaneAddress()) };
     var current = await new ControlPlaneClient(http).CurrentVersionAsync();
 
-    var advice = Gg.Local.UpdateAdvice.For(Gg.Local.InstallShape.Current, current);
+    var shape = Gg.Local.InstallShape.Current;
+
+    var plan = UpdatePlans.For(
+        shape,
+        GgVersions.Number,
+        current,
+        Settings.Value("GG_INSTALLER", InForce.Configuration),
+        Writable(shape.ToolPath),
+        Path.Combine(Path.GetTempPath(), $"gg-installer-{Environment.ProcessId}"));
 
     if (json)
     {
         Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(
             new UpdateReportJson(
-                advice.Shape.Kind.ToString(),
-                advice.Shape.ToolPath,
+                plan.Shape.Kind.ToString(),
+                plan.Shape.ToolPath,
                 GgVersions.Binary,
-                advice.Current,
-                advice.Summary,
-                [.. advice.Commands]),
+                plan.Target,
+                plan.Summary,
+                [.. plan.Steps.Select(step => step.Command)]),
             UpdateJsonContext.Default.UpdateReportJson));
 
+        return plan.Refusal is null ? ExitCodes.Ok : ExitCodes.Refused;
+    }
+
+    Console.WriteLine(plan.Summary);
+
+    if (plan.Refusal is not null)
+    {
+        return ExitCodes.Refused;
+    }
+
+    // BEING CURRENT IS THE GOOD ENDING, and it gets the quiet one. The old
+    // report told a machine on the newest version to go and fetch it.
+    if (plan.Steps.Count == 0)
+    {
         return ExitCodes.Ok;
     }
 
-    Console.WriteLine(advice.Summary);
-
-    foreach (var command in advice.Commands)
+    // WHAT IT WOULD DO, WITHOUT DOING IT. Worth a flag on a verb that replaces
+    // a binary: the steps are already decided, so showing them costs nothing
+    // and reading them before a privileged run is exactly what somebody should
+    // be able to do.
+    if (plan.NeedsRoot && !Environment.IsPrivilegedProcess)
     {
         Console.WriteLine();
-        Console.WriteLine("  " + command);
+        Console.WriteLine(
+            "  This wants a privilege this process does not have. Run it again with sudo, "
+          + "or run these yourself:");
+        Show(plan);
+
+        return ExitCodes.Refused;
     }
 
+    foreach (var step in plan.Steps)
+    {
+        Console.WriteLine();
+        Console.WriteLine($"  {step.Command}");
+        Console.WriteLine($"    {step.Because}");
+
+        // NOTHING IS SHELL-INTERPRETED. The program and its arguments were
+        // built one at a time by the planner and go across as a list, so the
+        // version in them cannot become a second command.
+        var info = new ProcessStartInfo(step.Program) { UseShellExecute = false };
+
+        foreach (var argument in step.Arguments)
+        {
+            info.ArgumentList.Add(argument);
+        }
+
+        using var child = Process.Start(info);
+
+        if (child is null)
+        {
+            Console.WriteLine($"    {step.Program} did not start. Nothing further was run.");
+
+            return ExitCodes.Refused;
+        }
+
+        await child.WaitForExitAsync();
+
+        // THE FIRST FAILURE STOPS IT. A later step running over a failed
+        // earlier one is how half an update happens, and half of this one is a
+        // machine with a downloaded installer and the old binary.
+        if (child.ExitCode != 0)
+        {
+            Console.WriteLine(
+                $"    exited {child.ExitCode}. Nothing further was run.");
+
+            return ExitCodes.Refused;
+        }
+    }
+
+    Console.WriteLine();
+    Console.WriteLine(
+        $"  {plan.Target} is installed. THIS process is still {GgVersions.Number}: a running "
+      + "binary keeps the bytes it started with, so start gg again to be on the new one."
+      + (plan.Restarts ? " The installer restarted the service if this machine runs one." : ""));
+
     return ExitCodes.Ok;
+}
+
+/// <summary>What the steps are, without running them.</summary>
+static void Show(UpdatePlan plan)
+{
+    foreach (var step in plan.Steps)
+    {
+        Console.WriteLine();
+        Console.WriteLine("    " + step.Command);
+    }
+}
+
+/// <summary>
+/// Whether this process could write a directory, asked by trying.
+/// </summary>
+/// <remarks>
+/// <b>Attempted rather than reasoned about.</b> Ownership, group membership,
+/// an access control list and a read-only mount all decide this, and a guess
+/// from any one of them is wrong on somebody's machine. Null is not a
+/// directory anybody needs to write.
+/// </remarks>
+static bool Writable(string? directory)
+{
+    if (directory is not { Length: > 0 } where || !Directory.Exists(where))
+    {
+        return true;
+    }
+
+    var probe = Path.Combine(where, $".gg-writable-{Environment.ProcessId}");
+
+    try
+    {
+        File.WriteAllText(probe, "");
+        File.Delete(probe);
+
+        return true;
+    }
+    catch (Exception)
+    {
+        return false;
+    }
 }
 
 /// <summary>What `gg update --json` emits.</summary>

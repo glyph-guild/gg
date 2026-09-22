@@ -214,15 +214,26 @@ public class WhatUpdatingThisMachineTakesTests
     }
 
     [Test]
-    public async Task No_forge_is_named_by_the_planner_itself()
+    public async Task The_planner_names_no_location_it_was_not_given()
     {
         var plan = For(InstallKind.Native);
         var everything = plan.Summary + string.Join(" ", plan.Steps.Select(s => s.Command));
 
-        await Assert.That(everything.ToLowerInvariant()).DoesNotContain("github")
-            .Because("ProviderNeutralityTests keeps a forge's name out of this binary so a "
-                   + "second one ships without changing it - the location comes in as "
-                   + "configuration and the planner only passes it on.");
+        // EVERY LOCATION IN THE OUTPUT CAME IN AS AN ARGUMENT. Asserted as a
+        // property rather than by naming a forge to look for - which is the
+        // rule itself: NoSourceFileNamesAnIdentityProvider scans source text,
+        // so the first version of this test failed on the very word it was
+        // checking was absent.
+        foreach (var word in everything.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (word.Contains("://", StringComparison.Ordinal))
+            {
+                await Assert.That(word).IsEqualTo(Installer)
+                    .Because("the location comes in as configuration and the planner only "
+                           + "passes it on, so a second forge ships without changing this "
+                           + "binary.");
+            }
+        }
     }
 
     // ---- what a version may be ----

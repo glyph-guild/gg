@@ -306,6 +306,22 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
             // current must never be the reason a person's command hangs or dies.
             return null;
         }
+        catch (System.Text.Json.JsonException)
+        {
+            // AND A BODY THIS CANNOT READ IS THE SAME ABSENCE. Found by
+            // pointing gg at something that answered 200 with a different
+            // shape: the exception escaped and took the process down with a
+            // stack trace, which made a liar of the sentence above about
+            // failing to null in every way.
+            //
+            // It matters more now than when this was written. This answer no
+            // longer only prints - `gg update` ACTS on it - so the one input
+            // that decides whether a machine replaces its binary must not be
+            // able to crash the verb by being malformed. A control plane one
+            // version ahead, a proxy returning an error page as JSON, or
+            // anything at all impersonating either, all land here.
+            return null;
+        }
     }
 
     public async Task<WhoAmI?> WhoAmIAsync(string sessionToken, CancellationToken cancellationToken = default)

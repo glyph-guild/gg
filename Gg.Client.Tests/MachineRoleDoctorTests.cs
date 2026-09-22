@@ -194,7 +194,9 @@ public class MachineRoleDoctorTests
 
         var report = await ReportAsync(stub, MachineRole.None);
 
-        foreach (var name in (string[])[DoctorChecks.Executor, DoctorChecks.Forge, DoctorChecks.Pool])
+        foreach (var name in (string[])
+                 [DoctorChecks.Executor, DoctorChecks.Forge, DoctorChecks.Pool,
+                  DoctorChecks.Trackers])
         {
             await Assert.That(Of(report, name).Blocking).IsFalse()
                 .Because($"'{name}' describes a role this machine may simply not have.");

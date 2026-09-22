@@ -7,6 +7,23 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!-- One version across the whole distribution; CI appends -alpha.N per commit. -->
     <VersionPrefix>0.46.0</VersionPrefix>
+    <!-- NO ICU, ANYWHERE. Measured on ubuntu:24.04 with gg 0.45.0: the Linux
+         binary does not start without libicu, and it does not fail politely -
+         it FailFasts with a runtime stack trace naming
+         System.Globalization.GlobalizationMode before any gg code runs, from
+         Terminal.Gui's static constructor. A one-line install that dies like
+         that on a minimal box is worse than one that never claimed to work.
+
+         SAFE HERE BECAUSE THIS CODEBASE IS ALREADY INVARIANT, which is a
+         measurement and not a hope: product code uses StringComparer.Ordinal
+         and CultureInfo.InvariantCulture and nothing else - there is not one
+         culture-sensitive CultureInfo use in Gg.Cli, Gg.Console, Gg.Runner,
+         Gg.Contracts, Gg.Client or Gg.Local. What invariant mode changes is
+         culture-SENSITIVE behaviour, and this product has none to change.
+
+         Set for tests too, on purpose: a suite running with globalization the
+         shipped binary does not have would be testing a different program. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
     <Authors>Glyph Guild</Authors>
     <RepositoryUrl>https://github.com/glyph-guild/gg</RepositoryUrl>
   </PropertyGroup>

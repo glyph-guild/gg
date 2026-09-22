@@ -305,21 +305,36 @@ public class ContractSurfaceTests
     }
 
     [Test]
-    public async Task Culture_does_not_change_the_fingerprint()
+    public async Task Culture_cannot_change_the_fingerprint_because_there_is_no_culture()
     {
-        // Ordinal comparisons and invariant hex throughout: a build machine in
-        // a different locale must not produce a different digest and fail the
-        // build for nobody's reason.
-        var original = CultureInfo.CurrentCulture;
-        try
-        {
-            var underInvariant = ComputeSurface();
-            CultureInfo.CurrentCulture = new CultureInfo("tr-TR");
-            await Assert.That(ComputeSurface()).IsEqualTo(underInvariant);
-        }
-        finally
-        {
-            CultureInfo.CurrentCulture = original;
-        }
+        // THE SAME PROPERTY, NOW STRUCTURAL. This set CurrentCulture to tr-TR
+        // and checked the digest matched - a sample of one hostile locale,
+        // chosen because Turkish is where ordinal and culture-sensitive casing
+        // differ most famously. The build now sets InvariantGlobalization, so
+        // constructing tr-TR throws and that test cannot run at all.
+        //
+        // The reason it throws is the reason it existed: a build machine's
+        // locale cannot reach this digest, because the program has no
+        // culture-sensitive behaviour for it to reach through. One locale
+        // sampled became every locale, by construction.
+        //
+        // WHY THE BUILD IS INVARIANT AT ALL is not about this digest: gg's
+        // Linux binary would not START without libicu, and did not fail
+        // politely - it FailFast with a runtime stack trace before any gg code
+        // ran. Measured on ubuntu:24.04 with 0.45.0.
+        //
+        // ASSERTED RATHER THAN ASSUMED, because a build that quietly lost the
+        // property would otherwise be found by somebody's Turkish laptop, or by
+        // a minimal container a year from now.
+        await Assert.That(() => new CultureInfo("tr-TR")).Throws<CultureNotFoundException>()
+            .Because("invariant mode is what makes the locale unreachable, and a build without "
+                   + "it would construct this culture happily - so this is the property, not a "
+                   + "restatement of the setting.");
+
+        await Assert.That(CultureInfo.CurrentCulture.Name).IsEmpty()
+            .Because("the invariant culture has no name, whatever the machine's locale says.");
+
+        await Assert.That(ComputeSurface()).IsEqualTo(ComputeSurface())
+            .Because("and the digest is still stable, which is what all of this was for.");
     }
 }

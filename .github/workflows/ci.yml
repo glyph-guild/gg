@@ -65,6 +65,20 @@ jobs:
         run: dotnet publish Gg.Cli -c Release -r linux-x64 -o artifacts/aot
       - name: The published binary actually runs
         run: ./artifacts/aot/gg --version
+      # AND ON A MACHINE WITH NO ICU, which the runner is not. Measured on
+      # ubuntu:24.04 with 0.45.0: without libicu the binary does not start and
+      # does not fail politely - it FailFasts with a runtime stack trace before
+      # any gg code runs. The step above cannot see that, because every GitHub
+      # runner has libicu, and so did every machine in the fleet; the first
+      # place it showed up was a container somebody built to stand in for a
+      # laptop.
+      #
+      # InvariantGlobalization is what makes this pass. This step is here so
+      # that turning it off again is caught by CI rather than by a stranger
+      # following the README's one-line install onto a slim image.
+      - name: And on a machine with no ICU at all
+        run: |
+          docker run --rm -v "$PWD/artifacts/aot:/o" ubuntu:24.04 /o/gg --version
       # THE ONE ASSERTION THAT CANNOT BE A TEST. Upstream SIPSorcery stalls in
       # CookieEchoed under Native AOT - the SCTP state cookie is
       # reflection-serialised and the trimmer removes its members - so an

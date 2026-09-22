@@ -533,6 +533,23 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private static readonly TimeSpan LookEvery = TimeSpan.FromMilliseconds(250);
 
+    /// <summary>
+    /// How somebody has been pressing against the edge of a table, and which
+    /// table it is.
+    /// </summary>
+    /// <remarks>
+    /// <b>Held in the view rather than on the model, and that is the point.</b>
+    /// Which row a person is on is the model's; whether their finger is still
+    /// down on an arrow key is not. These reset when the console hands the
+    /// terminal to an editor and rebuilds from <c>AppState</c> - which is right,
+    /// because nobody was holding a key while they wrote a commit message.
+    /// <see cref="TableEdge"/> holds the decision itself and is pure.
+    /// </remarks>
+    private EdgePresses _edge = EdgePresses.None;
+    private TableView? _edgeAt;
+    private Terminal.Gui.Drawing.Scheme? _edgeWas;
+    private bool _edgeBlinking;
+
     public ConsoleScreen(
         IApplication app,
         AppState state,
@@ -902,6 +919,20 @@ public sealed class ConsoleScreen : Window
             _runnersTable, Rows.RunnerColumns.ToList().IndexOf("state"));
 
         _runnersTable.KeyDown += OnTableKeyDown;
+
+        // AND EVERY TAB'S TABLE HOLDS AT ITS OWN EDGES. Attached AFTER the
+        // fleet's handler above, because that one answers up-from-row-zero by
+        // focusing the button over the table - a deliberate move inside one
+        // pane, and OnTableEdge stands down for a key already handled.
+        //
+        // The six tab tables and not the modals': what this stops is a key
+        // falling through to the tab bar, and a modal has no bar under it.
+        foreach (var table in (TableView[])
+                 [_flightsTable, _boardTable, _browseTable, _repositoriesTable,
+                  _runnersTable, _airspaceTable])
+        {
+            table.KeyDown += OnTableEdge;
+        }
 
         _hints = new Label { X = 0, Y = Pos.AnchorEnd(1), Width = Dim.Fill() };
 
@@ -3158,6 +3189,170 @@ public sealed class ConsoleScreen : Window
         key.Handled = true;
     }
 
+    /// <summary>
+    /// Pressing on past a table's last row holds the cursor there and blinks
+    /// it; three deliberate taps leave.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>What this stops.</b> A key a table declines walks up the focused
+    /// chain to the tab bar, which is a plain <c>Tabs</c> with the library's
+    /// own arrow bindings - so pressing past the end of a list quietly left
+    /// it. Measured on the flights tab: a hundred and thirty presses ended on
+    /// Repositories.
+    /// </para>
+    /// <para>
+    /// <b>And what it costs when a list is paged.</b> Reaching the last row
+    /// asks for the next page; changing tab asks for the new tab's read, and
+    /// <c>BackgroundReads</c> keeps one read at a time - so the page is
+    /// abandoned and the list stays short. Asking again needs the cursor moved
+    /// off the last row and back, because <c>Reducer.WantsMore</c> is only
+    /// consulted when the cursor moves.
+    /// </para>
+    /// <para>
+    /// <b>On the table and asking the cursor</b>, for the reason
+    /// <see cref="OnTableKeyDown"/> gives one method up: <c>KeyDown</c> runs
+    /// before the table's own bindings, so "there is nowhere to go" has to be
+    /// checked here rather than inferred from the table declining the key.
+    /// </para>
+    /// <para>
+    /// <b>The clock is read here.</b> A hold and a tap differ only in how fast
+    /// they arrive, and there is no key-up event in a terminal. The decision
+    /// itself is <see cref="TableEdge.Pressed"/>, which takes the time as an
+    /// argument and is tested without one of these.
+    /// </para>
+    /// </remarks>
+    private void OnTableEdge(object? sender, Key key)
+    {
+        // ALREADY ANSWERED. The fleet's own handler sends up-from-row-zero to
+        // the button above the table, which is a move inside the pane rather
+        // than the escape this method exists to stop.
+        if (key.Handled || sender is not TableView table)
+        {
+            return;
+        }
+
+        var down = key == Key.CursorDown;
+
+        if (!down && key != Key.CursorUp)
+        {
+            return;
+        }
+
+        var rows = table.Table?.Rows ?? 0;
+        var row = table.Value?.SelectedCell.Y ?? 0;
+
+        if (rows is 0 || (down ? row < rows - 1 : row > 0))
+        {
+            // SOMEWHERE TO GO, so this is not a press against an edge at all.
+            // Forgotten rather than kept: three taps are three taps AT an edge,
+            // and a walk back up the list must not leave two of them banked.
+            _edge = EdgePresses.None;
+            return;
+        }
+
+        var (now, leaves) = TableEdge.Pressed(_edge, DateTimeOffset.UtcNow);
+        _edge = now;
+
+        if (leaves)
+        {
+            // WHERE IT ALWAYS WENT. Leaving is not new; what is new is that it
+            // takes a decision rather than one press too many.
+            Unblink();
+            return;
+        }
+
+        key.Handled = true;
+        _edgeAt = table;
+        Blink();
+    }
+
+    /// <summary>
+    /// Blink the row until the pressing stops.
+    /// </summary>
+    /// <remarks>
+    /// <b><c>Watch</c>'s idiom, and its rule about stopping.</b> The timer ends
+    /// itself the moment nothing is pressing, so a console nobody is holding a
+    /// key on has no timer running - which is the same sentence the live pane's
+    /// tick has for why it detaches.
+    /// </remarks>
+    private void Blink()
+    {
+        if (_edgeBlinking)
+        {
+            return;
+        }
+
+        _edgeBlinking = true;
+
+        _app.AddTimeout(TableEdge.HalfABlink, () =>
+        {
+            var now = DateTimeOffset.UtcNow;
+
+            if (_edgeAt is not { } table || !TableEdge.Blinks(_edge, now))
+            {
+                Unblink();
+                return false;
+            }
+
+            Lit(table, TableEdge.Lit(_edge, now));
+            table.SetNeedsDraw();
+
+            return true;
+        });
+    }
+
+    /// <summary>
+    /// Show the selection, or hide it for half a blink.
+    /// </summary>
+    /// <remarks>
+    /// <b>Through the table's scheme, which reaches a receding row too.</b> A
+    /// table view draws its selected row from <c>Focus</c> or <c>Active</c>, and
+    /// <c>LookStyles</c>' row getters answer with a scheme that changes only
+    /// <c>Normal</c> - so an ended flight inherits this and blinks like every
+    /// other row. Flattening the selection to the plain attribute is what makes
+    /// the blink: the cursor goes away and comes back.
+    /// </remarks>
+    private void Lit(TableView table, bool lit)
+    {
+        _edgeWas ??= table.GetScheme();
+
+        if (_edgeWas is not { } was)
+        {
+            return;
+        }
+
+        if (lit)
+        {
+            table.SetScheme(was);
+            return;
+        }
+
+        var plain = was.GetAttributeForRole(Terminal.Gui.Drawing.VisualRole.Normal);
+
+        table.SetScheme(new Terminal.Gui.Drawing.Scheme(was)
+        {
+            Focus = plain,
+            HotFocus = plain,
+            Active = plain,
+            HotActive = plain,
+        });
+    }
+
+    /// <summary>Put the selection back exactly as it was found.</summary>
+    private void Unblink()
+    {
+        _edgeBlinking = false;
+
+        if (_edgeAt is { } table && _edgeWas is { } was)
+        {
+            table.SetScheme(was);
+            table.SetNeedsDraw();
+        }
+
+        _edgeWas = null;
+    }
+
     /// <summary>And down off the button goes back to what it is about.</summary>
     private void OnButtonKeyDown(object? sender, Key key)
     {
@@ -5187,6 +5382,13 @@ public sealed class ConsoleScreen : Window
             _runnerStart.Accepting -= OnStartRunner;
             _runnerStart.KeyDown -= OnButtonKeyDown;
             _runnersTable.KeyDown -= OnTableKeyDown;
+
+            foreach (var table in (TableView[])
+                     [_flightsTable, _boardTable, _browseTable, _repositoriesTable,
+                      _runnersTable, _airspaceTable])
+            {
+                table.KeyDown -= OnTableEdge;
+            }
             _runnerViews.ValueChanged -= OnRunnerViewChanged;
             _runnerEnvironments.ValueChanged -= OnModalRowPointedAt;
             _runnerMembers.ValueChanged -= OnModalRowPointedAt;

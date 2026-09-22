@@ -826,8 +826,15 @@ public sealed class Doctor(
 
             if (side.Count > 0)
             {
+                // AND WHICH CREDENTIAL, because that is the half that decides
+                // whether reading one works. A locator is a name and never a
+                // secret; naming none is what a tracker needing none looks
+                // like, and it is not the same fact as having one.
                 yield return $"{verb} " + string.Join(
-                    ", ", side.Select(t => $"{t.Key} ({t.Host})"));
+                    ", ",
+                    side.Select(t => t.Locator is { Length: > 0 } locator
+                        ? $"{t.Key} ({t.Host}, {locator})"
+                        : $"{t.Key} ({t.Host}, no credential named)"));
             }
         }
     }

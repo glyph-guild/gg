@@ -2121,11 +2121,17 @@ public sealed class ConsoleScreen : Window
         // the gesture for "show me more", and a key for it would be a key whose
         // meaning depended on where a cursor happened to be.
         //
-        // ASKED, NOT FETCHED. Asked hands it to BackgroundReads, which owns the
-        // task and drops a second ask while one is in the air - so a cursor
-        // resting on the last row does not request once per frame.
+        // ASKED, NOT FETCHED: Asked hands it to BackgroundReads, which owns the
+        // task, and what comes back is applied to whatever is on screen then.
+        //
+        // REDUCED FIRST, exactly as Dispatch does it one screen over, and for a
+        // sharper reason than the panes there: the reducer's arm is what records
+        // that a page is coming, and WantsMore refuses while one is. Asking
+        // without it would let a person who steps off the last row and back
+        // abandon a page already on the wire to ask for the same one again.
         if (Reducer.WantsMore(State) is { } more)
         {
+            State = Reducer.Reduce(State, more);
             Asked(more);
         }
 

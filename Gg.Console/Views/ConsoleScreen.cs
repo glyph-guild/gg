@@ -3265,9 +3265,36 @@ public sealed class ConsoleScreen : Window
 
         if (leaves)
         {
-            // WHERE IT ALWAYS WENT. Leaving is not new; what is new is that it
-            // takes a decision rather than one press too many.
             Unblink();
+
+            // ONTO THE TAB IT IS ALREADY ON, and no further. Letting the key
+            // through sent it to the bar, whose own binding answers a down
+            // arrow by selecting the NEXT tab - so leaving a table jumped a
+            // person somewhere they had not asked to go, which is most of what
+            // made the old behaviour a surprise.
+            //
+            // The strip holds focus per tab on that tab's border title - which
+            // is how the bar's own SelectNextTab moves - so focusing the
+            // CURRENT tab's title is "out of the table and onto the tab",
+            // leaving the next press to move tabs if that is what somebody
+            // wants.
+            var strip = (_bar.Value?.Border.View as Terminal.Gui.ViewBase.BorderView)?.TitleView;
+            var took = strip?.SetFocus();
+
+            if (Environment.GetEnvironmentVariable("GG_EDGE_TRACE") is { Length: > 0 } where)
+            {
+                File.AppendAllText(
+                    where,
+                    $"LEAVE tab={State.ActiveTab} value={(_bar.Value is null ? "null" : "set")}"
+                  + $" strip={(strip is null ? "null" : "found")} took={took?.ToString() ?? "-"}"
+                  + $" now={State.ActiveTab}{Environment.NewLine}");
+            }
+
+            if (took is true)
+            {
+                key.Handled = true;
+            }
+
             return;
         }
 

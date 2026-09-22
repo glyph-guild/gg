@@ -1356,8 +1356,11 @@ static async Task<int> LaunchConsoleAsync()
     // argument for that is written out in AutoRefresh, and the short of it is
     // that a keyboard frozen for as long as the control plane takes is the
     // thing the rule against reading in a session protects.
+    // AND WHAT IS ON SCREEN, because the lists are paged now and a tick that
+    // asked for the first page would take away every page below it - see
+    // ConsoleRefresh.AsManyAsAreShown, which is where the amount is decided.
     var refresh = new AutoRefresh(
-        tab => Task.Run(() => ConsoleRefresh.ForTabAsync(data, tab)),
+        (tab, on) => Task.Run(() => ConsoleRefresh.ForTabAsync(data, tab, on)),
         new SystemClock(),
         TimeSpan.FromSeconds(30));
 
@@ -1462,6 +1465,17 @@ static async Task<int> LaunchConsoleAsync()
 
                     Gg.Console.Command.FilterBrowse =>
                         Gg.Console.ConsoleBrowsing.FacetsPatch(browsing, current),
+
+                    // THE ROWS UNDER THE ONES ON SCREEN, asked for by reaching
+                    // the end of them rather than by a key - the only arm here
+                    // whose command no keypress resolves. It ADDS rather than
+                    // replaces, which is the whole difference between this and
+                    // every other read in this switch.
+                    Gg.Console.Command.LoadMoreFlights =>
+                        Gg.Console.ConsoleMore.FlightsPatch(data, current),
+
+                    Gg.Console.Command.LoadMoreBoard =>
+                        Gg.Console.ConsoleMore.BoardPatch(data, current),
 
                     // THE FIELD'S TWO ARMS, both reads, and which one is
                     // decided by what was typed rather than by a second key.

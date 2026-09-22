@@ -96,8 +96,21 @@ public sealed class ConsoleData(
     /// unchanged by slice fourteen; whether it should now use the state
     /// directly is a console question, and is deferred with the slice.
     /// </remarks>
-    public Task<VerbResult> ListAsync(CancellationToken cancellationToken = default) =>
-        _commands.ListAsync(all: true, cancellationToken);
+    /// <param name="limit">
+    /// How many rows, or null for the page the contract declares - which is
+    /// what the verb sends too. A console that asked for no cap would grow
+    /// with a tenant's history for ever and re-fetch all of it every thirty
+    /// seconds.
+    /// </param>
+    /// <param name="after">
+    /// Where a page stopped, handed back exactly as it arrived. Opaque here:
+    /// what it is composed of belongs to the side that ordered the rows.
+    /// </param>
+    public Task<VerbResult> ListAsync(
+        CancellationToken cancellationToken = default,
+        int? limit = null,
+        string? after = null) =>
+        _commands.ListAsync(all: true, cancellationToken, limit: limit, after: after);
 
     /// <summary>`gg plan` - the same fetch, the same checklist.</summary>
     public Task<VerbResult> PlanAsync(
@@ -202,9 +215,14 @@ public sealed class ConsoleData(
     /// one question, and the day they differ a person is looking at the older
     /// one with no way to tell.
     /// </remarks>
+    /// <param name="limit"><see cref="ListAsync"/>'s page, for the same reason.</param>
+    /// <param name="after">Where the last page of nominations stopped.</param>
     public Task<VerbResult> BoardAsync(
-        bool ended = false, CancellationToken cancellationToken = default) =>
-        _commands.BoardAsync(ended, cancellationToken);
+        bool ended = false,
+        CancellationToken cancellationToken = default,
+        int? limit = null,
+        string? after = null) =>
+        _commands.BoardAsync(ended, cancellationToken, limit: limit, after: after);
 
     /// <summary>
     /// `gg watches` - how every watch in force is doing.

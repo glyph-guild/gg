@@ -2114,6 +2114,21 @@ public sealed class ConsoleScreen : Window
         }
 
         State = pointed;
+
+        // AND THE NEXT PAGE, IF THIS ROW WAS THE LAST ONE. This is the only
+        // place that knows which absolute row somebody is on, which is why the
+        // ask is here rather than on a key: reaching the bottom of a list IS
+        // the gesture for "show me more", and a key for it would be a key whose
+        // meaning depended on where a cursor happened to be.
+        //
+        // ASKED, NOT FETCHED. Asked hands it to BackgroundReads, which owns the
+        // task and drops a second ask while one is in the air - so a cursor
+        // resting on the last row does not request once per frame.
+        if (Reducer.WantsMore(State) is { } more)
+        {
+            Asked(more);
+        }
+
         Render();
     }
 

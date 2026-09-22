@@ -54,7 +54,7 @@ public class TheScreenRefreshesItselfTests
         internal TaskCompletionSource<Func<AppState, AppState>> Answer { get; private set; } =
             new();
 
-        internal Task<Func<AppState, AppState>> Of(TabId tab)
+        internal Task<Func<AppState, AppState>> Of(TabId tab, AppState on)
         {
             Asked.Add(tab);
             Answer = new TaskCompletionSource<Func<AppState, AppState>>();

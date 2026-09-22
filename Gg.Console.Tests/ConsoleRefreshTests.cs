@@ -120,7 +120,7 @@ public class ConsoleRefreshTests
     {
         internal int Calls { get; private set; }
 
-        internal Task<Func<AppState, AppState>> Of(TabId tab)
+        internal Task<Func<AppState, AppState>> Of(TabId tab, AppState on)
         {
             Calls++;
 

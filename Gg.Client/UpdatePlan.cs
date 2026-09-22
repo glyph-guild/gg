@@ -5,11 +5,34 @@ namespace Gg.Client;
 
 /// <summary>One thing to run, and what it is for.</summary>
 /// <remarks>
+/// <para>
+/// <b>A program and its arguments, never a command line.</b> Nothing here is
+/// shell-interpreted, and the arguments are built one at a time - the rule
+/// <c>Ran</c> already states for every child this binary starts, and the
+/// reason it matters more here than anywhere else: the version in these
+/// arguments arrives from a control plane, and a joined string would have to
+/// be split again before it could run. Splitting is where a version becomes a
+/// second command.
+/// </para>
+/// <para>
 /// <b>Every step carries its reason.</b> This runs commands on somebody's
-/// machine; a step nobody can explain is a step nobody should approve, and the
-/// reason is what a console shows beside it rather than a bare command line.
+/// machine; a step nobody can explain is a step nobody should approve, and
+/// what a console shows beside it is the reason rather than a bare line.
+/// </para>
 /// </remarks>
-public sealed record UpdateStep(string Command, string Because);
+public sealed record UpdateStep(
+    string Program, IReadOnlyList<string> Arguments, string Because)
+{
+    /// <summary>
+    /// What to show a person, and never what is executed.
+    /// </summary>
+    /// <remarks>
+    /// Joined here for reading only. The executor takes
+    /// <see cref="Program"/> and <see cref="Arguments"/>, so what runs cannot
+    /// differ from what was planned by a quoting rule.
+    /// </remarks>
+    public string Command => string.Join(' ', new[] { Program }.Concat(Arguments));
+}
 
 /// <summary>
 /// What moving this machine to a newer <c>gg</c> takes, or why it cannot.
@@ -123,6 +146,21 @@ public static class UpdatePlans
               + "This may already be the newest.");
         }
 
+        // A VERSION, PROVEN, BEFORE IT REACHES AN ARGUMENT LIST. This string
+        // arrives from a control plane, and rule 4 of slice forty-eight is that
+        // a request names a version and nothing else. Nothing downstream is
+        // shell-interpreted, so this is not the last line of defence - it is
+        // the one that makes the others easy to reason about, because after it
+        // the value cannot contain a path, a flag or a space.
+        if (!Numbered(target))
+        {
+            return Cannot(
+                shape, installed, target,
+                $"'{target}' is not a version, so nothing was moved. A version is digits and "
+              + "dots, optionally with a prerelease after a dash - anything else is a "
+              + "request this machine should not act on.");
+        }
+
         if (installed is { Length: > 0 } here)
         {
             if (string.Equals(here, target, StringComparison.Ordinal))
@@ -174,7 +212,7 @@ public static class UpdatePlans
     private static UpdatePlan ByDotnet(
         InstallShape shape, string? installed, string target, bool global, bool writable)
     {
-        var where = global ? "-g" : $"--tool-path {shape.ToolPath}";
+        string[] where = global ? ["-g"] : ["--tool-path", shape.ToolPath ?? ""];
 
         return new UpdatePlan(
             shape,
@@ -185,11 +223,13 @@ public static class UpdatePlans
                 : $"This gg is a .NET tool at {shape.ToolPath}; dotnet moves it to {target}.",
             [
                 new UpdateStep(
-                    "dotnet nuget locals http-cache --clear",
+                    "dotnet",
+                    ["nuget", "locals", "http-cache", "--clear"],
                     "a stale index reports a published version as missing, and the two read "
                   + "the same"),
                 new UpdateStep(
-                    $"dotnet tool update {UpdateAdvice.PackageId} --version {target} {where}",
+                    "dotnet",
+                    ["tool", "update", UpdateAdvice.PackageId, "--version", target, .. where],
                     "dotnet owns this directory and writes the new bytes beside the old"),
             ],
             Refusal: null,
@@ -226,7 +266,8 @@ public static class UpdatePlans
             $"This gg is a self-contained binary; its installer moves it to {target}.",
             [
                 new UpdateStep(
-                    $"{from} --version {target}",
+                    from,
+                    ["--version", target],
                     "the installer verifies the bytes against an attestation before writing "
                   + "any, installs beside what is there, and swaps the link by rename"),
             ],
@@ -234,6 +275,22 @@ public static class UpdatePlans
             NeedsRoot: false,
             Restarts: true);
     }
+
+    /// <summary>
+    /// Whether this is a version and not something wearing one's clothes.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately narrower than what a parser would accept: digits, dots and
+    /// an optional prerelease. No build metadata, no leading `v`, no path
+    /// separator, no space. A value that passes this cannot become a second
+    /// argument however it is later handled.
+    /// </remarks>
+    private static bool Numbered(string version) =>
+        System.Text.RegularExpressions.Regex.IsMatch(
+            version,
+            @"^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$",
+            System.Text.RegularExpressions.RegexOptions.None,
+            TimeSpan.FromSeconds(1));
 
     private static UpdatePlan Nothing(
         InstallShape shape, string? installed, string? target, string summary) =>

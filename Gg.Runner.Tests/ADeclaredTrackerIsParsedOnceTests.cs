@@ -29,7 +29,7 @@ public class ADeclaredTrackerIsParsedOnceTests
         var declared = TrackerConfiguration.Declared(
             "backlog=https://forge.example/acme|local:acme/board");
 
-        await Assert.That(declared).HasCount(1);
+        await Assert.That(declared.Count).IsEqualTo(1);
         await Assert.That(declared[0].Id).IsEqualTo("backlog");
         await Assert.That(declared[0].Host).IsEqualTo("https://forge.example/acme");
         await Assert.That(declared[0].Locator).IsEqualTo("local:acme/board");
@@ -52,7 +52,7 @@ public class ADeclaredTrackerIsParsedOnceTests
     {
         var declared = TrackerConfiguration.Declared("backlog=,board=https://forge.example/b");
 
-        await Assert.That(declared).HasCount(2);
+        await Assert.That(declared.Count).IsEqualTo(2);
 
         var refused = declared.Single(d => d.Problem is not null);
 

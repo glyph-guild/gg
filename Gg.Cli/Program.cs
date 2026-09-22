@@ -948,6 +948,74 @@ static async Task<int> CredentialAsync(bool json, Func<CredentialCommands, Task<
 }
 
 /// <summary>
+/// The trackers this machine declares, and what nothing could parse.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Read here because the environment belongs to the root</b>, like every
+/// other fact the doctor is handed: Gg.Client sees only the contracts, and the
+/// two spellings are owned by the two parsers the runner itself is built from.
+/// </para>
+/// <para>
+/// <b>The two sides fail differently, and both fail out of sight.</b> The read
+/// side throws - which on a fleet host happens where a systemd unit is the
+/// only witness, and takes the whole declaration with it, so a refusal leaves
+/// no trackers and one sentence. The write side skips the entry it cannot use
+/// and goes on, which leaves a machine declared for a tracker it never built a
+/// sink for. Neither reaches a person anywhere else.
+/// </para>
+/// </remarks>
+static (IReadOnlyList<DeclaredTracker> Trackers, IReadOnlyList<string> Problems)
+    TrackersDeclared()
+{
+    var trackers = new List<DeclaredTracker>();
+    var problems = new List<string>();
+
+    try
+    {
+        foreach (var read in IntentConfiguration.ServedTrackers(
+                     Settings.Value(IntentConfiguration.ServedVariable, InForce.Configuration)))
+        {
+            trackers.Add(new DeclaredTracker
+            {
+                Key = read.Key,
+                Host = read.Host,
+                Locator = read.Locator,
+            });
+        }
+    }
+    catch (InvalidOperationException refused)
+    {
+        // THE SENTENCE THE RUNNER WOULD HAVE THROWN, put in front of a person
+        // instead. It names the variable and the entry, which is what the
+        // doctor would otherwise have to invent.
+        problems.Add(refused.Message);
+    }
+
+    foreach (var written in Gg.Runner.Intent.TrackerConfiguration.Declared(
+                 Settings.Value(
+                     Gg.Runner.Intent.TrackerConfiguration.ApisVariable, InForce.Configuration)))
+    {
+        if (written is { Problem: null, Id: { } id, Host: { } host })
+        {
+            trackers.Add(new DeclaredTracker
+            {
+                Key = id,
+                Host = host,
+                Locator = written.Locator,
+                Writes = true,
+            });
+
+            continue;
+        }
+
+        problems.Add(written.Problem ?? $"'{written.Entry}' declares no tracker.");
+    }
+
+    return (trackers, problems);
+}
+
+/// <summary>
 /// Runs doctor, which reports rather than throws.
 /// </summary>
 /// <remarks>
@@ -978,6 +1046,11 @@ static async Task<int> DoctorAsync(bool json)
     // tell a person their estate lives wherever they last ran gg from.
     var airspace = Settings.Value("GG_AIRSPACE", InForce.Configuration);
 
+    // WHERE THIS MACHINE READS A TICKET FROM AND WRITES ONE TO, parsed by the
+    // two parsers that own those spellings rather than by a third one here: a
+    // second answer to what an operator typed is worse than none.
+    var (trackers, trackerProblems) = TrackersDeclared();
+
     var role = new MachineRole
     {
         ExecutorBinary = executor,
@@ -1007,6 +1080,9 @@ static async Task<int> DoctorAsync(bool json)
         // under its own user with its own environment, so the runner and pool
         // checks say when what they read is this shell rather than the unit.
         InstalledUnits = InstalledUnits.Find(),
+
+        Trackers = trackers,
+        TrackerProblems = trackerProblems,
     };
 
     var report = await new Doctor(

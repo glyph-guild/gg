@@ -154,8 +154,63 @@ public static class DoctorChecks
     /// </remarks>
     public const string Forge = "forge";
 
+    /// <summary>
+    /// Which trackers this machine reads work items from and writes them to.
+    /// </summary>
+    /// <remarks>
+    /// <b>The forge and the destination had a line and the trackers had
+    /// none</b>, so a machine set up to read a ticket had no way to confirm it
+    /// short of flying something. Absence is ordinary - a link flight names no
+    /// tracker - which is why this reports rather than judges; what it must
+    /// not do is stay silent, because the two ways a declaration fails are
+    /// both silent already. An entry the write side cannot parse is skipped so
+    /// a newer contract's spelling cannot stop an older runner, and one the
+    /// read side cannot parse throws where a systemd unit is the only witness.
+    /// </remarks>
+    public const string Trackers = "trackers";
+
     /// <summary>Whether this machine maintains a pool.</summary>
     public const string Pool = "pool";
+}
+
+/// <summary>
+/// One tracker this machine declares, read side or write side.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Parsed by the root, which owns the parsers.</b> Both declarations are
+/// read by code that knows their spelling - <c>ServedTrackers</c> for the
+/// reads and <c>TrackerConfiguration.Declared</c> for the writes - and a
+/// doctor that parsed them again would be a second answer to what an operator
+/// typed.
+/// </para>
+/// <para>
+/// <b>The locator is a name and never a secret.</b> That is what makes it
+/// printable here: it says where a credential is, and only this machine's
+/// store can turn it into one.
+/// </para>
+/// </remarks>
+public sealed record DeclaredTracker
+{
+    /// <summary>The provider key or destination id, as written.</summary>
+    public required string Key { get; init; }
+
+    /// <summary>The tracker root, as written.</summary>
+    public required string Host { get; init; }
+
+    /// <summary>The credential it resolves, or null for one needing none.</summary>
+    public string? Locator { get; init; }
+
+    /// <summary>
+    /// Whether this is the side that WRITES.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two permissions on two credentials</b>, which is
+    /// <c>Configuration.TrackerApis</c>' own sentence: a machine that reads a
+    /// backlog does not thereby write to it. A line that merged them would
+    /// report a machine as able to triage when it can only read.
+    /// </remarks>
+    public bool Writes { get; init; }
 }
 
 /// <summary>
@@ -234,6 +289,20 @@ public sealed record MachineRole
     /// without this, a healthy pool host read as one configured for nothing.
     /// </remarks>
     public IReadOnlyList<string> InstalledUnits { get; init; } = [];
+
+    /// <summary>The trackers this machine declares, both sides.</summary>
+    public IReadOnlyList<DeclaredTracker> Trackers { get; init; } = [];
+
+    /// <summary>
+    /// Declarations nothing could make sense of, in the parser's own words.
+    /// </summary>
+    /// <remarks>
+    /// <b>Carried rather than rewritten.</b> The sentence that says which line
+    /// is wrong is the one the parser already writes, and it names the variable
+    /// - which matters, because a machine reads its declaration from a file, a
+    /// unit's environment, or a profile somebody applied on another continent.
+    /// </remarks>
+    public IReadOnlyList<string> TrackerProblems { get; init; } = [];
 
     /// <summary>A machine configured for nothing in particular.</summary>
     public static MachineRole None { get; } = new();
@@ -529,7 +598,7 @@ public sealed class Doctor(
         // this machine talk to the control plane"; these answer "can it do the
         // job it was installed for" - which is the question a person stands up
         // a pool host to settle, and the one doctor did not answer.
-        checks.AddRange(RoleChecks(role ?? MachineRole.None));
+        checks.AddRange(RoleChecks(role ?? MachineRole.None, Missing));
 
         return new DoctorReport { Checks = checks };
     }
@@ -663,10 +732,112 @@ public sealed class Doctor(
             };
     }
 
-    private static IReadOnlyList<DoctorCheck> RoleChecks(MachineRole role) =>
+    /// <summary>
+    /// Which trackers this machine reads and writes, and what is wrong with
+    /// the declaration if anything is.
+    /// </summary>
+    /// <param name="unresolved">
+    /// Whether a locator names a credential this machine's store cannot
+    /// answer for. Passed in for <c>Missing</c>'s own reason - the store is
+    /// the doctor's, and this is static so every case is a unit test.
+    /// </param>
+    /// <remarks>
+    /// <b>The likeliest failure is the last one.</b> Declaring a tracker and
+    /// holding its credential are two commands, and only one of them can be
+    /// offered by a profile: a fleet can hand every machine the declaration
+    /// and no fleet can ever hand it the secret. Reported without a locator
+    /// the search would start at the wrong machine.
+    /// </remarks>
+    public static DoctorCheck TrackerCheck(MachineRole role, Func<string, bool> unresolved)
+    {
+        ArgumentNullException.ThrowIfNull(role);
+        ArgumentNullException.ThrowIfNull(unresolved);
+
+        var lacking = role.Trackers
+            .Where(t => t.Locator is { Length: > 0 } locator && unresolved(locator))
+            .Select(t => $"{t.Key} ({t.Locator})")
+            .ToList();
+
+        if (role.TrackerProblems.Count > 0 || lacking.Count > 0)
+        {
+            var wrong = new List<string>(role.TrackerProblems);
+
+            if (lacking.Count > 0)
+            {
+                wrong.Add(
+                    "declared here with a credential this machine does not hold: "
+                  + string.Join(", ", lacking));
+            }
+
+            return new DoctorCheck
+            {
+                Name = DoctorChecks.Trackers,
+                Passed = false,
+
+                // NOT BLOCKING, on MachineRole's rule: a machine may simply not
+                // be one that reads work items, and a doctor that exited
+                // non-zero on a laptop is a verb nobody runs.
+                Blocking = false,
+                Detail = string.Join(" ", wrong),
+                Fixable = true,
+                Fix = lacking.Count > 0
+                    ? "gg credential add --repo <slug>, on this machine, for each one listed - "
+                    + "the slug is the locator without its 'local:' prefix."
+                    : "Correct the entry the sentence names, with `gg config set intent-hosts` "
+                    + "or `gg config set tracker-apis` - and if a profile wrote it, the "
+                    + "document it came from as well.",
+            };
+        }
+
+        if (role.Trackers.Count == 0)
+        {
+            return new DoctorCheck
+            {
+                Name = DoctorChecks.Trackers,
+                Passed = true,
+                Detail = "no tracker is declared, so a flight about a work item reaches an "
+                       + "agent with nothing to read it with - ordinary on a machine whose "
+                       + "flights name none",
+                Blocking = false,
+                Fixable = false,
+            };
+        }
+
+        return new DoctorCheck
+        {
+            Name = DoctorChecks.Trackers,
+            Passed = true,
+
+            // The keys, the hosts and the locators - never a secret. This line
+            // goes to stdout, and stdout is what a customer pastes into a
+            // ticket.
+            Detail = string.Join("; ", Sides(role.Trackers)),
+            Blocking = false,
+            Fixable = false,
+        };
+    }
+
+    /// <summary>The two sides, said apart, and only the ones there are.</summary>
+    private static IEnumerable<string> Sides(IReadOnlyList<DeclaredTracker> trackers)
+    {
+        foreach (var (writes, verb) in ((bool, string)[])[(false, "reads"), (true, "writes")])
+        {
+            var side = trackers.Where(t => t.Writes == writes).ToList();
+
+            if (side.Count > 0)
+            {
+                yield return $"{verb} " + string.Join(
+                    ", ", side.Select(t => $"{t.Key} ({t.Host})"));
+            }
+        }
+    }
+
+    private static IReadOnlyList<DoctorCheck> RoleChecks(
+        MachineRole role, Func<string, bool> unresolved) =>
     [
         ExecutorCheck(role),
         AirspaceCheck(role),
+        TrackerCheck(role, unresolved),
 
         role.ForgeHosts is { Length: > 0 } hosts
             ? new DoctorCheck

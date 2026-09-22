@@ -106,6 +106,37 @@ public interface IWorkItemSink
 /// tracker.
 /// </para>
 /// </remarks>
+/// <summary>
+/// One entry of <see cref="TrackerConfiguration.ApisVariable"/>, as written.
+/// </summary>
+/// <remarks>
+/// <b>Usable exactly when <see cref="Problem"/> is null</b>, and then all three
+/// of the others are present. The entry is kept either way, because "this
+/// machine declares a tracker it could not build a sink for" and "this machine
+/// declares no such tracker" are two different things to tell somebody and the
+/// second one is what a dropped entry says.
+/// </remarks>
+public sealed record DeclaredSink
+{
+    /// <summary>The entry exactly as the operator wrote it.</summary>
+    public required string Entry { get; init; }
+
+    /// <summary>The destination id, when there was one to read.</summary>
+    public string? Id { get; init; }
+
+    /// <summary>The tracker root, when there was one to read.</summary>
+    public string? Host { get; init; }
+
+    /// <summary>
+    /// The credential to resolve - named or derived from the host, never a
+    /// secret.
+    /// </summary>
+    public string? Locator { get; init; }
+
+    /// <summary>Why nothing was built for it, or null when something was.</summary>
+    public string? Problem { get; init; }
+}
+
 public static class TrackerConfiguration
 {
     /// <summary>The variable naming which trackers this runner may write to.</summary>
@@ -133,23 +164,79 @@ public static class TrackerConfiguration
     {
         ArgumentNullException.ThrowIfNull(clientFor);
 
-        var declared = apis ?? Environment.GetEnvironmentVariable(ApisVariable) ?? "";
         var sinks = new Dictionary<string, IWorkItemSink>(StringComparer.Ordinal);
+
+        foreach (var declaration in Declared(apis))
+        {
+            // SKIPPED, NOT THROWN, for rule 2's reason. This value can now arrive
+            // from a profile - offered to a machine by a document applied
+            // somewhere else - and the shape a NEWER contract writes is exactly
+            // what an older build cannot parse. Refusing to start is the one
+            // response that cannot be corrected, because the correction arrives
+            // as configuration. What a machine lacks is reported by readiness
+            // and by the doctor, both of which read the same parse.
+            if (declaration is not { Problem: null, Id: { } id, Host: { } host,
+                                     Locator: { } locator })
+            {
+                continue;
+            }
+
+            // DECLARED EITHER WAY, and the write is what refuses when the secret
+            // is not here. See LackingWorkItemSink for why the destination keeps
+            // its entry rather than being left out.
+            var secret = secretFor?.Invoke(locator);
+
+            sinks[id] = secret is { Length: > 0 }
+                ? new WiqlWorkItemSink(host, secret, clientFor(host))
+                : new LackingWorkItemSink(id, locator);
+        }
+
+        return sinks;
+    }
+
+    /// <summary>
+    /// Every entry of <see cref="ApisVariable"/>, usable or not.
+    /// </summary>
+    /// <param name="apis">
+    /// The declaration, or null to read <see cref="ApisVariable"/>. Passed by
+    /// tests and by the root; the root reads the environment through the one
+    /// reader.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// <b>Parsed once and read twice</b>, which is <c>ServedTrackers</c>'
+    /// reasoning on the read side and arrived at here for the same reason: a
+    /// second parser for a line an operator wrote is a second answer to what
+    /// they typed.
+    /// </para>
+    /// <para>
+    /// <b>An entry that cannot be used comes back carrying why.</b> The runner
+    /// still skips it - that is the whole of rule 2 - but a skip nothing can
+    /// report is how a machine ends up declared for a tracker it never built a
+    /// sink for, with no line anywhere saying so. <c>gg doctor</c> is where
+    /// that reaches a person.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<DeclaredSink> Declared(string? apis = null)
+    {
+        var declared = apis ?? Environment.GetEnvironmentVariable(ApisVariable) ?? "";
+        var entries = new List<DeclaredSink>();
 
         foreach (var entry in declared.Split(
                      ',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             var split = entry.IndexOf('=', StringComparison.Ordinal);
 
-            // SKIPPED, NOT THROWN, for rule 2's reason. This value can now arrive
-            // from a profile - offered to a machine by a document applied
-            // somewhere else - and the shape a NEWER contract writes is exactly
-            // what an older build cannot parse. Refusing to start is the one
-            // response that cannot be corrected, because the correction arrives
-            // as configuration. What a machine lacks is reported by readiness,
-            // which reads the same declaration and can say so.
             if (split <= 0 || split == entry.Length - 1)
             {
+                entries.Add(new DeclaredSink
+                {
+                    Entry = entry,
+                    Problem = $"'{entry}' in {ApisVariable} is not 'destination=api'. Each entry "
+                            + "names a destination id an admitted change can land at and the "
+                            + "tracker to write it to, e.g. "
+                            + "'my-board=https://tracker.example/acme'.",
+                });
                 continue;
             }
 
@@ -167,6 +254,14 @@ public static class TrackerConfiguration
 
             if (host.Length == 0)
             {
+                entries.Add(new DeclaredSink
+                {
+                    Entry = entry,
+                    Id = id,
+                    Problem = $"'{id}' in {ApisVariable} declares no tracker to write to, so "
+                            + "nothing was built for it. Name the tracker root after the '=', "
+                            + "or remove the entry.",
+                });
                 continue;
             }
 
@@ -185,22 +280,26 @@ public static class TrackerConfiguration
             // on, so a sink built around it would fail at the first admitted
             // write - which is what this skip avoids without taking the runner
             // down with it.
-            if (Gg.Contracts.CredentialLocator.Validate(locator) is not null)
+            if (Gg.Contracts.CredentialLocator.Validate(locator) is { } wrong)
             {
+                entries.Add(new DeclaredSink
+                {
+                    Entry = entry,
+                    Id = id,
+                    Host = host,
+                    Problem = $"'{id}' in {ApisVariable} resolves to a credential name this "
+                            + $"machine cannot hold, so nothing was built for it: {wrong}",
+                });
                 continue;
             }
 
-            // DECLARED EITHER WAY, and the write is what refuses when the secret
-            // is not here. See LackingWorkItemSink for why the destination keeps
-            // its entry rather than being left out.
-            var secret = secretFor?.Invoke(locator);
-
-            sinks[id] = secret is { Length: > 0 }
-                ? new WiqlWorkItemSink(host, secret, clientFor(host))
-                : new LackingWorkItemSink(id, locator);
+            entries.Add(new DeclaredSink
+            {
+                Entry = entry, Id = id, Host = host, Locator = locator,
+            });
         }
 
-        return sinks;
+        return entries;
     }
 
     /// <summary>The credential locator a tracker host resolves to.</summary>

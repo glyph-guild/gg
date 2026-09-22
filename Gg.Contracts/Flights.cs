@@ -937,6 +937,49 @@ public sealed record RunnerSummary
 
     /// <summary>When this machine last measured itself, or null if it never has.</summary>
     public DateTimeOffset? ReadinessMeasuredAt { get; init; }
+
+    /// <summary>
+    /// How much cpu this machine may use, in thousandths of a core, or null
+    /// when it has not said.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b><see cref="MachineReading"/>'s figures, held where a reader of the
+    /// fleet will look for them.</b> Per runner and one to one, unlike an
+    /// allowance - which is per NAME and shared by several machines, and is a
+    /// list of its own for exactly that reason. A fact that belongs to one
+    /// runner belongs on the runner.
+    /// </para>
+    /// <para>
+    /// <b>Absence is a machine that has not said</b>, never a machine with
+    /// none. <see cref="MachineMeasuredAt"/> is beside these for the reason
+    /// <see cref="ReadinessMeasuredAt"/> is beside the list above: silence and
+    /// health are different states, and a reader that showed a stale figure as
+    /// current would be worse than one that showed nothing.
+    /// </para>
+    /// </remarks>
+    public int? CpuMilliLimit { get; init; }
+
+    /// <summary>How much of it was in use when it last looked.</summary>
+    /// <remarks>
+    /// It may exceed the limit: a quota is enforced over a period, and an
+    /// average taken across period boundaries can land above it. Passed
+    /// through as measured, because a figure held at its ceiling cannot show a
+    /// machine being throttled.
+    /// </remarks>
+    public int? CpuMilliUsed { get; init; }
+
+    /// <summary>The memory ceiling in bytes: the cgroup's, or what is installed.</summary>
+    public long? MemoryLimitBytes { get; init; }
+
+    /// <summary>What was in use in bytes, not counting reclaimable cache.</summary>
+    public long? MemoryUsedBytes { get; init; }
+
+    /// <summary>
+    /// When this machine last measured its cpu and memory, or null if it never
+    /// has.
+    /// </summary>
+    public DateTimeOffset? MachineMeasuredAt { get; init; }
 }
 
 /// <summary>The states a runner may be derived to be in.</summary>

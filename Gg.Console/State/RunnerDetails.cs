@@ -115,6 +115,25 @@ public static class RunnerDetails
             fields.Add(new FlightField("working on", work));
         }
 
+        // WHAT IT HAS, AND WHEN IT SAID SO. The table shows the figures; what
+        // the modal adds is the instant behind them, because a reader who
+        // wonders whether a machine is really idle is asking how fresh the
+        // number is - and the table cannot spend a column on that.
+        //
+        // Absent rather than a dash here: a fleet that predates this reports
+        // nothing, and two fields of dashes on every machine would be a modal
+        // saying less by saying more.
+        if (Rows.Cpu(row) is { Length: > 0 } cpu && cpu != Gg.Client.MachineText.Absent)
+        {
+            fields.Add(new FlightField("cpu", cpu + " cores"));
+            fields.Add(new FlightField("memory", Rows.Memory(row)));
+
+            if (row.MachineMeasuredAt is { } when)
+            {
+                fields.Add(new FlightField("measured", when.ToString("u")));
+            }
+        }
+
         if (row.Labels is { Length: > 0 } labels)
         {
             fields.Add(new FlightField("advertises", labels));

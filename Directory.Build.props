@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!-- One version across the whole distribution; CI appends -alpha.N per commit. -->
-    <VersionPrefix>0.46.0</VersionPrefix>
+    <VersionPrefix>0.47.0</VersionPrefix>
     <!-- NO ICU, ANYWHERE. Measured on ubuntu:24.04 with gg 0.45.0: the Linux
          binary does not start without libicu, and it does not fail politely -
          it FailFasts with a runtime stack trace naming

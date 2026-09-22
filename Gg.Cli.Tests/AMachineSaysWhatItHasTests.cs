@@ -266,6 +266,63 @@ public class AMachineSaysWhatItHasTests
                    + "idle machine with no memory.");
     }
 
+    // ---- the real files, copied off the fleet ----
+
+    [Test]
+    public async Task The_hosts_own_files_read_the_way_they_are_written()
+    {
+        // VERBATIM FROM vmlinux001, 2026-09-22. A fixture somebody typed agrees
+        // with whatever they believed; this one disagrees when a format is not
+        // what it was thought to be. /proc/stat's first line has TWO spaces
+        // after `cpu` and ten fields, of which idle is the fourth number and
+        // iowait the fifth - which is the only thing standing between this and
+        // reporting a machine as permanently busy.
+        var files = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["/proc/stat"] = "cpu  2699710 61405 3823672 1694280489 273059 0 148624 0 0 0\n",
+            ["/proc/meminfo"] =
+                "MemTotal:       16366796 kB\nMemFree:          659892 kB\n"
+              + "MemAvailable:   14764892 kB\n",
+        };
+
+        var read = Reading(files, cores: 4).Read(T0);
+
+        await Assert.That(read.CpuMilliLimit).IsEqualTo(4000);
+        await Assert.That(read.MemoryLimitBytes).IsEqualTo(16366796L * 1024);
+        await Assert.That(read.MemoryUsedBytes).IsEqualTo((16366796L - 14764892L) * 1024)
+            .Because("about 1.5 GiB in use of 15.6 GiB installed, which is what the box "
+                   + "itself reports - and MemFree would have said 15.1 GiB were gone.");
+    }
+
+    [Test]
+    public async Task A_pool_members_own_files_read_the_way_they_are_written()
+    {
+        // VERBATIM FROM gg-pool-ui-1 on vmlinux001, 2026-09-22. Note what the
+        // real container says: uncapped on both, and its cache is 20 KiB of a
+        // 43 MiB footprint.
+        var files = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["/sys/fs/cgroup/cgroup.controllers"] =
+                "cpuset cpu io memory hugetlb pids rdma misc dmem\n",
+            ["/sys/fs/cgroup/cpu.max"] = "max 100000\n",
+            ["/sys/fs/cgroup/cpu.stat"] =
+                "usage_usec 180050593\nuser_usec 122365818\nsystem_usec 57684774\n",
+            ["/sys/fs/cgroup/memory.max"] = "max\n",
+            ["/sys/fs/cgroup/memory.current"] = "45764608\n",
+            ["/sys/fs/cgroup/memory.stat"] = "anon 42504192\ninactive_file 20480\n",
+            ["/proc/meminfo"] = "MemTotal:       16366796 kB\nMemAvailable:   14764892 kB\n",
+        };
+
+        var read = Reading(files, cores: 4).Read(T0);
+
+        await Assert.That(read.CpuMilliLimit).IsEqualTo(4000)
+            .Because("`max 100000` is a member nothing caps, so the host's four cores are "
+                   + "what bounds it.");
+        await Assert.That(read.MemoryLimitBytes).IsEqualTo(16366796L * 1024)
+            .Because("and `max` memory means the same: the whole machine.");
+        await Assert.That(read.MemoryUsedBytes).IsEqualTo(45764608L - 20480L);
+    }
+
     [Test]
     public async Task What_it_read_is_stamped_with_when_it_looked()
     {

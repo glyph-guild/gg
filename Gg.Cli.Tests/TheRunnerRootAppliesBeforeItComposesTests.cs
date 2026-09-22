@@ -140,9 +140,20 @@ public partial class TheRunnerRootAppliesBeforeItComposesTests
         await Assert.That(stop).IsGreaterThan(-1)
             .Because("the handler notices and never acts, so nothing restarts.");
 
-        await Assert.That(body[handler..stop]).Contains(".Write is null", StringComparison.Ordinal)
+        // THE PROPERTY MOVED OUT OF THE ROOT, so this now asks that the root
+        // still defers to it. It used to name `.Write is null` - the spelling
+        // the lambda happened to use - and a true sentence naming a spelling
+        // is how a correct-looking assertion holds a wire in place: the same
+        // lambda read Write, returned, and threw away the sentence Decide had
+        // written for the offer it could NOT take. Whether stopping and being
+        // taken are the same question is asserted on the function itself, in
+        // ARunningLoopSaysWhatItCouldNotTakeTests, where it can be measured
+        // rather than matched.
+        await Assert.That(body[handler..stop])
+            .Contains("OfferedAtStartup.OnABeat", StringComparison.Ordinal)
             .Because("the stop has to be conditional on a restart actually writing something, "
-                   + "or a directed offer nobody can take restarts this machine for ever.");
+                   + "or a directed offer nobody can take restarts this machine for ever - "
+                   + "and a root that decides that for itself is a decision no test reads.");
     }
 
     [GeneratedRegex(@"InForce\.Configuration")]

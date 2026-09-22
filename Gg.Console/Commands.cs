@@ -117,6 +117,38 @@ public enum Command
     /// </remarks>
     ShowBoardRow,
 
+    /// <summary>
+    /// The next page of flights, because somebody reached the end of this one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A command no key binds, and the only one.</b> Every other command
+    /// here is something a person pressed; this is something the CURSOR did -
+    /// it arrives from the table's own selection event, which is the one place
+    /// that knows which absolute row somebody is on. A key for it would be a
+    /// key whose answer depends on invisible state, and the gesture people
+    /// already have for "show me more" is scrolling to the bottom.
+    /// </para>
+    /// <para>
+    /// <b>In <see cref="ShellCommands.Reads"/> rather than the shell's.</b>
+    /// Scrolling must not end the UI session: that is a whole screen taken
+    /// away and given back, for a request nobody typed. <c>BackgroundReads</c>
+    /// exists for exactly this and holds the one-at-a-time rule that keeps a
+    /// cursor resting on the last row from asking once per frame.
+    /// </para>
+    /// </remarks>
+    LoadMoreFlights,
+
+    /// <summary>The next page of nominations, for the same reason.</summary>
+    /// <remarks>
+    /// <b>Its own command rather than one that reads the tab.</b> A single
+    /// LoadMore would have to ask which pane it was on inside the read, and
+    /// the read is the one place in this arrangement that cannot see the
+    /// screen - the reducer decides and the reader obeys, which is the shape
+    /// every other arm in the composition root has.
+    /// </remarks>
+    LoadMoreBoard,
+
     /// <summary>Open the nominated work. Posts; decides nothing locally.</summary>
     /// <remarks>
     /// <b>The word the CONTRACT uses for this ending</b>, so the console is not
@@ -1075,6 +1107,16 @@ public static class ShellCommands
         // the id somebody typed, or a listing for the words they typed.
         Command.GoToOrFind,
         Command.BrowseFiltered,
+
+        // AND THE NEXT PAGE OF A LIST SOMEBODY SCROLLED TO THE END OF, which
+        // is the first member of this set that no key resolves. What it has in
+        // common with the rest is the only thing this set is about: the answer
+        // arrives beside a console that stays up. Ending the session to fetch
+        // the rows below the ones on screen would blink the terminal for a
+        // request nobody typed - and it would happen on the way DOWN a list,
+        // which is the worst moment to move somebody's screen.
+        Command.LoadMoreFlights,
+        Command.LoadMoreBoard,
     };
 
     /// <summary>The commands whose effect lives in <c>ConsoleLoop</c>.</summary>

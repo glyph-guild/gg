@@ -1403,6 +1403,73 @@ public static class Reducer
         return state.SaidColumns == columns ? state : state with { SaidColumns = columns };
     }
 
+    /// <summary>
+    /// The read the cursor's position calls for, or null when it calls for
+    /// none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Pure, because the session may not start anything.</b> This says WHICH
+    /// read; <c>ConsoleScreen</c> hands it to <c>BackgroundReads</c>, which owns
+    /// the task and the one-at-a-time rule. The same division the arrow keys
+    /// have: moving the cursor is a reducer step, and what that costs is
+    /// somebody else's.
+    /// </para>
+    /// <para>
+    /// <b>The end of what is HELD, not the end of the table.</b> The board puts
+    /// the watches underneath its nominations, and three rows of machinery below
+    /// the last nomination are not more of the page - a person who has reached
+    /// the last nomination has seen everything the board brought.
+    /// </para>
+    /// <para>
+    /// <b>No cursor means that was all of them.</b> Asking anyway would fetch
+    /// the first page a second time and append it to itself, which is how an
+    /// infinite scroll becomes infinite.
+    /// </para>
+    /// <para>
+    /// <b>Not while a modal is open.</b> A cursor moving inside a modal is
+    /// moving down the modal's own list - the same reason <see cref="Pointed"/>
+    /// answers every modal before it reaches the tab.
+    /// </para>
+    /// </remarks>
+    public static Command? WantsMore(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.ReadInFlight || state.Mode is not UiMode.Normal)
+        {
+            return null;
+        }
+
+        return state.ActiveTab switch
+        {
+            TabId.Flights when state.Flights?.Next is { Length: > 0 }
+                && Reached(state.FlightSelected, PaneText.Shown(state.Flights).Count) =>
+                Command.LoadMoreFlights,
+
+            TabId.Board when state.Board?.Next is { Length: > 0 }
+                && Reached(
+                    state.BoardSelected,
+                    Rows.Board(state).Count(
+                        row => string.Equals(
+                            row.What, BoardRow.Nomination, StringComparison.Ordinal))) =>
+                Command.LoadMoreBoard,
+
+            // AND EVERY OTHER TAB ASKS FOR NOTHING, including the queue, which
+            // is derived from the flights read rather than fetched - there is no
+            // next page of it for anybody to serve.
+            _ => null,
+        };
+    }
+
+    /// <summary>Whether the cursor is on the last of them.</summary>
+    /// <remarks>
+    /// <b>At or past, rather than on.</b> A cursor clamped against a list that
+    /// shrank under it can sit past the end, and that is still somebody looking
+    /// at the bottom of what they have.
+    /// </remarks>
+    private static bool Reached(int cursor, int rows) => rows > 0 && cursor >= rows - 1;
+
     public static AppState Pointed(AppState state, int row)
     {
         ArgumentNullException.ThrowIfNull(state);

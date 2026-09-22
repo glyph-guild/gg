@@ -37,8 +37,15 @@ namespace Gg.Console;
 /// seconds, for as long as the console is open.
 /// </para>
 /// </remarks>
+/// <param name="read">
+/// What to ask, given the tab and what is on screen. THE STATE IS AN ARGUMENT
+/// because a refresh has to ask for as many rows as somebody has scrolled to -
+/// a tick that re-asked the first question would take away the pages they
+/// loaded. It stays a patch coming back: what the read sees is a snapshot, and
+/// what it answers with is applied to whatever is on screen when it lands.
+/// </param>
 public sealed class AutoRefresh(
-    Func<TabId, Task<Func<AppState, AppState>>> read, IClock clock, TimeSpan every)
+    Func<TabId, AppState, Task<Func<AppState, AppState>>> read, IClock clock, TimeSpan every)
 {
     private Task<Func<AppState, AppState>>? _running;
 
@@ -84,7 +91,7 @@ public sealed class AutoRefresh(
 
             if (Reads(state.ActiveTab))
             {
-                _running = read(state.ActiveTab);
+                _running = read(state.ActiveTab, state);
             }
             else
             {

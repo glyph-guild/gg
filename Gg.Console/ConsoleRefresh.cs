@@ -31,23 +31,56 @@ public static class ConsoleRefresh
     /// <summary>How many logs to have in the air at once, as at boot.</summary>
     private const int LogsAtOnce = 8;
 
+    /// <summary>
+    /// As many rows as are on screen, and never fewer than a page.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Because a refresh must not take away what somebody scrolled to.</b>
+    /// A person three pages into a list has three pages' worth of rows held;
+    /// a tick that asked for one page would replace them with a hundred rows
+    /// and send the cursor back to the top of what is left. So the tick asks
+    /// for what is there.
+    /// </para>
+    /// <para>
+    /// <b>Never fewer than a page, even when fewer are held.</b> A short list
+    /// asked for its own length can never grow: the rows created since would
+    /// need a scroll to reach, on a list whose cursor said it was complete.
+    /// </para>
+    /// <para>
+    /// <b>And never more than the contract allows.</b> Somebody who has
+    /// scrolled past a thousand rows loses the tail on the next tick, which is
+    /// a worse answer than a refused request - <c>Paging.Validate</c> is what
+    /// the other side would answer with, and it refuses.
+    /// </para>
+    /// </remarks>
+    private static int AsManyAsAreShown(int held) =>
+        Math.Clamp(held, Gg.Contracts.Paging.DefaultLimit, Gg.Contracts.Paging.MaxLimit);
+
+    /// <param name="on">
+    /// What is on screen, which decides how much of it to ask for again.
+    /// </param>
     public static async Task<Func<AppState, AppState>> ForTabAsync(
-        ConsoleData data, TabId tab, CancellationToken cancellationToken = default)
+        ConsoleData data, TabId tab, AppState on, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(on);
 
         try
         {
             return tab switch
             {
                 TabId.Queue or TabId.Flights => await TheFleetAndItsWorkAsync(
-                    data, cancellationToken),
+                    data, AsManyAsAreShown(on.Flights?.Flights.Count ?? 0), cancellationToken),
                 TabId.Runners => await TheFleetAndWhatItHasLeftAsync(data, cancellationToken),
                 // TWO READS, AND THE PANE WAITS FOR BOTH. Nominations and the
                 // watches that make them are separate routes; folding one in
                 // while the other is still null would draw a board that looks
                 // complete and is half a story.
-                TabId.Board => await TheBoardAndItsWatchesAsync(data, cancellationToken),
+                TabId.Board => await TheBoardAndItsWatchesAsync(
+                    data,
+                    AsManyAsAreShown(on.Board?.Nominations.Count ?? 0),
+                    cancellationToken),
                 TabId.Repositories => Apply(await data.RepositoriesAsync(cancellationToken)),
                 TabId.Envelope => Apply(await data.EnvelopeAsync(cancellationToken)),
 
@@ -84,12 +117,12 @@ public static class ConsoleRefresh
     /// exists to make impossible.
     /// </remarks>
     private static async Task<Func<AppState, AppState>> TheBoardAndItsWatchesAsync(
-        ConsoleData data, CancellationToken cancellationToken)
+        ConsoleData data, int page, CancellationToken cancellationToken)
     {
         // ENDED ROWS TOO. The queue already shows what is standing; what this
         // pane adds is what happened to the rest, and a board that dropped
         // every answered row would be the queue with a second name.
-        var board = Apply(await data.BoardAsync(ended: true, cancellationToken));
+        var board = Apply(await data.BoardAsync(ended: true, cancellationToken, limit: page));
         var watches = await data.WatchesAsync(cancellationToken);
 
         return state => ConsoleProjection.Apply(board(state), watches);
@@ -154,9 +187,9 @@ public static class ConsoleRefresh
     /// would leave rows explained by an answer that has moved.
     /// </remarks>
     private static async Task<Func<AppState, AppState>> TheFleetAndItsWorkAsync(
-        ConsoleData data, CancellationToken cancellationToken)
+        ConsoleData data, int page, CancellationToken cancellationToken)
     {
-        var listing = data.ListAsync(cancellationToken);
+        var listing = data.ListAsync(cancellationToken, limit: page);
         var fleet = data.RunnersAsync(cancellationToken);
         var waiting = data.GatesAsync(cancellationToken);
         // AND WHAT HAS NOT STARTED, in the same round as the three above it.

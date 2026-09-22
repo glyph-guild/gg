@@ -392,6 +392,151 @@ public class TheInstallerVerifiesWhatItInstallsTests
                    + "checking.");
     }
 
+    // ---- gg is on the PATH of whoever ran this ----
+
+    private const string PathLine = "export PATH=\"/usr/local/bin:$PATH\"";
+
+    [Test]
+    [Arguments("Linux", "/bin/zsh", ".zshrc")]
+    [Arguments("Linux", "/usr/bin/zsh", ".zshrc")]
+    [Arguments("Linux", "/bin/bash", ".bashrc")]
+    [Arguments("Darwin", "/bin/bash", ".bash_profile")]
+    [Arguments("Linux", "/bin/sh", ".profile")]
+    [Arguments("Linux", "/usr/bin/dash", ".profile")]
+    public async Task The_bin_directory_is_put_on_the_path_of_the_shell_that_ran_it(
+        string kernel, string shell, string startup)
+    {
+        // "gg: command not found" AFTER a successful install is the first thing
+        // a person meets on a machine whose PATH lacks /usr/local/bin - a
+        // stripped container, a shell whose rc rewrites PATH, a distro with no
+        // /etc/environment. The script knew exactly where it put the link and
+        // said nothing about whether the shell would find it.
+        //
+        // THE SHELL THAT RAN IT, not the shell it is running in: this script is
+        // /bin/sh, and the person is in zsh. Under sudo $SHELL is root's, so the
+        // script reads the invoking user's - but with no SUDO_USER, as here, it
+        // is the environment's.
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.42.0"));
+        box.Uname(kernel, "x86_64");
+        box.Environment["SHELL"] = shell;
+
+        var installed = await box.RunAsync("--version", "0.42.0");
+
+        await Assert.That(installed.Exit).IsEqualTo(0).Because(installed.Output);
+
+        var file = Path.Combine(box.Home, startup);
+        await Assert.That(File.Exists(file)).IsTrue()
+            .Because($"{shell} reads {startup} on this platform, and that is where PATH has "
+                   + "to be set for the next terminal to find gg.");
+        await Assert.That(await File.ReadAllTextAsync(file)).Contains(PathLine);
+        await Assert.That(installed.Output).Contains(startup)
+            .Because("a file edited in somebody's home is named, so they know what changed "
+                   + "and where to look if they would rather it had not.");
+    }
+
+    [Test]
+    public async Task Fish_is_given_its_own_spelling_in_its_own_directory()
+    {
+        // fish does not read POSIX `export`, and a line that is a syntax error in
+        // the startup file breaks every new shell - worse than the missing PATH
+        // it was meant to fix. conf.d is fish's place for exactly this, and
+        // fish_add_path is idempotent on its own.
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.42.0"));
+        box.Environment["SHELL"] = "/usr/bin/fish";
+
+        var installed = await box.RunAsync("--version", "0.42.0");
+
+        await Assert.That(installed.Exit).IsEqualTo(0).Because(installed.Output);
+
+        var file = Path.Combine(box.Home, ".config", "fish", "conf.d", "gg.fish");
+        await Assert.That(File.Exists(file)).IsTrue();
+        await Assert.That(await File.ReadAllTextAsync(file)).Contains("fish_add_path");
+        await Assert.That(await File.ReadAllTextAsync(file)).DoesNotContain("export ");
+    }
+
+    [Test]
+    public async Task A_path_that_already_has_it_is_left_alone_and_said_so()
+    {
+        // THE COMMON CASE ON A MAC AND MOST DISTROS - path_helper and
+        // /etc/environment already put /usr/local/bin there - so the edit must
+        // not happen, and the script still says what it found rather than
+        // staying silent about the question.
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.42.0"));
+        box.Environment["SHELL"] = "/bin/zsh";
+        box.BinAlreadyOnPath = true;
+
+        var installed = await box.RunAsync("--version", "0.42.0");
+
+        await Assert.That(installed.Exit).IsEqualTo(0).Because(installed.Output);
+        await Assert.That(File.Exists(Path.Combine(box.Home, ".zshrc"))).IsFalse()
+            .Because("a startup file nobody needed edited is a diff in somebody's home they "
+                   + "did not ask for.");
+        await Assert.That(installed.Output).Contains("on PATH");
+    }
+
+    [Test]
+    public async Task Running_it_twice_adds_the_line_once()
+    {
+        // The update path IS running it again, so an rc file that grew a line
+        // per release would carry one per version somebody ever installed.
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.42.0"));
+        box.Attest(box.Release("0.43.0"));
+        box.Environment["SHELL"] = "/bin/zsh";
+
+        await box.RunAsync("--version", "0.42.0");
+        var again = await box.RunAsync("--version", "0.43.0");
+
+        await Assert.That(again.Exit).IsEqualTo(0).Because(again.Output);
+
+        var lines = await File.ReadAllLinesAsync(Path.Combine(box.Home, ".zshrc"));
+        await Assert.That(lines.Count(l => l.Contains("/usr/local/bin", StringComparison.Ordinal)))
+            .IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task Without_a_known_shell_it_writes_nothing_and_says_what_to_add()
+    {
+        // No SHELL and no passwd entry to read one from - a bare container, an
+        // unusual login. Guessing a file to edit is how somebody's startup gets
+        // a line for a shell they do not use; saying the line is enough.
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.42.0"));
+
+        var installed = await box.RunAsync("--version", "0.42.0");
+
+        await Assert.That(installed.Exit).IsEqualTo(0).Because(installed.Output);
+        await Assert.That(Directory.EnumerateFiles(box.Home, ".*").Select(Path.GetFileName))
+            .DoesNotContain(".profile");
+        await Assert.That(installed.Output).Contains(PathLine)
+            .Because("the line a person adds by hand is the one thing the script can still "
+                   + "give them when it cannot tell which file to put it in.");
+    }
+
+    [Test]
+    public async Task The_windows_installer_puts_its_prefix_on_the_users_path_without_a_leading_separator()
+    {
+        // The Windows installer already edits PATH - the user's, never the
+        // machine's, because a per-user install is the whole point of its
+        // default prefix. What it got wrong is the join: on a profile whose
+        // user PATH is empty, "$userPath;$Prefix" writes ";C:\...\gg", and a
+        // leading empty entry means "the current directory" to cmd.exe - a
+        // PATH that runs whatever is in the folder you happen to be in.
+        var script = await File.ReadAllTextAsync(
+            Path.Combine(RepoRoot(), "deploy", "install.ps1"));
+
+        await Assert.That(script).Contains("'User'")
+            .Because("a per-user install goes on the per-user PATH; nothing here has or needs "
+                   + "administrator.");
+        await Assert.That(script).DoesNotContain("'Machine'");
+        await Assert.That(script).DoesNotContain("\"$userPath;$Prefix\"")
+            .Because("joined with a separator whether or not there is anything before it, "
+                   + "which on an empty user PATH is a leading empty entry.");
+    }
+
     /// <summary>A directory standing in for one machine and one release page.</summary>
     private sealed class Sandbox : IDisposable
     {
@@ -402,6 +547,15 @@ public class TheInstallerVerifiesWhatItInstallsTests
         private string Log => Path.Combine(_dir, "log");
 
         public string Root => Path.Combine(_dir, "root");
+
+        /// <summary>The home the script is run with - where a startup file would land.</summary>
+        public string Home => _dir;
+
+        /// <summary>Extra environment for the run: the shell that ran it, mostly.</summary>
+        public Dictionary<string, string> Environment { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>Whether /usr/local/bin is already on the PATH the script sees.</summary>
+        public bool BinAlreadyOnPath { get; set; }
 
         public Sandbox()
         {
@@ -583,9 +737,14 @@ public class TheInstallerVerifiesWhatItInstallsTests
             }
 
             start.Environment.Clear();
-            start.Environment["PATH"] = Stubs;
+            start.Environment["PATH"] = BinAlreadyOnPath ? Stubs + ":/usr/local/bin" : Stubs;
             start.Environment["HOME"] = _dir;
             start.Environment["STUB_DIR"] = _dir;
+
+            foreach (var (name, value) in Environment)
+            {
+                start.Environment[name] = value;
+            }
 
             using var process = Process.Start(start)!;
             process.StandardInput.Close();

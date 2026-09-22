@@ -3242,6 +3242,15 @@ public sealed class ConsoleScreen : Window
         var rows = table.Table?.Rows ?? 0;
         var row = table.Value?.SelectedCell.Y ?? 0;
 
+        if (Environment.GetEnvironmentVariable("GG_EDGE_TRACE") is { Length: > 0 } trace)
+        {
+            File.AppendAllText(
+                trace,
+                $"{(down ? "down" : "up  ")} row={row} rows={rows} "
+              + $"value={(table.Value is null ? "null" : "set")} taps={_edge.Taps}"
+              + $" holding={_edge.Holding}{Environment.NewLine}");
+        }
+
         if (rows is 0 || (down ? row < rows - 1 : row > 0))
         {
             // SOMEWHERE TO GO, so this is not a press against an edge at all.

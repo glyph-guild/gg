@@ -57,7 +57,7 @@ public class ATableHoldsAtItsEdgeTests
     [Test]
     public async Task Two_taps_still_stay()
     {
-        var (presses, left) = Pressing(0, 200);
+        var (presses, left) = Pressing(0, 400);
 
         await Assert.That(left).IsEqualTo(0);
         await Assert.That(presses.Taps).IsEqualTo(2);
@@ -66,7 +66,7 @@ public class ATableHoldsAtItsEdgeTests
     [Test]
     public async Task Three_deliberate_taps_leave()
     {
-        var (presses, left) = Pressing(0, 200, 400);
+        var (presses, left) = Pressing(0, 400, 800);
 
         await Assert.That(left).IsEqualTo(1)
             .Because("three consecutive taps is a decision rather than a discovery.");
@@ -76,13 +76,44 @@ public class ATableHoldsAtItsEdgeTests
     }
 
     [Test]
-    public async Task Tapping_as_fast_as_a_person_can_still_takes_three()
+    public async Task Mashing_the_key_reads_as_holding_it()
     {
-        var (_, left) = Pressing(0, 120, 240);
+        // FIFTEEN PRESSES AS FAST AS A PERSON CAN GO, which is the case that
+        // used to leave on the third.
+        var offsets = Enumerable.Range(0, 15).Select(n => n * 120).ToArray();
 
-        await Assert.That(left).IsEqualTo(1)
-            .Because("120ms apart is a fast tap and not the OS repeating, so it counts - "
-                   + "the ask was three taps however quickly they come.");
+        var (presses, left) = Pressing(offsets);
+
+        await Assert.That(left).IsEqualTo(0)
+            .Because("tapping quickly and a slow repeat rate are the same stream of bytes, "
+                   + "so this is the trade this threshold makes on purpose: the gesture "
+                   + "somebody does by ACCIDENT is the one that cannot leave.");
+        await Assert.That(presses.Holding).IsTrue();
+    }
+
+    [Test]
+    public async Task A_hold_the_console_was_too_busy_to_deliver_evenly_still_holds()
+    {
+        // WHY THIS IS HERE. Reported from use on the board's last row: the gap
+        // measured in the handler is between two runs of a handler, which is the
+        // console's own pace and not the keyboard's. A 30ms repeat arrived more
+        // than 100ms apart while the table was drawing a hundred rows and
+        // flashing one, so a real hold read as tapping and the third left.
+        var offsets = new List<int> { 0 };
+        var at = 0;
+        foreach (var stretched in (int[])[30, 140, 40, 160, 30, 180, 120, 30, 200, 90])
+        {
+            at += stretched;
+            offsets.Add(at);
+        }
+
+        var (presses, left) = Pressing([.. offsets]);
+
+        await Assert.That(left).IsEqualTo(0)
+            .Because("latency can only stretch a gap, never shrink one, so the threshold has "
+                   + "to sit above any plausible stretch - the other way round is one frame "
+                   + "of lag away from turning a hold into three taps.");
+        await Assert.That(presses.Holding).IsTrue();
     }
 
     [Test]
@@ -111,8 +142,8 @@ public class ATableHoldsAtItsEdgeTests
     [Test]
     public async Task A_stretched_repeat_is_still_the_same_hold()
     {
-        // One interval stretched to 200ms - a loaded machine, not a release.
-        var (presses, left) = Pressing(0, 400, 430, 460, 660, 690, 720);
+        // One interval stretched to 290ms - a loaded machine, not a release.
+        var (presses, left) = Pressing(0, 280, 310, 340, 630, 660, 690);
 
         await Assert.That(left).IsEqualTo(0)
             .Because("auto-repeat is not evenly spaced, and reading one stretched gap as a "
@@ -126,7 +157,7 @@ public class ATableHoldsAtItsEdgeTests
         var offsets = new List<int> { 0, 400, 430, 460, 490 };
 
         // Released - a gap far wider than any repeat - then three taps.
-        offsets.AddRange([1200, 1400, 1600]);
+        offsets.AddRange([1000, 1400, 1800]);
 
         var (_, left) = Pressing([.. offsets]);
 
@@ -138,7 +169,7 @@ public class ATableHoldsAtItsEdgeTests
     [Test]
     public async Task Taps_too_far_apart_are_not_consecutive()
     {
-        var (presses, left) = Pressing(0, 200, 3000);
+        var (presses, left) = Pressing(0, 400, 3000);
 
         await Assert.That(left).IsEqualTo(0)
             .Because("a gap long enough to be a different thought is a different thought.");

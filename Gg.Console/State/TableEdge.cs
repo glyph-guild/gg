@@ -62,11 +62,27 @@ public static class TableEdge
     /// <summary>After this long, the next tap is a new thought and counts as one.</summary>
     public static readonly TimeSpan Forgotten = TimeSpan.FromMilliseconds(1500);
 
-    /// <summary>How long the row goes on blinking after the last press at an edge.</summary>
-    public static readonly TimeSpan Blinking = TimeSpan.FromMilliseconds(700);
+    /// <summary>
+    /// How long the row goes on flashing after the last press at an edge.
+    /// </summary>
+    /// <remarks>
+    /// <b>Short, because a HELD key re-arms it every repeat.</b> This is
+    /// measured from the last press, so a finger down keeps it alive and
+    /// flashing for as long as it is held, while a single tap gets a blip of
+    /// about two cycles. Set wide enough to read as a flash for one tap, it made
+    /// a tap flash six times.
+    /// </remarks>
+    public static readonly TimeSpan Blinking = TimeSpan.FromMilliseconds(240);
 
-    /// <summary>Lit for this long, dark for this long.</summary>
-    public static readonly TimeSpan HalfABlink = TimeSpan.FromMilliseconds(180);
+    /// <summary>
+    /// Lit for this long, dark for this long.
+    /// </summary>
+    /// <remarks>
+    /// <b>Fast on purpose</b> - about eight cycles a second. The first try ran
+    /// at 180ms a half and read as a slow pulse, which looks like something
+    /// loading rather than like the table answering a key.
+    /// </remarks>
+    public static readonly TimeSpan HalfABlink = TimeSpan.FromMilliseconds(60);
 
     /// <summary>How many deliberate taps leave the table.</summary>
     public const int TapsThatLeave = 3;

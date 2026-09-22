@@ -3285,7 +3285,12 @@ public sealed class ConsoleScreen : Window
 
         _edgeBlinking = true;
 
-        _app.AddTimeout(TableEdge.HalfABlink, () =>
+        // TWICE PER HALF-CYCLE, so each half gets drawn. Sampling once per half
+        // relies on the timer firing exactly on the phase boundary, and a
+        // timeout that lands a few milliseconds late draws the same half twice
+        // and skips the other - which at this speed is the difference between a
+        // flash and a flicker that sometimes is not there.
+        _app.AddTimeout(TableEdge.HalfABlink / 2, () =>
         {
             var now = DateTimeOffset.UtcNow;
 

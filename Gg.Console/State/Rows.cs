@@ -208,7 +208,30 @@ public sealed record RunnerRow(
     IReadOnlyList<string> Lacks = null!,   // read through Lacking, never directly
 
     /// <summary>When it last measured itself, or empty when it never has.</summary>
-    string Measured = "");
+    string Measured = "",
+
+    /// <summary>
+    /// What this machine may use and what it was using, in thousandths of a
+    /// core and in bytes, or null where it has not said.
+    /// </summary>
+    /// <remarks>
+    /// <b>Numbers, not a rendering.</b> This record goes to disk under
+    /// <c>GG_STATE_DUMP</c> and is read back by things that are not a
+    /// renderer, so <c>1.9G/15.6G</c> here would be a presentation somebody
+    /// else has to parse back - which is the argument the nesting indent
+    /// already lost. <see cref="Rows.Cpu"/> and <see cref="Rows.Memory"/> turn
+    /// these into cells.
+    /// </remarks>
+    int? CpuMilliLimit = null,
+    int? CpuMilliUsed = null,
+    long? MemoryLimitBytes = null,
+    long? MemoryUsedBytes = null,
+
+    /// <summary>
+    /// When the machine last measured them, which is what decides whether they
+    /// are drawn at all.
+    /// </summary>
+    DateTimeOffset? MachineMeasuredAt = null);
 
 /// <summary>
 /// The rows behind the three tables, and the names of their columns.
@@ -297,6 +320,38 @@ public static class Rows
     /// does the pane, so both call this and neither invents its own amount.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// What this machine is using of what it may, in cores.
+    /// </summary>
+    /// <remarks>
+    /// <b>The verb's own formatter, called rather than copied.</b>
+    /// <c>gg runners</c> prints these figures and this table draws them, and
+    /// two implementations would be two answers to what <c>1.9G</c> means -
+    /// agreeing right up until somebody changed one.
+    /// </remarks>
+    public static string Cpu(RunnerRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        return Gg.Client.MachineText.Cpu(
+            row.CpuMilliUsed, row.CpuMilliLimit, row.MachineMeasuredAt, DateTimeOffset.UtcNow);
+    }
+
+    /// <summary>What this machine is using of what it may, as sizes.</summary>
+    /// <remarks>
+    /// <b>The wall clock, as <c>PaneText.Age</c> reads it and for its reason.</b>
+    /// Nothing at this layer carries one, and an age on twenty rows is twenty
+    /// subtractions either way.
+    /// </remarks>
+    public static string Memory(RunnerRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        return Gg.Client.MachineText.Memory(
+            row.MemoryUsedBytes, row.MemoryLimitBytes, row.MachineMeasuredAt,
+            DateTimeOffset.UtcNow);
+    }
+
     public static string Nested(RunnerRow row)
     {
         ArgumentNullException.ThrowIfNull(row);
@@ -318,7 +373,8 @@ public static class Rows
         ["", "subject", "for", "state", "kind", "since", "next", "cost"];
 
     public static IReadOnlyList<string> RunnerColumns { get; } =
-        ["", "runner", "whose", "profile", "state", "working on", "lacks", "advertises", "last heard"];
+        ["", "runner", "whose", "profile", "state", "working on", "cpu", "memory",
+         "lacks", "advertises", "last heard"];
 
     /// <summary>
     /// What a machine lacks, as one cell says it, or empty.
@@ -399,6 +455,8 @@ public static class Rows
             row.Profile,
             row.State,
             row.Work,
+            Cpu(row),
+            Memory(row),
             Lacking(row) is { Count: > 0 } missing ? string.Join(", ", missing) : "",
             row.Labels,
             row.Heard,
@@ -1050,7 +1108,18 @@ public static class Rows
             .. runner.Lacks.Select(item =>
                 $"{ControlText.Strip(item.Kind)} {ControlText.Strip(item.Subject)}"),
         ],
-        Measured: runner.ReadinessMeasuredAt is { } when ? when.ToString("u") : "");
+        Measured: runner.ReadinessMeasuredAt is { } when ? when.ToString("u") : "",
+
+        // THE FIGURES AS NUMBERS, formatted by the renderer rather than here.
+        // This record is written to disk under GG_STATE_DUMP and read back by
+        // things that are not a renderer, so `1.9G/15.6G` in it would be a
+        // presentation somebody else has to parse back - the same argument the
+        // nesting indent lost.
+        CpuMilliLimit: runner.CpuMilliLimit,
+        CpuMilliUsed: runner.CpuMilliUsed,
+        MemoryLimitBytes: runner.MemoryLimitBytes,
+        MemoryUsedBytes: runner.MemoryUsedBytes,
+        MachineMeasuredAt: runner.MachineMeasuredAt);
 
     /// <summary>
     /// One advertised label, and a word only when it is worth one.

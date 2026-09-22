@@ -2343,8 +2343,25 @@ public static class VerbOutput
             // indent is what says one of them created the other.
             var under = nested ? "  " : "";
 
+            // WHAT IT HAS, when it has said recently. The same formatter the
+            // console's table uses, so the two surfaces cannot come to disagree
+            // about what a figure means - and nothing at all when a machine has
+            // not reported, because `cpu -/-` is noise on every row of a fleet
+            // that predates this.
+            var now = DateTimeOffset.UtcNow;
+            var has = MachineText.Fresh(runner.MachineMeasuredAt, now)
+                ? "  cpu "
+                  + MachineText.Cpu(
+                      runner.CpuMilliUsed, runner.CpuMilliLimit, runner.MachineMeasuredAt, now)
+                  + "  mem "
+                  + MachineText.Memory(
+                      runner.MemoryUsedBytes, runner.MemoryLimitBytes,
+                      runner.MachineMeasuredAt, now)
+                : "";
+
             text.AppendLine(
-                $"{under}{Clean(runner.State),-8}  {Clean(runner.Label),-16}{beat}{on}{Whose(runner)}{labels}");
+                $"{under}{Clean(runner.State),-8}  {Clean(runner.Label),-16}{beat}{on}"
+              + $"{Whose(runner)}{has}{labels}");
         }
         return text.ToString().TrimEnd();
     }

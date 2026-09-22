@@ -126,12 +126,18 @@ public static class UpdatePlans
     /// Whether this process could write the tool directory. Passed in rather
     /// than probed, so the decision stays pure.
     /// </param>
+    /// <param name="scratch">
+    /// Where a fetched installer lands. Handed in for the same reason as the
+    /// line above: choosing a temporary path is a question about a filesystem,
+    /// and nothing here touches one.
+    /// </param>
     public static UpdatePlan For(
         InstallShape shape,
         string? installed,
         string? target,
         string? installer,
-        bool toolPathWritable)
+        bool toolPathWritable,
+        string scratch)
     {
         ArgumentNullException.ThrowIfNull(shape);
 
@@ -181,7 +187,7 @@ public static class UpdatePlans
         {
             InstallKind.GlobalTool => ByDotnet(shape, installed, target, global: true, writable: true),
             InstallKind.ToolPath => ByDotnet(shape, installed, target, global: false, writable: toolPathWritable),
-            InstallKind.Native => ByInstaller(shape, installed, target, installer),
+            InstallKind.Native => ByInstaller(shape, installed, target, installer, scratch),
 
             InstallKind.Container => Cannot(
                 shape, installed, target,
@@ -260,7 +266,7 @@ public static class UpdatePlans
     /// </para>
     /// </remarks>
     private static UpdatePlan ByInstaller(
-        InstallShape shape, string? installed, string target, string? installer)
+        InstallShape shape, string? installed, string target, string? installer, string scratch)
     {
         if (installer is not { Length: > 0 } from)
         {
@@ -271,18 +277,42 @@ public static class UpdatePlans
               + "Configure it and run this again.");
         }
 
-        return new UpdatePlan(
-            shape,
-            installed,
-            target,
-            $"This gg is a self-contained binary; its installer moves it to {target}.",
+        // A PATH IS RUN; ANYTHING ELSE IS FETCHED FIRST, AS ITS OWN STEP. A
+        // URL cannot be executed, and the obvious way round that - one step
+        // reading `curl … | sh` - is a shell line, which is the shape this
+        // whole structure exists to avoid. Two steps instead: the fetch is
+        // visible, has its own reason, and fails on its own.
+        var local = !from.Contains("://", StringComparison.Ordinal);
+
+        IReadOnlyList<UpdateStep> steps = local
+            ?
             [
                 new UpdateStep(
                     from,
                     ["--version", target],
                     "the installer verifies the bytes against an attestation before writing "
                   + "any, installs beside what is there, and swaps the link by rename"),
-            ],
+            ]
+            :
+            [
+                new UpdateStep(
+                    "curl",
+                    ["-fsSL", "-o", scratch, from],
+                    "the installer comes from where this machine's own configuration says, "
+                  + "which is the same choice its operator made installing it"),
+                new UpdateStep(
+                    "sh",
+                    [scratch, "--version", target],
+                    "the installer verifies the bytes against an attestation before writing "
+                  + "any, installs beside what is there, and swaps the link by rename"),
+            ];
+
+        return new UpdatePlan(
+            shape,
+            installed,
+            target,
+            $"This gg is a self-contained binary; its installer moves it to {target}.",
+            steps,
             Refusal: null,
 
             // ALWAYS, rather than when a probe says so. The installer's

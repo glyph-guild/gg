@@ -74,6 +74,28 @@ public sealed record Configuration
     /// <summary>The agent binary a runner invokes.</summary>
     public string? ExecutorBinary { get; init; }
 
+    /// <summary>
+    /// Where this machine's installer comes from, for <c>gg update</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The machine's own, and never offerable.</b> This is the one setting
+    /// that decides which bytes may replace this binary, so a control plane
+    /// able to offer it could repoint every machine in a tenant at an
+    /// installer of its choosing. The control plane says which VERSION is
+    /// current; this says where an installer comes from; and the installer
+    /// itself checks the release against a build attestation before writing
+    /// anything.
+    /// </para>
+    /// <para>
+    /// A local path is run directly. Anything else is fetched first, which is
+    /// the same act as the <c>curl … | sudo sh</c> line this machine was
+    /// installed with - the operator chose the location then and chooses it
+    /// here, rather than being sent somewhere by a server.
+    /// </para>
+    /// </remarks>
+    public string? Installer { get; init; }
+
     /// <summary>The labels this machine's runner advertises.</summary>
     public string? RunnerLabels { get; init; }
 
@@ -383,6 +405,8 @@ public sealed record Configuration
                 Get = c => c.TrackerApis, With = (c, v) => c with { TrackerApis = v } },
         new() { Variable = "GG_EXECUTOR_BINARY", Key = "executor-binary",
                 Get = c => c.ExecutorBinary, With = (c, v) => c with { ExecutorBinary = v } },
+        new() { Variable = "GG_INSTALLER", Key = "installer",
+                Get = c => c.Installer, With = (c, v) => c with { Installer = v } },
         new() { Variable = "GG_RUNNER_LABELS", Key = "runner-labels",
                 Get = c => c.RunnerLabels, With = (c, v) => c with { RunnerLabels = v } },
         new() { Variable = "GG_RUNNER_SWEEPS", Key = "runner-sweeps",

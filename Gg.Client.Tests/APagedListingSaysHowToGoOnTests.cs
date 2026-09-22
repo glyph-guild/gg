@@ -85,9 +85,33 @@ public class APagedListingSaysHowToGoOnTests
             },
             ProtocolJsonContext.Default.FlightList);
 
+    /// <remarks>
+    /// WITH A ROW, because an empty page answers its own sentence - "nothing is
+    /// waiting to become a flight" - and a page with a cursor and no rows is a
+    /// state the control plane cannot produce: it names a cursor only when it
+    /// held rows back.
+    /// </remarks>
     private static string ABoardPage(string? next) =>
         System.Text.Json.JsonSerializer.Serialize(
-            new BoardPage { Nominations = [], IncludedEnded = false, Next = next },
+            new BoardPage
+            {
+                Nominations =
+                [
+                    new NominationSummary
+                    {
+                        NominationId = Guid.Parse("019fe815-6136-7518-bb57-b06d6d3f411a"),
+                        Nominator = "a-watch",
+                        Subject = "ado#18493",
+                        Version = "3",
+                        WorkKind = "implement",
+                        Mode = "gated",
+                        State = "standing",
+                        MadeAt = new DateTimeOffset(2026, 9, 20, 12, 0, 0, TimeSpan.Zero),
+                    },
+                ],
+                IncludedEnded = false,
+                Next = next,
+            },
             ProtocolJsonContext.Default.BoardPage);
 
     [Test]

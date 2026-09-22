@@ -67,7 +67,9 @@ return CliArgs.Parse(args) switch
     CliAction.Fly { ByHand: true } hand => await HandAsync(hand),
     CliAction.Fly fly => await EmitAsync(fly.Json, c => Flown(c, fly)),
     CliAction.Flights flights => await EmitAsync(
-        flights.Json, c => c.ListAsync(flights.All, intent: flights.Intent)),
+        flights.Json,
+        c => c.ListAsync(
+            flights.All, intent: flights.Intent, limit: flights.Limit, after: flights.After)),
     CliAction.Show show => await EmitAsync(show.Json, c => c.ShowAsync(show.Reference)),
     CliAction.Log log => await EmitAsync(log.Json, c => c.LogAsync(log.Reference)),
     CliAction.Facts facts =>
@@ -134,7 +136,9 @@ return CliArgs.Parse(args) switch
     // THE SAME QUESTION ONE NOUN EARLIER. A gate is a flight that stopped; a
     // standing nomination is work that has not started, and both are waiting on
     // a person.
-    CliAction.Board board => await EmitAsync(board.Json, c => c.BoardAsync(board.Ended)),
+    CliAction.Board board => await EmitAsync(
+        board.Json,
+        c => c.BoardAsync(board.Ended, limit: board.Limit, after: board.After)),
     CliAction.BoardDecide decide => await EmitAsync(
         decide.Json,
         c => c.DecideNominationAsync(

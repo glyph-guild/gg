@@ -80,12 +80,23 @@ public sealed class FlightCommands(
     /// identifier shapes it is has already been decided at the parse, and
     /// deciding again here would be a second place the rule lives.
     /// </remarks>
+    /// <param name="limit">
+    /// How many rows, or null for the page the contract declares. NULL IS A
+    /// PAGE, not everything: a person at a terminal is asking about the newest
+    /// work, and a list with no cap grows with a tenant's history for ever.
+    /// The console asks for its own size.
+    /// </param>
+    /// <param name="after">Where the last page stopped, handed back untouched.</param>
     public async Task<VerbResult> ListAsync(
         bool all = false,
         CancellationToken cancellationToken = default,
-        string? intent = null) =>
+        string? intent = null,
+        int? limit = null,
+        string? after = null) =>
         new VerbResult.Flights(
-            await _client.ListFlightsAsync(Session(), all, cancellationToken, intent));
+            await _client.ListFlightsAsync(
+                Session(), all, cancellationToken, intent,
+                limit ?? Gg.Contracts.Paging.DefaultLimit, after));
 
     /// <summary>
     /// One flight's story, by uuid or by the number a person typed.
@@ -324,9 +335,14 @@ public sealed class FlightCommands(
 
     /// <summary>What has been nominated and has not become a flight yet.</summary>
     public async Task<VerbResult> BoardAsync(
-        bool ended = false, CancellationToken cancellationToken = default) =>
+        bool ended = false,
+        CancellationToken cancellationToken = default,
+        int? limit = null,
+        string? after = null) =>
         new VerbResult.Board(
-            await _client.GetBoardAsync(Session(), ended, cancellationToken));
+            await _client.GetBoardAsync(
+                Session(), ended, cancellationToken,
+                limit ?? Gg.Contracts.Paging.DefaultLimit, after));
 
     /// <summary>
     /// Answers a nomination, then reads the board to see what came of it.

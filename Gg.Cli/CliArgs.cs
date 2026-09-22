@@ -175,7 +175,16 @@ public abstract record CliAction
     /// second branch - and two spellings of one filter is how they come to
     /// disagree. It is validated at the parse and passed through whole.
     /// </remarks>
-    public sealed record Flights(bool Json, bool All, string? Intent = null)
+    /// <param name="Limit">
+    /// How many rows, or null for the page size the contract declares. A person
+    /// at a terminal is not asking for a tenant's whole history.
+    /// </param>
+    /// <param name="After">
+    /// Where the last page stopped, as the control plane answered it. Opaque
+    /// here: this side hands it back untouched.
+    /// </param>
+    public sealed record Flights(
+        bool Json, bool All, string? Intent = null, int? Limit = null, string? After = null)
         : CliAction, IEmitsResult;
 
     public sealed record Show(string Reference, bool Json) : CliAction, IEmitsResult;
@@ -587,7 +596,9 @@ public abstract record CliAction
     /// ones look identical, and somebody reading "nothing was declined" off the
     /// second would be reading a filter rather than a fact.
     /// </remarks>
-    public sealed record Board(bool Ended, bool Json) : CliAction, IEmitsResult;
+    public sealed record Board(
+        bool Ended, bool Json, int? Limit = null, string? After = null)
+        : CliAction, IEmitsResult;
 
     /// <summary>
     /// Answers a nomination that is waiting for somebody.
@@ -741,6 +752,7 @@ public static class CliArgs
         "  --environment <name>         which charted environment it runs in",
         "  --attended                   and watch it from wherever you are",
         "gg flights [--all] [--intent <provider>#<id>|<uri>]  flights in the air, or every one",
+        "  --limit <rows> --after <cursor>  one page of them, and where to carry on",
         "gg show <flight>               one flight, by GG-42 or by id",
         "gg log <flight>                a flight's log",
         "gg facts <flight>              what a flight recorded, and which budget held it",
@@ -755,7 +767,8 @@ public static class CliArgs
         // BESIDE GATES, because it is the same question one noun earlier: what
         // is waiting on a person. A gate is a flight that has stopped; a
         // standing nomination is work that has not started.
-        "gg board [--all]               what has been nominated and needs somebody",
+        "gg board [--all] [--limit <rows>] [--after <cursor>]  what has been nominated and "
+      + "needs somebody",
         "gg board open <id> <why>       turn a standing nomination into a flight",
         "gg board decline <id> <why>    say it is not going to be one",
         "gg why <flight> [obligation]   why a flight is stopped, and what would open it",
@@ -989,14 +1002,73 @@ public static class CliArgs
         // names both; the runner has cloned a list since it was written.
         var repositories = Values(args, "--repo");
 
+        // A PAGE, FOR THE TWO VERBS THAT ANSWER LISTS. Read here with
+        // --runner's helpers and refused here too: a limit the control plane
+        // will refuse is one this side can refuse first, with the same
+        // sentence and without spending a request to learn it.
+        var limit = Value(args, "--limit");
+        var after = Value(args, "--after");
+
         var rest = Without(
             Without(
                 Without(
-                    args.Where(a => a != "--json" && a != "--all" && a != "--hand"
-                                 && a != "--attended" && a != "--declare-names"),
-                    "--runner"),
-                "--work-kind"),
-            "--environment");
+                    Without(
+                        Without(
+                            args.Where(a => a != "--json" && a != "--all" && a != "--hand"
+                                         && a != "--attended" && a != "--declare-names"),
+                            "--runner"),
+                        "--work-kind"),
+                    "--environment"),
+                "--limit"),
+            "--after");
+
+        var pages = rest is ["flights", ..] or ["board"];
+
+        if (!pages && (limit is not null || after is not null))
+        {
+            return Unknown(
+                "--limit and --after are flags on the verbs that answer a list - gg flights "
+              + "and gg board. On any other verb they would read as an instruction and do "
+              + "nothing.");
+        }
+
+        int? page = null;
+        if (pages)
+        {
+            // A FLAG GIVEN NOTHING is somebody who meant to name a value:
+            // Value skips a value that is the next option, and the strip above
+            // removed the name, so without this the line reads as a plain
+            // listing and answers a different question from the one typed.
+            foreach (var named in (string[])["--limit", "--after"])
+            {
+                if (args.Contains(named, StringComparer.Ordinal)
+                    && (named == "--limit" ? limit : after) is null)
+                {
+                    return Unknown(
+                        $"gg {rest[0]} {named} needs a value. --limit takes a whole number of "
+                      + $"rows, at most {Gg.Contracts.Paging.MaxLimit}; --after takes the cursor "
+                      + "a page answered with.");
+                }
+            }
+
+            if (limit is not null)
+            {
+                if (!int.TryParse(limit, System.Globalization.NumberStyles.None,
+                        System.Globalization.CultureInfo.InvariantCulture, out var asked))
+                {
+                    return Unknown(
+                        $"'{limit}' is not a page size. --limit takes a whole number of rows, "
+                      + $"at most {Gg.Contracts.Paging.MaxLimit}.");
+                }
+
+                if (Gg.Contracts.Paging.Validate(asked) is { } refused)
+                {
+                    return Unknown(refused);
+                }
+
+                page = asked;
+            }
+        }
 
         // STRIPPED FOR `fly` ONLY, unlike --runner beside it. `gg credential
         // add --repo` and `gg credential send --repo` take the same flag and
@@ -1200,10 +1272,11 @@ public static class CliArgs
             // by the pre-scan above, and the difference is that it takes a
             // VALUE: a value-taking flag stripped position-independently is
             // how the value gets mistaken for a verb.
-            ["flights", "--intent", var token] => Correlate(token, json, all),
-            ["flights"] => new CliAction.Flights(json, all),
+            ["flights", "--intent", var token] => Correlate(token, json, all, page, after),
+            ["flights"] => new CliAction.Flights(json, all, null, page, after),
             ["flights", ..] => Unknown(
-                "gg flights takes --all, --json, and --intent <provider>#<id> or a uri."),
+                "gg flights takes --all, --json, --limit <rows>, --after <cursor>, and "
+              + "--intent <provider>#<id> or a uri."),
             ["runners"] => new CliAction.Runners(json),
             // PLURAL, like runners and pools: it lists what is in force and
             // how each one is doing. `gg runner watch <id>` is a different
@@ -1365,7 +1438,7 @@ public static class CliArgs
             // `--all` is stripped above with `--json`, so it arrives as a flag
             // rather than as a word to match - which is why there is one arm
             // here and not two.
-            ["board"] => new CliAction.Board(all, json),
+            ["board"] => new CliAction.Board(all, json, page, after),
             ["why", var flight, var obligation] => new CliAction.Why(flight, obligation, json),
             ["why", var flight] => new CliAction.Why(flight, null, json),
 
@@ -1734,7 +1807,8 @@ public static class CliArgs
         };
     }
 
-    private static CliAction Correlate(string token, bool json, bool all) =>
+    private static CliAction Correlate(
+        string token, bool json, bool all, int? page = null, string? after = null) =>
         SplitTicket(token) is var (provider, _) && provider is not null
         // A LINK IS THE SECOND SHAPE, and only an absolute one: `4471` and
         // `acme/widgets` are relative references TryCreate refuses, which is
@@ -1742,7 +1816,7 @@ public static class CliArgs
         // anything would turn a typo into a filter matching nothing and report
         // it as success.
         || Uri.TryCreate(token, UriKind.Absolute, out _)
-            ? new CliAction.Flights(json, all, token)
+            ? new CliAction.Flights(json, all, token, page, after)
             : Unknown(
                 $"gg flights --intent takes <provider>#<id> or an absolute uri, and '{token}' "
               + "is neither. Both halves of a work item are needed: the id alone does not say "

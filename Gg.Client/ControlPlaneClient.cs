@@ -435,7 +435,9 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         string sessionToken,
         bool all = false,
         CancellationToken cancellationToken = default,
-        string? intent = null)
+        string? intent = null,
+        int? limit = null,
+        string? after = null)
     {
         // BUILT AS QUERY PARAMETERS, and the work item token is re-joined with
         // its separator escaped: `#` unescaped in a uri starts a fragment,
@@ -446,6 +448,20 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         if (all)
         {
             query.Add("all=true");
+        }
+
+        // A PAGE, AND WHERE THE LAST ONE STOPPED (contract 0.212.0). The
+        // cursor is escaped like any value a caller did not compose: it is
+        // base64url today, and a reader that assumed so would break the day it
+        // is not.
+        if (limit is { } rows)
+        {
+            query.Add("limit=" + rows.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        if (after is { Length: > 0 })
+        {
+            query.Add("after=" + Uri.EscapeDataString(after));
         }
 
         if (intent is { Length: > 0 })
@@ -486,11 +502,30 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     public async Task<BoardPage> GetBoardAsync(
         string sessionToken,
         bool includeEnded = false,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int? limit = null,
+        string? after = null)
     {
+        var query = new List<string>();
+
+        if (includeEnded)
+        {
+            query.Add("ended=true");
+        }
+
+        if (limit is { } rows)
+        {
+            query.Add("limit=" + rows.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        if (after is { Length: > 0 })
+        {
+            query.Add("after=" + Uri.EscapeDataString(after));
+        }
+
         using var request = Request(
             HttpMethod.Get,
-            includeEnded ? "/v1/board?ended=true" : "/v1/board",
+            query.Count == 0 ? "/v1/board" : "/v1/board?" + string.Join('&', query),
             sessionToken);
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         await ThrowIfProtocolRefusedAsync(response, cancellationToken);

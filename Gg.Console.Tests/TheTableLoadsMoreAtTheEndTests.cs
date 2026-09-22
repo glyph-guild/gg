@@ -114,6 +114,22 @@ public class TheTableLoadsMoreAtTheEndTests
     }
 
     [Test]
+    public async Task Asking_for_a_page_is_what_puts_a_read_in_the_air()
+    {
+        var asked = Reducer.Reduce(AtTheEndOfFlights("R0ctMQ"), Command.LoadMoreFlights);
+
+        await Assert.That(asked.ReadInFlight).IsTrue()
+            .Because("the guard above reads this flag, and the screen's pointing handler "
+                   + "reaches the read without passing through the reducer - so a flag only "
+                   + "the KEY arms would be a guard over a field nothing on this path sets, "
+                   + "which is a rule that reads as enforced and is not.");
+        await Assert.That(Reducer.WantsMore(asked)).IsNull()
+            .Because("and asking twice for one page is what the flag prevents: stepping off "
+                   + "the last row and back would otherwise abandon a page already on the "
+                   + "wire to ask for the same one again.");
+    }
+
+    [Test]
     public async Task A_cursor_inside_a_modal_asks_for_nothing()
     {
         var reading = AtTheEndOfFlights("R0ctMQ") with { Mode = UiMode.FlightDetail };

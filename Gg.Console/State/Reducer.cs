@@ -164,6 +164,17 @@ public static class Reducer
             Command.ToggleEnvelope => EnvelopeToggled(state) with { ReadInFlight = true },
             Command.ToggleRepositories => RepositoriesToggled(state) with { ReadInFlight = true },
 
+            // THE NEXT PAGE, WHICH CHANGES NOTHING EXCEPT THAT IT IS COMING.
+            // The rows are added by the patch when they land; what this arm is
+            // for is the flag, and the flag is load-bearing here in a way it is
+            // not for the toggles above. <see cref="WantsMore"/> refuses while a
+            // read is in the air, and this is the ONLY thing that puts it there
+            // - without it the guard reads a field nothing on this path sets,
+            // and moving off the last row and back would abandon a page already
+            // on the wire to ask for it again.
+            Command.LoadMoreFlights or Command.LoadMoreBoard =>
+                state with { ReadInFlight = true },
+
             // NO READ IN FLIGHT, because the allowances are already in the
             // model: the runners tab's refresh fetches them, and the boot
             // does too. Opening this pane is a rendering rather than a round

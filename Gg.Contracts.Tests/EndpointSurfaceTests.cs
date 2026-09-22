@@ -493,8 +493,14 @@ public class EndpointSurfaceTests
         // no id in the path - which tenant comes from the session, because a
         // caller may BE a tenant and may never NAME one - and 204 on success,
         // the house answer for a change with nothing to say back.
+        // AND 0.216.0 ADDS POST /v1/runner/machine/reading, what a runner's
+        // machine has and how much of it is in use. The readiness reading's
+        // shape exactly - runner audience, no id in the path, 202 and nothing
+        // back - and for the same reason it is not a field on the beat: the
+        // heartbeat is liveness only, and a machine that could report its load
+        // there could report it while dead.
         await Assert.That(Fingerprint())
-            .IsEqualTo("b20ea99007f04fee4c477ccd051d127a264a0dd74a10b183432c9d7f5d2d1511")
+            .IsEqualTo("92a38d62d69f3853851fe5e00d93c4f3a4d2cdc3f27243fd08f3fe3484c3da35")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

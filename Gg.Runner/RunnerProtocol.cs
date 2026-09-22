@@ -294,6 +294,18 @@ public interface IRunnerProtocol
         string runnerId, AllowanceReading reading, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Says what this machine has, and how much of it is in use.
+    /// </summary>
+    /// <remarks>
+    /// The allowance reading's shape and its reason, one call up: a measurement
+    /// on its own route with its own <c>MeasuredAt</c>, 202 and nothing back.
+    /// Never a field on the beat - a machine's load is exactly the thing a dead
+    /// runner could still be claiming.
+    /// </remarks>
+    Task ReportMachineAsync(
+        MachineReading reading, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Says whether this runner's agent can start.
     /// </summary>
     /// <remarks>

@@ -34,7 +34,13 @@ param(
     # The tenant's control plane. Written into gg's configuration when given,
     # because the default is localhost and a laptop nobody pointed anywhere
     # points at nothing.
-    [string] $ControlPlane
+    [string] $ControlPlane,
+
+    # The command name to install, when another program is already called gg
+    # (there is one, a git GUI). Asked for at the prompt when there is one;
+    # this is the answer for a run with nobody at the keyboard. Remembered in
+    # the prefix, so an update needs no flag.
+    [string] $Alias
 )
 
 $ErrorActionPreference = 'Stop'
@@ -53,6 +59,32 @@ if ($arch -ne 9) {
     # executable its own user can rewrite. The ratchet over every install line
     # in this repository caught this sentence, and it was right to.
     throw "gg is released for win-x64, and this machine reports architecture $arch. The .NET tool works anywhere the SDK does: dotnet tool install GlyphGuild.Gg.Cli --version $Version --tool-path $Prefix\tool"
+}
+
+# WHAT THE COMMAND IS CALLED. Ours is the shim in $Prefix; anything else on
+# PATH called gg is somebody's, and writing a shim beside it would leave one of
+# the two unreachable depending on PATH order - so the person chooses, and the
+# choice is written down for the next run.
+$record = Join-Path $Prefix 'command'
+if (-not $Alias -and (Test-Path $record)) { $Alias = (Get-Content $record -Raw).Trim() }
+
+$theirs = Get-Command gg -ErrorAction SilentlyContinue |
+    Where-Object { $_.Source -and $_.Source -notlike "$Prefix*" } |
+    Select-Object -First 1
+
+if ($theirs -and -not $Alias) {
+    if ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {
+        Write-Host "install.ps1: another program called gg is at $($theirs.Source)."
+        $answer = Read-Host "Install Good Grief's command under a different name [goodgrief]"
+        $Alias = if ($answer) { $answer } else { 'goodgrief' }
+    }
+    else {
+        throw "another program called gg is at $($theirs.Source), and installing over it would leave one of the two unreachable. Run this again with -Alias <name>, e.g. -Alias goodgrief. Nothing was installed."
+    }
+}
+if (-not $Alias) { $Alias = 'gg' }
+if ($Alias -notmatch '^[A-Za-z0-9_-][A-Za-z0-9._-]*$') {
+    throw "'$Alias' is not a command name: letters, digits, dot, dash and underscore, e.g. -Alias goodgrief."
 }
 
 $asset = 'gg-win-x64.tar.gz'
@@ -84,7 +116,7 @@ try {
     }
 
     # BESIDE THE LAST ONE, AND THE LINK MOVES, which is how install.sh updates:
-    # a version goes in its own directory and `gg.cmd` points at it, so an
+    # a version goes in its own directory and the shim points at it, so an
     # update never leaves the binary half-replaced and a rollback is one edit.
     $target = Join-Path $Prefix $Version
     if (Test-Path $target) {
@@ -105,11 +137,12 @@ try {
     # A SHIM RATHER THAN A COPY, because gg loads its native libraries from its
     # own directory - a gg.exe copied out of that directory starts, prints its
     # version, and fails on the first keypress that reaches one of them.
-    $shim = Join-Path $Prefix 'gg.cmd'
+    $shim = Join-Path $Prefix "$Alias.cmd"
     Set-Content -Path $shim -Encoding ASCII -Value @(
         '@echo off',
         "`"%~dp0$Version\gg.exe`" %*"
     )
+    Set-Content -Path $record -Encoding ASCII -Value $Alias
 
     # THE USER'S PATH, NEVER THE MACHINE'S - a per-user install is the whole
     # point of the default prefix, and nothing here has administrator. Joined
@@ -136,9 +169,9 @@ try {
     Write-Host ''
     Write-Host 'install.ps1: this machine is not a runner - nothing was started and no service was made.'
     if (-not $ControlPlane) {
-        Write-Host '  gg config set control-plane <url>   # where your tenant is'
+        Write-Host "  $Alias config set control-plane <url>   # where your tenant is"
     }
-    Write-Host '  gg login                            # then sign in'
+    Write-Host "  $Alias login                            # then sign in"
     Write-Host 'gg on Windows is the command line: the console UI is not written for it yet, so it opens your editor and says so.'
 }
 finally {

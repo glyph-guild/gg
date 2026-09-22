@@ -22,6 +22,9 @@
 #                        gg declares it; it never installs it - this script does not
 #                        install git either, and a profile names an agent by name
 #                        because the binary is the machine's to have.
+#   --as <name>          the command name to install, when another program is
+#                        already called gg. Remembered, so an update needs no flag.
+#                        A runner is always gg: its service runs /usr/local/bin/gg.
 #   --root <dir>         install as if <dir> were /. For staging and for tests; the
 #                        service always runs /usr/local/bin/gg.
 #
@@ -39,6 +42,7 @@ agent_binary=""
 enroll=""
 enroll_file=""
 root=""
+command_name=""
 
 refuse() {
   printf 'install.sh: %s\n' "$*" >&2
@@ -60,7 +64,8 @@ while [ $# -gt 0 ]; do
     --enroll) enroll=1; shift ;;
     --enroll-file) value "$1" $# "${2-}"; enroll_file="$2"; shift 2 ;;
     --root) value "$1" $# "${2-}"; root="$2"; shift 2 ;;
-    *) refuse "'$1' is not an option. It takes --version, --control-plane, --user, --agent-binary, --enroll or --enroll-file, and --root." ;;
+    --as) value "$1" $# "${2-}"; command_name="$2"; shift 2 ;;
+    *) refuse "'$1' is not an option. It takes --version, --control-plane, --user, --agent-binary, --enroll or --enroll-file, --as, and --root." ;;
   esac
 done
 
@@ -127,6 +132,69 @@ esac
 asset="gg-$rid.tar.gz"
 lib="$root/usr/local/lib/gg"
 bin="$root/usr/local/bin"
+service_binary="/usr/local/bin/gg"
+
+# WHAT THE COMMAND IS CALLED. gg, unless another program already is - there
+# is one, a git GUI - in which case the person chooses, and the choice is
+# written down so the update path (running this again) needs no flag and
+# cannot quietly grow a second link called gg beside the program it avoided.
+record="$lib/command"
+if [ -z "$command_name" ] && [ -r "$record" ]; then
+  command_name="$(cat "$record")"
+fi
+
+command_ok() {
+  case "$1" in
+    "" | .* | *[!A-Za-z0-9._-]*) return 1 ;;
+  esac
+}
+
+if [ -n "$command_name" ]; then
+  command_ok "$command_name" \
+    || refuse "'$command_name' is not a command name: letters, digits, dot, dash and underscore, e.g. --as goodgrief."
+  if [ -n "$runner" ] && [ "$command_name" != gg ]; then
+    refuse "--as renames the command a person types, and a runner's service runs $service_binary, so a runner is always installed as gg. Leave --as off here, or leave --control-plane off to make this a laptop."
+  fi
+fi
+[ -n "$command_name" ] || command_name=gg
+
+# OURS IS A LINK INTO /usr/local/lib/gg; ANYTHING ELSE CALLED gg IS SOMEBODY'S.
+# Checked at the path the link would take even when PATH does not contain the
+# directory, because that is where `mv -f` would have landed on it.
+ours() {
+  case "$(readlink "$1" 2>/dev/null || true)" in
+    /usr/local/lib/gg/*/gg) return 0 ;;
+  esac
+  return 1
+}
+
+if [ "$command_name" = gg ]; then
+  foreign=""
+  if [ -e "$bin/gg" ] && ! ours "$bin/gg"; then
+    foreign="$bin/gg"
+  else
+    found="$(command -v gg 2>/dev/null || true)"
+    if [ -n "$found" ] && [ "$found" != "$service_binary" ] && ! ours "$found"; then
+      foreign="$found"
+    fi
+  fi
+
+  if [ -n "$foreign" ]; then
+    if [ -n "$runner" ]; then
+      refuse "another program called gg is at $foreign, and a runner's service runs $service_binary. Remove or rename it first; nothing was installed."
+    elif (: < /dev/tty) 2>/dev/null; then
+      printf 'install.sh: another program called gg is at %s.\n' "$foreign" > /dev/tty
+      printf "Install Good Grief's command under a different name [goodgrief]: " > /dev/tty
+      IFS= read -r answer < /dev/tty || answer=""
+      command_name="${answer:-goodgrief}"
+      command_ok "$command_name" \
+        || refuse "'$command_name' is not a command name: letters, digits, dot, dash and underscore."
+    else
+      refuse "another program called gg is at $foreign, and installing over it would leave one of the two unreachable. Run this again with --as <name>, e.g. --as goodgrief, to install Good Grief's command under another name. Nothing was installed."
+    fi
+  fi
+fi
+
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
@@ -203,9 +271,10 @@ fi
 link="$bin/.gg.incoming.$$"
 rm -f "$link"
 ln -s "/usr/local/lib/gg/$version/gg" "$link"
-mv -f "$link" "$bin/gg"
+mv -f "$link" "$bin/$command_name"
+printf '%s\n' "$command_name" > "$record"
 
-printf 'install.sh: %s, %s; /usr/local/bin/gg points at it.\n' "$installed" "$checked"
+printf 'install.sh: %s, %s; /usr/local/bin/%s points at it.\n' "$installed" "$checked" "$command_name"
 
 # AND WHETHER A SHELL WILL FIND IT. "gg: command not found" after a successful
 # install is what a person meets on a machine whose PATH lacks /usr/local/bin -
@@ -278,8 +347,8 @@ esac
 # so a laptop nobody pointed anywhere points at nothing.
 if [ -z "$runner" ]; then
   printf 'install.sh: this machine is not a runner - nothing was started and no user was made.\n'
-  printf '  gg config set control-plane <url>   # where your tenant is\n'
-  printf '  gg login                            # then sign in\n'
+  printf '  %s config set control-plane <url>   # where your tenant is\n' "$command_name"
+  printf '  %s login                            # then sign in\n' "$command_name"
   printf 'To make it a runner instead, run this again with --control-plane <url>.\n'
   exit 0
 fi

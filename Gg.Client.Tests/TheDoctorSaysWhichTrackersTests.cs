@@ -155,4 +155,27 @@ public class TheDoctorSaysWhichTrackersTests
         await Assert.That(check.Detail).Contains("local:forge.example/acme");
         await Assert.That(check.Detail).Contains("no credential named");
     }
+
+    [Test]
+    public async Task And_a_locator_that_is_not_one_says_so_instead_of_looking_unheld()
+    {
+        // THE REMEDY IS THE TELL. A string the contract refuses is not a
+        // credential somebody forgot to add, and reporting it as one prints
+        // `gg credential add --repo TOKEN=local:acme/board` - advice that
+        // cannot be followed, about a mistake that is one character of
+        // punctuation away from being named exactly.
+        var check = Check(
+            Declaring(new DeclaredTracker
+            {
+                Key = "my-tracker", Host = Backlog, Locator = "TOKEN=local:acme/board",
+            }));
+
+        await Assert.That(check.Passed).IsFalse();
+        await Assert.That(check.Detail).Contains("TOKEN=local:acme/board");
+        await Assert.That(check.Detail).DoesNotContain("does not hold")
+            .Because("a machine cannot hold something that could never be a credential name, "
+                   + "and saying it does not sends somebody to the credential store.");
+        await Assert.That(check.Fix!).DoesNotContain("credential add")
+            .Because("the line to correct is the tracker declaration, not the store.");
+    }
 }

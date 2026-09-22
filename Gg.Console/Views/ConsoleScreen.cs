@@ -545,6 +545,8 @@ public sealed class ConsoleScreen : Window
     /// because nobody was holding a key while they wrote a commit message.
     /// <see cref="TableEdge"/> holds the decision itself and is pure.
     /// </remarks>
+    private readonly Func<AppState?>? _booted;
+
     private EdgePresses _edge = EdgePresses.None;
     private TableView? _edgeAt;
     private Terminal.Gui.Drawing.Scheme? _edgeWas;
@@ -560,7 +562,14 @@ public sealed class ConsoleScreen : Window
         // A READ A KEYPRESS ASKED FOR, folded on the tick beside the one the
         // timer asks for. Last and defaulted, because every existing caller
         // passes positionally.
-        BackgroundReads? reads = null)
+        BackgroundReads? reads = null,
+
+        // WHAT THE BOOT BROUGHT, ONCE IT HAS. Asked on a tick the way the
+        // sign-in's approval is, and for the same reason: it is happening on a
+        // task the composition root owns, and a session may fold an answer that
+        // arrives from somewhere owned outside it. Null until it lands, and it
+        // answers once.
+        Func<AppState?>? booted = null)
     {
         _app = app;
         _tails = tails;
@@ -568,6 +577,7 @@ public sealed class ConsoleScreen : Window
         _refresh = refresh;
         _reads = reads;
         _signInLanded = signInLanded;
+        _booted = booted;
         State = state;
         Title = PaneText.WindowTitle(state);
 
@@ -2035,6 +2045,71 @@ public sealed class ConsoleScreen : Window
             });
         }
 
+        if (_booted is not null)
+        {
+            // THE READS THE CONSOLE OPENED WITHOUT. Measured before this
+            // existed: four and a half seconds from launch to the first BYTE of
+            // output, because every read happened before Terminal.Gui was
+            // initialised - two serial rounds, eleven reads in the first and a
+            // log per open flight in the second, all against a control plane in
+            // another country. What a person saw for that time was a black
+            // terminal.
+            //
+            // So the console opens on what is known locally and this folds the
+            // rest in when it arrives. Every pane already has a sentence for a
+            // view nobody has fetched, which is what makes an empty console
+            // honest rather than broken-looking.
+            //
+            // LookEvery rather than a second, because this is the one tick a
+            // person is actually waiting on.
+            _app.AddTimeout(LookEvery, () =>
+            {
+                if (_booted() is not { } arrived)
+                {
+                    return true;
+                }
+
+                // WHAT THEY HAVE DONE MEANWHILE STAYS. The boot is a whole
+                // model rather than a patch - it is the state the console would
+                // have opened with - so the fields a person can have MOVED in
+                // the seconds before it landed are carried over it. They are
+                // few and they are all view: which tab, which modal, and the
+                // look. Everything a selection indexes is empty until this
+                // lands, so a cursor has nothing to have moved over yet.
+                State = arrived with
+                {
+                    ActiveTab = State.ActiveTab,
+                    Mode = State.Mode,
+                    Look = State.Look,
+
+                    // AND ASK AGAIN FOR THE TAB THEY ACTUALLY MOVED TO, which
+                    // is what makes folding a whole model safe here without
+                    // listing which fields are the read plane - the list this
+                    // console's patches exist to avoid.
+                    //
+                    // Measured: pressing the board's key at one second started
+                    // its read, the boot landed at three and a half and the
+                    // fold put a null board back over it, so the pane a person
+                    // was looking at went empty and stayed empty until the next
+                    // tick. The boot fills the tab it opens on and nothing
+                    // else; anything further is a tab's own read, so the honest
+                    // repair is to ask for that tab again rather than to
+                    // preserve fields by name.
+                    //
+                    // Only when they HAVE moved. Staying put would otherwise
+                    // buy a second identical round of the heaviest read the
+                    // console makes, at the one moment it has just finished.
+                    Refresh = arrived.Refresh with
+                    {
+                        Wanted = State.ActiveTab != arrived.ActiveTab,
+                    },
+                };
+
+                Render();
+                return false;
+            });
+        }
+
         if (_signInLanded is not null)
         {
             // THE APPROVAL HAPPENS IN A BROWSER, so nothing about this terminal
@@ -3242,15 +3317,6 @@ public sealed class ConsoleScreen : Window
         var rows = table.Table?.Rows ?? 0;
         var row = table.Value?.SelectedCell.Y ?? 0;
 
-        if (Environment.GetEnvironmentVariable("GG_EDGE_TRACE") is { Length: > 0 } trace)
-        {
-            File.AppendAllText(
-                trace,
-                $"{(down ? "down" : "up  ")} row={row} rows={rows} "
-              + $"value={(table.Value is null ? "null" : "set")} taps={_edge.Taps}"
-              + $" holding={_edge.Holding}{Environment.NewLine}");
-        }
-
         if (rows is 0 || (down ? row < rows - 1 : row > 0))
         {
             // SOMEWHERE TO GO, so this is not a press against an edge at all.
@@ -3279,18 +3345,8 @@ public sealed class ConsoleScreen : Window
             // leaving the next press to move tabs if that is what somebody
             // wants.
             var strip = (_bar.Value?.Border.View as Terminal.Gui.ViewBase.BorderView)?.TitleView;
-            var took = strip?.SetFocus();
 
-            if (Environment.GetEnvironmentVariable("GG_EDGE_TRACE") is { Length: > 0 } where)
-            {
-                File.AppendAllText(
-                    where,
-                    $"LEAVE tab={State.ActiveTab} value={(_bar.Value is null ? "null" : "set")}"
-                  + $" strip={(strip is null ? "null" : "found")} took={took?.ToString() ?? "-"}"
-                  + $" now={State.ActiveTab}{Environment.NewLine}");
-            }
-
-            if (took is true)
+            if (strip?.SetFocus() is true)
             {
                 key.Handled = true;
             }

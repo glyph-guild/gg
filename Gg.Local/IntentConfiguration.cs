@@ -309,7 +309,10 @@ public static class IntentConfiguration
                     $"'{key}' in {ServedVariable} declares {fields.Length - 1} fields after the "
                   + "host, and an entry carries at most two: the credential to resolve and the "
                   + "account it acts as, e.g. "
-                  + "'my-tracker=https://tracker.example/acme|TOKEN=local:acme/board|svc-triage'.");
+                  + "'my-tracker=https://tracker.example/acme|local:acme/board|svc-triage'. "
+                  + $"The locator stands alone here - {ReadersVariable} is the one whose "
+                  + "credential half names a variable to put it in, because there the server "
+                  + "is somebody else's process and has to be told where to read it.");
             }
 
             if (host.Length == 0)

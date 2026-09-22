@@ -996,20 +996,22 @@ static (IReadOnlyList<DeclaredTracker> Trackers, IReadOnlyList<string> Problems)
                  Settings.Value(
                      Gg.Runner.Intent.TrackerConfiguration.ApisVariable, InForce.Configuration)))
     {
-        if (written is { Problem: null, Id: { } id, Host: { } host })
+        if (written.Problem is { } refused)
         {
-            trackers.Add(new DeclaredTracker
-            {
-                Key = id,
-                Host = host,
-                Locator = written.Locator,
-                Writes = true,
-            });
-
+            problems.Add(refused);
             continue;
         }
 
-        problems.Add(written.Problem ?? $"'{written.Entry}' declares no tracker.");
+        // THE THREE ARE SET WHENEVER Problem IS NOT, which is the whole of
+        // DeclaredSink's contract: an entry it could not read comes back
+        // carrying why instead of half-filled.
+        trackers.Add(new DeclaredTracker
+        {
+            Key = written.Id!,
+            Host = written.Host!,
+            Locator = written.Locator,
+            Writes = true,
+        });
     }
 
     return (trackers, problems);

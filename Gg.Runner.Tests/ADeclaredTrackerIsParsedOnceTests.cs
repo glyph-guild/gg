@@ -56,7 +56,11 @@ public class ADeclaredTrackerIsParsedOnceTests
 
         var refused = declared.Single(d => d.Problem is not null);
 
-        await Assert.That(refused.Entry).IsEqualTo("backlog=");
+        await Assert.That(refused.Problem!).Contains("backlog")
+            .Because("the entry itself is quoted in the sentence - which is why the record "
+                   + "does not also carry it: a member the runner supplies and only another "
+                   + "project reads is the shape UnreadMemberTests exists to find.");
+
         await Assert.That(refused.Problem!).Contains(TrackerConfiguration.ApisVariable)
             .Because("the sentence has to name the variable to send somebody to the right "
                    + "line: a machine reads its declaration from a file, a unit, or a profile "

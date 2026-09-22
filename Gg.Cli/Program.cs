@@ -1280,11 +1280,50 @@ static async Task<int> LaunchConsoleAsync()
         Settings.Value(Gg.Local.IntentConfiguration.ReadersVariable, InForce.Configuration),
         Settings.Value(Gg.Local.IntentConfiguration.ServedVariable, InForce.Configuration));
 
-    var initial = LocalFacts(
-        ConsoleStart.LoadAsync(data, principal, doctor: Health).GetAwaiter().GetResult(),
-        client, sessions) with
+    Gg.Console.AppState Decorated(Gg.Console.AppState state) =>
+        LocalFacts(state, client, sessions) with
+        {
+            ReaderKeys = [.. declaredReaders.Select(reader => reader.Key)],
+        };
+
+    // THE BOOT, ON A TASK, SO THE CONSOLE CAN OPEN WITHOUT IT. Measured before
+    // this moved: four and a half seconds from launch to the first byte of
+    // output, all of it spent here, because the screen was not built until
+    // every read had landed. Two serial rounds - eleven reads in the first, a
+    // log per open flight in the second - against a control plane in another
+    // country. A person watched a black terminal for it.
+    //
+    // Started HERE and not in a session, which is the rule this arrangement is
+    // built around: a UI session may not start anything, and may fold an answer
+    // that arrives from somewhere owned outside it.
+    var booting = Task.Run(() => Decorated(
+        ConsoleStart.LoadAsync(data, principal, doctor: Health).GetAwaiter().GetResult()));
+
+    // AND WHAT IS KNOWN WITHOUT ASKING ANYBODY: who is signed in, what this
+    // machine is, which trackers are declared. All local, all already free -
+    // it was only ever decorating the answer above.
+    var initial = Decorated(new Gg.Console.AppState());
+
+    // ONCE. The loop runs a session per terminal release, so a lambda that
+    // answered every time would re-fold the boot over a console somebody had
+    // been using for an hour - and put their cursor back where it was at
+    // launch. Held here rather than in the session for the same reason the
+    // sign-in's poll is: it outlives every one of them.
+    var settled = false;
+
+    Func<Gg.Console.AppState?> booted = () =>
     {
-        ReaderKeys = [.. declaredReaders.Select(reader => reader.Key)],
+        if (settled || !booting.IsCompleted)
+        {
+            return null;
+        }
+
+        settled = true;
+
+        // A BOOT THAT THREW IS NOT A CONSOLE THAT FAILS. LoadAsync answers with
+        // a partial state and its own diagnosis rather than throwing, so this
+        // is the belt on top of that: nothing to fold beats a crash in a timer.
+        return booting.IsCompletedSuccessfully ? booting.Result : null;
     };
 
     // TAKE AND HAND, PASSED FOR THE FIRST TIME. Both were optional constructor
@@ -1572,7 +1611,10 @@ static async Task<int> LaunchConsoleAsync()
                         $"'{asked}' is in ShellCommands.Reads and this reader has no arm "
                       + "for it, so a keypress would fetch somebody else's answer. Add "
                       + "one, or take the command out of Reads."),
-                }))),
+                })),
+            // AND THE BOOT, WHICH THE CONSOLE NO LONGER WAITS FOR. Asked on a
+            // tick beside the sign-in's, folded when it lands.
+            booted: booted),
         // HOSTED, SO GG KEEPS A ROW WHILE THE EDITOR HAS THE SCREEN. The
         // handoff is the same one it always was - text out, a real process, text
         // back - and the difference is that gg mediates the terminal instead of

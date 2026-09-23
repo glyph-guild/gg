@@ -499,8 +499,14 @@ public class EndpointSurfaceTests
         // back - and for the same reason it is not a field on the beat: the
         // heartbeat is liveness only, and a machine that could report its load
         // there could report it while dead.
+        // AND POST /v1/runner/members/{id}/introduction, the maintainer's
+        // door: the same introduction the developer route offers, asked for by
+        // a machine, and refused unless the caller MINTED the member it names.
+        // A pool member loses every secret it holds on each roll and can only
+        // be handed them back over an introduced channel - which was a
+        // person's, so the remedy was a person, per member, per roll.
         await Assert.That(Fingerprint())
-            .IsEqualTo("92a38d62d69f3853851fe5e00d93c4f3a4d2cdc3f27243fd08f3fe3484c3da35")
+            .IsEqualTo("5d2ac69128a27c8ea1c07f40273a043051ccd37fe3fd91a7e7b61e8077bbd9c9")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

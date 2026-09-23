@@ -1603,9 +1603,20 @@ public sealed class ConsoleLoop(
 
         // NOTHING PICKED IS AN ANSWER, NOT A CRASH. An empty pane with a key
         // that appears to work is worse than one without the key.
+        //
+        // AND THE SUBJECT COMES FROM WorkItemDetails.Item, which is the one
+        // function that answers for both ways into this modal. `f' over a page
+        // is unchanged - with nothing held it returns the row under the cursor -
+        // but a modal opened on a FLIGHT'S ticket shows an item that is usually
+        // nowhere on the page, while BrowseSelected still points at whatever was
+        // under the cursor. Reading the listing directly flew that one, so the
+        // actions tab's pane named one id and its button opened another.
+        //
+        // The listing is still required, and for the reason below it: what
+        // crosses is a provider and an id, and the provider is the tracker the
+        // reader answered as.
         if (state.Browse is not { Items.Count: > 0 } listing
-            || state.BrowseSelected < 0
-            || state.BrowseSelected >= listing.Items.Count)
+            || WorkItemDetails.Item(state) is not { } subject)
         {
             return state with
             {
@@ -1631,7 +1642,7 @@ public sealed class ConsoleLoop(
             };
         }
 
-        var id = listing.Items[state.BrowseSelected].Id;
+        var id = subject.Id;
 
         // ASKED BEFORE ANYTHING IS OPENED. Two flights on one work item is
         // legal and usually a mistake, and it is exactly what pressing a key

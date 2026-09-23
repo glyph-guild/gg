@@ -158,39 +158,58 @@ if [ -n "$command_name" ]; then
 fi
 [ -n "$command_name" ] || command_name=gg
 
-# OURS IS A LINK INTO /usr/local/lib/gg; ANYTHING ELSE CALLED gg IS SOMEBODY'S.
-# Checked at the path the link would take even when PATH does not contain the
-# directory, because that is where `mv -f` would have landed on it.
+# WHETHER A gg ALREADY THERE IS OURS, in every shape this project tells people
+# to install: a link into a `lib/gg` directory covers both the versioned one
+# this script writes and the `dotnet tool` shim at /usr/local/lib/gg/gg, and
+# the by-hand install from the README has no link at all - it is the binary
+# itself with its two native libraries beside it, and that pairing is what
+# says it is ours.
+#
+# A LINK IS READ WHETHER OR NOT IT RESOLVES. A dangling one at this path is
+# still ours to move, and `[ -e ]` alone is false for it.
 ours() {
   case "$(readlink "$1" 2>/dev/null || true)" in
-    /usr/local/lib/gg/*/gg) return 0 ;;
+    */lib/gg/*) return 0 ;;
   esac
+
+  if [ ! -L "$1" ] && [ -f "$1" ]; then
+    for beside in "$(dirname "$1")"/libporta_pty.*; do
+      [ -e "$beside" ] && return 0
+    done
+  fi
+
   return 1
 }
 
-if [ "$command_name" = gg ]; then
-  foreign=""
-  if { [ -e "$bin/gg" ] || [ -L "$bin/gg" ]; } && ! ours "$bin/gg"; then
-    foreign="$bin/gg"
-  else
-    found="$(command -v gg 2>/dev/null || true)"
-    if [ -n "$found" ] && [ "$found" != "$service_binary" ] && ! ours "$found"; then
-      foreign="$found"
-    fi
-  fi
+# ANOTHER gg EARLIER ON PATH IS SAID, NOT REFUSED - it is in no danger from
+# this install and neither is the install; what is at stake is only which one
+# the name resolves to. Held until after the install, where a person reads it
+# beside the line that says where ours went.
+shadowing=""
 
-  if [ -n "$foreign" ]; then
+if [ "$command_name" = gg ]; then
+  # AT THE LINK PATH, THOUGH, INSTALLING WOULD REPLACE IT. That is the
+  # destructive one, and the only one worth stopping for.
+  if { [ -e "$bin/gg" ] || [ -L "$bin/gg" ]; } && ! ours "$bin/gg"; then
     if [ -n "$runner" ]; then
-      refuse "another program called gg is at $foreign, and a runner's service runs $service_binary. Remove or rename it first; nothing was installed."
+      refuse "another program called gg is at $bin/gg, and a runner's service runs $service_binary. Remove or rename it first; nothing was installed."
     elif (: < /dev/tty) 2>/dev/null; then
-      printf 'install.sh: another program called gg is at %s.\n' "$foreign" > /dev/tty
+      printf 'install.sh: another program called gg is at %s.\n' "$bin/gg" > /dev/tty
       printf "Install Good Grief's command under a different name [goodgrief]: " > /dev/tty
       IFS= read -r answer < /dev/tty || answer=""
       command_name="${answer:-goodgrief}"
       command_ok "$command_name" \
         || refuse "'$command_name' is not a command name: letters, digits, dot, dash and underscore."
     else
-      refuse "another program called gg is at $foreign, and installing over it would leave one of the two unreachable. Run this again with --as <name>, e.g. --as goodgrief, to install Good Grief's command under another name. Nothing was installed."
+      refuse "another program called gg is at $bin/gg, and installing over it would delete it. Run this again with --as <name>, e.g. --as goodgrief, to install Good Grief's command under another name. Nothing was installed."
+    fi
+  fi
+
+  if [ "$command_name" = gg ]; then
+    found="$(command -v gg 2>/dev/null || true)"
+    if [ -n "$found" ] && [ "$found" != "$service_binary" ] && [ "$found" != "$bin/gg" ] \
+       && ! ours "$found"; then
+      shadowing="$found"
     fi
   fi
 fi
@@ -275,6 +294,10 @@ mv -f "$link" "$bin/$command_name"
 printf '%s\n' "$command_name" > "$record"
 
 printf 'install.sh: %s, %s; /usr/local/bin/%s points at it.\n' "$installed" "$checked" "$command_name"
+
+if [ -n "$shadowing" ]; then
+  printf 'install.sh: another program called gg is at %s, earlier on your PATH, so `gg` still runs that one. Install this one under a name of its own with --as <name>, e.g. --as goodgrief, or put /usr/local/bin first.\n' "$shadowing"
+fi
 
 # AND WHETHER A SHELL WILL FIND IT. "gg: command not found" after a successful
 # install is what a person meets on a machine whose PATH lacks /usr/local/bin -

@@ -72,15 +72,16 @@ $theirs = Get-Command gg -ErrorAction SilentlyContinue |
     Where-Object { $_.Source -and $_.Source -notlike "$Prefix*" } |
     Select-Object -First 1
 
-if ($theirs -and -not $Alias) {
-    if ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {
-        Write-Host "install.ps1: another program called gg is at $($theirs.Source)."
-        $answer = Read-Host "Install Good Grief's command under a different name [goodgrief]"
-        $Alias = if ($answer) { $answer } else { 'goodgrief' }
-    }
-    else {
-        throw "another program called gg is at $($theirs.Source), and installing over it would leave one of the two unreachable. Run this again with -Alias <name>, e.g. -Alias goodgrief. Nothing was installed."
-    }
+# ASKED WHERE THERE IS SOMEBODY TO ASK, AND OTHERWISE SAID. The shim goes in
+# $Prefix, so another gg elsewhere on PATH is in no danger from this install
+# and neither is the install - only which one the name resolves to is at
+# stake, and stopping for that from `irm | iex` is a refusal nobody can argue
+# with.
+if ($theirs -and -not $Alias -and
+    [Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {
+    Write-Host "install.ps1: another program called gg is at $($theirs.Source)."
+    $answer = Read-Host "Install Good Grief's command under a different name [goodgrief]"
+    $Alias = if ($answer) { $answer } else { 'goodgrief' }
 }
 if (-not $Alias) { $Alias = 'gg' }
 if ($Alias -notmatch '^[A-Za-z0-9_-][A-Za-z0-9._-]*$') {
@@ -161,6 +162,10 @@ try {
     }
 
     & $shim --version
+
+    if ($theirs -and $Alias -eq 'gg') {
+        Write-Host "install.ps1: another program called gg is at $($theirs.Source), earlier on your PATH, so ``gg`` still runs that one. Install this one under a name of its own with -Alias <name>, e.g. -Alias goodgrief."
+    }
 
     if ($ControlPlane) {
         & $shim config set control-plane $ControlPlane

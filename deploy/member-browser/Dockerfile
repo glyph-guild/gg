@@ -34,7 +34,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 # gg itself, from the release the fleet runs. Native AOT, linux-x64.
-ARG GG_VERSION=0.49.0
+ARG GG_VERSION=0.50.0
 RUN curl -fsSL \
       "https://github.com/glyph-guild/gg/releases/download/v${GG_VERSION}/gg-linux-x64.tar.gz" \
       -o /tmp/gg.tar.gz \

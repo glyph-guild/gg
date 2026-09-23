@@ -86,10 +86,12 @@ gg config set control-plane <url>
 gg login
 ```
 
-**If another program called `gg` is already on your PATH** — there is one, a
-git GUI — the installer stops and asks for a different name rather than
-installing over it: answer the prompt, or pass `--as goodgrief` (`-Alias
-goodgrief` on Windows) for a run with nobody at the keyboard. Every hint it
+**If another program called `gg` is already where this puts its link** — there is one, a
+git GUI — the installer stops rather than deleting it, and asks for a
+different name: answer the prompt, or pass `--as goodgrief` (`-Alias
+goodgrief` on Windows) for a run with nobody at the keyboard. One merely
+*earlier on your PATH* is not in danger and does not stop the install; you are
+told it will keep the name, and the same flag gives this one its own. Every hint it
 prints then uses the name you chose, and it is remembered, so an update needs
 no flag. A runner is always `gg`: its service runs `/usr/local/bin/gg`.
 

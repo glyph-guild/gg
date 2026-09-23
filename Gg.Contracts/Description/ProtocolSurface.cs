@@ -530,6 +530,31 @@ public static class ProtocolSurface
             Statuses = [200, 401, 403, 404, 409, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
+        // THE SAME INTRODUCTION, ASKED FOR BY A MACHINE. A pool member loses
+        // every secret it holds on each roll - the agent token, every
+        // repository secret - and can only be handed them back over an
+        // introduced channel. That channel is a person's, so the remedy is a
+        // person, per member, per roll.
+        //
+        // A SECOND DOOR RATHER THAN A WIDER ONE. The developer route above is
+        // untouched; this one is the runner surface's, and the control plane
+        // refuses it unless the caller MINTED the member it names - the
+        // narrowest relationship there is, and one the mint recorded rather
+        // than one a runner claims about itself.
+        //
+        // 403 for a member somebody else minted, and for any machine nobody
+        // minted: a laptop is not a member, and absent must read as "not
+        // yours" or a maintainer reaches the whole fleet.
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/runner/members/{id}/introduction",
+            Audience = Audience.Runner,
+            Request = typeof(RunnerIntroductionRequest),
+            Response = typeof(RunnerIntroduction),
+            Statuses = [200, 401, 403, 404, 409, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
         new()
         {
             Method = "POST",

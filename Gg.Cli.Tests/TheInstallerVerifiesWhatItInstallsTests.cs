@@ -540,29 +540,64 @@ public class TheInstallerVerifiesWhatItInstallsTests
     // ---- another program is already called gg ----
 
     [Test]
-    public async Task Another_gg_on_the_path_is_not_overwritten_and_a_name_is_asked_for()
+    public async Task Another_gg_earlier_on_the_path_is_said_rather_than_refused()
     {
         // u-quark's gg is a git GUI shipped as a single binary a person puts on
-        // their PATH themselves. Installing over it would end with
-        // /usr/local/bin/gg pointing at ours and theirs unreachable, or with
-        // theirs winning and every line this script prints being false - and
-        // the script never looked. A collision is a question for the person,
-        // and with no terminal to ask on it is a refusal that names the flag.
+        // their PATH themselves. Somewhere ELSE on PATH it is not in danger and
+        // neither is the install - what is at stake is only which one `gg`
+        // resolves to, so this is a sentence, not a refusal.
+        //
+        // IT WAS A REFUSAL FOR ONE RELEASE (0.50.0) AND THAT WAS WRONG: it also
+        // refused a person whose own older gg was earlier on PATH, which is the
+        // ordinary laptop, and a refusal cannot be argued with from a pipe.
         using var box = new Sandbox();
         box.Attest(box.Release("0.42.0"));
         var theirs = box.ForeignGg();
 
-        var refused = await box.RunAsync("--version", "0.42.0");
+        var installed = await box.RunAsync("--version", "0.42.0");
 
-        await Assert.That(refused.Exit).IsNotEqualTo(0);
-        await Assert.That(refused.Output).Contains(theirs)
+        await Assert.That(installed.Exit).IsEqualTo(0).Because(installed.Output);
+        await Assert.That(box.LinkOf("gg")).IsEqualTo("/usr/local/lib/gg/0.42.0/gg")
+            .Because("nothing about another gg elsewhere stops this one being installed where "
+                   + "it goes.");
+        await Assert.That(installed.Output).Contains(theirs)
             .Because("the person is told WHICH gg is in the way, not just that one is.");
-        await Assert.That(refused.Output).Contains("--as")
-            .Because("and how to install ours under another name without being asked at a "
-                   + "prompt this run has no terminal for.");
-        await Assert.That(box.Downloads()).IsEmpty()
-            .Because("everything that can be refused without a download is refused before one.");
-        await Assert.That(box.Exists("gg")).IsFalse();
+        await Assert.That(installed.Output).Contains("--as")
+            .Because("and what to do about it: a name of their own, or their PATH.");
+    }
+
+    [Test]
+    public async Task A_gg_installed_as_a_dotnet_tool_is_ours_and_is_simply_upgraded()
+    {
+        // THE SHAPE ON vmlinux001, and the one 0.50.0 could not upgrade: the
+        // tool shim lives at /usr/local/lib/gg/gg with no version segment, so a
+        // check that only knew /usr/local/lib/gg/<version>/gg called our own
+        // install somebody else's and refused - fatally on a runner, whose
+        // service runs that path.
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.42.0"));
+        box.ToolShapeAtTheLink();
+
+        var installed = await box.RunAsync("--version", "0.42.0");
+
+        await Assert.That(installed.Exit).IsEqualTo(0).Because(installed.Output);
+        await Assert.That(box.LinkOf("gg")).IsEqualTo("/usr/local/lib/gg/0.42.0/gg");
+    }
+
+    [Test]
+    public async Task A_gg_installed_by_hand_from_the_tarball_is_ours_too()
+    {
+        // THE README'S OWN BY-HAND INSTALL: the binary itself in bin, with the
+        // two native libraries beside it - that pairing is what says it is
+        // ours, because there is no link to read.
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.42.0"));
+        box.TarballShapeAtTheLink();
+
+        var installed = await box.RunAsync("--version", "0.42.0");
+
+        await Assert.That(installed.Exit).IsEqualTo(0).Because(installed.Output);
+        await Assert.That(box.LinkOf("gg")).IsEqualTo("/usr/local/lib/gg/0.42.0/gg");
     }
 
     [Test]
@@ -642,6 +677,25 @@ public class TheInstallerVerifiesWhatItInstallsTests
     }
 
     [Test]
+    public async Task A_runner_is_not_stopped_by_a_gg_that_is_its_own()
+    {
+        // THE REGRESSION THIS PAIR EXISTS FOR, on the machine it would have hit:
+        // a runner already has gg at the link path, because that is what its
+        // service runs. Reading that as a foreign program refused every upgrade
+        // of every runner in the fleet.
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.42.0"));
+        box.ToolShapeAtTheLink();
+        box.Installed();
+
+        var installed = await box.RunAsync(
+            "--version", "0.42.0", "--control-plane", ControlPlane);
+
+        await Assert.That(installed.Exit).IsEqualTo(0).Because(installed.Output);
+        await Assert.That(box.LinkOf("gg")).IsEqualTo("/usr/local/lib/gg/0.42.0/gg");
+    }
+
+    [Test]
     public async Task A_name_that_is_not_a_command_is_refused()
     {
         using var box = new Sandbox();
@@ -697,6 +751,25 @@ public class TheInstallerVerifiesWhatItInstallsTests
         {
             Stub("gg", "#!/bin/sh\necho 'gg - git (G)UI'\n");
             return Path.Combine(Stubs, "gg");
+        }
+
+        /// <summary>gg as `dotnet tool` installs it: a link with no version segment.</summary>
+        public void ToolShapeAtTheLink()
+        {
+            var bin = Path.Combine(Root, "usr", "local", "bin");
+            Directory.CreateDirectory(bin);
+            System.IO.File.CreateSymbolicLink(
+                Path.Combine(bin, "gg"), "/usr/local/lib/gg/gg");
+        }
+
+        /// <summary>gg as the README's by-hand install: the binary itself, libraries beside it.</summary>
+        public void TarballShapeAtTheLink()
+        {
+            var bin = Path.Combine(Root, "usr", "local", "bin");
+            Directory.CreateDirectory(bin);
+            System.IO.File.WriteAllText(Path.Combine(bin, "gg"), "#!/bin/sh\necho ours\n");
+            System.IO.File.WriteAllText(Path.Combine(bin, "libporta_pty.so"), "");
+            System.IO.File.WriteAllText(Path.Combine(bin, "libonigwrap.so"), "");
         }
 
         /// <summary>A plain file already sitting where the link would go.</summary>

@@ -170,7 +170,7 @@ ours() {
 
 if [ "$command_name" = gg ]; then
   foreign=""
-  if [ -e "$bin/gg" ] && ! ours "$bin/gg"; then
+  if { [ -e "$bin/gg" ] || [ -L "$bin/gg" ]; } && ! ours "$bin/gg"; then
     foreign="$bin/gg"
   else
     found="$(command -v gg 2>/dev/null || true)"

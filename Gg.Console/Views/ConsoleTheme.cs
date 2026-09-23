@@ -209,6 +209,43 @@ public static class ConsoleTheme
             ? new Terminal.Gui.Drawing.Attribute(attribute.Foreground, Ground, attribute.Style)
             : attribute;
 
+    /// <summary>
+    /// The corner badge: the name and version, in a pale blue.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A NAMED colour, which everything else here deliberately is not.</b>
+    /// This file's rule is computed instead of guessed - <see cref="Muted"/>
+    /// mixes halfway to the ground and <see cref="Picked"/> turns the plain
+    /// attribute over, so both survive a theme nobody has seen. This one was
+    /// asked for by its hex, and it is an exception rather than a precedent.
+    /// </para>
+    /// <para>
+    /// <b>What it costs:</b> #7CB0CC is chosen against the dark ground this
+    /// console ships on, where it reads as quiet. On a light theme it is a
+    /// pale blue on near-white and close to unreadable. That is acceptable for
+    /// a badge in a corner that nothing depends on reading, and it would not
+    /// be for anything carrying a state somebody acts on.
+    /// </para>
+    /// <para>
+    /// <b>The background is still copied, never chosen</b> - the rule this
+    /// exception does not get to break, because a label that names its own
+    /// background paints a rectangle of the wrong colour onto the frame it
+    /// sits on.
+    /// </para>
+    /// </remarks>
+    public static Scheme Stamp()
+    {
+        var grounded = Grounded();
+        var normal = grounded.GetAttributeForRole(VisualRole.Normal);
+
+        return new Scheme(grounded)
+        {
+            Normal = new Terminal.Gui.Drawing.Attribute(
+                new Color(0x7C, 0xB0, 0xCC), normal.Background, normal.Style),
+        };
+    }
+
     private static Color Halfway(Color from, Color to) => new(
         (byte)((from.R + to.R) / 2),
         (byte)((from.G + to.G) / 2),

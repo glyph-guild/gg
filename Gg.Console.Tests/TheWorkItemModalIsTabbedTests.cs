@@ -95,12 +95,21 @@ public class TheWorkItemModalIsTabbedTests
         await Assert.That(Reducer.Reduce(history, Command.NextWorkItemTab).WorkItemTab)
             .IsEqualTo(WorkItemTab.Fields);
 
+        // FOUR NOW. Acting on the item is the fourth question this modal
+        // answers, and where the cycle wraps from moves with it - which is the
+        // only thing another tab changes. See TheWorkItemModalFliesItTests for
+        // what that tab is for.
         var fields = details with { WorkItemTab = WorkItemTab.Fields };
 
         await Assert.That(Reducer.Reduce(fields, Command.NextWorkItemTab).WorkItemTab)
+            .IsEqualTo(WorkItemTab.Actions);
+
+        var actions = details with { WorkItemTab = WorkItemTab.Actions };
+
+        await Assert.That(Reducer.Reduce(actions, Command.NextWorkItemTab).WorkItemTab)
             .IsEqualTo(WorkItemTab.Details)
             .Because("a person who overshoots with no way back is a person stuck in a modal - "
-                   + "which is why the cycle wraps, and the only thing a third tab changes is "
+                   + "which is why the cycle wraps, and the only thing a fourth tab changes is "
                    + "where it wraps from.");
     }
 

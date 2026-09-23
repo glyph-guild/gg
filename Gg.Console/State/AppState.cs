@@ -673,6 +673,21 @@ public enum WorkItemTab
     /// what it meant when it was written.
     /// </remarks>
     Fields,
+
+    /// <summary>What can be done about it, and the button that does it.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The first three answer what it IS; this one acts.</b> Flying what you
+    /// are reading was a key on the tab underneath the modal, which meant
+    /// closing the thing you opened to read it and pressing a key over a row.
+    /// </para>
+    /// <para>
+    /// <b>Appended, for the reason above it.</b> And last on purpose: a person
+    /// cycling with <c>v</c> to see the item passes everything it says before
+    /// reaching anything that writes.
+    /// </para>
+    /// </remarks>
+    Actions,
 }
 
 public enum TabId

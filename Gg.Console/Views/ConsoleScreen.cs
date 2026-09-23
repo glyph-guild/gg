@@ -211,6 +211,21 @@ public sealed class ConsoleScreen : Window
     private readonly TableView _itemFieldsTable;
 
     private readonly Label _itemFieldsAbsent;
+
+    /// <summary>
+    /// The fourth tab: what can be done about the item, and the button.
+    /// </summary>
+    /// <remarks>
+    /// <b>The first three say what it IS; this one acts.</b> A button rather
+    /// than a key because <see cref="Keymap.Buttons"/> is all-or-none per mode
+    /// and this modal's other answers are cursor keys - see
+    /// <c>TheWorkItemModalFliesItTests</c> for the whole argument.
+    /// </remarks>
+    private readonly View _itemActionsTab;
+
+    private readonly Label _itemActionSaid;
+
+    private readonly Button _itemFly;
     private readonly FrameView _itemChangePane;
     private readonly ListView _itemChange;
     private readonly Label _itemHistoryAbsent;
@@ -1361,9 +1376,49 @@ public sealed class ConsoleScreen : Window
         };
         _itemFieldsTab.Add(_itemFieldsTable, _itemFieldsAbsent);
 
+        // WHAT FLYING THIS WOULD DO, above the button that does it. The
+        // sentence is the pane's because a caption cannot say which tracker,
+        // which id and against what - see WorkItemDetails.ActionsSaid.
+        _itemActionSaid = new Label
+        {
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = 2,
+
+            // NO HOTKEY OUT OF SOMEBODY ELSE'S SENTENCE, for the reason the
+            // absence line above gives: a tracker's id and a repository name
+            // both reach this line and either may carry an underscore.
+            HotKeySpecifier = new System.Text.Rune('￿'),
+        };
+
+        _itemFly = new Button
+        {
+            X = 0,
+            Y = 2,
+            Text = WorkItemDetails.FlyLabel,
+
+            // NO HOTKEY OF ITS OWN - _runnerStart's rule, and the same reason.
+            // A Button takes a letter out of its own caption, and Keymap is the
+            // only place a printable key means anything in this console.
+            HotKeySpecifier = new System.Text.Rune('￿'),
+        };
+        _itemFly.Accepting += OnFlyTheOpenItem;
+
+        _itemActionsTab = new View
+        {
+            Title = WorkItemDetails.ActionsTitle,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
+        _itemActionsTab.Add(_itemActionSaid, _itemFly);
+
         _itemTabs.Add(_itemDetailsTab);
         _itemTabs.Add(_itemHistoryTab);
         _itemTabs.Add(_itemFieldsTab);
+        _itemTabs.Add(_itemActionsTab);
         _itemTabs.ValueChanged += OnWorkItemTabChanged;
 
         _itemBody = new View
@@ -2237,6 +2292,21 @@ public sealed class ConsoleScreen : Window
         _app.RequestStop(this);
     }
 
+    /// <summary>The actions tab's button, which is the browse tab's `f`.</summary>
+    /// <remarks>
+    /// <b>It ends the session, exactly as the key does.</b>
+    /// <c>Command.FlyPicked</c> is in <c>ShellCommands.Handled</c> because it
+    /// writes, so the button cannot perform it here - it hands the same command
+    /// to the loop that the keymap would, and the views are rebuilt from what
+    /// the loop leaves in <c>AppState</c>. <c>OnStartRunner</c>'s shape, for
+    /// <c>OnStartRunner</c>'s reason.
+    /// </remarks>
+    private void OnFlyTheOpenItem(object? sender, EventArgs args)
+    {
+        ExitCommand = Command.FlyPicked;
+        _app.RequestStop(this);
+    }
+
     private void OnRowPointedAt(object? sender, ValueChangedEventArgs<TableSelection?> args)
     {
         if (_syncing || args.NewValue is not { } selection)
@@ -2402,6 +2472,7 @@ public sealed class ConsoleScreen : Window
 
         var wanted = ReferenceEquals(chosen, _itemHistoryTab) ? WorkItemTab.History
             : ReferenceEquals(chosen, _itemFieldsTab) ? WorkItemTab.Fields
+            : ReferenceEquals(chosen, _itemActionsTab) ? WorkItemTab.Actions
             : WorkItemTab.Details;
 
         if (wanted == State.WorkItemTab)
@@ -4688,7 +4759,15 @@ public sealed class ConsoleScreen : Window
                 ? _itemHistoryTab
                 : State.WorkItemTab is WorkItemTab.Fields
                     ? _itemFieldsTab
-                    : _itemDetailsTab;
+                    : State.WorkItemTab is WorkItemTab.Actions
+                        ? _itemActionsTab
+                        : _itemDetailsTab;
+
+            // WHAT THE BUTTON WOULD DO, AND WHETHER IT IS OFFERED. Both are
+            // the model's answer, so a tab opened over an item with no tracker
+            // says why rather than drawing a button that refuses when pressed.
+            _itemActionSaid.Text = WorkItemDetails.ActionsSaid(State);
+            _itemFly.Visible = WorkItemDetails.CanFly(State);
 
             if (!ReferenceEquals(_itemTabs.Value, showing))
             {
@@ -5354,6 +5433,13 @@ public sealed class ConsoleScreen : Window
                     WorkItemTab.Fields when _itemFieldsTable.Visible => _itemFieldsTable,
 
                     WorkItemTab.History when _itemHistory.Visible => _itemHistory,
+
+                    // THE BUTTON, which is the one thing on this tab a person
+                    // came to press - so enter does it without a tab-stop walk
+                    // first. When there is nothing to fly it is hidden, and
+                    // focus falls through to the modal rather than landing on
+                    // a view that is not drawn.
+                    WorkItemTab.Actions when _itemFly.Visible => _itemFly,
 
                     // THE PROSE, which is what this tab is. The fields below it
                     // are read and would be picked first otherwise, and what a

@@ -140,8 +140,68 @@ public static class WorkItemDetails
         }
     }
 
-    /// <summary>The heading over the fields tab.</summary>
-    public const string FieldsTitle = "what the tracker records";
+    /// <summary>
+    /// The heading over the fields tab.
+    /// </summary>
+    /// <remarks>
+    /// <b>What it holds, not a sentence about it.</b> "what the tracker
+    /// records" described the contents and read as prose in a strip where the
+    /// others are <c>what it says</c>, <c>log</c> and <c>actions</c>. What this
+    /// holds is the fields a listing did not carry, which is the other ones.
+    /// </remarks>
+    public const string FieldsTitle = "other fields";
+
+    /// <summary>The heading over the actions tab.</summary>
+    public const string ActionsTitle = "actions";
+
+    /// <summary>The caption on the button that opens a flight for this item.</summary>
+    /// <remarks>
+    /// <b>The words the key already uses.</b> <c>f</c> on the browse tab is
+    /// "fly this", and a button that said anything else would be a second name
+    /// for one act.
+    /// </remarks>
+    public const string FlyLabel = "Fly this";
+
+    /// <summary>Whether there is an item here to open a flight for.</summary>
+    /// <remarks>
+    /// <b>An item AND a provider.</b> What crosses is a provider and an id, so
+    /// a row with nothing to say where it came from cannot be flown - and the
+    /// provider is the listing's, because that is the tracker the reader
+    /// answered as.
+    /// </remarks>
+    public static bool CanFly(AppState state) =>
+        Item(state) is not null && state?.Browse?.ProviderKey is { Length: > 0 };
+
+    /// <summary>
+    /// What flying this would do, or why nothing is on offer.
+    /// </summary>
+    /// <remarks>
+    /// <b>The pane says it, not the button.</b> A caption reading "Fly this"
+    /// over an empty pane leaves a person to guess what it opens and against
+    /// what - and the id is the thing they check before starting work.
+    /// </remarks>
+    public static string ActionsSaid(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (Item(state) is not { } item)
+        {
+            return "There is nothing here to fly: no work item is open.";
+        }
+
+        if (state.Browse?.ProviderKey is not { Length: > 0 } provider)
+        {
+            return $"{item.Id} cannot be flown from here: nothing says which tracker it "
+                 + "came from, and a flight is opened from a provider and an id.";
+        }
+
+        var against = state.Against;
+
+        return $"Open a flight on {provider} {item.Id}"
+             + (against.Count > 0
+                    ? $", against {string.Join(", ", against)}."
+                    : ". No repository is chosen, so the flight names none.");
+    }
 
     /// <summary>The columns the fields table declares.</summary>
     public static IReadOnlyList<string> FieldColumns { get; } = ["field", "value"];

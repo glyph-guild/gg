@@ -62,7 +62,7 @@ says so. That covers CI, anything behind a pipe, and Windows, where
 **One command, on a laptop.** macOS or Linux:
 
 ```sh
-v=0.49.0
+v=0.50.0
 curl -fsSL https://github.com/glyph-guild/gg/releases/download/v$v/install.sh \
   | sudo sh -s -- --version $v
 ```
@@ -70,7 +70,7 @@ curl -fsSL https://github.com/glyph-guild/gg/releases/download/v$v/install.sh \
 Windows, in PowerShell:
 
 ```powershell
-$v='0.49.0'
+$v='0.50.0'
 & ([scriptblock]::Create((irm https://github.com/glyph-guild/gg/releases/download/v$v/install.ps1))) -Version $v
 ```
 
@@ -114,7 +114,7 @@ and says so.
 is not optional:
 
 ```sh
-v=0.49.0
+v=0.50.0
 curl -fsSL https://github.com/glyph-guild/gg/releases/download/v$v/gg-linux-x64.tar.gz | tar xz
 sudo install -m 0755 gg /usr/local/bin/gg
 sudo install -m 0644 libporta_pty.so libonigwrap.so /usr/local/bin/
@@ -140,7 +140,7 @@ pressed the key.
 **As a .NET tool**, if you already have the SDK, from nuget.org:
 
 ```sh
-v=0.49.0
+v=0.50.0
 sudo dotnet tool install GlyphGuild.Gg.Cli --version $v --tool-path /usr/local/lib/gg
 sudo ln -sf /usr/local/lib/gg/gg /usr/local/bin/gg
 ```

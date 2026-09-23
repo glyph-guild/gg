@@ -2165,7 +2165,8 @@ public static class ProtocolSurface
             [typeof(CredentialReference)] = ["kind", "locator", "identity", "scopes"],
             [typeof(CredentialRegistrationRequest)] = ["repo", "reference"],
             [typeof(CredentialRegistered)] = ["credentialId", "reference", "addedAt"],
-            [typeof(CredentialSummary)] = ["credentialId", "repo", "reference", "addedAt"],
+            [typeof(CredentialSummary)] =
+                ["credentialId", "repo", "reference", "referencedBySubject", "addedAt"],
             [typeof(CredentialList)] = ["credentials"],
             [typeof(CredentialRemoved)] = ["credentialId", "reference"],
             [typeof(CredentialResolutionFailure)] = ["reference", "problem"],

@@ -379,6 +379,28 @@ public sealed record CredentialSummary
 
     public required CredentialReference Reference { get; init; }
 
+    /// <summary>How a document spells whoever registered it.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A credential belongs to a person</b>, and until this member there was
+    /// no way for a reader to tell whose. The doctor asserted that EVERY
+    /// credential in the tenant resolves on the machine it is running on - fine
+    /// while a tenant had one developer, and wrong the day it has two: their
+    /// secret is on their laptop, where it belongs.
+    /// </para>
+    /// <para>
+    /// <b>The subject, never the principal id</b> - the board page's rule, for
+    /// its reason: an id is the control plane's own bookkeeping, and a subject
+    /// is how a person is named outside it.
+    /// </para>
+    /// <para>
+    /// <b>Absent from an older control plane, and absent is not "somebody
+    /// else's".</b> A reader that skipped what it was not told about would stop
+    /// reporting the thing it exists to report.
+    /// </para>
+    /// </remarks>
+    public string? ReferencedBySubject { get; init; }
+
     public required DateTimeOffset AddedAt { get; init; }
 }
 

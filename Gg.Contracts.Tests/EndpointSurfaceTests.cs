@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
@@ -510,6 +511,79 @@ public class EndpointSurfaceTests
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");
+    }
+
+    /// <summary>The ledger entry a consumer actually receives.</summary>
+    private sealed record LedgerEntry(string Version, string Surface, string? Endpoints);
+
+    private static List<LedgerEntry> Ledger()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Gg.sln")))
+        {
+            dir = dir.Parent;
+        }
+        var root = dir ?? throw new InvalidOperationException("Gg.sln not found above " + AppContext.BaseDirectory);
+
+        return JsonSerializer.Deserialize<List<LedgerEntry>>(
+            File.ReadAllText(Path.Combine(root.FullName, "Gg.Contracts", "contract-versions.json")),
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+            ?? throw new InvalidOperationException("contract-versions.json is empty");
+    }
+
+    private static string DeclaredVersion() =>
+        typeof(Vocabulary).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()!
+            .InformationalVersion
+            .Split('+')[0];
+
+    [Test]
+    public async Task A_declared_route_reaches_a_consumer_only_under_a_published_version()
+    {
+        // THE GAP ABOVE, WITH TEETH - and it was not theoretical for long.
+        //
+        // POST /v1/runner/members/{id}/introduction was declared, merged to
+        // main, and went nowhere. The publish workflow reads the DECLARED
+        // version, finds contracts-v0.217.0 already released, and skips:
+        // "an already-published contract version is immutable by definition,
+        // and re-uploading its asset would churn the timestamp on an artifact
+        // people pin. To republish, bump the version." That is correct. The
+        // consequence is that a route declared without moving the version can
+        // never be seen by the repository that has to SERVE it, and the two
+        // repositories cannot reference each other, so the declaration is the
+        // only thing holding them together.
+        //
+        // The pin below catches a route change. It does not catch this,
+        // because a pin is updated by whoever made the change and reads as
+        // done once it is green. So the endpoint fingerprint is recorded
+        // against a published version too, and the version has to move for the
+        // recording to be legal.
+        //
+        // Older entries carry no endpoints digest and are left alone: they are
+        // history, already shipped, and rewriting one would be a claim about
+        // what a consumer received.
+        var version = DeclaredVersion();
+        var recorded = Ledger().SingleOrDefault(e => e.Version == version);
+
+        await Assert.That(recorded).IsNotNull()
+            .Because("ContractSurfaceTests owns that failure; if it is firing too, fix it there.");
+
+        await Assert.That(recorded!.Endpoints).IsEqualTo(Fingerprint())
+            .Because($$"""
+                The declared routes are not the routes version {{version}} published.
+
+                A consumer pins a VERSION. If the route surface moved without the
+                version moving, the declaration sits on main where nothing can
+                fetch it - the release asset for a published version is immutable
+                and the workflow skips it.
+
+                Bump <Version> in Gg.Contracts/Gg.Contracts.csproj and add:
+
+                  { "version": "<new>", "surface": "...", "endpoints": "{{Fingerprint()}}" }
+
+                Say in the note which route moved and why, the same as any other
+                contract change - because to a consumer it is one.
+                """);
     }
 
     [Test]

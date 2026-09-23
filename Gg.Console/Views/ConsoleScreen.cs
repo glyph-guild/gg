@@ -425,6 +425,9 @@ public sealed class ConsoleScreen : Window
     private readonly Terminal.Gui.Drawing.Scheme _muted = ConsoleTheme.Muted();
     private readonly Label _hints;
 
+    /// <summary>Which gg this is, in the corner, dim.</summary>
+    private readonly Label _version;
+
     /// <summary>The keys about the console, at the line's right-hand end.</summary>
     private readonly Label _hintsStanding;
 
@@ -974,6 +977,32 @@ public sealed class ConsoleScreen : Window
         // child of it needs no arithmetic about where the label itself is.
         _hintsCounting = new Label { Visible = false };
         _hintsStanding.Add(_hintsCounting);
+
+        // WHICH GG THIS IS, in the top right. The hint line's own shape the
+        // other way up: anchored to the end with an auto width, so it draws its
+        // own characters and not a full-width background across the row it
+        // shares - which is the mistake that end of the hint line documents.
+        //
+        // Muted rather than a grey somebody picked. That scheme computes a
+        // foreground halfway to the background and COPIES the background
+        // instead of naming one, so the badge stays quiet and stays legible on
+        // whatever theme is in force.
+        _version = new Label
+        {
+            // ONE COLUMN IN FROM THE EDGE, because the badge sits on the
+            // frame's own row and anchoring flush to the end paints over the
+            // corner - the box stops closing, which reads as a broken frame
+            // rather than as a label on one.
+            // Pos.AnchorEnd() anchors the RIGHT edge to the end; the
+            // int overload moves the LEFT edge that far from it, which for an
+            // auto-width label is the whole badge clipped to nothing. Measured
+            // by trying it.
+            X = Pos.AnchorEnd() - 1,
+            Y = 0,
+            Width = Dim.Auto(DimAutoStyle.Text),
+            Text = Corner.Badge(Gg.Client.GgVersions.Binary, Corner.UpdateWaiting(state)),
+        };
+        _version.SetScheme(ConsoleTheme.Stamp());
 
         // ABOVE THE HINTS, on a line of its own. A write a person cannot see is
         // indistinguishable from a key that does nothing.
@@ -1946,7 +1975,10 @@ public sealed class ConsoleScreen : Window
         Muted(_airspaceAbsent, _airspaceNoDocument, _live, _flight, _modalBody,
             _runners, _flightIntent, _flightLogAbsent);
 
-        Add(_bar, _activity, _hints, _hintsStanding, _modal);
+        // BEFORE THE MODAL, so a dialog covers the badge rather than the
+        // badge sitting on top of one - the order these are added is the order
+        // they are drawn.
+        Add(_bar, _version, _activity, _hints, _hintsStanding, _modal);
 
         KeyDown += OnScreenKeyDown;
 
@@ -4041,6 +4073,14 @@ public sealed class ConsoleScreen : Window
         _activity.Text = PaneText.Activity(State);
         _hints.Text = Keymap.HintsHere(Context());
         _hintsStanding.Text = Keymap.HintsStanding(Context());
+
+        // AND THE CORNER, ON EVERY RENDER RATHER THAN ONCE. Whether a newer gg
+        // exists arrives with the boot read, which now lands AFTER this screen
+        // is built - so a badge set in the constructor would be composed from
+        // an empty model and could never light up. The version half does not
+        // change; the notice half is the whole point of the badge and is the
+        // half that arrives late.
+        _version.Text = Corner.Badge(Gg.Client.GgVersions.Binary, Corner.UpdateWaiting(State));
 
         Applied(State.Look);
 

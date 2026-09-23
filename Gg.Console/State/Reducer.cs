@@ -121,6 +121,7 @@ public static class Reducer
                 {
                     WorkItemTab.Details => WorkItemTab.History,
                     WorkItemTab.History => WorkItemTab.Fields,
+                    WorkItemTab.Fields => WorkItemTab.Actions,
                     _ => WorkItemTab.Details,
                 },
             },

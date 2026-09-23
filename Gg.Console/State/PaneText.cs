@@ -3229,6 +3229,16 @@ public static class PaneText
                   // the field somebody copied this for is usually one they
                   // are about to paste somewhere.
                   WorkItemTab.Fields => WorkItemInventory(state),
+
+                  // AND THE ACTIONS TAB COPIES WHAT IT OFFERS. It is one
+                  // sentence rather than a document, and it is still the tab
+                  // showing - a copy that handed over the description from
+                  // here would be this modal answering a question nobody
+                  // asked, which is the rule the two arms above keep.
+                  WorkItemTab.Actions =>
+                      WorkItemDetails.ActionsTitle
+                    + "\n\n"
+                    + WorkItemDetails.ActionsSaid(state),
                   _ => Clean(state.WorkItemSaid ?? "Nothing was read.", lines: true),
               }),
             _ => "",

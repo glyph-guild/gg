@@ -1048,6 +1048,22 @@ public sealed class Doctor(
     /// advice that costs them time and changes nothing.
     /// </para>
     /// </remarks>
+    /// <summary>Whether a registered credential is the reader's own to hold.</summary>
+    /// <remarks>
+    /// <b>Absent is yours, not somebody else's.</b> An older control plane
+    /// sends no subject, and every credential in such a tenant was everybody's
+    /// - so a reader that skipped what it was not told about would stop
+    /// reporting the thing this check exists for, silently, on exactly the
+    /// deployments least likely to notice.
+    /// </remarks>
+    public static bool IsYours(Gg.Contracts.CredentialSummary credential, string? yourSubject)
+    {
+        ArgumentNullException.ThrowIfNull(credential);
+
+        return credential.ReferencedBySubject is not { Length: > 0 } whose
+            || string.Equals(whose, yourSubject, StringComparison.Ordinal);
+    }
+
     private async Task<DoctorCheck> CredentialResolutionCheckAsync(
         StoredSession? stored, bool reachable, bool protocolOk, CancellationToken cancellationToken)
     {
@@ -1062,6 +1078,12 @@ public sealed class Doctor(
                 Fixable = false,
             };
         }
+
+        // WHOSE MACHINE THIS IS, asked here rather than threaded in: this
+        // check already cannot run without a session, and the alternative is
+        // a parameter every caller has to remember to fill - which is the
+        // shape that makes a filter silently match everything.
+        var yours = (await _client.WhoAmIAsync(stored.SessionToken, cancellationToken))?.Subject;
 
         var registered = await _client.ListCredentialsAsync(stored.SessionToken, cancellationToken);
 
@@ -1080,6 +1102,7 @@ public sealed class Doctor(
         // Named individually. "1 of 3 credentials could not be resolved" sends
         // somebody looking; naming the locator ends the search.
         var unresolvable = registered.Credentials
+            .Where(c => IsYours(c, yours))
             .Where(c => Missing(c.Reference.Locator))
             .Select(c => $"{c.Reference.Locator} ({c.Repo}, as {c.Reference.Identity})")
             .ToList();

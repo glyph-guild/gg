@@ -150,6 +150,10 @@ internal sealed class ConsoleObserver : IRunnerObserver
             $"credential {failure.Reference.Locator} (as {failure.Reference.Identity}, "
           + $"{failure.Reference.Kind}) could not be resolved: {failure.Problem}");
 
+    /// <summary>Why no address was published, for somebody watching the runner.</summary>
+    public void PreviewUnserved(string diagnosis) =>
+        System.Console.WriteLine($"the preview could not be served: {diagnosis}");
+
     public void CredentialNotExtended(DateTimeOffset endsAt) =>
         System.Console.WriteLine(
             $"this runner's credential ends at {endsAt:yyyy-MM-dd HH:mm}Z and the control plane "

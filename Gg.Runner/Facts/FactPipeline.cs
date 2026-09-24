@@ -75,6 +75,9 @@ public abstract record FactPayload
     /// exists to prevent.
     /// </remarks>
     public sealed record Attended(LoopAttended Value) : FactPayload;
+
+    /// <summary>Where this flight's preview was served, at the slot it was granted.</summary>
+    public sealed record Preview(PreviewUrl Value) : FactPayload;
 }
 
 /// <summary>Stage one's output: observed, undigested, unfiltered.</summary>
@@ -122,6 +125,7 @@ public sealed record FilteredFacts(IReadOnlyList<FactEnvelope> Items);
 [JsonSerializable(typeof(LoopDigest))]
 [JsonSerializable(typeof(WorkItemProposal))]
 [JsonSerializable(typeof(LandingProposal))]
+[JsonSerializable(typeof(PreviewUrl))]
 [JsonSerializable(typeof(FactEnvelope))]
 internal sealed partial class FactJsonContext : JsonSerializerContext;
 
@@ -220,6 +224,15 @@ public static class FactPipeline
                     Digest = digest,
                     ObservedAt = observedAt,
                     Attended = attended.Value,
+                },
+
+                FactPayload.Preview preview => new FactEnvelope
+                {
+                    IdempotencyKey = Key(flightId, kind, digest),
+                    Kind = kind,
+                    Digest = digest,
+                    ObservedAt = observedAt,
+                    Preview = preview.Value,
                 },
 
                 FactPayload.Nomination nomination => new FactEnvelope
@@ -424,6 +437,9 @@ public static class FactPipeline
         FactPayload.Attended attended => (
             FactKinds.LoopAttended,
             JsonSerializer.Serialize(attended.Value, FactJsonContext.Default.LoopAttended)),
+        FactPayload.Preview preview => (
+            FactKinds.PreviewUrl,
+            JsonSerializer.Serialize(preview.Value, FactJsonContext.Default.PreviewUrl)),
         FactPayload.ProposedLanding proposed => (
             FactKinds.LandingProposal,
             JsonSerializer.Serialize(proposed.Value, FactJsonContext.Default.LandingProposal)),

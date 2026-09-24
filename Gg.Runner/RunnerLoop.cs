@@ -205,6 +205,17 @@ public interface IRunnerObserver
     void CredentialUnresolved(CredentialResolutionFailure failure);
 
     /// <summary>
+    /// A flight was granted a slot and could not be served at it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Said rather than shipped.</b> A preview that could not be served is a
+    /// flight that still did its work, so no fact is written and the flight is
+    /// unaffected - but an operator watching a runner that never publishes an
+    /// address should be able to find out why without reading a transcript.
+    /// </remarks>
+    void PreviewUnserved(string diagnosis);
+
+    /// <summary>
     /// This runner's own credential ends on a date and the control plane will
     /// not extend it.
     /// </summary>
@@ -219,6 +230,8 @@ public interface IRunnerObserver
 public sealed class SilentObserver : IRunnerObserver
 {
     public void CannotBeFlownByHand(string diagnosis) { }
+
+    public void PreviewUnserved(string diagnosis) { }
 
     public void Claimed(LeaseGranted lease) { }
     public void Renewed(string leaseId, DateTimeOffset expiresAt) { }
@@ -1773,7 +1786,8 @@ public sealed class RunnerLoop(
         // still be holding what it would push when the answer comes back. Said
         // out loud because it is the mechanism rather than an incidental
         // consequence of where the release happens to sit.
-        var proposed = await ShipAsync(lease, workspace, invoked, probe, cancellationToken);
+        var proposed = await ShipAsync(
+            lease, workspace, invoked, probe, secretsByLocator, cancellationToken);
 
         // AND THEN IT ASKS, because shipping is accepted rather than answered.
         // The control plane records the batch and evaluates afterwards, so the
@@ -2218,7 +2232,8 @@ public sealed class RunnerLoop(
     /// </returns>
     private async Task<IReadOnlyDictionary<string, Gg.Contracts.WorkItemProposal>> ShipAsync(
         LeaseGranted lease, WorkspaceResult workspace, Invocation invoked,
-        Execution.ProbeResult? probe, CancellationToken cancellationToken)
+        Execution.ProbeResult? probe, IReadOnlyDictionary<string, string> secretsByLocator,
+        CancellationToken cancellationToken)
     {
         var run = invoked.Run;
 
@@ -2327,6 +2342,40 @@ public sealed class RunnerLoop(
             // never mentioned a loop, which is also what a runner that died
             // before invoking one looks like.
             payloads.Add(new FactPayload.Attended(attended));
+        }
+
+        // WHERE THE PREVIEW WENT, when this flight was granted a slot. After the
+        // loop rather than before it, because the address is reported as served
+        // and the app is what the connector reaches - a URL shipped before
+        // anything answers at it is a gate pointing somebody at a 502.
+        //
+        // A REFUSAL SHIPS NOTHING AND FAILS NOTHING. A preview that could not be
+        // served is a flight that still did its work; the fact is simply absent,
+        // and a gate reading no address says the preview is gone rather than
+        // offering a dead one.
+        if (lease.Preview is { } granted
+            && secretsByLocator.TryGetValue(granted.Credential, out var slotSecret))
+        {
+            var served = await new Exposures.CloudflareExposureAdapter(
+                    new Exposures.CloudflaredConnector())
+                .ServeAsync(
+                    new Exposures.ExposureRequest { Preview = granted, Secret = slotSecret },
+                    cancellationToken);
+
+            var address = served.Url;
+            if (address is { Length: > 0 })
+            {
+                payloads.Add(new FactPayload.Preview(new PreviewUrl
+                {
+                    Url = address,
+                    Exposure = served.Exposure,
+                    Slot = served.Slot,
+                }));
+            }
+            else
+            {
+                _observer.PreviewUnserved(served.Diagnosis ?? "no address and no diagnosis");
+            }
         }
 
         // STRIPPED BEFORE THE DIGEST, which the types enforce: Digest takes

@@ -44,7 +44,6 @@ public class AnExposureAdapterDialsItsSlotTests
     {
         Preview = Granted(),
         Secret = "not-a-real-tunnel-token",
-        Port = 4200,
     };
 
     [Test]
@@ -70,10 +69,10 @@ public class AnExposureAdapterDialsItsSlotTests
 
         _ = await adapter.ServeAsync(Request(), CancellationToken.None);
 
-        await Assert.That(connector.Token).IsEqualTo("not-a-real-tunnel-token");
-        await Assert.That(connector.Port).IsEqualTo(4200)
-            .Because("the connector reaches the served port on this machine's own loopback, "
-                   + "which is why none of this needs a published port or a firewall rule.");
+        await Assert.That(connector.Token).IsEqualTo("not-a-real-tunnel-token")
+            .Because("a credential and nothing else. Which local service the slot reaches is "
+                   + "the tunnel's own configuration at the provider, so the runner cannot "
+                   + "point a slot at a different service any more than it can rename one.");
     }
 
     [Test]
@@ -110,14 +109,11 @@ public class AnExposureAdapterDialsItsSlotTests
     {
         internal string? Token { get; private set; }
 
-        internal int Port { get; private set; }
-
         internal string? Refusal { get; init; }
 
-        public Task<string?> RunAsync(string token, int port, CancellationToken cancellationToken)
+        public Task<string?> RunAsync(string token, CancellationToken cancellationToken)
         {
             Token = token;
-            Port = port;
             return Task.FromResult(Refusal);
         }
     }

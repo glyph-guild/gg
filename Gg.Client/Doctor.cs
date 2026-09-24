@@ -820,12 +820,29 @@ public sealed class Doctor(
             return new DoctorCheck
             {
                 Name = DoctorChecks.Trackers,
-                Passed = true,
+
+                // A WARN, AND THE FORGE CHECK FOUR LINES DOWN IS WHY. "No forge
+                // is configured" is a warn carrying the setting that fixes it;
+                // this said ok and carried nothing, and the two are the same
+                // situation. Reported by somebody whose browse pane refused
+                // over this exact fact while the doctor they ran to find out
+                // why told them everything was fine.
+                Passed = false,
                 Detail = "no tracker is declared, so a flight about a work item reaches an "
-                       + "agent with nothing to read it with - ordinary on a machine whose "
-                       + "flights name none",
+                       + "agent with nothing to read it with, and the browse tab has nothing "
+                       + "to show - ordinary on a machine whose flights name none",
+
+                // NOT BLOCKING, and that is the half the old comment was
+                // defending: a machine may simply not be one that reads work
+                // items, and a doctor that exited non-zero on a laptop is a
+                // verb nobody runs. A warn says so without stopping anybody.
                 Blocking = false,
-                Fixable = false,
+                Fixable = true,
+                Fix = "Run `gg config set intent-hosts <key=host|reference>` for the tracker "
+                    + "this machine should read - e.g. "
+                    + "`ado=https://dev.azure.com/acme/Widgets|local:acme/widgets` - and "
+                    + "`gg credential add --repo <slug>` for the reference it names, where "
+                    + "the slug is the locator without its 'local:' prefix.",
             };
         }
 

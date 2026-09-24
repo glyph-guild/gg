@@ -121,11 +121,19 @@ public class TheDoctorSaysWhichTrackersTests
     public async Task And_a_machine_that_declares_none_still_gets_the_line()
     {
         // ORDINARY, AND STILL SAID. Absence is the normal state - a link flight
-        // names no tracker - so this passes; what it must not do is vanish,
-        // because "no line" is what sent the walk looking.
+        // names no tracker - and what it must not do is vanish, because "no
+        // line" is what sent the walk looking. That is what this test is for
+        // and it is unchanged.
+        //
+        // IT NO LONGER PASSES, AND A WALK IS WHY. Somebody's browse pane
+        // refused over this exact fact while the doctor told them it was ok,
+        // so it is a warn now - carrying the setting that fixes it, the way the
+        // forge check beside it already did. Blocking stays false, which is the
+        // part "ordinary" was ever an argument for. See
+        // ADeclaredNothingIsStillAnAnswerTests.
         var check = Check(MachineRole.None);
 
-        await Assert.That(check.Passed).IsTrue();
+        await Assert.That(check.Passed).IsFalse();
         await Assert.That(check.Blocking).IsFalse();
         await Assert.That(check.Detail).IsNotEmpty();
     }

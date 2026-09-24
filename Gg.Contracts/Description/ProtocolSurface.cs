@@ -1266,6 +1266,40 @@ public static class ProtocolSurface
         },
         new()
         {
+            // AN EXPOSURE, applied to a name the topology already holds. 400 is a
+            // document that cannot say where anything appears, an unknown kind, or
+            // an unknown name or role; 202 is a widening diverted to the gate, and
+            // nearly every edit to an exposure is one.
+            Method = "PUT",
+            Path = "/v1/airspace/exposures/{name}",
+            Audience = Audience.Developer,
+            Request = typeof(Exposure),
+            Response = typeof(EnvelopeApplied),
+            Statuses = [200, 202, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/airspace/exposures/{name}",
+            Audience = Audience.Developer,
+            Response = typeof(ExposureState),
+            // 404 is a name with no exposure in force.
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/airspace/exposures",
+            Audience = Audience.Developer,
+            Response = typeof(ExposureList),
+            // Empty is 200: a tenant that publishes no previews has none.
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             Method = "GET",
             Path = "/v1/airspace/strategies",
             Audience = Audience.Developer,
@@ -2132,6 +2166,13 @@ public static class ProtocolSurface
                  "trackers", "triage", "sweeps", "credentials"],
             [typeof(FleetProfileState)] = ["name", "version", "appliedAt", "profile"],
             [typeof(FleetProfileList)] = ["profiles"],
+            // The exposures surface. Where a served port may appear: a kind gg
+            // can drive, and a finite inventory of addresses each carrying its
+            // own credential reference.
+            [typeof(Exposure)] = ["kind", "inventory"],
+            [typeof(ExposureInventory)] = ["size", "hostnames", "credentials"],
+            [typeof(ExposureState)] = ["name", "version", "appliedAt", "exposure"],
+            [typeof(ExposureList)] = ["exposures"],
             // The pools surface. Digests, hashes and stamps only, asserted
             // over the shape as well as declared.
             [typeof(PoolAttestation)] =

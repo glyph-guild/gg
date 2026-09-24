@@ -506,8 +506,18 @@ public class EndpointSurfaceTests
         // A pool member loses every secret it holds on each roll and can only
         // be handed them back over an introduced channel - which was a
         // person's, so the remedy was a person, per member, per roll.
+        // AND 0.221.0 ADDS THE EXPOSURES DOOR: PUT /v1/airspace/exposures/{name}
+        // and GET for one and for all. Where a flight's served port may appear,
+        // declared by the tenant against their own domain and their own
+        // credentials - so the fleet door's shape exactly, including 202,
+        // because nearly every edit to an exposure widens. Growing the inventory
+        // adds addresses; moving the hostnames moves them all at once to names
+        // no identity provider has been told to expect.
+        // DECLARED BEFORE THEY ARE SERVED, which is safe for one reason and only
+        // one: the client reads a 404 on the list as "none", so a pull against a
+        // control plane pinned below this keeps working and finds no exposures.
         await Assert.That(Fingerprint())
-            .IsEqualTo("5d2ac69128a27c8ea1c07f40273a043051ccd37fe3fd91a7e7b61e8077bbd9c9")
+            .IsEqualTo("d30b00468b5f491bb693e654e91ca10191d7b596c78abeef62476e08bb4120ca")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

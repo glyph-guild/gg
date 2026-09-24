@@ -1077,5 +1077,11 @@
     "surface": "f11f5dcfbbb9bec5c8e786d25e2ca7fbda1dd53300dcc4b5ba2ad6b31f44a02d",
     "endpoints": "5d2ac69128a27c8ea1c07f40273a043051ccd37fe3fd91a7e7b61e8077bbd9c9",
     "note": "AN EXPOSURE HAS A READ SIDE. ExposureState and ExposureList join the wire so the estate can carry the exposures in force and a working copy can be written from them. The document and its rendering arrived in 0.219.0; this is what a pull reads back. THE ESTATE MEMBER IS DEFAULTED RATHER THAN REQUIRED, for the reason the watch's is: an estate is assembled by ReadEstateAsync and by a good many tests that predate this document class, and the honest reading of an estate that says nothing about exposures is that it holds none. The endpoints hash is unchanged - nothing serves these yet, and a route declared before it is served is refused on the far side."
+  },
+  {
+    "version": "0.221.0",
+    "surface": "f11f5dcfbbb9bec5c8e786d25e2ca7fbda1dd53300dcc4b5ba2ad6b31f44a02d",
+    "endpoints": "d30b00468b5f491bb693e654e91ca10191d7b596c78abeef62476e08bb4120ca",
+    "note": "AN EXPOSURE HAS A DOOR. Three routes: PUT /v1/airspace/exposures/{name} to apply one, and GET for one and for all. The wire types have not moved - they arrived in 0.220.0 - so the surface hash is unchanged and only the endpoints fingerprint does. DECLARED BEFORE THEY ARE SERVED, WHICH IS SAFE FOR EXACTLY ONE REASON: the client reads a 404 on the list as 'none', so a pull against a control plane pinned below this version keeps working and simply finds no exposures. The far side owes the handlers, and cannot move its own pin until it has them, because a route declared and unserved is refused there. 202 is on the apply because nearly every edit to an exposure widens: growing the inventory adds addresses, moving the hostnames moves them all at once to names no identity provider expects, and moving the credentials points every slot at secrets nobody has placed."
   }
 ]

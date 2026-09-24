@@ -53,6 +53,9 @@ namespace Gg.Client;
 [JsonSerializable(typeof(FleetProfile))]
 [JsonSerializable(typeof(FleetProfileState))]
 [JsonSerializable(typeof(FleetProfileList))]
+[JsonSerializable(typeof(Exposure))]
+[JsonSerializable(typeof(ExposureState))]
+[JsonSerializable(typeof(ExposureList))]
 [JsonSerializable(typeof(RunnerOwnershipRequest))]
 [JsonSerializable(typeof(RunnerOwnership))]
 [JsonSerializable(typeof(RunnerReservationRequest))]
@@ -951,6 +954,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
             Watches = (await ListWatchesAsync(sessionToken, cancellationToken)).Watches,
             // AND A FOURTH, for fleet profiles (slice forty-three).
             Profiles = (await ListFleetProfilesAsync(sessionToken, cancellationToken)).Profiles,
+            Exposures = (await ListExposuresAsync(sessionToken, cancellationToken)).Exposures,
         };
 
     /// <summary>Every fleet profile in force for the tenant.</summary>
@@ -976,6 +980,59 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.FleetProfileList, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+    }
+
+    /// <summary>Every exposure in force for the tenant.</summary>
+    /// <remarks>
+    /// <b>Empty from a control plane that has no such door</b> - a 404 on the
+    /// list itself, which is how every control plane answers on the day this
+    /// ships. A pull must keep working against one, and it holds no exposures
+    /// to lose. This is also what lets the routes be declared here before the
+    /// far side serves them.
+    /// </remarks>
+    public async Task<ExposureList> ListExposuresAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/airspace/exposures", sessionToken);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return new ExposureList { Exposures = [] };
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.ExposureList, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+    }
+
+    /// <summary>Applies an exposure to its topology name, through the exposures door.</summary>
+    public async Task<EnvelopeApplied> ApplyExposureAsync(
+        string sessionToken, string name, Exposure exposure,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Put, $"/v1/airspace/exposures/{Uri.EscapeDataString(name)}", sessionToken);
+        request.Content = JsonContent.Create(exposure, ProtocolJsonContext.Default.Exposure);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            throw new StrategyRefusedException(
+                await response.Content.ReadAsStringAsync(cancellationToken));
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.EnvelopeApplied, cancellationToken)
             ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
     }
 

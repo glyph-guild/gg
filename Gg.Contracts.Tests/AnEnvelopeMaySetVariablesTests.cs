@@ -52,7 +52,22 @@ public class AnEnvelopeMaySetVariablesTests
               constitution: "1.0.0"
             variables:
               HUSKY: "0"
-            obligations: {}
+            obligations:
+              in-scope:
+                check: machine
+                rule: no-file-outside-scope
+            loops:
+              implement:
+                executor: frontier
+                discharges: [in-scope]
+                moves: [read, edit]
+                budget:
+                  wall-clock: "20m"
+                on-exhaustion: handoff-to-human
+            destinations:
+              forge:
+                kind: pull-request
+                requires: [in-scope]
             """);
 
         await Assert.That(read.Diagnosis).IsNull();
@@ -70,14 +85,44 @@ public class AnEnvelopeMaySetVariablesTests
             context:
               scope: "**"
               constitution: "1.0.0"
-            obligations: {}
+            obligations:
+              in-scope:
+                check: machine
+                rule: no-file-outside-scope
+            loops:
+              implement:
+                executor: frontier
+                discharges: [in-scope]
+                moves: [read, edit]
+                budget:
+                  wall-clock: "20m"
+                on-exhaustion: handoff-to-human
+            destinations:
+              forge:
+                kind: pull-request
+                requires: [in-scope]
             """);
         var empty = EnvelopeYaml.Parse("""
             context:
               scope: "**"
               constitution: "1.0.0"
             variables: {}
-            obligations: {}
+            obligations:
+              in-scope:
+                check: machine
+                rule: no-file-outside-scope
+            loops:
+              implement:
+                executor: frontier
+                discharges: [in-scope]
+                moves: [read, edit]
+                budget:
+                  wall-clock: "20m"
+                on-exhaustion: handoff-to-human
+            destinations:
+              forge:
+                kind: pull-request
+                requires: [in-scope]
             """);
 
         await Assert.That(absent.Envelope!.Variables).IsNull();
@@ -96,7 +141,22 @@ public class AnEnvelopeMaySetVariablesTests
               constitution: "1.0.0"
             variables:
               HUSKY: "0"
-            obligations: {}
+            obligations:
+              in-scope:
+                check: machine
+                rule: no-file-outside-scope
+            loops:
+              implement:
+                executor: frontier
+                discharges: [in-scope]
+                moves: [read, edit]
+                budget:
+                  wall-clock: "20m"
+                on-exhaustion: handoff-to-human
+            destinations:
+              forge:
+                kind: pull-request
+                requires: [in-scope]
             """).Envelope!;
 
         var round = EnvelopeYaml.Parse(EnvelopeText.Render(one));
@@ -116,7 +176,22 @@ public class AnEnvelopeMaySetVariablesTests
               constitution: "1.0.0"
             variables:
               "not a name": "0"
-            obligations: {}
+            obligations:
+              in-scope:
+                check: machine
+                rule: no-file-outside-scope
+            loops:
+              implement:
+                executor: frontier
+                discharges: [in-scope]
+                moves: [read, edit]
+                budget:
+                  wall-clock: "20m"
+                on-exhaustion: handoff-to-human
+            destinations:
+              forge:
+                kind: pull-request
+                requires: [in-scope]
             """);
 
         await Assert.That(bad.Envelope).IsNull();
@@ -141,7 +216,7 @@ public class AnEnvelopeMaySetVariablesTests
         var moved = EnvelopeDirection.Widening(was, now);
 
         await Assert.That(moved).IsNotNull();
-        await Assert.That(moved!.Value.Field).Contains("variables");
+        await Assert.That(moved!.Field).Contains("variables");
     }
 
     [Test]
@@ -169,6 +244,21 @@ public class AnEnvelopeMaySetVariablesTests
             context:
               scope: "**"
               constitution: "1.0.0"
-            obligations: {}
+            obligations:
+              in-scope:
+                check: machine
+                rule: no-file-outside-scope
+            loops:
+              implement:
+                executor: frontier
+                discharges: [in-scope]
+                moves: [read, edit]
+                budget:
+                  wall-clock: "20m"
+                on-exhaustion: handoff-to-human
+            destinations:
+              forge:
+                kind: pull-request
+                requires: [in-scope]
             """).Envelope! with { Variables = variables };
 }

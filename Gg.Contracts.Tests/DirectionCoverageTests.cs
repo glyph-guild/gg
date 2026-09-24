@@ -206,6 +206,18 @@ public class DirectionCoverageTests
         new("Envelope.Produces", "produces",
             Doc(), Doc() with { Produces = [] }, ReverseAlsoWidens: false),
 
+        // BOTH DIRECTIONS, which is why ReverseAlsoWidens is true and why this
+        // row is worth reading twice. Withdrawing a variable is not a tightening:
+        // a hook that was told not to run now runs, on every flight of this kind.
+        // The pair differs by VALUE rather than by name, so it also proves the
+        // comparison is over name=value and not over the names alone - a
+        // comparison by name would read this pair as unchanged, and a changed
+        // value is the edit somebody would most want to review.
+        new("Envelope.Variables", "variables",
+            Doc() with { Variables = [new EnvelopeVariable { Name = "HUSKY", Value = "0" }] },
+            Doc() with { Variables = [new EnvelopeVariable { Name = "HUSKY", Value = "1" }] },
+            ReverseAlsoWidens: true),
+
         // Union: what was required stays required, so losing an obligation is
         // the widening.
         new("Envelope.Obligations", "obligations",

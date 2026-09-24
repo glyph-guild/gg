@@ -1847,6 +1847,15 @@ public static class PlatformToolServer
           + "to open it, which is what a forge does.");
 
         said.AppendLine(
+            "  variables:        environment variables set on what a flight runs, as a map of "
+          + "NAME: value. A literal each - nothing is interpolated, and NEVER A SECRET: an "
+          + "envelope is a document in a repository the tenant reads and reviews, so anything "
+          + "written here is readable by everybody who can read the airspace. A secret is "
+          + "registered as a credential and referenced by name. Layers UNION, and two layers "
+          + "naming one variable differently is refused rather than resolved; adding or removing "
+          + "one both widen, because a tool told not to run now runs.");
+
+        said.AppendLine(
             "WHAT AN EXPOSURE SAYS. Also not rules about work: it says where a flight's served "
           + "port may APPEAR, under exposures/<name>.yaml. The addresses are the tenant's own "
           + "and so are the secrets that reach them - there is no default exposure, and a tenant "

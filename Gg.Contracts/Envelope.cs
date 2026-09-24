@@ -1854,6 +1854,32 @@ public sealed record Envelope
     public IReadOnlyList<string>? Produces { get; init; }
 
     /// <summary>
+    /// Environment variables set on what a flight runs, or null when the
+    /// document says nothing about them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Nullable, never absorbing and never required</b>, by this file's own
+    /// rule on <see cref="Instructions"/>: absorbing is right for a member being
+    /// repaired and wrong for one being added. An empty map is a declaration
+    /// that there are none; absence is a document that did not say.
+    /// </para>
+    /// <para>
+    /// <b>Union, and a contradiction refuses.</b> Two layers may each name
+    /// variables and the result is both. Two layers naming ONE variable
+    /// differently is refused rather than resolved, because a silent pick
+    /// between them would be the first operator here whose answer depended on
+    /// order - and order-freedom is what the whole layering rests on. The same
+    /// name with the same value is not a contradiction.
+    /// </para>
+    /// <para>
+    /// <b>And never a secret</b>; see <see cref="EnvelopeVariable"/>.
+    /// </para>
+    /// </remarks>
+    [Composes(MergeOperators.Union)]
+    public IReadOnlyList<EnvelopeVariable>? Variables { get; init; }
+
+    /// <summary>
     /// The environments this envelope's flights may be about: charted names, or
     /// null when unbounded.
     /// </summary>
@@ -3290,5 +3316,68 @@ public static class DestinationOpening
         ArgumentNullException.ThrowIfNull(destination);
 
         return string.IsNullOrWhiteSpace(destination.OpensAs) ? Auto : destination.OpensAs;
+    }
+}
+
+/// <summary>
+/// One environment variable an envelope sets on what a flight runs.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>A literal, and never a secret.</b> An envelope is a document in a
+/// repository the tenant reads, reviews and versions, so anything written here
+/// is readable by everyone who can read the airspace. <c>Credentials</c> states
+/// the adjacent rule already — <i>"There is deliberately no environment-variable
+/// kind, and there never will be"</i> — because environment variables leak into
+/// child processes, <c>ps</c> output, crash dumps and CI logs. That is about
+/// credentials and this is about configuration, so it does not forbid this; it
+/// says exactly where the line is, and a secret belongs on the other side of it.
+/// </para>
+/// <para>
+/// <b>A map in the YAML and a named record here</b>, the way obligations, loops
+/// and destinations already are. The envelope has no dictionary-valued field and
+/// gains none.
+/// </para>
+/// </remarks>
+[PinnedId("c4a97e51-3b28-4d60-8f7a-e13952cb0a68")]
+public sealed record EnvelopeVariable
+{
+    /// <summary>The variable's name, as the environment spells it.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>What it is set to. A literal; nothing is interpolated.</summary>
+    public required string Value { get; init; }
+
+    /// <summary>
+    /// What is wrong with this variable, or null when nothing is.
+    /// </summary>
+    /// <remarks>
+    /// <b>The name is held to what an environment can actually carry.</b> A name
+    /// with a space or an equals sign in it cannot be set by any shell or any
+    /// process API, so a document declaring one would apply cleanly and do
+    /// nothing - which is the failure this vocabulary exists to make loud.
+    /// </remarks>
+    public static string? Validate(EnvelopeVariable variable)
+    {
+        ArgumentNullException.ThrowIfNull(variable);
+
+        if (string.IsNullOrEmpty(variable.Name))
+        {
+            return "A variable has a name.";
+        }
+
+        foreach (var character in variable.Name)
+        {
+            if (!char.IsAsciiLetterOrDigit(character) && character != '_')
+            {
+                return $"'{variable.Name}' is not a name an environment can carry: only "
+                     + "letters, digits and underscores. A name it cannot carry is a document "
+                     + "that applies cleanly and sets nothing.";
+            }
+        }
+
+        return char.IsAsciiDigit(variable.Name[0])
+            ? $"'{variable.Name}' starts with a digit, which no environment will take."
+            : null;
     }
 }

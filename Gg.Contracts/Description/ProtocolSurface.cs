@@ -1910,6 +1910,7 @@ public static class ProtocolSurface
                 ["operation", "reason", "target", "score", "detail", "fields"],
             [typeof(LandingProposal)] = ["title", "description"],
             [typeof(PreviewUrl)] = ["url", "exposure", "slot"],
+            [typeof(EnvelopeVariable)] = ["name", "value"],
             [typeof(LeaseLanding)] = ["title", "description"],
             [typeof(WorkItemFieldEdit)] = ["path", "value"],
             [typeof(LoopAttended)] =
@@ -1964,7 +1965,7 @@ public static class ProtocolSurface
             [typeof(Envelope)] =
                 ["description", "brief", "context", "obligations", "instructions", "loops",
                  "destinations", "environments", "repositories", "environment", "repository",
-                 "accepts", "produces", "targeting", "offers"],
+                 "accepts", "produces", "targeting", "variables", "offers"],
             [typeof(EnvelopeInstruction)] = ["text", "provenance"],
             [typeof(EnvelopeState)] = ["version", "envelope", "updatedAt", "updatedBy"],
             [typeof(EnvelopeApplied)] = ["version", "appliedAt", "changed", "widens", "flight", "awaiting"],

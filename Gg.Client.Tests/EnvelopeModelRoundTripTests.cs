@@ -297,6 +297,7 @@ public class EnvelopeModelRoundTripTests
             // do not appear in the text form is in TheBoundIsASetTests.
             nameof(Envelope.Environment), nameof(Envelope.Repository),
             nameof(Envelope.Accepts), nameof(Envelope.Produces),
+        nameof(Envelope.Variables),
             nameof(Envelope.Targeting), nameof(Envelope.Offers),
             nameof(OfferedSetting.Key), nameof(OfferedSetting.Value),
             nameof(Envelope.Obligations), nameof(Envelope.Loops), nameof(Envelope.Destinations),

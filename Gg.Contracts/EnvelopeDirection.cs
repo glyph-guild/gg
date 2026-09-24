@@ -165,6 +165,24 @@ public static class EnvelopeDirection
             return accepts;
         }
 
+        // VARIABLES, AND BOTH DIRECTIONS WIDEN. Adding one changes what every
+        // child process of every flight of this kind sees; removing one changes
+        // it exactly as much, because a tool that was told not to run now runs.
+        // Neither can be shown to reduce anything, and where this table declares
+        // no order the answer is widening rather than unchanged.
+        //
+        // COMPARED AS name=value RATHER THAN BY NAME, so that changing a value
+        // and leaving the name moves the set. A comparison by name alone would
+        // read HUSKY 0 becoming HUSKY 1 as no change at all, which is the whole
+        // edit somebody would most want reviewed.
+        if (IdSetMoved(
+                "variables",
+                (applied.Variables ?? []).Select(v => $"{v.Name}={v.Value}"),
+                (proposed.Variables ?? []).Select(v => $"{v.Name}={v.Value}")) is { } variables)
+        {
+            return variables;
+        }
+
         if (Declared("produces", applied.Produces, proposed.Produces,
                 "a fact family this kind no longer claims to produce makes every rule reading "
               + "it structurally inapplicable, for every flight of this kind, for ever") is { } produces)

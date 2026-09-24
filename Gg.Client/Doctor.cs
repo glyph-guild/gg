@@ -840,7 +840,7 @@ public sealed class Doctor(
                 Fixable = true,
                 Fix = "Run `gg config set intent-hosts <key=host|reference>` for the tracker "
                     + "this machine should read - e.g. "
-                    + "`ado=https://dev.azure.com/acme/Widgets|local:acme/widgets` - and "
+                    + "`my-tracker=https://tracker.example/acme|local:acme/board` - and "
                     + "`gg credential add --repo <slug>` for the reference it names, where "
                     + "the slug is the locator without its 'local:' prefix.",
             };

@@ -3588,6 +3588,7 @@ public static class PaneText
         var what = showing.Kind switch
         {
             NotificationKind.FlightOpened => "flight opened",
+            NotificationKind.GateWaiting => "a gate is waiting on you",
             NotificationKind.NotListedYet => "not listed yet",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(state), showing.Kind, "unknown notification"),
@@ -3617,6 +3618,14 @@ public static class PaneText
             [
                 $"{opened.FlightNumber ?? "a flight"} is in the air",
                 Clean(opened.Name ?? ""),
+            ],
+            // THE OBLIGATION ON ITS OWN LINE, because that is what gets
+            // answered. One flight can hold two gates open, so the number alone
+            // would send somebody to a modal to find out which one this is.
+            { Kind: NotificationKind.GateWaiting } gate =>
+            [
+                $"{gate.FlightNumber ?? "a flight"} is waiting on you",
+                Clean(gate.Obligation ?? ""),
             ],
             { Kind: NotificationKind.NotListedYet } unlisted =>
             [

@@ -44,6 +44,17 @@ public enum NotificationKind
     FlightOpened,
 
     /// <summary>
+    /// A gate opened while somebody was watching, and it is theirs to answer.
+    /// </summary>
+    /// <remarks>
+    /// <b>The second source, and the corner did not have to change to take
+    /// it.</b> A gate arrives as the same notification a watched-for flight
+    /// does, under the same keys - which is what makes this a kind rather than
+    /// a second mechanism beside the first.
+    /// </remarks>
+    GateWaiting,
+
+    /// <summary>
     /// A flight the door accepted has not appeared in the time it was given.
     /// </summary>
     /// <remarks>
@@ -72,4 +83,15 @@ public sealed record Notification
 
     /// <summary>What the flight is called, when it has been seen.</summary>
     public string? Name { get; init; }
+
+    /// <summary>
+    /// Which obligation is waiting, on a <see cref="NotificationKind.GateWaiting"/>.
+    /// </summary>
+    /// <remarks>
+    /// <b>The obligation and not just the flight, because the obligation is
+    /// what gets answered.</b> One flight can hold two gates open, and a corner
+    /// naming only the flight would send somebody to a modal to find out which
+    /// of them it meant.
+    /// </remarks>
+    public string? Obligation { get; init; }
 }

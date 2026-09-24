@@ -245,13 +245,18 @@ public static class ConsoleRefresh
             var folded = ConsoleProjection.Apply(state, flights);
             folded = ConsoleProjection.Apply(folded, runners);
 
-            return Reducer.Detail(folded with
+            // AND THE CORNER, LAST. A gate that opened since the previous tick
+            // is news; the ones that were already waiting are not. Announcements
+            // folds after Gates is set, because it reads them - and this is the
+            // tick half of the rule: ConsoleStart's fold arms it, every one of
+            // these is what somebody is actually watching happen.
+            return Announcements.Folded(Reducer.Detail(folded with
             {
                 Queue = ConsoleProjection.Queue(
                     flights.Value, logs, runners.Value, gates, board),
                 Gates = gates,
                 Logs = logs,
-            });
+            }));
         };
     }
 }

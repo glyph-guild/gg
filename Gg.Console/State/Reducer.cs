@@ -208,6 +208,8 @@ public static class Reducer
             // reading of what the table drew.
             Command.ShowBoardRow => Modal(state, UiMode.BoardDetail),
 
+            Command.GoToTheFlight => GoToTheFlight(state),
+
             // ASKING IS A MODE CHANGE AND NOTHING ELSE, which is the reducer's
             // whole job. Both of these were written in the loop, where they
             // reached nobody: the screen hands a command to the shell only when
@@ -665,6 +667,50 @@ public static class Reducer
     /// needs as many escapes as it has depth. One at a time keeps "exactly one
     /// escape hatch" true rather than aspirational.
     /// </remarks>
+    /// <summary>
+    /// Puts the cursor on the flight the board row opened into.
+    /// </summary>
+    /// <remarks>
+    /// <b>Reads nothing and starts nothing.</b> The flight is one already in
+    /// the model - the key is not offered otherwise - so this moves a cursor
+    /// and changes a tab, which is all a reducer may do.
+    /// <para>
+    /// <b>And the modal closes with it.</b> One left up over the tab it just
+    /// sent somebody to would own the keyboard on the screen they were sent to
+    /// use, which is what a modal owning the keyboard means everywhere else
+    /// here.
+    /// </para>
+    /// </remarks>
+    private static AppState GoToTheFlight(AppState state)
+    {
+        if (BoardDetails.FlightInTheList(state) is not { } wanted)
+        {
+            // UNREACHABLE THROUGH THE KEY and answered anyway: a command can
+            // arrive from a re-read that moved the board underneath somebody,
+            // and leaving the cursor where it was beats sending it to nowhere.
+            return state;
+        }
+
+        var rows = Rows.Flights(state);
+        var index = 0;
+
+        for (var i = 0; i < rows.Count; i++)
+        {
+            if (string.Equals(rows[i].FlightId, wanted, StringComparison.OrdinalIgnoreCase))
+            {
+                index = i;
+                break;
+            }
+        }
+
+        return state with
+        {
+            ActiveTab = TabId.Flights,
+            FlightSelected = index,
+            Mode = UiMode.Normal,
+        };
+    }
+
     private static AppState Modal(AppState state, UiMode mode) =>
         state with
         {

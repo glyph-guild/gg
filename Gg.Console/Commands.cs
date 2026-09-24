@@ -801,6 +801,16 @@ public enum Command
     /// <summary>Show everybody's board rows, or go back to mine and the tenant's.</summary>
     ShowEverybodysRows,
 
+    /// <summary>Go to the flight the board row under the cursor opened into.</summary>
+    /// <remarks>
+    /// <b>The reducer's, because everything it needs is already in the
+    /// model.</b> The flight is one this console has already loaded - the key
+    /// is not offered otherwise - so this moves a cursor and changes a tab and
+    /// reads nothing. A version that fetched would be a read started from a UI
+    /// session, which is the rule this console is built around.
+    /// </remarks>
+    GoToTheFlight,
+
     /// <summary>Open the browse tab's field, to go to an item or find one.</summary>
     /// <remarks>
     /// <b>Opens a field and reads nothing.</b> What is asked for is decided by

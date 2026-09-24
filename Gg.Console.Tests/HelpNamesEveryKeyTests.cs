@@ -125,7 +125,13 @@ public class HelpNamesEveryKeyTests
         // product already measured in minutes to enumerate a state the keymap
         // can never be handed.
         //   0 = no row   1 = a row nobody can answer   2 = a standing nomination
-        from board in (int[])[0, 1, 2]
+        //   3 = a row that opened into a flight this console is holding
+        // THE FOURTH VALUE RATHER THAN A FOURTH BOOL, for the reason the third
+        // one is here: a row that opened into a flight is not a standing
+        // nomination - the contract says FlightId is null on every standing row
+        // - so crossing the two would enumerate a state the keymap can never be
+        // handed and double a product already measured in minutes.
+        from board in (int[])[0, 1, 2, 3]
 
         // AND WHETHER THE ACTIVITY LINE IS SHOWING PART OF ITS MESSAGE, for the
         // reason every clause above records, six times now. It binds the one
@@ -150,6 +156,7 @@ public class HelpNamesEveryKeyTests
             GateAsksForAgentLogin = gateAsksForAgentLogin,
             ABoardRowIsUnderTheCursor = board > 0,
             ANominationWaits = board == 2,
+            TheRowsFlightIsLoaded = board == 3,
             SaidIsClipped = saidIsClipped,
             OverALink = overALink,
             AllowanceIsMine = allowanceIsMine,
@@ -482,7 +489,11 @@ public class HelpNamesEveryKeyTests
         // instead. It is exclusive with the agent-login flag beside it - a gate
         // has one kind - and held beside the cross for the same reason the
         // ownership three are.
-        await Assert.That(members.Count).IsEqualTo(28)
+        // TWENTY-NINE SINCE A ROW COULD OPEN ITS FLIGHT, the third value on the
+        // board's one dimension rather than a dimension of its own: a row that
+        // opened into a flight is never a standing nomination, so the two are
+        // exclusive and the cross says so by construction.
+        await Assert.That(members.Count).IsEqualTo(29)
             .Because("Everywhere() crosses every one of these, or OverAMachineSomebodyOwns() "
                    + "holds it beside the cross - and a member in neither would leave the "
                    + "completeness check above quietly incomplete, which is exactly how the "

@@ -332,6 +332,18 @@ public readonly record struct KeymapContext(
     public bool ABoardRowIsUnderTheCursor { get; init; }
 
     /// <summary>
+    /// Whether the board's cursor is on a row whose flight this console holds.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two things at once, deliberately.</b> The row has to have opened into
+    /// a flight - which no standing row has - and that flight has to be on the
+    /// page this console has loaded, because the flights tab is paged. Either
+    /// miss means there is nowhere to send the cursor, and a key offered
+    /// against nowhere is a key that does nothing.
+    /// </remarks>
+    public bool TheRowsFlightIsLoaded { get; init; }
+
+    /// <summary>
     /// What the refresh key has to say for itself: a countdown, or the mark
     /// that says one is happening.
     /// </summary>
@@ -473,6 +485,7 @@ public readonly record struct KeymapContext(
             // asks. Derived from the same rows the table draws, so a key
             // offered here is a key over something a person can see.
             ABoardRowIsUnderTheCursor = BoardDetails.Under(state) is not null,
+            TheRowsFlightIsLoaded = BoardDetails.FlightInTheList(state) is not null,
 
             // AND WHETHER IT NAMES SOMEWHERE TO GO WITH NO READER FOR IT,
             // derived here with the rest so the hint line and the dispatch
@@ -918,6 +931,17 @@ public static class Keymap
                         { Label = "Open", When = "on a standing nomination" },
                     new(KeyStroke.Char('d'), Command.DeclineNomination, "decline it")
                         { Label = "Decline", When = "on a standing nomination" },
+                ]
+                : [],
+
+            // WHAT IT BECAME. Offered on an ENDED row, which is the opposite of
+            // the two above - they are the answer and this is the consequence
+            // of one, so a row can never offer all three.
+            .. context.TheRowsFlightIsLoaded
+                ? (KeyBinding[])
+                [
+                    new(KeyStroke.Char('f'), Command.GoToTheFlight, "go to the flight")
+                        { Label = "Flight", When = "on a row that opened into one" },
                 ]
                 : [],
             new(KeyStroke.Esc, Command.CloseModal, "close") { Label = "Close" },
@@ -2396,6 +2420,7 @@ public static class Keymap
         c => c with { OverAReadableTicket = true },
         c => c with { AGateWaits = true },
         c => c with { ABoardRowIsUnderTheCursor = true },
+        c => c with { TheRowsFlightIsLoaded = true },
         c => c with { SignInStarted = true },
         c => c with { RunnerIsOurs = true },
         c => c with { RunnerOwnershipIsKnown = true },

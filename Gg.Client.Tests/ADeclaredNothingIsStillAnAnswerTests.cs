@@ -91,7 +91,7 @@ public class ADeclaredNothingIsStillAnAnswerTests
             Trackers = [new DeclaredTracker
             {
                 Key = "ado",
-                Host = "https://dev.azure.com/acme/Widgets",
+                Host = "https://tracker.example/acme",
                 Locator = "local:acme/widgets",
             }],
         });

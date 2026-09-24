@@ -37,7 +37,8 @@ public sealed class CloudflaredConnector : IExposureConnector
     /// <summary>What the binary is called, when nothing says otherwise.</summary>
     private const string Binary = "cloudflared";
 
-    public async Task<string?> RunAsync(string token, CancellationToken cancellationToken)
+    public async Task<string?> RunAsync(
+        string token, int? port, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(token);
 
@@ -56,6 +57,20 @@ public sealed class CloudflaredConnector : IExposureConnector
         start.ArgumentList.Add("run");
         start.ArgumentList.Add("--token");
         start.ArgumentList.Add(token);
+
+        // THE PORT THE TENANT'S DOCUMENT NAMED, when it named one. Measured on
+        // a real tunnel: this overrides the ingress configured at the provider, which is
+        // what lets the document say the number once instead of it living in a
+        // provider's dashboard for every hostname.
+        //
+        // LOOPBACK, ALWAYS. The served app is on this machine; a host part the
+        // runner could vary would let a slot reach something that is not the
+        // flight's own work.
+        if (port is { } served)
+        {
+            start.ArgumentList.Add("--url");
+            start.ArgumentList.Add($"http://127.0.0.1:{served}");
+        }
 
         Process? connector;
         try

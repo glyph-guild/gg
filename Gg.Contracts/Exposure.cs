@@ -343,7 +343,7 @@ public sealed record ExposureInventory
     /// <para>
     /// <b>Measured rather than assumed.</b> ADR-0027 § 5 said a runner could not
     /// name the service its slot reaches. On a real tunnel, passing
-    /// <c>--url</c> alongside the token overrides the remotely-managed ingress,
+    /// <c>--url</c> alongside the token overrides the ingress configured at the provider,
     /// so it can. What it still cannot do is take another flight's address,
     /// which is the token's to prevent and is untouched.
     /// </para>

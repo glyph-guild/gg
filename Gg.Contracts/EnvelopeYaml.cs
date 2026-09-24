@@ -928,7 +928,7 @@ public static class EnvelopeYaml
     {
         var root = RequireMap(document, "");
         Closed(root, BasedOnKey, "description", "brief", "context", "environment", "environments",
-               "repository", "repositories", "accepts", "produces", "targeting", "instructions",
+               "repository", "repositories", "accepts", "produces", "variables", "targeting", "instructions",
                "obligations", "loops", "destinations", "offers");
 
         var context = RequireMap(Require(root, "context"), "context");
@@ -993,6 +993,14 @@ public static class EnvelopeYaml
             Produces = root.Entries.TryGetValue("produces", out var produces)
                 ? Strings(produces, "produces")
                 : null,
+            // A MAP IN THE YAML, A LIST OF NAMED RECORDS HERE - obligations'
+            // shape. Absent is null and an empty map is an empty list, and the
+            // two must not collapse: declaring none is a decision, saying
+            // nothing is not.
+            Variables = root.Entries.TryGetValue("variables", out var variables)
+                ? [.. RequireMap(variables, "variables").Entries
+                    .Select(e => MapVariable(e.Key, e.Value))]
+                : null,
             // A SCALAR, AND ABSENT IS NOT EMPTY-STRING. A missing key means
             // `any`; reading it back as "" would be refused by Validate as an
             // undeclared strategy, which is the round trip failing on a
@@ -1017,6 +1025,24 @@ public static class EnvelopeYaml
             Loops = [.. Named(root, "loops").Select(MapLoop)],
             Destinations = [.. Named(root, "destinations").Select(MapDestination)],
         };
+    }
+
+    /// <summary>One variable, from the map a person wrote.</summary>
+    /// <remarks>
+    /// Refused here rather than at apply, because a name no environment can
+    /// carry is a document that would apply cleanly and set nothing.
+    /// </remarks>
+    private static EnvelopeVariable MapVariable(string name, Node body)
+    {
+        var variable = new EnvelopeVariable
+        {
+            Name = name,
+            Value = RequireScalar(body, $"variables.{name}"),
+        };
+
+        return EnvelopeVariable.Validate(variable) is { } invalid
+            ? throw new EnvelopeSyntaxException(invalid)
+            : variable;
     }
 
     private static Obligation MapObligation((string Id, MapNode Body) entry)

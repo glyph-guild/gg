@@ -135,6 +135,18 @@ public static class EnvelopeText
             Sequence(text, "produces", produces, depth: 0);
         }
 
+        // VARIABLES, RENDERED ONLY WHEN DECLARED. An empty map is written as an
+        // empty map, because declaring none is a decision and a rendering that
+        // grew a line by itself would report a change nobody made.
+        if (envelope.Variables is { } variables)
+        {
+            text.Append("variables:\n");
+            foreach (var variable in variables)
+            {
+                text.Append($"  {variable.Name}: {Scalar(variable.Value)}\n");
+            }
+        }
+
         // HOW THIS KIND PICKS A MACHINE, when it says. Written only when
         // present, and absence means `any` - which is what every envelope
         // written before the line existed already meant, so nothing renders

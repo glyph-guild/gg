@@ -1073,6 +1073,18 @@ public sealed record LeasePreview
     /// </summary>
     public required string Credential { get; init; }
 
+    /// <summary>
+    /// The local port this slot reaches, or null to let the provider's ingress
+    /// decide.
+    /// </summary>
+    /// <remarks>
+    /// <b>Carried from the exposure document, not chosen here.</b> The tenant
+    /// says it once in the document that already describes how a served port
+    /// becomes reachable; a runner reading it from anywhere else would be a
+    /// second answer to a question the document has already answered.
+    /// </remarks>
+    public int? Port { get; init; }
+
     /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
     public static string? Validate(LeasePreview preview)
     {

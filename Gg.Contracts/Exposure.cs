@@ -145,6 +145,16 @@ public sealed record Exposure
                  + "appear - which is the same as declaring none, and harder to notice.";
         }
 
+        // A PORT NO SOCKET COULD BIND is a preview that fails on the machine
+        // serving it, hours after the document was written and nowhere near
+        // whoever can fix it.
+        if (exposure.Inventory.Port is { } port && port is < 1 or > 65535)
+        {
+            return $"inventory.port is {port}, which is not a port. A slot reaches a local "
+                 + "service on 1-65535, or names none and lets the provider's own ingress "
+                 + "decide.";
+        }
+
         // A REFERENCE, NEVER A SECRET - FleetProfile's rule 14, and it belongs
         // here for the same reason. An airspace document is git-tracked and
         // readable by everyone who can read the airspace, so a token pasted
@@ -317,6 +327,31 @@ public sealed record ExposureInventory
 
     /// <summary>The credential reference pattern, e.g. <c>local:exposure/jdapp-{slot}</c>.</summary>
     public required string Credentials { get; init; }
+
+    /// <summary>
+    /// The local port a slot reaches, or null to let the provider's own ingress
+    /// decide.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Said once, here, rather than in a provider's dashboard per hostname.</b>
+    /// The alternative is the same number written in two places — the work kind
+    /// telling an agent where to serve, and every route's origin at the provider
+    /// — which agree until somebody moves one. That failure is a preview
+    /// answering 502 with nothing in either document explaining why.
+    /// </para>
+    /// <para>
+    /// <b>Measured rather than assumed.</b> ADR-0027 § 5 said a runner could not
+    /// name the service its slot reaches. On a real tunnel, passing
+    /// <c>--url</c> alongside the token overrides the remotely-managed ingress,
+    /// so it can. What it still cannot do is take another flight's address,
+    /// which is the token's to prevent and is untouched.
+    /// </para>
+    /// <para>
+    /// <b>Null is a real answer and the one every existing document gives.</b>
+    /// </para>
+    /// </remarks>
+    public int? Port { get; init; }
 }
 
 /// <summary>

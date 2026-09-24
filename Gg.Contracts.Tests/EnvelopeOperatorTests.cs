@@ -355,6 +355,12 @@ public class EnvelopeOperatorTests
                 // enrolled machine is, applied and governed like a strategy - a
                 // document of its own shape, so a role, and the set moved to six.
                 Roles.FleetProfile,
+                // SLICE FORTY-NINE'S EXPOSURE. ADR-0027: where a flight's served
+                // port may appear - the tenant's domain, the tenant's credential,
+                // a finite inventory of names. A role rather than a field on a
+                // work kind because the addresses outlive any one flight and are
+                // granted to flights one at a time.
+                Roles.Exposure,
             ]);
         // APPEND IS THE ONE MEMBER FOR WHICH ROLE ORDER MATTERS, and this
         // test's name is about Roles.All being closed rather than about the

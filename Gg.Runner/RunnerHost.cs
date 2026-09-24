@@ -292,7 +292,19 @@ public static class RunnerHost
         // the reason every reading above it is: what a machine reads about
         // itself is the root's to decide, and a host that made its own meter
         // would be a second answer to which files get read.
-        MachineReporter? machine = null)
+        MachineReporter? machine = null,
+
+        // THIS MACHINE'S ANSWER FOR ONE LOCATOR, handed in because Gg.Runner
+        // cannot see a credential store and must not learn to. A slot's
+        // credential is named by a TENANT DOCUMENT rather than registered, so
+        // it is never one of the lease's references - and what can answer for
+        // it differs by machine: a pool member reads a vault with the identity
+        // it inherits, a resident runner reads its own disk. Routing that is
+        // the root's job and nobody else's.
+        //
+        // Null is a machine that serves no preview, which is every machine
+        // whose tenant has declared no exposure.
+        Func<string, string?>? secretFor = null)
     {
         // Longer than the claim's long poll, or the client aborts every idle
         // claim and the long poll becomes a busy loop with extra steps.
@@ -500,7 +512,10 @@ public static class RunnerHost
             credential: credentialRenewed is null ? null : protocol,
             credentialRenewed: credentialRenewed,
             measureReadiness: readiness?.Invoke(protocol),
-            machine: machine is null ? null : machine.Read)
+            machine: machine is null ? null : machine.Read,
+            // HOW A SLOT'S CREDENTIAL IS FOUND ON THIS MACHINE. Passed straight
+            // through: the root routes by scheme, and the loop only asks.
+            secretFor: secretFor)
         {
             HoldFor = holdFor,
         };

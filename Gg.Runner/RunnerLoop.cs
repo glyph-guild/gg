@@ -412,7 +412,34 @@ public sealed class RunnerLoop(
     // every ProfileReadiness.Every (slice forty-three, rule 25), or null for a
     // runner enrolled under none. Handed in for the sweep's reason: what it
     // measures with - stores, network - is the composition root's.
-    Func<CancellationToken, Task>? measureReadiness = null)
+    Func<CancellationToken, Task>? measureReadiness = null,
+    // THIS MACHINE'S ANSWER FOR ONE LOCATOR, or null for a runner composed
+    // without one. A slot's credential is named by a TENANT DOCUMENT rather
+    // than registered, so it never appears in lease.Credentials and the map
+    // built from those references can never contain it - the lookup misses
+    // every time, silently, and a granted address is never served.
+    //
+    // BY LOCATOR AND NOT BY REFERENCE, which is what lets a machine answer in
+    // whatever way it can. The composition root routes by scheme: a vault
+    // reference is read by this machine's identity, a local one off its own
+    // disk. That is the whole of how a pool member comes to hold a slot's
+    // token, because nothing can deliver one to it - its store starts empty,
+    // no create-body field could carry a secret, and anything placed by hand
+    // dies with the container.
+    //
+    // A THUNK, for the reason agentToken above is one: Gg.Runner does not go
+    // looking for a credential store, and null is a runner that resolves
+    // nothing beyond its lease.
+    Func<string, string?>? secretFor = null,
+    // HOW A PREVIEW IS ACTUALLY DIALLED, or null for a machine that serves
+    // none. Handed in like every other outward thing here - and separate from
+    // the adapter above it on purpose, because everything interesting about
+    // serving a preview (which address is reported, which credential is used,
+    // what a refusal does) is decided by the adapter, and none of it should
+    // need a tunnel to assert.
+    //
+    // LAST and defaulted, because every existing caller passes positionally.
+    Exposures.IExposureConnector? connector = null)
 {
     /// <summary>Seconds the control plane may hold a claim open.</summary>
     public const int ClaimWaitSeconds = 30;
@@ -2353,11 +2380,15 @@ public sealed class RunnerLoop(
         // served is a flight that still did its work; the fact is simply absent,
         // and a gate reading no address says the preview is gone rather than
         // offering a dead one.
+        // ASKED OF THE MACHINE, not looked up among the lease's credentials. An
+        // exposure's locator is a tenant document's and was never registered,
+        // so secretsByLocator cannot contain it - and the composition root is
+        // what knows whether this machine reads a vault, a file, or nothing.
         if (lease.Preview is { } granted
-            && secretsByLocator.TryGetValue(granted.Credential, out var slotSecret))
+            && (secretFor?.Invoke(granted.Credential)) is { Length: > 0 } slotSecret)
         {
             var served = await new Exposures.CloudflareExposureAdapter(
-                    new Exposures.CloudflaredConnector())
+                    connector ?? new Exposures.CloudflaredConnector())
                 .ServeAsync(
                     new Exposures.ExposureRequest { Preview = granted, Secret = slotSecret },
                     cancellationToken);

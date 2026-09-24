@@ -244,6 +244,25 @@ public sealed record GitInvocation
             RedirectStandardError = true,
         };
 
+        // THE TREE'S OWN HOOKS, which none of the environment below reaches. A
+        // flight's tree is scratch gg materialized with `git init`, so it starts
+        // with no hooks at all - and then the agent's work requires `npm install`,
+        // whose husky `prepare` script writes core.hooksPath into THAT tree's
+        // .git/config. GG-268 ended holding work it could not commit because the
+        // repository's pre-commit hook called an `npx` a runner has no reason to
+        // have. A repository's hooks are written for a person at a workstation
+        // with that repository's toolchain; gg's commit is the last step of
+        // carrying an agent's work to a branch nobody has reviewed yet, where the
+        // gate is the pull request and the checks that run on it.
+        //
+        // AN ARGUMENT AND NOT AN ENVIRONMENT VARIABLE, because core.hooksPath is
+        // configuration and `-c` is what outranks a repository's own file. It goes
+        // before the plan's arguments because git reads options before the
+        // subcommand. /dev/null rather than an empty value: empty resolves hooks
+        // against the current directory, which is the tree this is defending.
+        start.ArgumentList.Add("-c");
+        start.ArgumentList.Add("core.hooksPath=/dev/null");
+
         foreach (var argument in Arguments)
         {
             start.ArgumentList.Add(argument);

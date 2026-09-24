@@ -47,6 +47,38 @@ public class AnExposureAdapterDialsItsSlotTests
     };
 
     [Test]
+    public async Task It_dials_the_port_the_document_named()
+    {
+        // MEASURED, NOT ASSUMED. ADR-0027 section 5 said a runner could not name
+        // the service its slot reaches. On a real tunnel, --url alongside the
+        // token overrides the remotely-managed ingress - so it can, and the
+        // alternative is the same port number written in a provider's dashboard
+        // for every hostname AND in the work kind that tells an agent where to
+        // serve. Two places that agree until somebody moves one.
+        var connector = new RecordingConnector();
+        var adapter = new CloudflareExposureAdapter(connector);
+
+        _ = await adapter.ServeAsync(
+            Request() with { Preview = Granted() with { Port = 8080 } }, CancellationToken.None);
+
+        await Assert.That(connector.Port).IsEqualTo(8080);
+    }
+
+    [Test]
+    public async Task A_slot_naming_no_port_leaves_the_provider_to_decide()
+    {
+        // NULL IS A REAL ANSWER and the one every document written before this
+        // gives. Passing a made-up port for them would point every slot at a
+        // service nobody said was there.
+        var connector = new RecordingConnector();
+        var adapter = new CloudflareExposureAdapter(connector);
+
+        _ = await adapter.ServeAsync(Request(), CancellationToken.None);
+
+        await Assert.That(connector.Port).IsNull();
+    }
+
+    [Test]
     public async Task It_reports_the_address_it_was_granted()
     {
         var connector = new RecordingConnector();
@@ -109,11 +141,14 @@ public class AnExposureAdapterDialsItsSlotTests
     {
         internal string? Token { get; private set; }
 
+        internal int? Port { get; private set; }
+
         internal string? Refusal { get; init; }
 
-        public Task<string?> RunAsync(string token, CancellationToken cancellationToken)
+        public Task<string?> RunAsync(string token, int? port, CancellationToken cancellationToken)
         {
             Token = token;
+            Port = port;
             return Task.FromResult(Refusal);
         }
     }

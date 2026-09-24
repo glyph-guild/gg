@@ -145,6 +145,30 @@ public sealed record Exposure
                  + "appear - which is the same as declaring none, and harder to notice.";
         }
 
+        // A REFERENCE, NEVER A SECRET - FleetProfile's rule 14, and it belongs
+        // here for the same reason. An airspace document is git-tracked and
+        // readable by everyone who can read the airspace, so a token pasted
+        // into this field is a token published to the tenant.
+        //
+        // REFUSED WHERE IT IS WRITTEN. A pattern that is not a reference fails
+        // on the machine that was going to dial with it - a member, hours
+        // later, with a diagnosis nobody reads. The author is the only person
+        // who can fix it and apply is the only moment they are looking.
+        //
+        // FIRST, AND THE ORDER IS THE POINT. The check below names the pattern
+        // it refuses, which is right for a hostname and wrong for a pasted
+        // secret - a value with no slot in it would be echoed into a console,
+        // a flight log and somebody's terminal history by the refusal meant to
+        // protect it. So a credentials value that is not a reference is turned
+        // away before anything can repeat it.
+        if (!Names(exposure.Inventory.Credentials))
+        {
+            return "inventory.credentials is not a reference. An exposure names WHERE a slot's "
+                 + $"secret is - {CredentialLocator.LocalPrefix}<name> or "
+                 + "keyvault://<vault-host>/<secret> - never the secret itself, and the value "
+                 + "is not repeated here in case it was one.";
+        }
+
         // ONE ADDRESS FOR EVERY SLOT IS THE REPLICA COLLISION, WRITTEN DOWN. A
         // provider accepts a second connector on one tunnel and routes each
         // request to whichever is nearer, with no error - so two flights holding
@@ -170,6 +194,28 @@ public sealed record Exposure
 
         return null;
     }
+
+    /// <summary>Whether a credentials pattern names a place rather than a value.</summary>
+    /// <remarks>
+    /// <b>Both schemes, because both are real.</b> A resident runner reads
+    /// <c>local:</c> off its own disk. A pool member cannot — its credential
+    /// store starts empty and nothing can fill it — so a vault reference, read
+    /// by the identity a member inherits from its host, is the only way one
+    /// serves a preview at all.
+    /// </remarks>
+    private static bool Names(string pattern) =>
+        !pattern.Any(char.IsWhiteSpace)
+        && ((pattern.StartsWith(CredentialLocator.LocalPrefix, StringComparison.Ordinal)
+             && pattern.Length > CredentialLocator.LocalPrefix.Length)
+            || (pattern.StartsWith(VaultPrefix, StringComparison.Ordinal)
+                && pattern.IndexOf('/', VaultPrefix.Length) is > 0 and var slash
+                && slash < pattern.Length - 1));
+
+    /// <summary>
+    /// The vault scheme, spelled here because <c>Gg.Contracts</c> takes no
+    /// dependency on the project that reads one.
+    /// </summary>
+    private const string VaultPrefix = "keyvault://";
 
     /// <summary>
     /// Which field widens, and why, or null when the change only ever removes.

@@ -48,7 +48,7 @@ public class AnExposureNamesItsSecretTests
     public async Task A_vault_reference_is_accepted()
     {
         await Assert.That(Exposure.Validate(
-                With("keyvault://ggdev.vault.azure.net/jdapp-{slot}")))
+                With("keyvault://ggdev.vault.example/jdapp-{slot}")))
             .IsNull()
             .Because("it is the only scheme a pool member can resolve. Nothing delivers a "
                    + "secret to a member - its store starts empty, no field of the create body "

@@ -241,6 +241,24 @@ public static class FactHygiene
             SettingsCleared = [.. attended.Value.SettingsCleared.Select(Text)],
         }),
 
+        FactPayload.Preview preview => new FactPayload.Preview(preview.Value with
+        {
+            // TIGHT THROUGHOUT, like the attended fact above it. An address, an
+            // exposure's name and a two-digit slot are all values rather than
+            // anything written to be read, so a line break in one of them is
+            // something that came off a machine with its newline still
+            // attached - never somebody's formatting.
+            //
+            // THE ADDRESS IS BUILT FROM THE GRANT and never read back out of a
+            // connector's output, so nothing a provider printed reaches here.
+            // It is cleaned anyway: this class's job is that no payload crosses
+            // unexamined, and "the source is trusted" is the argument every
+            // unexamined field was let through on.
+            Url = Text(preview.Value.Url),
+            Exposure = Text(preview.Value.Exposure),
+            Slot = Text(preview.Value.Slot),
+        }),
+
         // Unreachable while every payload is handled above, and a compile error
         // is not available for a switch over a hierarchy. Throwing beats
         // returning the payload unchanged: a new fact type that quietly skipped

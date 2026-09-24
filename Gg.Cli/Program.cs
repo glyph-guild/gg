@@ -2574,7 +2574,15 @@ static async Task<int> HoldAsync(
         // a second size bound and a second set of three diagnoses to drift from
         // these.
         returns: (tree, flight) => TakeoverReturnReader.Read(
-            TakeoverReturnReader.PathIn(tree), flight));
+            TakeoverReturnReader.PathIn(tree), flight),
+        // AND HOW A SLOT'S CREDENTIAL IS FOUND HERE. Routed by scheme by the
+        // store: a keyvault:// reference is read by this machine's managed
+        // identity, anything else off its own disk. That is what lets a POOL
+        // MEMBER serve a preview at all - nothing can deliver a secret to one,
+        // because its store starts empty, no field of the create body could
+        // carry a value, and anything placed by hand dies with the container.
+        // A vault reference is not delivered; it is read.
+        secretFor: locator => MachineCredentialStore.SecretFor(locator));
 }
 
 static async Task<int> RunnerUpAsync()
@@ -3047,7 +3055,15 @@ static async Task<int> RunnerUpAsync()
                         MachineChecks.ResolveAsync, MachineChecks.ReachAsync,
                         DateTimeOffset.UtcNow, cancellationToken),
                     cancellationToken);
-            });
+            },
+    // AND HOW A SLOT'S CREDENTIAL IS FOUND HERE. Routed by scheme by the
+            // store: a keyvault:// reference is read by this machine's managed
+            // identity, anything else off its own disk. That is what lets a POOL
+            // MEMBER serve a preview at all - nothing can deliver a secret to one,
+            // because its store starts empty, no field of the create body could
+            // carry a value, and anything placed by hand dies with the container.
+            // A vault reference is not delivered; it is read.
+            secretFor: locator => MachineCredentialStore.SecretFor(locator));
     }
     finally
     {
@@ -3336,7 +3352,15 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
         keepCredential: LocalCredentialKeeper.For(inForce, new FileCredentialStore()),
         // UNCONDITIONAL HERE TOO, and a member is the case it matters for: it
         // is the machine nobody can open a shell on to clean up by hand.
-        forgetCredential: LocalCredentialKeeper.Forgetting(new FileCredentialStore()));
+        forgetCredential: LocalCredentialKeeper.Forgetting(new FileCredentialStore()),
+        // AND HOW A SLOT'S CREDENTIAL IS FOUND HERE. Routed by scheme by the
+        // store: a keyvault:// reference is read by this machine's managed
+        // identity, anything else off its own disk. That is what lets a POOL
+        // MEMBER serve a preview at all - nothing can deliver a secret to one,
+        // because its store starts empty, no field of the create body could
+        // carry a value, and anything placed by hand dies with the container.
+        // A vault reference is not delivered; it is read.
+        secretFor: locator => MachineCredentialStore.SecretFor(locator));
 }
 
 /// <summary>

@@ -2102,6 +2102,18 @@ public static class VerbOutput
             $"{Clean(s.Slug)} at {Clean(s.ResolvedRef ?? s.RequestedRef ?? "")}",
         { Loop: { } l } => $"{Clean(l.Outcome)}: {Clean(l.Reason)}",
         { Change: { } c } => $"{c.Paths?.Count ?? 0} path(s)",
+
+        // THE ONE FACT WHOSE CONTENT IS AN INSTRUCTION, and the reason this
+        // verb exists for somebody who was asked to review a preview: the gate
+        // that asked cannot carry the address, because its payload is
+        // assembled, used for a null check and discarded.
+        //
+        // The exposure and slot come with it so the address can be reconciled
+        // against an inventory - the question asked when a preview stops
+        // answering and nobody knows whether the slot is still held.
+        { Preview: { } p } =>
+            $"{Clean(p.Url)} ({Clean(p.Exposure)} slot {Clean(p.Slot)})",
+
         // NOT `Digest`, which is this envelope's content hash - the extracted
         // account of what the loop did is its own member, and the one word
         // covering both is exactly the confusion the contract warns about.

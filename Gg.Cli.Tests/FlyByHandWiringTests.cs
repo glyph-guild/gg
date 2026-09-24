@@ -194,6 +194,7 @@ public class FlyByHandWiringTests
             Calls.Add("held");
         public void CredentialUnresolved(CredentialResolutionFailure failure) =>
             Calls.Add("credential-unresolved");
+        public void PreviewUnserved(string diagnosis) => Calls.Add("preview-unserved");
         public void CredentialNotExtended(DateTimeOffset endsAt) =>
             Calls.Add("credential-not-extended");
     }

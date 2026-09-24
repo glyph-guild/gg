@@ -502,6 +502,8 @@ internal sealed class RecordingObserver : IRunnerObserver
     public void CredentialUnresolved(CredentialResolutionFailure failure) =>
         Record($"unresolved:{failure.Reference.Locator}");
 
+    public void PreviewUnserved(string diagnosis) => Record($"preview-unserved:{diagnosis}");
+
     /// <summary>A credential that will not be extended, by the date it ends.</summary>
     public void CredentialNotExtended(DateTimeOffset endsAt) =>
         Record($"not-extended:{endsAt:O}");

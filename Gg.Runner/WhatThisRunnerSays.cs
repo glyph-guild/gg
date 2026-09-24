@@ -319,6 +319,8 @@ public sealed class WhatThisRunnerSays(
     public void CredentialUnresolved(CredentialResolutionFailure failure) =>
         _inner.CredentialUnresolved(failure);
 
+    public void PreviewUnserved(string diagnosis) => _inner.PreviewUnserved(diagnosis);
+
     public void CredentialNotExtended(DateTimeOffset endsAt) =>
         _inner.CredentialNotExtended(endsAt);
 }

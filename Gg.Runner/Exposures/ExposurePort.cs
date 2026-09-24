@@ -56,13 +56,20 @@ public interface IExposureConnector
     /// started.
     /// </summary>
     /// <remarks>
-    /// <b>No port, and that is a property of how the tunnel is managed.</b> Which
-    /// local service the slot reaches is part of the tunnel's own configuration
-    /// at the provider, set by the tenant when they bound the hostname. So the
-    /// runner supplies a credential and nothing else - it cannot point a slot at
-    /// a different service any more than it can rename one.
+    /// <para>
+    /// <b>The port the tenant's document named, or null to let the provider's
+    /// own ingress decide.</b> ADR-0027 § 5 said there could be no port here,
+    /// because which local service a slot reaches is the tunnel's configuration
+    /// at the provider. Measured on a real tunnel: <c>--url</c> alongside the
+    /// token overrides that, so the document can say it once instead of the
+    /// same number living in a dashboard for every hostname.
+    /// </para>
+    /// <para>
+    /// <b>It still cannot take another flight's address.</b> That is the
+    /// token's to prevent, and naming a local port does not touch it.
+    /// </para>
     /// </remarks>
-    Task<string?> RunAsync(string token, CancellationToken cancellationToken);
+    Task<string?> RunAsync(string token, int? port, CancellationToken cancellationToken);
 }
 
 /// <summary>Serves a flight's preview at the slot it was granted.</summary>
@@ -113,7 +120,8 @@ public sealed class CloudflareExposureAdapter(IExposureConnector connector)
             };
         }
 
-        var refusal = await _connector.RunAsync(request.Secret, cancellationToken);
+        var refusal = await _connector.RunAsync(
+            request.Secret, request.Preview.Port, cancellationToken);
 
         return refusal is { Length: > 0 }
             ? new ExposureServed

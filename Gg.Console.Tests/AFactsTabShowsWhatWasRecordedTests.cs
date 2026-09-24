@@ -112,6 +112,65 @@ public class AFactsTabShowsWhatWasRecordedTests
         ],
     };
 
+    /// <summary>A flight that published a preview, as the runner ships it.</summary>
+    private static FlightFacts APreview() => new()
+    {
+        FlightNumber = "GG-268",
+        Facts =
+        [
+            new RecordedFact
+            {
+                Disposition = EvidenceDispositions.Inline,
+                RecordedAt = new DateTimeOffset(2026, 9, 24, 17, 9, 53, TimeSpan.Zero),
+                Fact = new FactEnvelope
+                {
+                    IdempotencyKey = "preview-1",
+                    Kind = FactKinds.PreviewUrl,
+                    Digest = new string('b', 64),
+                    ObservedAt = new DateTimeOffset(2026, 9, 24, 17, 9, 52, TimeSpan.Zero),
+                    Preview = new PreviewUrl
+                    {
+                        Url = "https://jdapp-01.goodgrief.dev",
+                        Exposure = "jdapp",
+                        Slot = "01",
+                    },
+                },
+            },
+        ],
+    };
+
+    [Test]
+    public async Task A_preview_shows_the_address_a_person_is_meant_to_open()
+    {
+        // THE ONE FACT WHOSE WHOLE CONTENT IS THE THING TO DO NEXT. Every other
+        // kind here describes what happened; this one is an instruction - go
+        // and look at this - and a row that names the kind and says nothing has
+        // told somebody a preview exists while withholding where.
+        //
+        // The default arm of FactSays answers "" and cannot fail, so a fact
+        // nobody added a case for renders as a blank column rather than as an
+        // error anybody would notice.
+        var text = PaneText.Modal(Opened(APreview()));
+
+        await Assert.That(text).Contains("https://jdapp-01.goodgrief.dev")
+            .Because("a gate asking somebody to look at a preview cannot carry the address - "
+                   + "the gate payload is assembled and discarded - so this pane is where a "
+                   + "person finds it, and a blank here is a preview nobody can open.");
+    }
+
+    [Test]
+    public async Task A_preview_names_the_slot_it_was_granted()
+    {
+        // SO IT CAN BE RECONCILED AGAINST AN INVENTORY. An address alone cannot
+        // answer the question asked when a preview stops responding: whether
+        // the slot is still held or already free.
+        var text = PaneText.Modal(Opened(APreview()));
+
+        await Assert.That(text).Contains("jdapp")
+            .Because("the fact names the exposure and the slot as well as the address, and a "
+                   + "renderer that drew only the address would throw that away.");
+    }
+
     [Test]
     public async Task The_cycle_reaches_it_and_comes_back_round()
     {

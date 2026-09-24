@@ -48,6 +48,50 @@ public class GgFactsReadsWhatAFlightRecordedTests
     }
 
     [Test]
+    public async Task A_preview_row_says_where_to_look()
+    {
+        // THE ONE FACT WHOSE CONTENT IS AN INSTRUCTION. `gg facts` is what
+        // somebody runs when they have been asked to review a preview, and the
+        // gate that asked them cannot carry the address - its payload is
+        // assembled, used for a null check and discarded. Says' default arm
+        // answers "" and cannot fail, so a kind nobody wrote a case for prints
+        // a row with the column a person came for missing.
+        var text = VerbOutput.ToText(new VerbResult.Facts(new FlightFacts
+        {
+            FlightNumber = "GG-268",
+            Facts =
+            [
+                new RecordedFact
+                {
+                    Disposition = EvidenceDispositions.Inline,
+                    RecordedAt = new DateTimeOffset(2026, 9, 24, 17, 9, 53, TimeSpan.Zero),
+                    Fact = new FactEnvelope
+                    {
+                        IdempotencyKey = "preview-1",
+                        Kind = FactKinds.PreviewUrl,
+                        Digest = new string('b', 64),
+                        ObservedAt = new DateTimeOffset(2026, 9, 24, 17, 9, 52, TimeSpan.Zero),
+                        Preview = new PreviewUrl
+                        {
+                            Url = "https://jdapp-01.goodgrief.dev",
+                            Exposure = "jdapp",
+                            Slot = "01",
+                        },
+                    },
+                },
+            ],
+        }));
+
+        await Assert.That(text).Contains("https://jdapp-01.goodgrief.dev")
+            .Because("this verb is what a person runs to find out where the preview is, and a "
+                   + "row that names the kind and withholds the address has told them one "
+                   + "exists without telling them where.");
+        await Assert.That(text).Contains("jdapp")
+            .Because("the exposure and slot come with it, so the address can be reconciled "
+                   + "against an inventory when a preview stops answering.");
+    }
+
+    [Test]
     public async Task Each_row_says_its_kind_and_the_budget_that_held_it()
     {
         // THE DISPOSITION IS ON THE ROW, because it is the answer to why one of

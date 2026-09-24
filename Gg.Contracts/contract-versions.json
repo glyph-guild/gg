@@ -1083,5 +1083,11 @@
     "surface": "f11f5dcfbbb9bec5c8e786d25e2ca7fbda1dd53300dcc4b5ba2ad6b31f44a02d",
     "endpoints": "d30b00468b5f491bb693e654e91ca10191d7b596c78abeef62476e08bb4120ca",
     "note": "AN EXPOSURE HAS A DOOR. Three routes: PUT /v1/airspace/exposures/{name} to apply one, and GET for one and for all. The wire types have not moved - they arrived in 0.220.0 - so the surface hash is unchanged and only the endpoints fingerprint does. DECLARED BEFORE THEY ARE SERVED, WHICH IS SAFE FOR EXACTLY ONE REASON: the client reads a 404 on the list as 'none', so a pull against a control plane pinned below this version keeps working and simply finds no exposures. The far side owes the handlers, and cannot move its own pin until it has them, because a route declared and unserved is refused there. 202 is on the apply because nearly every edit to an exposure widens: growing the inventory adds addresses, moving the hostnames moves them all at once to names no identity provider expects, and moving the credentials points every slot at secrets nobody has placed."
+  },
+  {
+    "version": "0.222.0",
+    "surface": "f2a3198d74e69f4ee21dc757cd2c0745680164534dbf0c952966360b23c883f8",
+    "endpoints": "d30b00468b5f491bb693e654e91ca10191d7b596c78abeef62476e08bb4120ca",
+    "note": "A PREVIEW'S ADDRESS IS A FACT. preview.url, with the exposure and the slot beside the url, and a slot on the fact envelope for it to arrive in. Fact vocabulary moves to 0.33.0 with it. WRITTEN BECAUSE A GATE COULD NOT SAY WHERE. The first ui-preview flight reached a decision asking a person to review a preview and had no way to tell them the address; the work kind's own instructions admit it, and every view truncates the summary it suggested instead, so the deliverable was readable only from a transcript on the runner's disk. IT NAMES NO CREDENTIAL AND NO PORT. What crosses is the address a person opens. The secret that dialled the tunnel stays on the machine holding it, and a local bound port is not a fact about anything anybody can reach. The exposure and slot are there so an address can be reconciled against an inventory - without them nothing could tell a grant still held from one already released. The endpoints hash is unchanged."
   }
 ]

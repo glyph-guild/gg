@@ -1909,6 +1909,7 @@ public static class ProtocolSurface
             [typeof(WorkItemProposal)] =
                 ["operation", "reason", "target", "score", "detail", "fields"],
             [typeof(LandingProposal)] = ["title", "description"],
+            [typeof(PreviewUrl)] = ["url", "exposure", "slot"],
             [typeof(LeaseLanding)] = ["title", "description"],
             [typeof(WorkItemFieldEdit)] = ["path", "value"],
             [typeof(LoopAttended)] =
@@ -2250,7 +2251,7 @@ public static class ProtocolSurface
             [typeof(FactEnvelope)] =
                 ["idempotencyKey", "kind", "digest", "observedAt", "environment", "source", "change",
                  "loop", "transcript", "landed", "pushed", "loopDigest", "human", "nomination",
-                 "question", "attended", "proposal", "landing"],
+                 "question", "attended", "proposal", "landing", "preview"],
             [typeof(FactBatch)] = ["generation", "facts"],
             [typeof(FactRejection)] = ["idempotencyKey", "reason"],
             // Refusals only: accepted and duplicates are answers the write has,

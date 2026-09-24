@@ -200,6 +200,7 @@ public static class Vocabulary
         typeof(ExposureInventory),
         typeof(ExposureState),
         typeof(ExposureList),
+        typeof(PreviewUrl),
         typeof(StrategyBuild),
         typeof(StrategyProvenance),
         typeof(WatchDocument),

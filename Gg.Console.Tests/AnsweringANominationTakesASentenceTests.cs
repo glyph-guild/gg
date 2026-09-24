@@ -182,7 +182,9 @@ public class AnsweringANominationTakesASentenceTests
                 new ConsoleDoubles.TypesKeys(Command.OpenNomination),
                 new ConsoleDoubles.Writes("the tracker has had this open for three weeks"),
                 actions: new ConsoleDoubles.Records())
-            .Run(Board() with { Mode = UiMode.NominationDecision });
+            // BoardDetail, which REPLACED NominationDecision while this work was
+            // out - one modal per row rather than a question over a subject line.
+            .Run(Board() with { Mode = UiMode.BoardDetail });
 
         await Assert.That(final.Expecting.Select(e => e.Id)).Contains(ConsoleDoubles.Records.Opened);
     }
@@ -194,7 +196,9 @@ public class AnsweringANominationTakesASentenceTests
                 new ConsoleDoubles.TypesKeys(Command.DeclineNomination),
                 new ConsoleDoubles.Writes("somebody already fixed it"),
                 actions: new ConsoleDoubles.Records())
-            .Run(Board() with { Mode = UiMode.NominationDecision });
+            // BoardDetail, which REPLACED NominationDecision while this work was
+            // out - one modal per row rather than a question over a subject line.
+            .Run(Board() with { Mode = UiMode.BoardDetail });
 
         await Assert.That(final.Expecting).IsEmpty()
             .Because("a declined nomination opens no flight, so there is nothing to see.");

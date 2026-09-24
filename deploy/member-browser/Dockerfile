@@ -43,6 +43,26 @@ RUN curl -fsSL \
  && chmod +x /usr/local/bin/gg \
  && /usr/local/bin/gg --version
 
+# THE CONNECTOR A PREVIEW IS SERVED THROUGH. CloudflaredConnector runs this
+# binary by name and reports its absence rather than throwing - so a member
+# without it provisions perfectly, flies perfectly, and publishes no preview
+# with a diagnosis nobody reads until somebody asks where the URL went.
+#
+# BAKED, BECAUSE THE FIRST ONE DOWNLOADED IT. GG-268's work kind told the agent
+# to fetch cloudflared itself and read a trycloudflare.com URL out of its own
+# output; that is an address no identity provider was ever told about, and the
+# preview showed a login page that could not log anybody in. A binary the image
+# carries is what lets the runner dial a name the tenant registered.
+#
+# Pinned like gg beside it. A connector that moved under a deploy is a preview
+# that stops working for a reason nothing in this repository changed.
+ARG CLOUDFLARED_VERSION=2026.9.1
+RUN curl -fsSL \
+      "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-amd64" \
+      -o /usr/local/bin/cloudflared \
+ && chmod +x /usr/local/bin/cloudflared \
+ && cloudflared --version
+
 # The executor. GG_EXECUTOR_BINARY IS NOT OFFERABLE - "a control plane naming a
 # program a machine executes is not configuration" - and MemberSpec writes only
 # three variables, none of them this one. So the image is the only place it can

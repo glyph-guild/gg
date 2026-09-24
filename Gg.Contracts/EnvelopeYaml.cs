@@ -106,6 +106,20 @@ public sealed record StrategyParse
     public IReadOnlyList<string> Notes { get; init; } = [];
 }
 
+/// <summary>An exposure read from text, or the reason it could not be.</summary>
+/// <remarks>A separate result for a separate door, the strategy's rule.</remarks>
+public sealed record ExposureParse
+{
+    /// <summary>The version the text says it was based on, or null. Consumed, never stored.</summary>
+    public string? BasedOn { get; init; }
+
+    /// <summary>The exposure, or null when there is a diagnosis.</summary>
+    public Exposure? Exposure { get; init; }
+
+    /// <summary>What was wrong, or null when nothing was.</summary>
+    public string? Diagnosis { get; init; }
+}
+
 /// <summary>A fleet profile read from text, or the reason it could not be.</summary>
 /// <remarks>A separate result for a separate door, the strategy's rule.</remarks>
 public sealed record ProfileParse
@@ -353,6 +367,75 @@ public static class EnvelopeYaml
     /// rather than read as absent, because an absent <c>credentials:</c> and a
     /// misspelt one are different machines.
     /// </remarks>
+    /// <summary>Reads exposure text, or says what is wrong with it.</summary>
+    /// <remarks>
+    /// A closed key set, as every document here has: a misspelt key is refused
+    /// rather than read as absent. For an exposure the two are especially
+    /// different - an absent <c>hostnames:</c> cannot be applied at all, while a
+    /// misspelt one read as absent would be a document that says where nothing
+    /// appears and looks complete.
+    /// </remarks>
+    public static ExposureParse ParseExposure(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        Node document;
+        try
+        {
+            document = Read(text);
+        }
+        catch (EnvelopeSyntaxException refusal)
+        {
+            return new ExposureParse { Diagnosis = refusal.Message };
+        }
+        catch (YamlException malformed)
+        {
+            return new ExposureParse
+            {
+                Diagnosis = $"This is not readable as YAML at line {malformed.Start.Line}, "
+                          + $"column {malformed.Start.Column}: {malformed.Message}",
+            };
+        }
+
+        Exposure exposure;
+        try
+        {
+            exposure = MapExposure(document);
+        }
+        catch (EnvelopeSyntaxException refusal)
+        {
+            return new ExposureParse { Diagnosis = refusal.Message };
+        }
+
+        if (Exposure.Validate(exposure) is { } invalid)
+        {
+            return new ExposureParse { Diagnosis = invalid };
+        }
+
+        return new ExposureParse { Exposure = exposure, BasedOn = Consumed(document) };
+    }
+
+    private static Exposure MapExposure(Node document)
+    {
+        var root = RequireMap(document, "");
+        Closed(root, BasedOnKey, "kind", "inventory");
+
+        var inventory = RequireMap(Require(root, "inventory"), "inventory");
+        Closed(inventory, "size", "hostnames", "credentials");
+
+        return new Exposure
+        {
+            Kind = RequireScalar(Require(root, "kind"), "kind"),
+            Inventory = new ExposureInventory
+            {
+                Size = WholeNumber(Require(inventory, "size"), "inventory.size"),
+                Hostnames = RequireScalar(Require(inventory, "hostnames"), "inventory.hostnames"),
+                Credentials =
+                    RequireScalar(Require(inventory, "credentials"), "inventory.credentials"),
+            },
+        };
+    }
+
     public static ProfileParse ParseProfile(string text)
     {
         ArgumentNullException.ThrowIfNull(text);

@@ -1845,6 +1845,31 @@ public static class PlatformToolServer
           + "them applies at once. A relay is neither: it is taken unwatched, as an offer of one "
           + "is. A tracker widens because it points a machine at a host AND hands it a credential "
           + "to open it, which is what a forge does.");
+
+        said.AppendLine(
+            "WHAT AN EXPOSURE SAYS. Also not rules about work: it says where a flight's served "
+          + "port may APPEAR, under exposures/<name>.yaml. The addresses are the tenant's own "
+          + "and so are the secrets that reach them - there is no default exposure, and a tenant "
+          + "that has declared none cannot publish a preview.");
+        said.AppendLine(
+            "  kind:             how it is arranged. cloudflare-tunnel is the one gg can drive; "
+          + "any other name is refused here rather than on the machine that was going to serve.");
+        said.AppendLine(
+            "  inventory:        how many addresses there are and how each is spelled. Finite on "
+          + "purpose: an identity provider will not accept a wildcard redirect URI, so an address "
+          + "that can be registered at all is one somebody wrote down in advance.");
+        said.AppendLine("  size:             how many slots. One flight is granted one slot.");
+        said.AppendLine(
+            "  hostnames:        the address pattern, e.g. app-{slot}.example.dev. It MUST carry "
+          + "{slot}: two slots spelling one name is two flights serving each other's previews, "
+          + "because a provider takes the second connector as a replica and reports nothing.");
+        said.AppendLine(
+            "  credentials:      WHERE each slot's secret is, one per slot and carrying {slot} "
+          + "for the same reason - never what the secret is.");
+        said.AppendLine(
+            "  Growing the inventory, moving the hostnames, moving the credentials or changing "
+          + "the kind all widen and are reviewed; shrinking the inventory only ever removes "
+          + "addresses, so it applies at once.");
     }
 
     /// <summary>

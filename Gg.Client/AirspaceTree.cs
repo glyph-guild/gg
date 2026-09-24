@@ -29,6 +29,9 @@ public sealed record AirspaceEstate
 
     /// <summary>Every fleet profile in force (slice forty-three), for the watches' reason not required.</summary>
     public IReadOnlyList<FleetProfileState> Profiles { get; init; } = [];
+
+    /// <summary>Every exposure in force (slice forty-nine), for the watches' reason not required.</summary>
+    public IReadOnlyList<ExposureState> Exposures { get; init; } = [];
 }
 
 /// <summary>What a pull did to the tree.</summary>
@@ -81,6 +84,9 @@ public sealed record TreeDocument
 
     /// <summary>A fleet profile, when the path put this under <c>fleet/</c>.</summary>
     public FleetProfile? Profile { get; init; }
+
+    /// <summary>An exposure, when the path put this under <c>exposures/</c>.</summary>
+    public Exposure? Exposure { get; init; }
 }
 
 /// <summary>A file that sits where a document goes and does not read as one.</summary>
@@ -212,6 +218,20 @@ public static class AirspaceTree
             else
             {
                 unrepresentable.Add(profile.Name);
+            }
+        }
+
+        foreach (var exposure in estate.Exposures)
+        {
+            if (Rendered(
+                    root, Roles.Exposure, exposure.Name,
+                    EnvelopeText.Render(exposure.Exposure), exposure.Version) is { } path)
+            {
+                written.Add(path);
+            }
+            else
+            {
+                unrepresentable.Add(exposure.Name);
             }
         }
 
@@ -420,6 +440,11 @@ public static class AirspaceTree
             held[profile.Name] = EnvelopeText.Render(profile.Profile);
         }
 
+        foreach (var exposure in estate.Exposures)
+        {
+            held[exposure.Name] = EnvelopeText.Render(exposure.Exposure);
+        }
+
         return
         [
             .. tree.Documents.Where(d =>
@@ -491,6 +516,7 @@ public static class AirspaceTree
                 .Concat(estate.Strategies.Select(s => s.Name))
                 .Concat(estate.Watches.Select(w => w.Name))
                 .Concat(estate.Profiles.Select(p => p.Name))
+                .Concat(estate.Exposures.Select(e => e.Name))
                 // Root cannot be retired - a tenant with no floor is ungoverned -
                 // so its absence from a tree is never an intent, whatever it looks
                 // like.
@@ -511,6 +537,7 @@ public static class AirspaceTree
         // would read as CHANGED on every diff, and be re-sent on every apply.
         : document.Watch is { } watch ? EnvelopeText.Render(watch)
         : document.Profile is { } profile ? EnvelopeText.Render(profile)
+        : document.Exposure is { } exposure ? EnvelopeText.Render(exposure)
         : string.Empty;
 
     /// <summary>Parses one file by the role its path gave it.</summary>
@@ -555,6 +582,14 @@ public static class AirspaceTree
             return parsed.Profile is { } profile
                 ? (Document(name, role, path, parsed.BasedOn) with { Profile = profile }, null)
                 : (null, parsed.Diagnosis ?? "This does not read as a fleet profile.");
+        }
+
+        if (string.Equals(role, Roles.Exposure, StringComparison.Ordinal))
+        {
+            var parsed = EnvelopeYaml.ParseExposure(text);
+            return parsed.Exposure is { } exposure
+                ? (Document(name, role, path, parsed.BasedOn) with { Exposure = exposure }, null)
+                : (null, parsed.Diagnosis ?? "This does not read as an exposure.");
         }
 
         var read = EnvelopeYaml.Parse(text);

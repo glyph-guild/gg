@@ -198,6 +198,8 @@ public static class Vocabulary
         typeof(FleetProfileList),
         typeof(Exposure),
         typeof(ExposureInventory),
+        typeof(ExposureState),
+        typeof(ExposureList),
         typeof(StrategyBuild),
         typeof(StrategyProvenance),
         typeof(WatchDocument),

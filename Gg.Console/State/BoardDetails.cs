@@ -63,6 +63,35 @@ public static class BoardDetails
             .FirstOrDefault(n => n.NominationId.ToString() == row.Key);
     }
 
+    /// <summary>
+    /// The flight this row opened into, when this console is holding it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null for two different reasons, and the key wants neither.</b> A
+    /// standing row opened into nothing, and the flights tab is PAGED - so a
+    /// row answered a fortnight ago names a flight this console has not
+    /// loaded. Moving the cursor to a row that is not there would leave it
+    /// somewhere arbitrary and read as a jump gone wrong, so the key is not
+    /// offered at all. The modal still prints the number, which is the part a
+    /// person can act on by typing it.
+    /// </remarks>
+    public static string? FlightInTheList(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (NominationUnder(state) is not { FlightId: { } flight })
+        {
+            return null;
+        }
+
+        var wanted = flight.ToString();
+
+        return Rows.Flights(state).Any(
+                   r => string.Equals(r.FlightId, wanted, StringComparison.OrdinalIgnoreCase))
+            ? wanted
+            : null;
+    }
+
     /// <summary>The watch under the cursor.</summary>
     public static WatchStanding? WatchUnder(AppState state)
     {
@@ -125,6 +154,24 @@ public static class BoardDetails
                     : "waiting for somebody"));
 
             fields.Add(new BoardField("nominated", $"{nomination.MadeAt:u}"));
+
+            // WHAT IT BECAME, and only once it became something. FlightId is
+            // null on every standing row by definition, and a field reading
+            // "none" would be a line per row saying nothing has happened yet -
+            // on the screen somebody came to to make something happen.
+            if (nomination.FlightId is not null)
+            {
+                // SAID EVEN BEFORE IT IS NUMBERED. The number is minted into a
+                // perspective and arrives late, so a row answered seconds ago
+                // has a flight and no number - and printing nothing there would
+                // read as "it opened into nothing", which is the one thing it
+                // did not do.
+                fields.Add(new BoardField(
+                    "flight",
+                    nomination.FlightNumber is { Length: > 0 } number
+                        ? ControlText.Strip(number)
+                        : "not numbered yet"));
+            }
 
             return fields;
         }

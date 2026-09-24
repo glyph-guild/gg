@@ -438,6 +438,15 @@ public class TheSignInModalReadsTests
                 "a machine is the tenant's or claimed, never both - "
               + "AnAdminsWordAsksFirstTests holds the other arm.",
 
+            // AND THE FOURTH. A nomination is standing or it opened into a
+            // flight, never both - FlightId is null on every standing row by
+            // the contract's own words. This model keeps the standing arm,
+            // because that is the arm with the two answers on it;
+            // ABoardRowOpensItsFlightTests holds the other.
+            [nameof(KeymapContext.TheRowsFlightIsLoaded)] =
+                "a nomination is standing or it opened into a flight, never both - "
+              + "ABoardRowOpensItsFlightTests holds the other arm.",
+
             [nameof(KeymapContext.OverALink)] =
                 "a flight's intent is a ticket or a link, never both - "
               + "AFlightCanOpenItsLinkTests holds the other arm.",

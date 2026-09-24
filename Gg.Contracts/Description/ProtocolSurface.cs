@@ -530,31 +530,33 @@ public static class ProtocolSurface
             Statuses = [200, 401, 403, 404, 409, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
-        // THE SAME INTRODUCTION, ASKED FOR BY A MACHINE. A pool member loses
-        // every secret it holds on each roll - the agent token, every
-        // repository secret - and can only be handed them back over an
-        // introduced channel. That channel is a person's, so the remedy is a
-        // person, per member, per roll.
+        // THE MAINTAINER'S DOOR IS NOT DECLARED HERE YET, AND THAT IS THE FIX.
+        // POST /v1/runner/members/{id}/introduction was declared in 0.218.0 -
+        // a version cut for no other reason - and the control plane never
+        // served it. A declared route nobody serves is refused over there, so
+        // it froze that repository's contracts pin for EVERY change, not only
+        // for the one that added it. An unrelated slice found out by needing
+        // types from a later version and getting three red assertions about
+        // somebody else's route.
         //
-        // A SECOND DOOR RATHER THAN A WIDER ONE. The developer route above is
-        // untouched; this one is the runner surface's, and the control plane
-        // refuses it unless the caller MINTED the member it names - the
-        // narrowest relationship there is, and one the mint recorded rather
-        // than one a runner claims about itself.
+        // WHAT IT IS FOR, kept here so the work is not lost: a pool member
+        // loses every secret it holds on each roll and can only be handed them
+        // back over an introduced channel, which today is a person's - so the
+        // remedy is a person, per member, per roll. A second door rather than a
+        // wider one, refused unless the caller MINTED the member it names.
+        // MaintainsAsync already exists in the control plane and enforces both
+        // halves; the identity work merged. What is missing is the endpoint.
         //
-        // 403 for a member somebody else minted, and for any machine nobody
-        // minted: a laptop is not a member, and absent must read as "not
-        // yours" or a maintainer reaches the whole fleet.
-        new()
-        {
-            Method = "POST",
-            Path = "/v1/runner/members/{id}/introduction",
-            Audience = Audience.Runner,
-            Request = typeof(RunnerIntroductionRequest),
-            Response = typeof(RunnerIntroduction),
-            Statuses = [200, 401, 403, 404, 409, ProtocolTooOld],
-            RequiredHeaders = [RunnerHeader],
-        },
+        // THE ONE DESIGN QUESTION LEFT, for whoever serves it: an introduction
+        // binds a capability to a PRINCIPAL and the relay decides who may
+        // collect the sealed secret by principal. A maintainer is a runner.
+        // Either a runner id goes into a principal-typed slot - a deliberate
+        // conflation of two identity spaces in the place that decides who
+        // collects a secret - or the relay carries a party that may be either.
+        // That is a decision to make rather than to inherit from a Guid fitting.
+        //
+        // RE-DECLARE IT IN THE SAME CHANGE THAT SERVES IT. That costs one
+        // version and strands nobody.
         new()
         {
             Method = "POST",

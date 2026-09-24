@@ -67,7 +67,7 @@ public class SliceThreeGuardTests
     /// are answered by an admission against a menu a person wrote, which is the
     /// property that made a second ask arguable at all.
     /// </remarks>
-    private const int KindsThatCross = 14;
+    private const int KindsThatCross = 15;
 
     [Test]
     public async Task A_moved_vocabulary_version_has_a_ledger_entry()
@@ -170,6 +170,15 @@ public class SliceThreeGuardTests
         // runner cutting a title out of the agent's prose, which it did, and
         // which produced a pull request named after an obligation verdict.
         // A FOURTH ASK NEEDS A BETTER ARGUMENT THAN THIS ONE HAD.
+        //
+        // FIFTEEN, AND IT IS NOT AN ASK AT ALL. preview.url is where a flight's
+        // served port was published - measured by the runner that published it,
+        // not requested of anybody, and answered by no admission. So the number
+        // worth watching stays at three. What it is instead is the first fact
+        // whose value a person is expected to OPEN rather than read, which is
+        // why it carries neither a credential nor a port: a fact holding
+        // something somebody follows is one that can carry a secret by accident.
+        // A SECOND FACT CARRYING A REACHABLE ADDRESS IS THE ONE TO STOP OVER.
         // This test
         // used to say "no fact
         // kind has been added" and the halt it produced is what sent the decision
@@ -195,6 +204,7 @@ public class SliceThreeGuardTests
                 FactKinds.LoopTranscript,
                 FactKinds.SourceProvenance,
                 FactKinds.WorkItemProposal,
+                FactKinds.PreviewUrl,
             }.Order(StringComparer.Ordinal).ToList())
             .Because("named, so a kind swapped for another is caught as well as a kind added.");
     }

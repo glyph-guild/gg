@@ -167,7 +167,15 @@ public class SliceTwelveGuardTests
     /// never crossed from a working runner — now does, for the flight whose
     /// envelope declined the bound, which is what the value always meant.
     /// </para>
-    private const string VocabularyAtSliceStart = "0.32.0";
+    /// <para>
+    /// <b>And to 0.33.0 — a KIND this time, which is the expensive kind.</b>
+    /// <c>preview.url</c>, argued for on the count below. The version moves
+    /// because a reader pinned under it would meet a fact kind it has never
+    /// heard of, and this vocabulary's whole bargain is that such a reader halts
+    /// loudly rather than accepting-and-ignoring. That is the property being
+    /// bought; the row is the price.
+    /// </para>
+    private const string VocabularyAtSliceStart = "0.33.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number
@@ -240,7 +248,36 @@ public class SliceTwelveGuardTests
     /// writes, and the thing that has held it back so far is that every ask
     /// crosses as a value and is answered by an admission.
     /// </para>
-    private const int KindsThatCross = 14;
+    /// <para>
+    /// <b>FIFTEEN, and here is the argument.</b> <c>preview.url</c> is where a
+    /// flight's served port was published. It survives the criterion this guard
+    /// was written for — <i>a fact belongs to a flight and a routine action has
+    /// none</i> — and not narrowly: the address comes from a slot GRANTED to one
+    /// flight and RELEASED when that flight ends. It is not merely produced
+    /// during a flight; it does not outlive one by construction. What outlives
+    /// it is the exposure document the slot came from, and that is an airspace
+    /// document rather than a fact, which is the line slice twelve drew.
+    /// </para>
+    /// <para>
+    /// <b>It survives the other three arguments too.</b> It is measured rather
+    /// than asserted — the address is what the platform arranged and the runner
+    /// observed, not a sentence a model wrote, which matters here because the
+    /// prose version of this already exists and is the thing being replaced. It
+    /// is not an agent's ask: nothing is requested and no admission answers it.
+    /// And it is not a second declaration of an absence.
+    /// </para>
+    /// <para>
+    /// <b>What it adds that is worth watching: the first fact whose value a
+    /// person is expected to OPEN.</b> Every other kind here is read. This one
+    /// is a URL somebody clicks, which makes it the first with a reachability
+    /// property rather than only an informational one - and the first that could
+    /// carry a secret by accident, in a query string or a token-bearing link. It
+    /// carries neither credential nor port for that reason. A SECOND fact
+    /// holding something a person is meant to follow would be worth stopping
+    /// over, because that is the direction in which a fact stops describing what
+    /// happened and starts being an instruction.
+    /// </para>
+    private const int KindsThatCross = 15;
 
     [Test]
     public async Task Attestations_are_not_facts_and_the_count_moves_only_with_an_argument()

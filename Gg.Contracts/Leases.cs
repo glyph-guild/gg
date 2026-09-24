@@ -670,6 +670,17 @@ public sealed record LeaseGranted
     public required IReadOnlyList<CredentialReference> Credentials { get; init; }
 
     /// <summary>
+    /// Where this flight's preview was granted, or null when it was granted
+    /// none.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null is the ordinary case and always will be.</b> A flight that serves
+    /// nothing was granted no address, and every lease written before this
+    /// member existed says the same thing by saying nothing.
+    /// </remarks>
+    public LeasePreview? Preview { get; init; }
+
+    /// <summary>
     /// Repositories on this flight that the control plane could not name a
     /// credential reference for.
     /// </summary>
@@ -1019,4 +1030,77 @@ public sealed record RunnerParked
 
     /// <summary>Why, when somebody said.</summary>
     public string? Reason { get; init; }
+}
+
+/// <summary>
+/// Where a flight's preview was granted: which exposure, which slot of its
+/// inventory, and the address that slot answers at.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The control plane allocates it and the runner never picks one</b>
+/// (ADR-0027 § 3). That is what makes one domain safe across many flights, and
+/// it is worth having even for a tenant serving only itself: a runner that could
+/// name its own address could name another flight's.
+/// </para>
+/// <para>
+/// <b>It carries no secret and the type cannot.</b> The slot's credential
+/// travels as a <see cref="CredentialReference"/> in the lease's existing list,
+/// resolved on the machine that holds it; what is here is that reference's
+/// locator, which is a name. The boundary is asserted over this shape rather
+/// than intended, exactly as it is for the credentials beside it.
+/// </para>
+/// <para>
+/// <b>A hostname, not a URL.</b> Two places deciding what a preview's address
+/// looks like would disagree the first time either moved, and the scheme is
+/// always https because every way gg can arrange an exposure serves one.
+/// </para>
+/// </remarks>
+[PinnedId("6b3e9f27-4c15-48da-9071-2af8d5136ce4")]
+public sealed record LeasePreview
+{
+    /// <summary>The exposure whose inventory this slot belongs to.</summary>
+    public required string Exposure { get; init; }
+
+    /// <summary>Which slot, one-based, as an ordinal into that inventory.</summary>
+    public required int Slot { get; init; }
+
+    /// <summary>The address the slot answers at. A host, never a URL.</summary>
+    public required string Hostname { get; init; }
+
+    /// <summary>
+    /// Which credential the runner resolves to dial the connector, by locator.
+    /// </summary>
+    public required string Credential { get; init; }
+
+    /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
+    public static string? Validate(LeasePreview preview)
+    {
+        ArgumentNullException.ThrowIfNull(preview);
+
+        if (string.IsNullOrWhiteSpace(preview.Exposure))
+        {
+            return "A granted preview names the exposure its slot came from.";
+        }
+
+        if (preview.Slot < 1)
+        {
+            return $"Slot {preview.Slot} is not one an inventory could have granted: slots are "
+                 + "one-based ordinals into a declared inventory.";
+        }
+
+        if (string.IsNullOrWhiteSpace(preview.Hostname)
+            || preview.Hostname.Contains("://", StringComparison.Ordinal)
+            || preview.Hostname.Contains('/', StringComparison.Ordinal))
+        {
+            return $"'{preview.Hostname}' is not a hostname. A granted address is a host and "
+                 + "nothing else - two places deciding what a preview's address looks like "
+                 + "would disagree the first time either moved.";
+        }
+
+        return string.IsNullOrWhiteSpace(preview.Credential)
+            ? "A granted preview names the credential its connector is dialled with, by "
+            + "locator. The secret stays on the machine that resolves it."
+            : null;
+    }
 }

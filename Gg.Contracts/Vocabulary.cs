@@ -79,6 +79,7 @@ public static class Vocabulary
         typeof(LeaseRepoRef),
         typeof(LeaseLoop),
         typeof(LeaseGranted),
+        typeof(LeasePreview),
         typeof(LeaseClaimAccepted),
         typeof(LeaseClaimStatus),
         typeof(LeaseRenewalRequest),

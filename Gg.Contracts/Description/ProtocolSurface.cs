@@ -1913,6 +1913,7 @@ public static class ProtocolSurface
             [typeof(LandingProposal)] = ["title", "description"],
             [typeof(PreviewUrl)] = ["url", "exposure", "slot"],
             [typeof(EnvelopeVariable)] = ["name", "value"],
+            [typeof(LeasePreview)] = ["exposure", "slot", "hostname", "credential"],
             [typeof(LeaseLanding)] = ["title", "description"],
             [typeof(WorkItemFieldEdit)] = ["path", "value"],
             [typeof(LoopAttended)] =
@@ -2086,7 +2087,7 @@ public static class ProtocolSurface
                 ["leaseId", "generation", "flightId", "flightNumber", "repos", "credentials",
                  "unresolvedRepos", "classificationCeiling", "classificationRules", "expiresAt",
                  "renewWithinSeconds", "intentUri", "intentProvider", "intentId", "intentText",
-                 "nominationNote", "menu", "loop", "feedback", "attended"],
+                 "nominationNote", "preview", "menu", "loop", "feedback", "attended"],
             [typeof(LeaseRenewalRequest)] = ["generation"],
             [typeof(LeaseRenewed)] = ["expiresAt", "generation"],
             [typeof(LeaseReleaseRequest)] = ["generation", "disposition", "detail", "credentialFailure"],

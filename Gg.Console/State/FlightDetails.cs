@@ -590,6 +590,17 @@ public static class FlightDetails
         { Loop: { } l } => $"{l.Outcome}: {l.Reason}",
         { Change: { } c } => $"{c.Paths?.Count ?? 0} path(s)",
 
+        // THE ONE FACT WHOSE CONTENT IS AN INSTRUCTION. Every other kind here
+        // describes what happened; this one says go and look at this, and it
+        // is the ONLY place a person can read it - a gate asking somebody to
+        // review a preview cannot carry the address, because the gate payload
+        // is assembled, used for a null check and discarded.
+        //
+        // The slot comes with it so the address can be reconciled against an
+        // inventory, which is the question asked when a preview stops
+        // answering and nobody knows whether the slot is still held.
+        { Preview: { } p } => $"{p.Url} ({p.Exposure} slot {p.Slot})",
+
         // LoopDigest, never Digest - that one is the envelope's content hash,
         // and the single word covering both is the confusion the contract warns
         // about in as many words.

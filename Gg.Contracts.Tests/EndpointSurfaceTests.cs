@@ -517,7 +517,13 @@ public class EndpointSurfaceTests
         // one: the client reads a 404 on the list as "none", so a pull against a
         // control plane pinned below this keeps working and finds no exposures.
         await Assert.That(Fingerprint())
-            .IsEqualTo("d30b00468b5f491bb693e654e91ca10191d7b596c78abeef62476e08bb4120ca")
+        // AND 0.224.0 REMOVES ONE: POST /v1/runner/members/{id}/introduction,
+        // undeclared until somebody serves it. The comment at 0.216.0 above
+        // still describes what it is for and why it was wanted; what it got
+        // wrong was the order. Declaring a route the other repository has not
+        // served refuses its whole pin, so the declaration cost every change
+        // over there and bought nothing here, where no caller exists.
+            .IsEqualTo("349cd91fc172499e8df4e05c14f2dc0ebb6b5938a7a1c5922532e38c07107e94")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

@@ -77,6 +77,52 @@ public sealed record Exposure
     public static string Slot(int ordinal) => ordinal.ToString("00");
 
     /// <summary>
+    /// A pattern spelled for one slot: <paramref name="pattern"/> with
+    /// <see cref="SlotToken"/> replaced by slot <paramref name="ordinal"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The one place a slot's names are spelled.</b> Three places touch them
+    /// and they are not in the same process, the same repository, or the same
+    /// week: the control plane grants a hostname and a credential locator, gg
+    /// writes a secret under that locator on another machine, and the runner
+    /// dials with it. <c>CredentialLocator</c> already says why that has to be
+    /// one method - two derivations that agree today is how a runner ends up
+    /// hunting for a file the CLI never wrote.
+    /// </para>
+    /// <para>
+    /// <b>The pattern is the tenant's, and nothing here invents one.</b> It
+    /// comes off the exposure document, which the tenant may edit; all this
+    /// does is put the slot where the document said to.
+    /// </para>
+    /// <para>
+    /// <b>A pattern with no slot in it throws rather than returning.</b> One
+    /// name for every slot is the replica collision, and it is silent: the
+    /// provider takes a second connector on one tunnel and serves each request
+    /// from whichever is nearer, with no error anywhere. <see cref="Validate"/>
+    /// refuses such a document at apply, so arriving here without a token is
+    /// already impossible — and a method that quietly returned the pattern
+    /// would make "impossible" the only thing standing between two flights and
+    /// each other's screens.
+    /// </para>
+    /// </remarks>
+    public static string Spelled(string pattern, int ordinal)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(pattern);
+        ArgumentOutOfRangeException.ThrowIfLessThan(ordinal, 1);
+
+        if (!pattern.Contains(SlotToken, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                $"'{pattern}' has no {SlotToken} in it, so it is one name for every slot - and "
+              + "two slots that spell the same name are two flights serving each other's work.",
+                nameof(pattern));
+        }
+
+        return pattern.Replace(SlotToken, Slot(ordinal), StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// What is wrong with this exposure, or null when nothing is.
     /// </summary>
     /// <remarks>

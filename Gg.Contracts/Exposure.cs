@@ -186,6 +186,28 @@ public sealed record Exposure
     }
 }
 
+/// <summary>One applied exposure, as the read side serves it.</summary>
+[PinnedId("7c41b9d6-2e08-4a35-8f6d-51b3ca07e2f9")]
+public sealed record ExposureState
+{
+    /// <summary>The topology name the exposure was applied to.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The per-name version in force, e.g. v2.</summary>
+    public required string Version { get; init; }
+
+    public required DateTimeOffset AppliedAt { get; init; }
+
+    public required Exposure Exposure { get; init; }
+}
+
+/// <summary>Every exposure in force for the tenant.</summary>
+[PinnedId("0d58e3a7-b16c-4927-9e4f-8a2704cd15b3")]
+public sealed record ExposureList
+{
+    public required IReadOnlyList<ExposureState> Exposures { get; init; }
+}
+
 /// <summary>How many addresses an exposure has, and how each one is spelled.</summary>
 /// <remarks>
 /// <b>Both patterns must carry <see cref="Exposure.SlotToken"/></b>, because a

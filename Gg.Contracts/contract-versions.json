@@ -1071,5 +1071,11 @@
     "surface": "db5574dcccbfa8fc5026e4b6973b453a8e4314114fb4dd04514e1f9aa1106114",
     "endpoints": "5d2ac69128a27c8ea1c07f40273a043051ccd37fe3fd91a7e7b61e8077bbd9c9",
     "note": "AN EXPOSURE IS A SEVENTH ROLE. ADR-0027: where a flight's served port may appear, declared by the tenant as an airspace document - a provider kind and a finite inventory of hostnames, each with its own credential reference. Roles.All moves to seven and the wire gains Exposure and ExposureInventory. THE INVENTORY IS FINITE ON PURPOSE. An identity provider will not accept a wildcard redirect URI for the audiences a customer-facing application signs in, so an address that can be registered at all is one somebody wrote down in advance; a scheme that invented names per flight could never sign a person in. NO DEFAULT AND NO FALLBACK: a tenant that has declared no exposure cannot publish a preview and is told which document to write, because a built-in default pointing at a domain we own would be a hosted service arriving by the back door. The endpoints hash is unchanged - this version adds the document and its rendering, and the doors that apply one follow."
+  },
+  {
+    "version": "0.220.0",
+    "surface": "f11f5dcfbbb9bec5c8e786d25e2ca7fbda1dd53300dcc4b5ba2ad6b31f44a02d",
+    "endpoints": "5d2ac69128a27c8ea1c07f40273a043051ccd37fe3fd91a7e7b61e8077bbd9c9",
+    "note": "AN EXPOSURE HAS A READ SIDE. ExposureState and ExposureList join the wire so the estate can carry the exposures in force and a working copy can be written from them. The document and its rendering arrived in 0.219.0; this is what a pull reads back. THE ESTATE MEMBER IS DEFAULTED RATHER THAN REQUIRED, for the reason the watch's is: an estate is assembled by ReadEstateAsync and by a good many tests that predate this document class, and the honest reading of an estate that says nothing about exposures is that it holds none. The endpoints hash is unchanged - nothing serves these yet, and a route declared before it is served is refused on the far side."
   }
 ]

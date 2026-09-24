@@ -1115,6 +1115,26 @@ public sealed record AppState
     /// </remarks>
     public IReadOnlyList<TenantNotice> Notices { get; init; } = [];
 
+    /// <summary>
+    /// Which gates have already been announced, so they are not announced again.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Null means the console has not looked yet, and that is not the same
+    /// as empty.</b> Empty is "looked, and nothing was waiting for me". The
+    /// first look fills this and says nothing, which is what keeps a backlog
+    /// from arriving as a corner full of notifications - see
+    /// <see cref="Announcements"/>.
+    /// </para>
+    /// <para>
+    /// <b>On the state rather than in the screen, so a terminal release carries
+    /// it.</b> Somebody who hands the terminal to <c>$EDITOR</c> and comes back
+    /// has not stopped watching, and a rebuilt session that re-announced
+    /// everything would be the backlog problem by a second door.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<string>? Announced { get; init; }
+
     public int SelectedRow { get; init; }
 
     /// <summary>

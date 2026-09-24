@@ -468,7 +468,11 @@ public static class ConsoleStart
             // boot, where the cursor IS at the top, and wrong from the moment
             // step 3 made this method the refresh: the flight pane then showed
             // the first row's flight under the selected row's name.
-            return Reducer.Detail(loaded with
+            // ARMED, NOT ANNOUNCED. This is the boot read, so Announcements
+            // records every gate already waiting and puts none of them in the
+            // corner - the whole of "only gates that appear live" is which of
+            // the two fold points a read came through.
+            return Announcements.Folded(Reducer.Detail(loaded with
             {
                 Queue = queue,
                 Gates = gates,
@@ -487,7 +491,7 @@ public static class ConsoleStart
                 // have, and a takeover that needed one could only ever happen on the
                 // machine that ran the flight.
                 TakeableTree = null,
-            });
+            }));
         }
         catch (Exception failure) when (failure is Gg.Client.NotSignedInException
                                             or Gg.Client.ProtocolTooOldException

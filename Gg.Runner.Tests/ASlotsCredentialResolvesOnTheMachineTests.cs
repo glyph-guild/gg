@@ -44,7 +44,7 @@ public class ASlotsCredentialResolvesOnTheMachineTests
     private static readonly DateTimeOffset T0 = new(2026, 9, 24, 12, 0, 0, TimeSpan.Zero);
 
     /// <summary>The locator an exposure document named, in a vault.</summary>
-    private const string Locator = "keyvault://ggdev.vault.azure.net/jdapp-01";
+    private const string Locator = "keyvault://ggdev.vault.example/jdapp-01";
 
     private const string Token = "not-a-real-tunnel-token";
 

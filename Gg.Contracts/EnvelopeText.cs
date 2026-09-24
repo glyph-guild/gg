@@ -724,6 +724,28 @@ public static class EnvelopeText
         }
     }
 
+    /// <summary>An exposure, in schema order.</summary>
+    /// <remarks>
+    /// <b>Every member is required</b>, so unlike a profile there is nothing here
+    /// that absence could mean. A kind with no inventory is not an exposure that
+    /// said nothing; it is a document that cannot say where anything appears, and
+    /// the parser refuses it before this is reached.
+    /// </remarks>
+    public static string Render(Exposure exposure)
+    {
+        ArgumentNullException.ThrowIfNull(exposure);
+
+        var text = new StringBuilder();
+
+        text.Append($"kind: {Scalar(exposure.Kind)}\n");
+        text.Append("inventory:\n");
+        text.Append($"  size: {exposure.Inventory.Size}\n");
+        text.Append($"  hostnames: {Scalar(exposure.Inventory.Hostnames)}\n");
+        text.Append($"  credentials: {Scalar(exposure.Inventory.Credentials)}\n");
+
+        return text.ToString();
+    }
+
     public static string Render(EnvironmentStrategy strategy)
     {
         ArgumentNullException.ThrowIfNull(strategy);

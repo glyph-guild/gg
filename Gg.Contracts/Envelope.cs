@@ -912,8 +912,16 @@ public static class Roles
     /// </summary>
     public const string FleetProfile = "fleet-profile";
 
+    /// <summary>
+    /// Where a flight's served port may appear (ADR-0027): a provider kind, and
+    /// a finite inventory of hostnames with a credential for each. Never
+    /// composes, like a <see cref="Strategy"/> - one exposure says where one set
+    /// of addresses is - and a flight cannot be FOR one.
+    /// </summary>
+    public const string Exposure = "exposure";
+
     public static IReadOnlyList<string> All { get; } =
-        [Root, WorkKind, Narrowing, Strategy, Watch, FleetProfile];
+        [Root, WorkKind, Narrowing, Strategy, Watch, FleetProfile, Exposure];
 }
 
 /// <summary>

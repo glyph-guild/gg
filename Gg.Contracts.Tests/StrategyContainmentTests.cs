@@ -95,13 +95,15 @@ public class StrategyContainmentTests
     public async Task The_strategy_role_exists_and_the_vocabulary_still_closes()
     {
         await Assert.That(Roles.All).Contains(Roles.Strategy);
-        await Assert.That(Roles.All.Count).IsEqualTo(6)
-            .Because("root, work-kind, narrowing, strategy, watch, fleet-profile. The fifth "
-                   + "was ADR-0022 section 5's watch (slice thirty-nine; S39.0-04 under-counted "
-                   + "its cost). The sixth is ADR-0025 section 2's fleet profile (slice "
-                   + "forty-three), and the guards it met were the watch's five - this one, "
-                   + "EnvelopeLayerTests, EnvelopeOperatorTests, EstateRenderTests and the "
-                   + "vocabulary and pinned-id ledgers - all found by the build, none by a search.");
+        await Assert.That(Roles.All.Count).IsEqualTo(7)
+            .Because("root, work-kind, narrowing, strategy, watch, fleet-profile, exposure. The "
+                   + "fifth was ADR-0022 section 5's watch (slice thirty-nine; S39.0-04 "
+                   + "under-counted its cost). The sixth is ADR-0025 section 2's fleet profile "
+                   + "(slice forty-three), and the guards it met were the watch's five - this "
+                   + "one, EnvelopeLayerTests, EnvelopeOperatorTests, EstateRenderTests and the "
+                   + "vocabulary and pinned-id ledgers - all found by the build, none by a "
+                   + "search. The seventh is ADR-0027's exposure (slice forty-nine), measured "
+                   + "at forty-two places before it was written, ten of which no build finds.");
     }
 
     [Test]

@@ -2383,15 +2383,36 @@ public sealed class ConsoleScreen : Window
         // produced.
         var data = CollectionViews.Rows(columns, [.. rows.Select(row => cells(row))]);
 
+        // WHERE THE VIEW WAS SCROLLED TO, read before the source under it is
+        // replaced. The render path resets this to zero - not provably by any
+        // one call, since a table with no driver keeps it - and what came after
+        // only guaranteed the cursor was somewhere on screen, never that the
+        // rows stayed where a person was looking.
+        //
+        // Measured in a pty, flights tab, two pages down: clicking the row at
+        // screen line 20 selected the right flight and then moved the list
+        // twenty-one rows, parking the selection at the bottom edge and putting
+        // a different flight under the pointer. Reported as "clicking doesn't
+        // click on the row I'm hovering over", and the click was innocent.
+        var from = table.RowOffset;
+
         CollectionViews.Fill(table, new DataTableSource(data));
         table.SetSelection(0, Math.Clamp(cursor, 0, rows.Count - 1), extendExistingSelection: false, null);
         table.EnsureValidSelection();
+
+        // PUT BACK WHAT THE FILL TOOK, and nothing more. This restores rather
+        // than chooses: it does not decide where the cursor should sit, so a
+        // cursor walked off the bottom with `j' still scrolls by one line below
+        // rather than jumping, which is the widget's job and stays its job.
+        table.RowOffset = from;
 
         // AND THE VIEW HAS TO FOLLOW IT. A table handed a new source starts at
         // the top, and this hands it one every render - so the offset was zero
         // on every pass while the selection walked to row ninety-one, and
         // everything past the first screenful was unreachable. EnsureValidSelection
-        // clamps the SELECTION; this is the one that moves the offset.
+        // clamps the SELECTION; this is the one that moves the offset - and with
+        // the offset restored above it now has nothing to do unless the cursor
+        // genuinely left the screen.
         table.EnsureCursorIsVisible();
     }
 

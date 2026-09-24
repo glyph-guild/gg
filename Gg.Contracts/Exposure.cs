@@ -75,6 +75,115 @@ public sealed record Exposure
     /// What slot <paramref name="ordinal"/> is called, one-based.
     /// </summary>
     public static string Slot(int ordinal) => ordinal.ToString("00");
+
+    /// <summary>
+    /// What is wrong with this exposure, or null when nothing is.
+    /// </summary>
+    /// <remarks>
+    /// <b>A refusal names what IS available</b>, because one that does not leaves
+    /// somebody guessing at a vocabulary they cannot see.
+    /// </remarks>
+    public static string? Validate(Exposure exposure)
+    {
+        ArgumentNullException.ThrowIfNull(exposure);
+
+        if (!ExposureKinds.All.Contains(exposure.Kind, StringComparer.Ordinal))
+        {
+            return $"'{exposure.Kind}' is not a way gg can arrange an exposure. It can arrange "
+                 + $"{string.Join(" and ", ExposureKinds.All)}.";
+        }
+
+        if (exposure.Inventory.Size < 1)
+        {
+            return "This exposure has no slots, so it declares a place where nothing can "
+                 + "appear - which is the same as declaring none, and harder to notice.";
+        }
+
+        // ONE ADDRESS FOR EVERY SLOT IS THE REPLICA COLLISION, WRITTEN DOWN. A
+        // provider accepts a second connector on one tunnel and routes each
+        // request to whichever is nearer, with no error - so two flights holding
+        // two slots that spell the same name serve each other's previews.
+        foreach (var (pattern, key) in (( string Pattern, string Key )[])
+                 [
+                     (exposure.Inventory.Hostnames, "inventory.hostnames"),
+                     (exposure.Inventory.Credentials, "inventory.credentials"),
+                 ])
+        {
+            if (string.IsNullOrWhiteSpace(pattern))
+            {
+                return $"{key} says nothing, so no slot has one.";
+            }
+
+            if (!pattern.Contains(SlotToken, StringComparison.Ordinal))
+            {
+                return $"{key} is '{pattern}', which is one value for every slot. Put "
+                     + $"{SlotToken} in it so each slot has its own - two slots that spell the "
+                     + "same name are two flights serving each other's work.";
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Which field widens, and why, or null when the change only ever removes.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Almost every edit here widens, and that is the honest answer rather
+    /// than a cautious one.</b> Growing the inventory adds addresses. Moving the
+    /// hostname pattern moves every address at once, to names nobody has
+    /// registered with any identity provider. Moving the credential pattern
+    /// points every slot at secrets nobody has placed. Changing the kind changes
+    /// what is dialled. None can be shown to reduce anything.
+    /// </para>
+    /// <para>
+    /// <b>Shrinking the inventory is the one edit that only removes</b>, so it
+    /// tightens - and it has to, because a tightening a tenant must ask
+    /// permission for is a tenant who stops tightening.
+    /// </para>
+    /// </remarks>
+    public static (string Field, string Because)? Widening(Exposure prior, Exposure proposed)
+    {
+        ArgumentNullException.ThrowIfNull(prior);
+        ArgumentNullException.ThrowIfNull(proposed);
+
+        if (!string.Equals(prior.Kind, proposed.Kind, StringComparison.Ordinal))
+        {
+            return ("kind",
+                $"it stops arranging '{prior.Kind}' and starts arranging '{proposed.Kind}', "
+              + "which is a different thing dialled from every runner that serves a preview.");
+        }
+
+        if (proposed.Inventory.Size > prior.Inventory.Size)
+        {
+            return ("inventory.size",
+                $"it goes from {prior.Inventory.Size} addresses to {proposed.Inventory.Size}, "
+              + "and the new ones are reachable the moment a flight is granted one.");
+        }
+
+        if (!string.Equals(
+                prior.Inventory.Hostnames, proposed.Inventory.Hostnames, StringComparison.Ordinal))
+        {
+            return ("inventory.hostnames",
+                $"it moves every address from '{prior.Inventory.Hostnames}' to "
+              + $"'{proposed.Inventory.Hostnames}' at once, and no identity provider has been "
+              + "told to expect the new ones.");
+        }
+
+        if (!string.Equals(
+                prior.Inventory.Credentials,
+                proposed.Inventory.Credentials,
+                StringComparison.Ordinal))
+        {
+            return ("inventory.credentials",
+                $"it points every slot at '{proposed.Inventory.Credentials}' instead of "
+              + $"'{prior.Inventory.Credentials}', which is a set of secrets somebody has to "
+              + "have placed for any preview to appear at all.");
+        }
+
+        return null;
+    }
 }
 
 /// <summary>How many addresses an exposure has, and how each one is spelled.</summary>

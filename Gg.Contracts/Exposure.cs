@@ -226,3 +226,70 @@ public sealed record ExposureInventory
     /// <summary>The credential reference pattern, e.g. <c>local:exposure/jdapp-{slot}</c>.</summary>
     public required string Credentials { get; init; }
 }
+
+/// <summary>
+/// Where a flight's served port was published: the address a person opens.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The deliverable of a preview, recorded as a fact rather than described in
+/// prose.</b> A gate that asks somebody to look at a preview has to be able to
+/// tell them where it is, and a summary cannot carry that: every reader
+/// truncates one.
+/// </para>
+/// <para>
+/// <b>It names the exposure and the slot as well as the address</b>, because an
+/// address alone cannot be reconciled against an inventory. With them, a reader
+/// can tell a grant still held from one already released — which is the question
+/// asked when a preview stops answering and nobody knows whether the slot is
+/// free.
+/// </para>
+/// <para>
+/// <b>No credential, and no port.</b> The secret that dialled the tunnel stays on
+/// the machine holding it, and the local port a server happened to bind is not a
+/// fact about anything a person can reach.
+/// </para>
+/// </remarks>
+[FactKind(FactKinds.PreviewUrl)]
+[PinnedId("9e2c7b40-53f1-4a86-b0d9-1c48f6a2e735")]
+public sealed record PreviewUrl
+{
+    /// <summary>The address, absolute and https.</summary>
+    public required string Url { get; init; }
+
+    /// <summary>The exposure whose inventory the address came from.</summary>
+    public required string Exposure { get; init; }
+
+    /// <summary>Which slot of that inventory was granted.</summary>
+    public required string Slot { get; init; }
+
+    /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
+    public static string? Validate(PreviewUrl preview)
+    {
+        ArgumentNullException.ThrowIfNull(preview);
+
+        if (!Uri.TryCreate(preview.Url, UriKind.Absolute, out var address))
+        {
+            return "A preview's address is absolute, because a person is going to open it. "
+                 + $"'{preview.Url}' is not, and a browser handed one reads it as a search.";
+        }
+
+        if (!string.Equals(address.Scheme, Uri.UriSchemeHttps, StringComparison.Ordinal))
+        {
+            return $"A preview is served over https and '{preview.Url}' is {address.Scheme}. It "
+                 + "carries the tenant's unreleased interface and whatever data is on its "
+                 + "screen, and every way gg can arrange an exposure serves https.";
+        }
+
+        if (string.IsNullOrWhiteSpace(preview.Exposure))
+        {
+            return "A preview names the exposure its address came from.";
+        }
+
+        return string.IsNullOrWhiteSpace(preview.Slot)
+            ? "A preview names the slot it was granted. An address with no slot behind it "
+            + "cannot be reconciled against an inventory, so nothing could tell a grant still "
+            + "held from one already released."
+            : null;
+    }
+}

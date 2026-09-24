@@ -113,6 +113,13 @@ public static class FactCategories
         // be wrong for a nearer reason than the proposal's - a title is not a
         // property of the source at all.
         [FactKinds.LandingProposal] = Flight,
+
+        // FLIGHT, and the alternative is worth naming. An address is served BY a
+        // machine, so Subject looks tempting - but the slot is granted to this
+        // flight and released when it ends, and the address means nothing about
+        // the machine once it has been. What outlives the flight is the exposure
+        // document, which is not a fact.
+        [FactKinds.PreviewUrl] = Flight,
     };
 
     /// <summary>Whether this family has a decided category. The guard reads it.</summary>

@@ -124,6 +124,22 @@ public static class FactKinds
     public const string HumanAccount = "handoff.account";
 
     /// <summary>
+    /// Where a flight's served port was published, so a person asked to look at
+    /// it can be told where to look.
+    /// </summary>
+    /// <remarks>
+    /// <b>Written because a gate that says "review the preview" without saying
+    /// where is not one anybody can answer.</b> The first ui-preview flight put
+    /// its URL in prose, and every view truncates a summary - so the deliverable
+    /// was readable only by opening a transcript on the runner's own disk.
+    /// <para>
+    /// <b>It names no credential.</b> What crosses is the address a person opens;
+    /// which secret dialled the tunnel stays on the machine that holds it.
+    /// </para>
+    /// </remarks>
+    public const string PreviewUrl = "preview.url";
+
+    /// <summary>
     /// The work kind a classifier nominates for a flight of its own.
     /// </summary>
     /// <remarks>
@@ -198,7 +214,8 @@ public static class FactKinds
          LoopDigest,
          HumanAccount,
          FlightNomination, LoopQuestion, LoopAttended, WorkItemProposal,
-         LandingProposal];
+         LandingProposal,
+         PreviewUrl];
 }
 
 /// <summary>
@@ -379,7 +396,7 @@ public static class FactVocabulary
     /// loop.digest.refusedMoves is empty for such a flight by construction: a
     /// refusal is a tool the envelope did not name, and this envelope named
     /// them all. NO KIND CHANGED.
-    public const string Version = "0.32.0";
+    public const string Version = "0.33.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>
@@ -1056,6 +1073,11 @@ public sealed record FactEnvelope
     /// </summary>
     public LandingProposal? Landing { get; init; }
 
+    /// <summary>
+    /// Populated when <see cref="Kind"/> is <see cref="FactKinds.PreviewUrl"/>.
+    /// </summary>
+    public PreviewUrl? Preview { get; init; }
+
 
     /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
     /// <remarks>
@@ -1103,6 +1125,7 @@ public sealed record FactEnvelope
             (FactKinds.LandingProposal, envelope.Landing is not null),
             (FactKinds.LoopQuestion, envelope.Question is not null),
             (FactKinds.LoopAttended, envelope.Attended is not null),
+            (FactKinds.PreviewUrl, envelope.Preview is not null),
         };
 
         var present = carried.Where(c => c.Present).ToList();

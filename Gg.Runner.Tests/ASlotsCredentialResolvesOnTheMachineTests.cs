@@ -68,7 +68,8 @@ public class ASlotsCredentialResolvesOnTheMachineTests
     {
         internal string? Token { get; private set; }
 
-        public Task<string?> RunAsync(string token, int? port, CancellationToken cancellationToken)
+        public Task<string?> RunAsync(
+            string token, string hostname, int? port, CancellationToken cancellationToken)
         {
             Token = token;
             return Task.FromResult<string?>(null);

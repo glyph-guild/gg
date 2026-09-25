@@ -52,12 +52,16 @@ public class AMachineBringsUpItsSlotTests
 
         internal string? Token { get; private set; }
 
+        internal string? Hostname { get; private set; }
+
         internal int? Port { get; private set; }
 
-        public Task<string?> RunAsync(string token, int? port, CancellationToken cancellationToken)
+        public Task<string?> RunAsync(
+            string token, string hostname, int? port, CancellationToken cancellationToken)
         {
             Dials++;
             Token = token;
+            Hostname = hostname;
             Port = port;
             return Task.FromResult<string?>(null);
         }

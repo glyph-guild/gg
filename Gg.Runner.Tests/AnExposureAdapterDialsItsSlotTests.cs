@@ -141,13 +141,17 @@ public class AnExposureAdapterDialsItsSlotTests
     {
         internal string? Token { get; private set; }
 
+        internal string? Hostname { get; private set; }
+
         internal int? Port { get; private set; }
 
         internal string? Refusal { get; init; }
 
-        public Task<string?> RunAsync(string token, int? port, CancellationToken cancellationToken)
+        public Task<string?> RunAsync(
+            string token, string hostname, int? port, CancellationToken cancellationToken)
         {
             Token = token;
+            Hostname = hostname;
             Port = port;
             return Task.FromResult(Refusal);
         }

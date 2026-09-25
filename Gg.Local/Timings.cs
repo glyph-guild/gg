@@ -132,6 +132,37 @@ public sealed class Timings
     }
 
     /// <summary>
+    /// Records a number rather than a duration.
+    /// </summary>
+    /// <remarks>
+    /// <b>For the things that explain a stall without being one.</b> A thread
+    /// pool with nothing free, a heap that keeps growing: neither takes time
+    /// itself, and both make everything else take time.
+    /// </remarks>
+    public void Count(string what, long value)
+    {
+        if (_write is not { } write)
+        {
+            return;
+        }
+
+        var line = string.Create(
+            CultureInfo.InvariantCulture,
+            $"{DateTimeOffset.UtcNow:HH:mm:ss.fff}  {what,-28} {value,10}");
+
+        lock (_gate)
+        {
+            try
+            {
+                write(line);
+            }
+            catch (Exception)
+            {
+            }
+        }
+    }
+
+    /// <summary>
     /// Measures a block, recording when it leaves.
     /// </summary>
     /// <remarks>

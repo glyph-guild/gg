@@ -69,7 +69,8 @@ public interface IExposureConnector
     /// token's to prevent, and naming a local port does not touch it.
     /// </para>
     /// </remarks>
-    Task<string?> RunAsync(string token, int? port, CancellationToken cancellationToken);
+    Task<string?> RunAsync(
+        string secret, string hostname, int? port, CancellationToken cancellationToken);
 }
 
 /// <summary>Serves a flight's preview at the slot it was granted.</summary>
@@ -121,7 +122,7 @@ public sealed class CloudflareExposureAdapter(IExposureConnector connector)
         }
 
         var refusal = await _connector.RunAsync(
-            request.Secret, request.Preview.Port, cancellationToken);
+            request.Secret, request.Preview.Hostname, request.Preview.Port, cancellationToken);
 
         return refusal is { Length: > 0 }
             ? new ExposureServed

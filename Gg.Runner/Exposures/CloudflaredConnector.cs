@@ -37,10 +37,51 @@ public sealed class CloudflaredConnector : IExposureConnector
     /// <summary>What the binary is called, when nothing says otherwise.</summary>
     private const string Binary = "cloudflared";
 
-    public async Task<string?> RunAsync(
-        string token, int? port, CancellationToken cancellationToken)
+    /// <summary>Where this machine keeps the two files a slot is served from.</summary>
+    /// <remarks>
+    /// <b>Under the user's own cache, not a shared temp.</b> A credentials file
+    /// in a world-writable directory is one another account can replace, and
+    /// the point of writing it at all was to keep the secret out of somewhere
+    /// anybody can read.
+    /// </remarks>
+    private static string Root => Path.Combine(
+        Environment.GetFolderPath(
+            Environment.SpecialFolder.LocalApplicationData,
+            Environment.SpecialFolderOption.DoNotVerify),
+        "good-grief",
+        "exposure");
+
+    /// <summary>Writes a file nobody but this account can read.</summary>
+    /// <remarks>
+    /// The mode is applied to the handle before anything is written, so there
+    /// is no window in which the secret exists at a wider permission. On
+    /// Windows the call is a no-op and the file inherits the directory's ACL,
+    /// which is why the directory is under the user's own profile.
+    /// </remarks>
+    private static async Task WriteOwnerOnlyAsync(
+        string path, string contents, CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(token);
+        var options = new FileStreamOptions
+        {
+            Mode = FileMode.Create,
+            Access = FileAccess.Write,
+            Share = FileShare.None,
+        };
+
+        if (!OperatingSystem.IsWindows())
+        {
+            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        }
+
+        await using var file = new StreamWriter(new FileStream(path, options));
+        await file.WriteAsync(contents.AsMemory(), cancellationToken);
+    }
+
+    public async Task<string?> RunAsync(
+        string secret, string hostname, int? port, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(secret);
+        ArgumentException.ThrowIfNullOrWhiteSpace(hostname);
 
         var start = new ProcessStartInfo(Binary)
         {
@@ -49,27 +90,64 @@ public sealed class CloudflaredConnector : IExposureConnector
             UseShellExecute = false,
         };
 
-        // THE TOKEN IS AN ARGUMENT AND NOT A SHELL STRING. ArgumentList quotes
-        // each member itself, so nothing here is parsed by a shell that could
-        // split or expand it.
         start.ArgumentList.Add("tunnel");
         start.ArgumentList.Add("--no-autoupdate");
         start.ArgumentList.Add("run");
-        start.ArgumentList.Add("--token");
-        start.ArgumentList.Add(token);
 
-        // THE PORT THE TENANT'S DOCUMENT NAMED, when it named one. Measured on
-        // a real tunnel: this overrides the ingress configured at the provider, which is
-        // what lets the document say the number once instead of it living in a
-        // provider's dashboard for every hostname.
-        //
-        // LOOPBACK, ALWAYS. The served app is on this machine; a host part the
-        // runner could vary would let a slot reach something that is not the
-        // flight's own work.
         if (port is { } served)
         {
-            start.ArgumentList.Add("--url");
-            start.ArgumentList.Add($"http://127.0.0.1:{served}");
+            // LOCALLY CONFIGURED, because a provider-managed tunnel ignores what
+            // the machine asks for. Measured on a live tunnel: --url was taken
+            // at startup and replaced a second later by a configuration pushed
+            // from the edge, and that tunnel went on to take three pushed
+            // versions in half an hour - one of which removed its own hostname
+            // rule and left it answering 404.
+            if (TunnelFiles.CredentialsFrom(secret) is not { } credentials)
+            {
+                return "the credential for this slot is not a tunnel token, so no connector "
+                     + "could be configured from it. Its value is not repeated here.";
+            }
+
+            string configPath;
+            try
+            {
+                Directory.CreateDirectory(Root);
+                var credentialsPath = Path.Combine(Root, $"{credentials.TunnelId}.json");
+                configPath = Path.Combine(Root, $"{credentials.TunnelId}.yml");
+
+                // THE SECRET LANDS OWNER-ONLY, and the mode is set BEFORE the
+                // bytes: a file created world-readable and narrowed afterwards
+                // is readable for however long that takes.
+                await WriteOwnerOnlyAsync(credentialsPath, credentials.Json, cancellationToken);
+                await File.WriteAllTextAsync(
+                    configPath,
+                    TunnelFiles.ConfigFor(credentials.TunnelId, credentialsPath, hostname, served),
+                    cancellationToken);
+            }
+            catch (Exception unwritable) when (
+                unwritable is IOException or UnauthorizedAccessException)
+            {
+                return $"this machine could not write the files a connector runs from: "
+                     + unwritable.Message;
+            }
+
+            start.ArgumentList.Clear();
+            foreach (var argument in TunnelFiles.ArgumentsFor(configPath))
+            {
+                start.ArgumentList.Add(argument);
+            }
+        }
+        else
+        {
+            // NO PORT NAMED, so the provider's own ingress decides - which is
+            // what an exposure document that names none is asking for, and what
+            // every document written before the port existed says.
+            //
+            // THE TOKEN IS AN ARGUMENT HERE, and that is the cost of this path:
+            // argv is world-readable through /proc. A document that names its
+            // port does not pay it.
+            start.ArgumentList.Add("--token");
+            start.ArgumentList.Add(secret);
         }
 
         Process? connector;

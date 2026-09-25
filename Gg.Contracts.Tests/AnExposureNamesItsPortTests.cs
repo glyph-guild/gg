@@ -1,3 +1,4 @@
+using Gg.Contracts.Authoring;
 namespace Gg.Contracts.Tests;
 
 /// <summary>
@@ -70,6 +71,45 @@ public class AnExposureNamesItsPortTests
         await Assert.That(Exposure.Validate(With(70000))).IsNotNull()
             .Because("a number no socket can bind is a preview that fails on the machine "
                    + "serving it, hours after the document was written.");
+    }
+
+    [Test]
+    public async Task A_document_can_actually_say_it()
+    {
+        // THE HALF THAT WAS MISSING. The contract grew the field and the YAML
+        // reader was never told, so every document naming a port was refused
+        // at apply with "Unknown key 'port'" - a field nothing could carry.
+        // Found by trying to apply the real one, which is the only place it
+        // could have been found.
+        var read = EnvelopeYaml.ParseExposure("""
+            kind: cloudflare-tunnel
+            inventory:
+              size: 8
+              port: 8080
+              hostnames: "jdapp-{slot}.goodgrief.dev"
+              credentials: "keyvault://ggdev.vault.example/jdapp-{slot}"
+            """);
+
+        await Assert.That(read.Diagnosis).IsNull()
+            .Because($"a document naming a port must apply. Said: {read.Diagnosis}");
+        await Assert.That(read.Exposure!.Inventory.Port).IsEqualTo(8080);
+    }
+
+    [Test]
+    public async Task A_document_naming_none_still_reads()
+    {
+        var read = EnvelopeYaml.ParseExposure("""
+            kind: cloudflare-tunnel
+            inventory:
+              size: 8
+              hostnames: "jdapp-{slot}.goodgrief.dev"
+              credentials: "local:exposure/jdapp-{slot}"
+            """);
+
+        await Assert.That(read.Diagnosis).IsNull();
+        await Assert.That(read.Exposure!.Inventory.Port).IsNull()
+            .Because("every document written before the port existed names none, and absence "
+                   + "means the provider's own ingress decides.");
     }
 
     [Test]

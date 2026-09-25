@@ -66,6 +66,12 @@ public static class ConsoleRefresh
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(on);
 
+        // WHAT THIS TAB COST, when somebody set GG_TIMING. Around the whole
+        // switch so a tab that turns out to be cheap is recorded as cheap -
+        // a diagnostic that only measured the branch already suspected would
+        // confirm whatever it was pointed at.
+        using var measured = Timings.Active.Measure($"refresh.{tab}");
+
         try
         {
             return tab switch
@@ -199,7 +205,10 @@ public static class ConsoleRefresh
         // rule one read over.
         var nominated = data.BoardAsync(cancellationToken: cancellationToken);
 
-        await Task.WhenAll(listing, fleet, waiting, nominated);
+        using (Timings.Active.Measure("refresh.lists", reads: 4))
+        {
+            await Task.WhenAll(listing, fleet, waiting, nominated);
+        }
 
         var flights = (VerbResult.Flights)await listing;
         var runners = (VerbResult.Runners)await fleet;
@@ -209,6 +218,17 @@ public static class ConsoleRefresh
         // A LOG FOR EVERY FLIGHT STILL FLYING, as at boot and for the same
         // reason: those are the only ones whose log can put a row in the queue.
         using var room = new SemaphoreSlim(LogsAtOnce);
+
+        // ONE PER OPEN FLIGHT, AND THE COUNT IS THE POINT. This is the only
+        // phase in the console whose cost grows with the tenant, so a duration
+        // without the number beside it could not say whether it was slow or
+        // simply asked a lot.
+        using var logged = Timings.Active.Measure(
+            "refresh.logs",
+            reads: Timings.Active.Asked
+                ? flights.Value.Flights.Count(
+                    f => f.State == Gg.Contracts.FlightStates.Open)
+                : null);
 
         var reading = flights.Value.Flights
             .Where(flight => flight.State == Gg.Contracts.FlightStates.Open)

@@ -3894,6 +3894,16 @@ public sealed class ConsoleScreen : Window
 
     private void Render()
     {
+        // WHAT A PAINT COSTS, when somebody set GG_TIMING. A render makes no
+        // requests - which is why it reports no count - and the reason to
+        // measure it anyway is that a console reported as unresponsive to
+        // CLICKING is being slow between the reads rather than inside them.
+        //
+        // This is a file append and not a read of anything: the scan in
+        // LiveStreamingTests forbids a network call, a child process and a
+        // credential here, and this is none of the three.
+        using var painted = Timings.Active.Measure($"render.{State.ActiveTab}");
+
         // THE PIXELS STOP, AND THE MOUSE GOES BACK. One paint happens after the
         // key - the one carrying "frozen" on the activity line - and then
         // nothing, because a repaint under a selection is what takes it away.

@@ -196,6 +196,11 @@ public static class ConsoleStart
         var start = current ?? new AppState();
         var partial = new List<string>();
 
+        // THE WHOLE THING, so the phases below can be read against a total. A
+        // sum that does not match its parts is the finding: it means the time
+        // went somewhere nothing measures yet.
+        using var whole = Timings.Active.Measure("boot");
+
         try
         {
             // ROUND ONE: FIVE ANSWERS, NONE OF WHICH IS AN INPUT TO ANY OTHER.
@@ -282,9 +287,13 @@ public static class ConsoleStart
             // five as observed and then raises the first failure, so a control
             // plane nobody can reach still leaves the catch below with nothing
             // dangling behind it.
-            await Task.WhenAll(
-                (Task)listing, fleet, waiting, credentials, identity, allowances,
-                chart, strategies, pools, names, health);
+            using (Timings.Active.Measure("boot.round-one"))
+            {
+                await Task.WhenAll(
+                    (Task)listing, fleet, waiting, credentials, identity, allowances,
+                    chart, strategies, pools, names, health);
+            }
+
 
             var flights = (VerbResult.Flights)await listing;
             var runners = (VerbResult.Runners)await fleet;
@@ -317,6 +326,15 @@ public static class ConsoleStart
             // STILL BOUNDED. One task per flight would open a connection per
             // flight, and a tenant can have any number in the air at once.
             using var room = new SemaphoreSlim(LogsAtOnce);
+
+            // ONE PER OPEN FLIGHT, AND THE COUNT IS THE POINT - the refresh's
+            // own sentence, at the other place that pays this.
+            using var logged = Timings.Active.Measure(
+                "boot.logs",
+                reads: Timings.Active.Asked
+                    ? flights.Value.Flights.Count(
+                        f => f.State == Gg.Contracts.FlightStates.Open)
+                    : null);
 
             var reading = flights.Value.Flights
                 .Where(flight => flight.State == Gg.Contracts.FlightStates.Open)
@@ -415,7 +433,10 @@ public static class ConsoleStart
                     "story", ct => data.StoryAsync(selectedFlight, ct),
                     partial, cancellationToken);
 
-            await Task.WhenAll(seeding, reason, story);
+            using (Timings.Active.Measure("boot.seed-reason-story", reads: 3))
+            {
+                await Task.WhenAll(seeding, reason, story);
+            }
 
             var seed = await seeding is VerbResult.Taken taken ? taken.Value : null;
 

@@ -1201,6 +1201,12 @@ static string RunnerPidPath() =>
 
 static async Task<int> LaunchConsoleAsync()
 {
+    // WHERE THE TIME WENT, when somebody asked for it. Read here and nowhere
+    // else, beside GG_STATE_DUMP below and for the same reason: a person with
+    // a slow console sets one variable, reproduces, and hands back a file.
+    Gg.Console.Timings.Active =
+        Gg.Console.Timings.For(Environment.GetEnvironmentVariable("GG_TIMING"));
+
     // The queue is loaded through the VERBS, so what the console shows is what
     // `gg flights --json` would print. There is no other route to the data.
     var baseAddress = ControlPlaneAddress();

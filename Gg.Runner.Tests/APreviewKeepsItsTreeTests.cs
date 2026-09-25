@@ -1,4 +1,3 @@
-using Gg.Contracts;
 using Gg.Runner.Exposures;
 
 namespace Gg.Runner.Tests;
@@ -31,15 +30,6 @@ namespace Gg.Runner.Tests;
 /// </remarks>
 public class APreviewKeepsItsTreeTests
 {
-    private static LeasePreview Granted() => new()
-    {
-        Exposure = "jdapp",
-        Slot = 1,
-        Hostname = "jdapp-01.goodgrief.dev",
-        Credential = "keyvault://ggdev.vault.example/jdapp-01",
-        Port = 8080,
-    };
-
     [Test]
     public async Task A_flight_serving_a_preview_is_not_released()
     {

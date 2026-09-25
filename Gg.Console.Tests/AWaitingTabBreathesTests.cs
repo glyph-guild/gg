@@ -157,6 +157,33 @@ public class AWaitingTabBreathesTests
     }
 
     [Test]
+    public async Task The_browse_tab_waits_for_its_listing_not_for_being_open()
+    {
+        // OPENING IT IS WHAT STARTS THE READ, so `BrowseVisible' is true for the
+        // whole time the listing is in the air - which is the right answer to
+        // HasRead's question and the wrong one to this.
+        var opened = new AppState { ActiveTab = TabId.Browse, BrowseVisible = true };
+
+        await Assert.That(LoadingArt.Waiting(opened)).IsTrue();
+    }
+
+    [Test]
+    public async Task A_pane_with_something_to_say_is_not_waiting()
+    {
+        // A READ THAT FAILED DOES NOT ARRIVE LATER. Covering its sentence with a
+        // mark meaning "still reading" would hide the one thing that explains
+        // why nothing is coming, and would breathe over it for ever.
+        var failed = new AppState
+        {
+            ActiveTab = TabId.Browse,
+            BrowseVisible = true,
+            Diagnosis = "the tracker refused: no credential for dev.azure.com",
+        };
+
+        await Assert.That(LoadingArt.Waiting(failed)).IsFalse();
+    }
+
+    [Test]
     public async Task A_tab_still_waiting_is()
     {
         var unread = new AppState { ActiveTab = TabId.Flights };

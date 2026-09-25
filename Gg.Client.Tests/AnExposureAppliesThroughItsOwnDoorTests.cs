@@ -30,6 +30,11 @@ public class AnExposureAppliesThroughItsOwnDoorTests
         await using var stub = new StubControlPlane();
         var tree = AnAirspaceTreeOnDisk.WithAnExposure();
 
+        // DECLARED FIRST, because a name the airspace does not hold is refused
+        // before any door is knocked on - which would hide the arm this test
+        // is about.
+        stub.Topology = Holding(stub);
+
         try
         {
             var result = await Build(stub).AirspaceApplyAsync(
@@ -51,6 +56,22 @@ public class AnExposureAppliesThroughItsOwnDoorTests
             tree.Delete(recursive: true);
         }
     }
+
+    private static EnvelopeTopology Holding(StubControlPlane stub) => new()
+    {
+        Names =
+        [
+            .. stub.Topology.Names,
+            new TopologyName
+            {
+                Name = "jdapp",
+                Role = Roles.Exposure,
+                Parent = "root",
+                DeclaredBy = "somebody, earlier",
+                DeclaredAt = DateTimeOffset.UnixEpoch,
+            },
+        ],
+    };
 
     private static ControlPlaneClient Client(StubControlPlane stub) =>
         new(new HttpClient { BaseAddress = new Uri(stub.BaseAddress) });

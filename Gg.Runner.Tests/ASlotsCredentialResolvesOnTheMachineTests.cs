@@ -34,9 +34,14 @@ namespace Gg.Runner.Tests;
 /// <b>Why it is by LOCATOR and not by reference.</b> An exposure's credential is
 /// named by a tenant document, not registered through
 /// <c>gg credential add</c> — so it never appears in <c>lease.Credentials</c>,
-/// and the map built from those references can never contain it. That is the
-/// defect this pins: the grant arrives, the address is granted, and the lookup
-/// misses every time.
+/// and the map built from those references can never contain it.
+/// </para>
+/// <para>
+/// <b>Granted to the MACHINE and brought up on its beat</b>, not handed to a
+/// flight. The first beat is due at <c>DateTimeOffset.MinValue</c>, so it
+/// happens before a machine can claim anything — which is why a flight landing
+/// here finds the address already answering instead of waiting on a connector
+/// somebody spawns mid-flight.
 /// </para>
 /// </remarks>
 public class ASlotsCredentialResolvesOnTheMachineTests
@@ -94,13 +99,6 @@ public class ASlotsCredentialResolvesOnTheMachineTests
         ClassificationRules = ClassificationRules.Default,
         ExpiresAt = T0.AddMinutes(10),
         RenewWithinSeconds = 5,
-        Preview = new LeasePreview
-        {
-            Exposure = "jdapp",
-            Slot = 1,
-            Hostname = "jdapp-01.goodgrief.dev",
-            Credential = Locator,
-        },
         Loop = new LeaseLoop
         {
             LoopId = "implement",
@@ -119,7 +117,18 @@ public class ASlotsCredentialResolvesOnTheMachineTests
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
         var clock = new MovableClock(T0);
-        var protocol = new FakeProtocol();
+        // THE SLOT IS THE MACHINE'S, and it arrives on the beat that fires
+        // before this runner can claim anything.
+        var protocol = new FakeProtocol
+        {
+            Preview = new LeasePreview
+            {
+                Exposure = "jdapp",
+                Slot = 1,
+                Hostname = "jdapp-01.goodgrief.dev",
+                Credential = Locator,
+            },
+        };
         protocol.Claims.Enqueue(new ClaimResult.Granted(ALease(fixture)));
         var observer = new RecordingObserver();
 

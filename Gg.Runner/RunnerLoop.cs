@@ -758,6 +758,25 @@ public sealed class RunnerLoop(
                 offered?.Invoke(carried);
             }
 
+            // THE SLOT THIS MACHINE HOLDS, brought up the first time it is
+            // named and never again. The daemon belongs where the served app
+            // is and is established when the machine is, so a flight landing
+            // here finds the address already answering rather than waiting for
+            // a connector somebody spawns mid-flight.
+            //
+            // ONCE. Two connectors on one token are replicas of one tunnel and
+            // the provider picks between them, so a machine that re-dialled on
+            // every beat would race itself and one of its own connectors would
+            // serve nobody.
+            //
+            // ON EVERY BEAT, FLYING OR IDLE, because a grant that arrives while
+            // this machine is busy is one its next flight needs - and bringing
+            // a tunnel up disturbs nothing that is already running.
+            if (beat.Preview is { } slot && _served is null)
+            {
+                await BringUpAsync(slot, secretFor, connector, cancellationToken);
+            }
+
             // ON EVERY BEAT, FLYING OR IDLE, and that is the whole difference
             // from the offer above it, which waits for idle because acting on
             // one ends the process. A revoked credential is revoked while the
@@ -1491,6 +1510,53 @@ public sealed class RunnerLoop(
         }
 
         return latest;
+    }
+
+    /// <summary>What this machine is serving at, once it has brought it up.</summary>
+    /// <remarks>
+    /// <b>Held for the machine's life, which is the grant's.</b> Not reset
+    /// between flights: the tunnel stays up, and a second flight on this
+    /// machine appears at the same address rather than taking a second slot
+    /// from an inventory somebody has to size.
+    /// </remarks>
+    private Exposures.ExposureServed? _served;
+
+    /// <summary>
+    /// Dials the slot this machine was granted, and remembers where it answered.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nothing here fails a machine.</b> A slot whose credential this
+    /// machine cannot resolve, or a connector that will not start, is a
+    /// preview that is simply absent - and a runner that refused to take work
+    /// over it would stop flying for want of something no flight needed.
+    /// </remarks>
+    private async Task BringUpAsync(
+        Gg.Contracts.LeasePreview slot,
+        Func<string, string?>? secretFor,
+        Exposures.IExposureConnector? connector,
+        CancellationToken cancellationToken)
+    {
+        if (secretFor?.Invoke(slot.Credential) is not { Length: > 0 } secret)
+        {
+            _observer.PreviewUnserved(
+                $"no credential on this machine for '{slot.Credential}', so slot "
+              + $"{Gg.Contracts.Exposure.Slot(slot.Slot)} of '{slot.Exposure}' was not brought up.");
+            return;
+        }
+
+        var served = await new Exposures.CloudflareExposureAdapter(
+                connector ?? new Exposures.CloudflaredConnector())
+            .ServeAsync(
+                new Exposures.ExposureRequest { Preview = slot, Secret = secret },
+                cancellationToken);
+
+        if (served.Url is { Length: > 0 })
+        {
+            _served = served;
+            return;
+        }
+
+        _observer.PreviewUnserved(served.Diagnosis ?? "no address and no diagnosis");
     }
 
     private async Task<CredentialResolutionFailure?> ResolveAsync(
@@ -2380,33 +2446,25 @@ public sealed class RunnerLoop(
         // served is a flight that still did its work; the fact is simply absent,
         // and a gate reading no address says the preview is gone rather than
         // offering a dead one.
-        // ASKED OF THE MACHINE, not looked up among the lease's credentials. An
-        // exposure's locator is a tenant document's and was never registered,
-        // so secretsByLocator cannot contain it - and the composition root is
-        // what knows whether this machine reads a vault, a file, or nothing.
-        if (lease.Preview is { } granted
-            && (secretFor?.Invoke(granted.Credential)) is { Length: > 0 } slotSecret)
+        // REPORTED, NOT DIALLED. The tunnel was brought up when this machine
+        // learned its slot, and is up whether or not a flight is on it - so a
+        // flight says where it can be seen rather than arranging to be seen.
+        //
+        // The address is the one the grant named and never one read back out of
+        // a connector's output, which is how GG-268 came to serve at a name no
+        // identity provider had ever been told about.
+        //
+        // ABSENT IS ORDINARY. A machine holding no slot, or one whose connector
+        // would not start, ships no fact - and a gate reading no address says
+        // the preview is gone rather than offering a dead one.
+        if (_served is { Url: { Length: > 0 } address } served)
         {
-            var served = await new Exposures.CloudflareExposureAdapter(
-                    connector ?? new Exposures.CloudflaredConnector())
-                .ServeAsync(
-                    new Exposures.ExposureRequest { Preview = granted, Secret = slotSecret },
-                    cancellationToken);
-
-            var address = served.Url;
-            if (address is { Length: > 0 })
+            payloads.Add(new FactPayload.Preview(new PreviewUrl
             {
-                payloads.Add(new FactPayload.Preview(new PreviewUrl
-                {
-                    Url = address,
-                    Exposure = served.Exposure,
-                    Slot = served.Slot,
-                }));
-            }
-            else
-            {
-                _observer.PreviewUnserved(served.Diagnosis ?? "no address and no diagnosis");
-            }
+                Url = address,
+                Exposure = served.Exposure,
+                Slot = served.Slot,
+            }));
         }
 
         // STRIPPED BEFORE THE DIGEST, which the types enforce: Digest takes

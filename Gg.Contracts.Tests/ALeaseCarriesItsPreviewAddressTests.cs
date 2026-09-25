@@ -87,15 +87,32 @@ public class ALeaseCarriesItsPreviewAddressTests
     }
 
     [Test]
-    public async Task A_lease_without_one_is_a_flight_that_was_granted_no_preview()
+    public async Task A_beat_without_one_is_a_machine_that_was_granted_no_slot()
     {
-        var members = typeof(LeaseGranted).GetProperties()
+        // ON THE BEAT AND NOT ON THE LEASE, since the grant belongs to the
+        // MACHINE: a tunnel daemon is established where the served app is and
+        // when that machine is, so a flight landing there finds the address
+        // already answering rather than arranging one.
+        var member = typeof(HeartbeatAccepted).GetProperties()
             .Single(p => string.Equals(p.Name, "Preview", StringComparison.Ordinal));
 
-        await Assert.That(Nullable.GetUnderlyingType(members.PropertyType) is not null
-                       || !members.PropertyType.IsValueType).IsTrue()
-            .Because("every flight in the field today was granted none, and a required member "
-                   + "would refuse every lease a control plane wrote before this existed.");
+        await Assert.That(Nullable.GetUnderlyingType(member.PropertyType) is not null
+                       || !member.PropertyType.IsValueType).IsTrue()
+            .Because("every machine in the field today holds none, and a required member "
+                   + "would refuse every beat a control plane answered before this existed.");
+    }
+
+    [Test]
+    public async Task The_lease_no_longer_carries_one()
+    {
+        // ONE SOURCE. A slot readable from two places is two answers the day
+        // either moves, and the runner would have to pick - which is the
+        // "two derivations that agree today" shape this estate keeps finding.
+        await Assert.That(typeof(LeaseGranted).GetProperties()
+                .Any(p => string.Equals(p.Name, "Preview", StringComparison.Ordinal)))
+            .IsFalse()
+            .Because("the grant is the machine's and arrives on its beat, so a copy on the "
+                   + "lease would be a second answer nobody reconciles.");
     }
 
     [Test]

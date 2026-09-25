@@ -56,7 +56,7 @@ public class SignalRidesTheHeartbeatTests
         // reader that took absence for "drop everything" would empty a fleet's
         // credential stores the first time the two repositories were a version
         // apart.
-        foreach (var member in (string[])["Introductions", "Offered", "Forget"])
+        foreach (var member in (string[])["Introductions", "Offered", "Forget", "Preview"])
         {
             var declared = typeof(HeartbeatAccepted).GetProperty(member)!;
 
@@ -68,7 +68,7 @@ public class SignalRidesTheHeartbeatTests
 
         await Assert.That(ProtocolSurface.JsonMembers[typeof(HeartbeatAccepted)])
             .IsEquivalentTo(
-                new[] { "nextHeartbeatSeconds", "introductions", "offered", "forget" });
+                new[] { "nextHeartbeatSeconds", "introductions", "offered", "forget", "preview" });
     }
 
     [Test]

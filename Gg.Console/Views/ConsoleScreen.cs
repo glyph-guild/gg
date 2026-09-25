@@ -155,6 +155,27 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private readonly TableView _flightsTable;
     private readonly TableView _boardTable;
+
+    // WHAT THE FLIGHT PANE LAST SAID, AND WHAT IT SAID IT ABOUT. Building that
+    // pane walks every entry of the selected flight's story - measured at
+    // 23-45ms - and Render fills every pane on every paint whatever tab is
+    // showing, so a person on the board rebuilt it once a second and on every
+    // click to produce text that tab does not display.
+    //
+    // KEYED ON WHAT PaneText.Flight ACTUALLY READS: the flight, the story, the
+    // diagnosis, and whether anything is selected at all - which is Queue.Count
+    // rather than Selected, because Selected is computed and would allocate a
+    // row every paint just to be compared.
+    private string _flightPaneSaid = string.Empty;
+    private Gg.Contracts.FlightSummary? _flightPaneAbout;
+    private Gg.Contracts.FlightStory? _flightPaneStory;
+    private string? _flightPaneDiagnosis;
+    private bool _flightPaneHadNothingSelected = true;
+
+    // AND WHETHER IT NEEDS SAYING AGAIN. Set whenever a paint skipped the pane
+    // because its tab was not showing, so coming back to the queue repaints it
+    // once rather than leaving whatever was on it last.
+    private bool _flightPaneWantsSaying = true;
     private readonly TableView _browseTable;
     private readonly TableView _repositoriesTable;
     private readonly FrameView _runnersPane;
@@ -2419,6 +2440,11 @@ public sealed class ConsoleScreen : Window
             return;
         }
 
+        // THE MOUSE'S OWN PATH. Clicking a row never reaches Dispatch, so a
+        // capture full of paints and empty of `input.' lines says nothing about
+        // whether the clicks arrived. This is where they arrive.
+        using var clicked = Gg.Local.Timings.Active.Measure("input.row-pointed");
+
         var pointed = Reducer.Pointed(State, selection.SelectedCell.Y);
 
         if (ReferenceEquals(pointed, State))
@@ -3821,6 +3847,11 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private void Dispatch(Command command)
     {
+        // WHAT A PERSON ACTUALLY FEELS. Everything else here measures work;
+        // this measures the wait between asking for something and the console
+        // having done it - which is the number somebody means by "laggy".
+        using var acted = Gg.Local.Timings.Active.Measure($"input.{command}");
+
         // ONE DECLARATION, READ HERE. A literal list is what this was, and it
         // silently excluded four commands the shell already had arms for.
         // THE SHELL'S, AND THAT IS THE WHOLE QUESTION AGAIN. It briefly had a
@@ -3892,8 +3923,27 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private bool _mouseIsOurs = true;
 
+    /// <summary>When the last paint began, so the next one can say the period.</summary>
+    /// <remarks>
+    /// <b>The measurement that was missing.</b> Every other number here is the
+    /// duration of something this file chose to wrap, and a console frozen
+    /// BETWEEN two one-millisecond renders reads as two one-millisecond
+    /// renders. Start to start catches that: whatever holds the loop up -
+    /// Terminal.Gui's own draw, which happens after Render returns, input
+    /// handling, or a thread pool with nothing free - lands in this number
+    /// even though nothing here wraps it.
+    /// </remarks>
+    private long _lastPaintBeganAt;
+
     private void Render()
     {
+        if (Gg.Local.Timings.Active.Asked && _lastPaintBeganAt != 0)
+        {
+            Gg.Local.Timings.Active.Took(
+                "paint.period",
+                System.Diagnostics.Stopwatch.GetElapsedTime(_lastPaintBeganAt));
+        }
+
         // WHAT A PAINT COSTS, when somebody set GG_TIMING. A render makes no
         // requests - which is why it reports no count - and the reason to
         // measure it anyway is that a console reported as unresponsive to
@@ -3903,6 +3953,29 @@ public sealed class ConsoleScreen : Window
         // LiveStreamingTests forbids a network call, a child process and a
         // credential here, and this is none of the three.
         using var painted = Gg.Local.Timings.Active.Measure($"render.{State.ActiveTab}");
+
+        // WHAT THE RUNTIME LOOKS LIKE AT THIS PAINT. A loop that wakes every
+        // seven seconds with 2ms of work to show for it is not slow - it is not
+        // being let run, and these say by what. A pool with no worker free is
+        // the shape that starts fast and degrades, because this console blocks
+        // pool threads on reads and abandons them rather than cancelling.
+        if (Gg.Local.Timings.Active.Asked)
+        {
+            System.Threading.ThreadPool.GetAvailableThreads(out var workers, out var io);
+            Gg.Local.Timings.Active.Count("pool.workers-free", workers);
+            Gg.Local.Timings.Active.Count("pool.io-free", io);
+            Gg.Local.Timings.Active.Count("pool.threads", System.Threading.ThreadPool.ThreadCount);
+            Gg.Local.Timings.Active.Count(
+                "pool.queued", System.Threading.ThreadPool.PendingWorkItemCount);
+            Gg.Local.Timings.Active.Count("mem.mb", GC.GetTotalMemory(false) / 1_048_576);
+            Gg.Local.Timings.Active.Count("gc.gen2", GC.CollectionCount(2));
+        }
+
+        // START TO START, so an early return below still leaves a usable
+        // stamp - and so the number includes whatever happens after Render
+        // hands back, which is where the actual drawing is.
+        _lastPaintBeganAt = System.Diagnostics.Stopwatch.GetTimestamp();
+
 
         // THE PIXELS STOP, AND THE MOUSE GOES BACK. One paint happens after the
         // key - the one carrying "frozen" on the activity line - and then
@@ -3930,29 +4003,65 @@ public sealed class ConsoleScreen : Window
             _queue.SelectedItem = Math.Clamp(State.SelectedRow, 0, State.Queue.Count - 1);
         }
 
-        string flightText;
-
-        using (Gg.Local.Timings.Active.Measure("paint.flight-build"))
+        // ONLY WHEN IT IS ON SCREEN. `_flightPane' is added to the queue tab and
+        // to no other, so every paint on any other tab was building this text
+        // and handing it to a Label nobody can see - and handing a large string
+        // to a Label is what costs: measured at 1,933ms for one assignment on a
+        // real tenant, inside a 2,031ms board paint.
+        if (State.ActiveTab == TabId.Queue)
         {
-            flightText = PaneText.Flight(State);
+            var nothingSelected = State.Queue.Count == 0;
+
+            if (_flightPaneWantsSaying
+                || !ReferenceEquals(_flightPaneAbout, State.Flight)
+                || !ReferenceEquals(_flightPaneStory, State.Story)
+                || !ReferenceEquals(_flightPaneDiagnosis, State.Diagnosis)
+                || _flightPaneHadNothingSelected != nothingSelected)
+            {
+                using (Gg.Local.Timings.Active.Measure("paint.flight-build"))
+                {
+                    _flightPaneSaid = PaneText.Flight(State);
+                }
+
+                using (Gg.Local.Timings.Active.Measure("paint.flight-assign"))
+                {
+                    _flight.Text = _flightPaneSaid;
+                }
+
+                _flightPaneAbout = State.Flight;
+                _flightPaneStory = State.Story;
+                _flightPaneDiagnosis = State.Diagnosis;
+                _flightPaneHadNothingSelected = nothingSelected;
+                _flightPaneWantsSaying = false;
+            }
         }
-
-        using (Gg.Local.Timings.Active.Measure("paint.flight-assign"))
+        else
         {
-            _flight.Text = flightText;
+            _flightPaneWantsSaying = true;
         }
 
         // Frozen means the pixels stop moving, so the terminal's own selection
         // can survive being made. Held lines are already kept in the model;
         // this is the half of the promise the view owes.
-        if (!State.Frozen)
+        // THE FLIGHT PANE'S RULE, AND THE SAME SENTENCE: `_livePane' is on the
+        // live tab and no other, so handing this Label a tail nobody is looking
+        // at buys a layout and nothing else. A tail is the one pane that can be
+        // arbitrarily long, which makes it the worst of the three to paint
+        // blind.
+        if (State.ActiveTab == TabId.Live && !State.Frozen)
         {
-            _live.Text = PaneText.Live(State);
+            using (Gg.Local.Timings.Active.Measure("paint.live-pane"))
+            {
+                _live.Text = PaneText.Live(State);
+            }
         }
 
-        using (Gg.Local.Timings.Active.Measure("paint.browse-pane"))
+        if (State.ActiveTab == TabId.Browse)
         {
-            _browse.Text = PaneText.Browse(State);
+            using (Gg.Local.Timings.Active.Measure("paint.browse-pane"))
+            {
+                _browse.Text = PaneText.Browse(State);
+            }
         }
 
         // THE TABLE WHEN THERE ARE ROWS, THE SENTENCE WHEN THERE ARE NOT. A

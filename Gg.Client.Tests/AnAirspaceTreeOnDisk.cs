@@ -70,6 +70,37 @@ public static class AnAirspaceTreeOnDisk
         return root;
     }
 
+    /// <summary>A working copy holding an exposure and nothing else.</summary>
+    /// <remarks>
+    /// Rendered by the real renderer, so the fixture is what
+    /// <c>gg airspace pull</c> would write and cannot drift from it.
+    /// </remarks>
+    public static DirectoryInfo WithAnExposure(string name = "jdapp")
+    {
+        var root = Directory.CreateTempSubdirectory("gg-tree-");
+
+        Directory.CreateDirectory(Path.Combine(root.FullName, "airspace", "exposures"));
+
+        File.WriteAllText(
+            Path.Combine(root.FullName, "airspace", "exposures", $"{name}.yaml"),
+            Gg.Contracts.EnvelopeText.Render(Exposure()));
+
+        return root;
+    }
+
+    /// <summary>A whole exposure, as a model.</summary>
+    public static Gg.Contracts.Exposure Exposure() => new()
+    {
+        Kind = Gg.Contracts.ExposureKinds.CloudflareTunnel,
+        Inventory = new Gg.Contracts.ExposureInventory
+        {
+            Size = 8,
+            Port = 8080,
+            Hostnames = "jdapp-{slot}.example.dev",
+            Credentials = "keyvault://ggdev.vault.example/jdapp-{slot}",
+        },
+    };
+
     /// <summary>A whole watch, as a model.</summary>
     public static Gg.Contracts.WatchDocument Watch() => new()
     {

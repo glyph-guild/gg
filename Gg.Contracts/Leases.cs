@@ -507,6 +507,29 @@ public sealed record LeaseLoop
     /// </para>
     /// </remarks>
     public LeaseLanding? Landing { get; init; }
+    /// <summary>
+    /// Environment variables the envelope declares for what this flight runs,
+    /// or absent when it declares none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Literals only, and never a secret.</b> An envelope is a git-tracked
+    /// document readable by everyone who can read the airspace, so a value here
+    /// is published to the tenant. The runner places them in the agent's
+    /// environment and nowhere else.
+    /// </para>
+    /// <para>
+    /// <b>They cannot displace what gg put there.</b> A scratch directory and an
+    /// agent's token are placed for reasons a tenant document cannot know
+    /// about; one naming either is ignored rather than obeyed.
+    /// </para>
+    /// <para>
+    /// <b>Nullable, because every envelope written before this declares
+    /// none</b> — and a runner handed none behaves exactly as it did.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<EnvelopeVariable>? Variables { get; init; }
+
 }
 
 /// <summary>

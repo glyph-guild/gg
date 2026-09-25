@@ -39,6 +39,7 @@ public class VariablesReachTheAgentTests
         Moves = [LoopMoves.Read, LoopMoves.Edit],
         WallClock = TimeSpan.FromMinutes(30),
         Task = "make the change",
+        TranscriptPath = "/work/transcript.jsonl",
         Variables = [.. variables.Select(v => new EnvelopeVariable { Name = v.Name, Value = v.Value })],
     };
 

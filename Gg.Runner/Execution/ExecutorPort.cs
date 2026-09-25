@@ -410,6 +410,16 @@ public sealed record ExecutorRequest
     /// anybody follows it.
     /// </remarks>
     public required string TranscriptPath { get; init; }
+    /// <summary>
+    /// Environment variables the envelope declared, or none.
+    /// </summary>
+    /// <remarks>
+    /// <b>Literals only, and never a secret</b> — an envelope is a git-tracked
+    /// document readable by everyone who can read the airspace. They are placed
+    /// in the child's environment and cannot displace what gg put there.
+    /// </remarks>
+    public IReadOnlyList<Gg.Contracts.EnvelopeVariable> Variables { get; init; } = [];
+
 }
 
 /// <summary>What a loop did.</summary>

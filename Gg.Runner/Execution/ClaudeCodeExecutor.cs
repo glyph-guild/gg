@@ -290,6 +290,10 @@ public sealed class ClaudeCodeExecutor(
 
         PlaceToken(info, _agent, token);
         PlaceScratch(info, request);
+
+        // LAST, so the two above win. A tenant's document cannot redirect an
+        // agent's temp files or blank its credential by naming the same thing.
+        PlaceVariables(info, request);
         return info;
     }
 
@@ -312,6 +316,41 @@ public sealed class ClaudeCodeExecutor(
         foreach (var variable in (string[])["TMPDIR", "TMP", "TEMP"])
         {
             info.Environment[variable] = scratch;
+        }
+    }
+
+    /// <summary>
+    /// Places the envelope's variables in the child's environment.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It cannot displace what gg already put there.</b> A scratch directory
+    /// and an agent's token are placed for reasons a tenant document cannot
+    /// know about, so a document naming either is ignored rather than obeyed —
+    /// otherwise a value in a git-tracked file could redirect an agent's temp
+    /// files or blank its credential.
+    /// </para>
+    /// <para>
+    /// <b>Called after those two</b>, which is what makes the rule above
+    /// enforceable rather than stated.
+    /// </para>
+    /// </remarks>
+    /// <remarks>
+    /// <b>Public, unlike the two helpers beside it</b>, because the rule it
+    /// enforces is the one worth asserting directly: a value from a git-tracked
+    /// document must not be able to replace a credential or a scratch
+    /// directory. A test of that through the agent would need an agent.
+    /// </remarks>
+    public static void PlaceVariables(ProcessStartInfo info, ExecutorRequest request)
+    {
+        foreach (var declared in request.Variables)
+        {
+            if (info.Environment.ContainsKey(declared.Name))
+            {
+                continue;
+            }
+
+            info.Environment[declared.Name] = declared.Value;
         }
     }
 

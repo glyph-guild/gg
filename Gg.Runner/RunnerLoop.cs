@@ -2161,6 +2161,12 @@ public sealed class RunnerLoop(
             // THE SAME DISPOSITION. Already rendered by the contract; the runner
             // hands it over and the prompt says whose words it holds.
             ResumesFrom = loop.ResumesFrom,
+            // AND WHAT THE ENVELOPE SETS ON WHAT THIS FLIGHT RUNS. Carried, not
+            // interpreted: the runner places them in the agent's environment and
+            // reads none of them. They cannot displace a scratch directory or an
+            // agent's token, which gg puts there for reasons a tenant document
+            // cannot know about.
+            Variables = loop.Variables ?? [],
             // AND AGAIN, for the operator's standing instructions. Composed
             // and rendered control-plane-side in layer order with each block's
             // provenance attached, so re-wrapping or re-ordering here would be

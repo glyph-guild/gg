@@ -67,7 +67,16 @@ public class TheInstallerVerifiesWhatItInstallsTests
         var installed = await box.RunAsync("--version", "0.42.0");
 
         await Assert.That(installed.Exit).IsEqualTo(0).Because(installed.Output);
-        await Assert.That(box.GgArguments()).IsEmpty()
+        // THE RULE ITSELF, rather than a proxy for it. This asked for NO gg
+        // invocation at all, which held the rule by holding something stricter
+        // - and then refused the installer recording where this machine's
+        // updates come from, which makes no service and is the one thing only
+        // the installer knows. The Windows half of this file already says it
+        // directly (`DoesNotContain("service install")'); this is the same
+        // sentence on the same subject.
+        await Assert.That(box.GgArguments().Where(
+                said => said.Contains("service", StringComparison.Ordinal)))
+            .IsEmpty()
             .Because("nothing on a laptop is a service, and a service install here would "
                    + "make one - a gg user, a unit, and a runner nobody asked for.");
         await Assert.That(installed.Output).Contains("not a runner")
@@ -123,7 +132,12 @@ public class TheInstallerVerifiesWhatItInstallsTests
         var installed = await box.RunAsync("--version", "0.42.0", "--control-plane", ControlPlane);
 
         await Assert.That(installed.Exit).IsEqualTo(0).Because(installed.Output);
-        await Assert.That(box.GgArguments())
+        // THE SERVICE INVOCATION, not the whole list. The installer also records
+        // where this machine's updates come from, which is not this test's
+        // subject - and an exact list makes every test here a test of every
+        // other thing the script does.
+        await Assert.That(box.GgArguments().Where(
+                said => said.StartsWith("service", StringComparison.Ordinal)))
             .IsEquivalentTo((string[])[$"service install --control-plane {ControlPlane}"]);
     }
 
@@ -177,7 +191,8 @@ public class TheInstallerVerifiesWhatItInstallsTests
         await Assert.That(run.Exit).IsNotEqualTo(0).Because(run.Output);
         await Assert.That(Directory.Exists(box.Lib("0.38.0"))).IsFalse();
         await Assert.That(box.Link()).IsNull();
-        await Assert.That(box.GgArguments()).IsEmpty()
+        await Assert.That(box.GgArguments().Where(
+                said => said.StartsWith("service", StringComparison.Ordinal))).IsEmpty()
             .Because("an unverified gg must not even be run.");
         await Assert.That(box.VerifierArguments())
             .Contains(a => a.StartsWith("attestation verify", StringComparison.Ordinal)
@@ -208,7 +223,8 @@ public class TheInstallerVerifiesWhatItInstallsTests
 
         await Assert.That(refused.Exit).IsNotEqualTo(0).Because(refused.Output);
         await Assert.That(Directory.Exists(tampered.Lib("0.38.0"))).IsFalse();
-        await Assert.That(tampered.GgArguments()).IsEmpty();
+        await Assert.That(tampered.GgArguments().Where(
+            said => said.StartsWith("service", StringComparison.Ordinal))).IsEmpty();
     }
 
     [Test]
@@ -223,7 +239,12 @@ public class TheInstallerVerifiesWhatItInstallsTests
         await Assert.That(first.Exit).IsEqualTo(0).Because(first.Output);
         await Assert.That(File.Exists(Path.Combine(box.Lib("0.38.0"), "gg"))).IsTrue();
         await Assert.That(box.Link()).IsEqualTo("/usr/local/lib/gg/0.38.0/gg");
-        await Assert.That(box.GgArguments())
+        // THE SERVICE INVOCATION, not the whole list. The installer also records
+        // where this machine's updates come from, which is not this test's
+        // subject - and an exact list makes every test here a test of every
+        // other thing the script does.
+        await Assert.That(box.GgArguments().Where(
+                said => said.StartsWith("service", StringComparison.Ordinal)))
             .IsEquivalentTo((string[])[$"service install --control-plane {ControlPlane}"]);
 
         // INSTALLED, as far as the next run can tell: the manifest gg service
@@ -273,8 +294,18 @@ public class TheInstallerVerifiesWhatItInstallsTests
             "--version", "0.38.0", "--control-plane", ControlPlane, "--enroll-file", token);
 
         await Assert.That(run.Exit).IsEqualTo(0).Because(run.Output);
-        await Assert.That(box.GgArguments().Single()).Contains("--enroll");
-        await Assert.That(box.GgArguments().Single()).DoesNotContain("enroll-secret-123");
+        // THE SERVICE INVOCATION, for the reason two tests up: the installer
+        // also records where updates come from, and that is not this test's
+        // subject. What IS its subject is that the token reaches gg on stdin,
+        // so the claim below is about every invocation rather than one.
+        var service = box.GgArguments()
+            .Single(said => said.StartsWith("service", StringComparison.Ordinal));
+
+        await Assert.That(service).Contains("--enroll");
+
+        await Assert.That(box.GgArguments()).DoesNotContain(
+            said => said.Contains("enroll-secret-123", StringComparison.Ordinal))
+            .Because("the token may not reach an argument list, whichever call it is.");
         await Assert.That(box.GgInput().Trim()).IsEqualTo("enroll-secret-123");
         await Assert.That(run.Output).DoesNotContain("enroll-secret-123");
     }

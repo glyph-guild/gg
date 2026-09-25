@@ -3912,9 +3912,13 @@ static async Task<int> UpdateReportAsync(bool json)
     if (plan.NeedsRoot && !Environment.IsPrivilegedProcess)
     {
         Console.WriteLine();
+        // NOT "run it again with sudo". `sudo gg update` reads ROOT's
+        // configuration, so it asks a control plane nobody named and comes back
+        // saying it could not establish a version - which is the least useful
+        // place this can send somebody, and where it used to send them.
         Console.WriteLine(
-            "  This wants a privilege this process does not have. Run it again with sudo, "
-          + "or run these yourself:");
+            "  This wants a privilege this process does not have, and running gg under sudo "
+          + "would read root's configuration rather than yours. Run these yourself:");
         Show(plan);
 
         return ExitCodes.Refused;
@@ -3971,10 +3975,20 @@ static async Task<int> UpdateReportAsync(bool json)
 /// <summary>What the steps are, without running them.</summary>
 static void Show(UpdatePlan plan)
 {
+    // SUDO ON THE LINE THAT NEEDS IT, and on no other. A person copies these;
+    // one that stops halfway on a refused mkdir has been given a broken
+    // instruction, and prefixing them all would ask for a privilege the fetch
+    // does not want.
+    //
+    // ONLY WHEN THIS PROCESS HAS NOT GOT IT. Printed from a privileged run -
+    // --dry-run under sudo - the sudo would be noise about a thing already true.
+    var needed = plan.NeedsRoot && !Environment.IsPrivilegedProcess;
+
     foreach (var step in plan.Steps)
     {
         Console.WriteLine();
-        Console.WriteLine("    " + step.Command);
+        Console.WriteLine(
+            "    " + (needed && step.NeedsRoot ? "sudo " : string.Empty) + step.Command);
     }
 }
 

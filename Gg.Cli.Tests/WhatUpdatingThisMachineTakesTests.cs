@@ -49,6 +49,37 @@ public class WhatUpdatingThisMachineTakesTests
             scratch: "/tmp/gg-install.sh", underSudo: underSudo);
 
     [Test]
+    public async Task The_step_that_writes_usr_local_is_the_one_that_wants_root()
+    {
+        // WHAT KEVIN COPIED AND WHAT HAPPENED. The refusal printed two lines to
+        // run by hand; the second writes /usr/local and neither carried sudo,
+        // so it stopped on `mkdir: Permission denied' halfway through an
+        // update. The fetch wants nothing - it writes a temp file - and
+        // prefixing both would ask for a privilege one of them does not need.
+        var plan = For(InstallKind.Native);
+
+        await Assert.That(plan.Steps.Count).IsEqualTo(2)
+            .Because($"a fetch and a run. Got: {string.Join(" | ", plan.Steps.Select(s => s.Command))}");
+
+        await Assert.That(plan.Steps[0].NeedsRoot).IsFalse()
+            .Because("the fetch writes a temp file that anybody can write.");
+        await Assert.That(plan.Steps[1].NeedsRoot).IsTrue()
+            .Because("this one writes /usr/local, and a person copying it without sudo gets "
+                   + "a refused mkdir partway through replacing their gg.");
+    }
+
+    [Test]
+    public async Task A_local_installer_wants_root_too()
+    {
+        // ONE STEP, AND IT IS THE WRITING ONE. A path is run rather than
+        // fetched, so there is no harmless half to tell it apart from.
+        var plan = For(InstallKind.Native, installer: "/opt/gg/install.sh");
+
+        await Assert.That(plan.Steps.Count).IsEqualTo(1);
+        await Assert.That(plan.Steps[0].NeedsRoot).IsTrue();
+    }
+
+    [Test]
     public async Task Under_sudo_an_unknown_target_says_whose_configuration_it_read()
     {
         // WHAT KEVIN HIT. The unprivileged run printed the two commands to run,

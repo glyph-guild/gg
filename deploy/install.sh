@@ -364,6 +364,41 @@ case ":$PATH:" in
     fi ;;
 esac
 
+# WHERE AN UPDATE COMES FROM, WRITTEN DOWN BY THE ONLY THING THAT KNOWS.
+# `gg update` will not pick an installer for a machine - unset means it says so
+# rather than choosing one - because running an installer gg chose is not the
+# machine's choice. This IS the machine's choice: somebody ran this script.
+# Without it, a machine installed the ordinary way cannot update itself and
+# only finds out when it tries.
+#
+# PINNED TO THE VERSION IT CAME FROM. A machine runs a version somebody named,
+# and this script installs a newer one when run again with a newer --version -
+# so the copy that installed this machine is its updater.
+#
+# AS THE PERSON, NOT AS ROOT, for the PATH block's reason above: gg reads the
+# config belonging to whoever runs it, and under sudo that is root's - which is
+# the very thing that makes `sudo gg update` useless. HOME and XDG_CONFIG_HOME
+# are set for this one call so the file lands in the invoking user's home, and
+# it is made theirs afterwards.
+#
+# A machine with no invoking user - cloud-init, a container - has nobody whose
+# config to write, and says so rather than writing root's.
+if [ -n "$home" ]; then
+  mkdir -p "${root}$home/.config/good-grief"
+
+  if HOME="${root}$home" XDG_CONFIG_HOME="${root}$home/.config" \
+     "$target/gg" config set GG_INSTALLER \
+       "https://github.com/$repo/releases/download/v$version/install.sh" >/dev/null 2>&1
+  then
+    [ -z "$who" ] || chown -R "$who" "${root}$home/.config/good-grief" 2>/dev/null || true
+    printf 'install.sh: `%s update` will run this installer again for the next version.\n' \
+      "$command_name"
+  fi
+else
+  printf 'install.sh: nobody to record an updater for - set GG_INSTALLER before %s update.\n' \
+    "$command_name"
+fi
+
 # AND WHAT A LAPTOP IS: the binary, and nothing running. Said rather than
 # silent, because "did that make me a runner?" is the question somebody has
 # after typing one line - and because the default control plane is localhost,

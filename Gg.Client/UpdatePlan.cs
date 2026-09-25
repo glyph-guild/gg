@@ -21,7 +21,7 @@ namespace Gg.Client;
 /// </para>
 /// </remarks>
 public sealed record UpdateStep(
-    string Program, IReadOnlyList<string> Arguments, string Because)
+    string Program, IReadOnlyList<string> Arguments, string Because, bool NeedsRoot = false)
 {
     /// <summary>
     /// What to show a person, and never what is executed.
@@ -306,7 +306,8 @@ public static class UpdatePlans
                     from,
                     ["--version", target],
                     "the installer verifies the bytes against an attestation before writing "
-                  + "any, installs beside what is there, and swaps the link by rename"),
+                  + "any, installs beside what is there, and swaps the link by rename",
+                    NeedsRoot: true),
             ]
             :
             [
@@ -315,11 +316,16 @@ public static class UpdatePlans
                     ["-fsSL", "-o", scratch, from],
                     "the installer comes from where this machine's own configuration says, "
                   + "which is the same choice its operator made installing it"),
+                // AND THIS ONE ALONE WANTS ROOT. The fetch above writes a temp
+                // file anybody can write; this writes /usr/local. Saying which
+                // is which is the difference between a person copying two lines
+                // that work and one that stops halfway with a mkdir refused.
                 new UpdateStep(
                     "sh",
                     [scratch, "--version", target],
                     "the installer verifies the bytes against an attestation before writing "
-                  + "any, installs beside what is there, and swaps the link by rename"),
+                  + "any, installs beside what is there, and swaps the link by rename",
+                    NeedsRoot: true),
             ];
 
         return new UpdatePlan(

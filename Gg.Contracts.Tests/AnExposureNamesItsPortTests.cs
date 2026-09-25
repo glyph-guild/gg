@@ -113,6 +113,33 @@ public class AnExposureNamesItsPortTests
     }
 
     [Test]
+    public async Task It_survives_a_round_trip_through_the_working_copy()
+    {
+        // THE OTHER HALF OF THE SAME GAP. `gg airspace pull` renders a document
+        // back to the tree, and a writer that dropped the port would silently
+        // delete it from the tenant's file the next time anybody pulled -
+        // leaving the provider's ingress deciding again with nothing to show
+        // what changed.
+        var rendered = EnvelopeText.Render(With(8080));
+        var read = EnvelopeYaml.ParseExposure(rendered);
+
+        await Assert.That(read.Diagnosis).IsNull()
+            .Because($"what the writer produces must be what the reader takes. Said: {read.Diagnosis}");
+        await Assert.That(read.Exposure!.Inventory.Port).IsEqualTo(8080);
+    }
+
+    [Test]
+    public async Task A_round_trip_of_one_naming_none_still_names_none()
+    {
+        var rendered = EnvelopeText.Render(With(null));
+
+        await Assert.That(rendered).DoesNotContain("port:")
+            .Because("a document that named none must not gain one by being written back - "
+                   + "that would change what it means without anybody editing it.");
+        await Assert.That(EnvelopeYaml.ParseExposure(rendered).Exposure!.Inventory.Port).IsNull();
+    }
+
+    [Test]
     public async Task A_granted_slot_carries_the_port()
     {
         var granted = new LeasePreview

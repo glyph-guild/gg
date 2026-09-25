@@ -421,7 +421,7 @@ public static class EnvelopeYaml
         Closed(root, BasedOnKey, "kind", "inventory");
 
         var inventory = RequireMap(Require(root, "inventory"), "inventory");
-        Closed(inventory, "size", "hostnames", "credentials");
+        Closed(inventory, "size", "hostnames", "credentials", "port");
 
         return new Exposure
         {
@@ -432,6 +432,13 @@ public static class EnvelopeYaml
                 Hostnames = RequireScalar(Require(inventory, "hostnames"), "inventory.hostnames"),
                 Credentials =
                     RequireScalar(Require(inventory, "credentials"), "inventory.credentials"),
+
+                // OPTIONAL, and absence means the provider's own ingress
+                // decides - which is what every document written before this
+                // says, and what they must go on meaning.
+                Port = inventory.Entries.TryGetValue("port", out var port)
+                    ? WholeNumber(port, "inventory.port")
+                    : null,
             },
         };
     }

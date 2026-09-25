@@ -1375,6 +1375,14 @@ public sealed class FlightCommands(
                     : document.Watch is { } watch
                     ? await _client.ApplyWatchAsync(
                         Session(), document.Name, watch, cancellationToken)
+                    // AND AN EXPOSURE, which is the same defect a third time.
+                    // Without this arm it reached the envelope door as an empty
+                    // body and was refused for carrying no document at all -
+                    // measured against a live estate, after every unit test
+                    // about exposures passed.
+                    : document.Exposure is { } exposure
+                    ? await _client.ApplyExposureAsync(
+                        Session(), document.Name, exposure, cancellationToken)
                     : await _client.ApplyNamedAsync(
                         Session(), document.Name, Body(document), document.BasedOn,
                         cancellationToken);

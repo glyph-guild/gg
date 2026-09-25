@@ -218,6 +218,9 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// </remarks>
     public List<string> AppliedWatches { get; } = [];
 
+    /// <summary>Exposures this stub was asked to apply, by name.</summary>
+    public List<string> AppliedExposures { get; } = [];
+
     /// <summary>Whether a watch apply answers 202 - a gate.</summary>
     public bool WatchDiverts { get; set; }
 
@@ -742,6 +745,25 @@ public sealed class StubControlPlane : IAsyncDisposable
             case "/v1/airspace/watches":
                 await WriteJsonAsync(context, 200, new WatchList { Watches = Watches });
                 return;
+
+            // AN EXPOSURE'S OWN DOOR, the same shape one class further on.
+            case var exposure when context.Request.HttpMethod == "PUT"
+                && exposure.StartsWith("/v1/airspace/exposures/", StringComparison.Ordinal):
+                {
+                    AppliedExposures.Add(Uri.UnescapeDataString(
+                        exposure["/v1/airspace/exposures/".Length..]));
+
+                    await WriteJsonAsync(
+                        context,
+                        200,
+                        new EnvelopeApplied
+                        {
+                            Version = "jdapp@v1",
+                            AppliedAt = DateTimeOffset.UnixEpoch,
+                            Changed = true,
+                        });
+                    return;
+                }
 
             // A WATCH'S OWN DOOR, on the strategy door's shape one class over.
             case var watch when context.Request.HttpMethod == "PUT"

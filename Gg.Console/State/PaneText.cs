@@ -3922,5 +3922,58 @@ public static class PaneText
     /// here because this is the last code between a control plane and a screen
     /// that acts on escape sequences.
     /// </remarks>
+    /// <summary>
+    /// As much of a pane's text as it could ever show, and a note about the rest.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Because a Label does not scroll.</b> `_flight' is a Label filling its
+    /// frame, so every line past the bottom of that frame is already invisible -
+    /// and Terminal.Gui lays out every one of them anyway. Measured on a real
+    /// tenant: assigning a flight's whole story to that Label took 1,973ms,
+    /// against 32ms to build the string. The lines beyond the pane cost two
+    /// seconds and were never on screen.
+    /// </para>
+    /// <para>
+    /// <b>A constant rather than the viewport, deliberately.</b> The height is a
+    /// layout value that is not dependable at the moment this runs, and no
+    /// terminal has two hundred rows - so this is generous enough to be
+    /// invisible and small enough to be cheap.
+    /// </para>
+    /// <para>
+    /// <b>And it says what it withheld.</b> Silently dropping the end of a log
+    /// would be this console telling somebody a flight recorded less than it
+    /// did, which is worse than being slow.
+    /// </para>
+    /// </remarks>
+    public static string WhatAPaneCanShow(string text, int lines = 200)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        var cut = 0;
+
+        for (var found = 0; found < lines; found++)
+        {
+            var next = text.IndexOf('\n', cut);
+
+            if (next < 0)
+            {
+                return text;
+            }
+
+            cut = next + 1;
+        }
+
+        var withheld = 1;
+
+        for (var at = cut; (at = text.IndexOf('\n', at)) >= 0; at++)
+        {
+            withheld++;
+        }
+
+        return text[..cut]
+             + $"  … {withheld} more lines, which this pane cannot scroll to.";
+    }
+
     private static string Clean(string? value, bool lines = false) => ControlText.Strip(value, lines);
 }

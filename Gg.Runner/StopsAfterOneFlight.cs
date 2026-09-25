@@ -101,6 +101,9 @@ public sealed class StopsAfterOneFlight(IRunnerObserver inner, CancellationToken
 
     public void PreviewUnserved(string diagnosis) => _inner.PreviewUnserved(diagnosis);
 
+    public void PreviewHolds(string address, string flightNumber) =>
+        _inner.PreviewHolds(address, flightNumber);
+
     public void CredentialNotExtended(DateTimeOffset endsAt) =>
         _inner.CredentialNotExtended(endsAt);
 }

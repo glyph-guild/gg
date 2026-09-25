@@ -154,6 +154,16 @@ internal sealed class ConsoleObserver : IRunnerObserver
     public void PreviewUnserved(string diagnosis) =>
         System.Console.WriteLine($"the preview could not be served: {diagnosis}");
 
+    /// <summary>
+    /// Why this machine is taking no work, which is the sentence an operator
+    /// needs: a runner that goes quiet without saying why reads as broken.
+    /// </summary>
+    public void PreviewHolds(string address, string flightNumber) =>
+        System.Console.WriteLine(
+            $"holding for {flightNumber}'s preview at {address}. This machine keeps beating "
+          + "and takes no work until that flight's gate is answered - what it is serving is "
+          + "somebody's unreviewed work, on this tree and this port.");
+
     public void CredentialNotExtended(DateTimeOffset endsAt) =>
         System.Console.WriteLine(
             $"this runner's credential ends at {endsAt:yyyy-MM-dd HH:mm}Z and the control plane "

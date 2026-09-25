@@ -508,6 +508,9 @@ internal sealed class RecordingObserver : IRunnerObserver
 
     public void PreviewUnserved(string diagnosis) => Record($"preview-unserved:{diagnosis}");
 
+    public void PreviewHolds(string address, string flightNumber) =>
+        Record($"preview-holds:{flightNumber}:{address}", lifecycle: false);
+
     /// <summary>A credential that will not be extended, by the date it ends.</summary>
     public void CredentialNotExtended(DateTimeOffset endsAt) =>
         Record($"not-extended:{endsAt:O}");

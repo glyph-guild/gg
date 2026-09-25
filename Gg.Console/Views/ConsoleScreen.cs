@@ -4020,7 +4020,7 @@ public sealed class ConsoleScreen : Window
             {
                 using (Gg.Local.Timings.Active.Measure("paint.flight-build"))
                 {
-                    _flightPaneSaid = PaneText.Flight(State);
+                    _flightPaneSaid = PaneText.WhatAPaneCanShow(PaneText.Flight(State));
                 }
 
                 using (Gg.Local.Timings.Active.Measure("paint.flight-assign"))

@@ -263,7 +263,7 @@ public class AWaitingTabBreathesTests
         {
             ActiveTab = TabId.Browse,
             BrowseVisible = true,
-            Diagnosis = "the tracker refused: no credential for dev.azure.com",
+            Diagnosis = "the tracker refused: this machine holds no credential for it",
         };
 
         await Assert.That(LoadingArt.Waiting(failed)).IsFalse();

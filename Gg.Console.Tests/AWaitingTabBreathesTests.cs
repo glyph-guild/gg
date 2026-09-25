@@ -29,15 +29,15 @@ namespace Gg.Console.Tests;
 public class AWaitingTabBreathesTests
 {
     [Test]
-    public async Task It_is_a_gg()
+    public async Task It_is_a_large_gg()
     {
-        // THE ONE ASSERTION ABOUT THE SHAPE. Two glyphs, which is what the
-        // product is called - a single g would be a different mark.
-        var art = LoadingArt.Of(0);
-
-        await Assert.That(art).IsNotEmpty();
-        await Assert.That(art.Count).IsGreaterThan(4)
-            .Because("it was asked to be large, and four rows is a word rather than a mark.");
+        // TWO GLYPHS, which is what the product is called - a single g would be
+        // a different mark - and a lower-case g: a bowl, a stem down its right
+        // side, and a tail that hooks back left under it.
+        await Assert.That(LoadingArt.Mark).IsNotEmpty();
+        await Assert.That(LoadingArt.Mark.Count).IsGreaterThanOrEqualTo(10)
+            .Because("a descender needs rows under the bowl, so a short mark cannot be "
+                   + "a lower-case g at all - it comes out as an o with a nick in it.");
     }
 
     [Test]
@@ -45,14 +45,9 @@ public class AWaitingTabBreathesTests
     {
         // SO THE VIEW CAN CENTRE IT. A ragged frame centres differently line by
         // line, which reads as the mark wobbling rather than breathing.
-        foreach (var tick in (int[])[0, 1, 2, 3, 4, 5, 6, 7])
-        {
-            var art = LoadingArt.Of(tick);
-            var widths = art.Select(line => line.Length).Distinct().ToList();
+        var widths = LoadingArt.Mark.Select(line => line.Length).Distinct().ToList();
 
-            await Assert.That(widths.Count).IsEqualTo(1)
-                .Because($"tick {tick} drew lines of {widths.Count} different widths.");
-        }
+        await Assert.That(widths.Count).IsEqualTo(1);
     }
 
     [Test]
@@ -60,11 +55,45 @@ public class AWaitingTabBreathesTests
     {
         // THE POINT. Something that does not change is a picture, and a picture
         // of a logo in an empty pane says nothing about whether anything is
-        // happening.
-        var first = string.Join('\n', LoadingArt.Of(0));
-        var later = Enumerable.Range(1, 8).Select(t => string.Join('\n', LoadingArt.Of(t)));
+        // happening. The SHAPE holds still and the light on it moves - a mark
+        // whose characters changed would shimmer rather than breathe.
+        var over = Enumerable.Range(0, LoadingArt.Breath).Select(LoadingArt.Glow).ToList();
 
-        await Assert.That(later.Any(frame => frame != first)).IsTrue();
+        await Assert.That(over.Distinct().Count()).IsGreaterThan(8)
+            .Because("a handful of steps is a flicker; smooth means many.");
+        await Assert.That(over.Max()).IsGreaterThan(0.9);
+        await Assert.That(over.Min()).IsLessThan(0.4);
+    }
+
+    [Test]
+    public async Task And_no_step_of_it_is_a_jump()
+    {
+        // WHAT `SMOOTH` MEANS, ASSERTED. Adjacent frames must be close, or the
+        // eye reads the change rather than the movement - which is the whole
+        // difference between breathing and blinking.
+        var steps = Enumerable.Range(0, LoadingArt.Breath + 1)
+            .Select(LoadingArt.Glow)
+            .Zip(Enumerable.Range(1, LoadingArt.Breath + 1).Select(LoadingArt.Glow),
+                 (a, b) => Math.Abs(b - a))
+            .ToList();
+
+        await Assert.That(steps.Max()).IsLessThan(0.1)
+            .Because($"the largest step between frames was {steps.Max():F3}, which is a "
+                   + "visible jolt rather than a breath.");
+    }
+
+    [Test]
+    public async Task And_never_goes_dark_or_over_full()
+    {
+        // A MARK AT ZERO IS A PANE THAT LOOKS EMPTY AGAIN, and over one is a
+        // colour the terminal will clamp somewhere nobody chose.
+        foreach (var tick in (int[])[0, 3, 7, 19, 40, -5, int.MaxValue, int.MinValue])
+        {
+            var glow = LoadingArt.Glow(tick);
+
+            await Assert.That(glow).IsGreaterThanOrEqualTo(0.0);
+            await Assert.That(glow).IsLessThanOrEqualTo(1.0);
+        }
     }
 
     [Test]
@@ -73,10 +102,7 @@ public class AWaitingTabBreathesTests
         // A BREATH, NOT A PROGRESS BAR. It cannot say how far along a read is -
         // nothing here knows - so it must not look like it is counting up to
         // something.
-        var start = string.Join('\n', LoadingArt.Of(0));
-        var round = string.Join('\n', LoadingArt.Of(LoadingArt.Breath));
-
-        await Assert.That(round).IsEqualTo(start);
+        await Assert.That(LoadingArt.Glow(LoadingArt.Breath)).IsEqualTo(LoadingArt.Glow(0));
     }
 
     [Test]
@@ -87,8 +113,8 @@ public class AWaitingTabBreathesTests
         // of them would take the console down while it waited for a read.
         foreach (var tick in (int[])[-1, -7, int.MinValue, int.MaxValue, 99999])
         {
-            await Assert.That(LoadingArt.Of(tick)).IsNotEmpty()
-                .Because($"tick {tick} has to draw something.");
+            await Assert.That(LoadingArt.Glow(tick)).IsGreaterThanOrEqualTo(0.0)
+                .Because($"tick {tick} has to light the mark somehow.");
         }
     }
 

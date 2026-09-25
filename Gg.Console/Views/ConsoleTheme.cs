@@ -246,6 +246,36 @@ public static class ConsoleTheme
         };
     }
 
+    /// <summary>The waiting mark, lit by how far through its breath it is.</summary>
+    /// <remarks>
+    /// <b>The stamp's blue, which is the one this console already uses for a
+    /// mark rather than a message</b> - the version badge in the top right
+    /// corner. A second blue would be a second meaning for the same colour.
+    /// <para>
+    /// <b>Scaled, not swapped.</b> Terminal.Gui takes a true colour, so the
+    /// breath is arithmetic on the channels rather than a step between two
+    /// named colours - which is where the smoothness comes from.
+    /// </para>
+    /// </remarks>
+    public static Scheme Waiting(double glow)
+    {
+        var grounded = Grounded();
+        var normal = grounded.GetAttributeForRole(VisualRole.Normal);
+
+        var lit = Math.Clamp(glow, 0, 1);
+
+        return new Scheme(grounded)
+        {
+            Normal = new Terminal.Gui.Drawing.Attribute(
+                new Color(
+                    (byte)(0x7C * lit),
+                    (byte)(0xB0 * lit),
+                    (byte)(0xCC * lit)),
+                normal.Background,
+                normal.Style),
+        };
+    }
+
     private static Color Halfway(Color from, Color to) => new(
         (byte)((from.R + to.R) / 2),
         (byte)((from.G + to.G) / 2),

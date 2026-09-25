@@ -41,6 +41,92 @@ public class AWaitingTabBreathesTests
     }
 
     [Test]
+    public async Task The_ink_shimmers_but_the_shape_does_not()
+    {
+        // THE SILHOUETTE IS THE MARK. Characters may swap for other characters;
+        // ink may never become space and space may never become ink, because
+        // that is not a shimmer, that is the gg dissolving.
+        foreach (var tick in (int[])[0, 1, 7, 19, 33])
+        {
+            var frame = LoadingArt.Of(tick);
+
+            await Assert.That(frame.Count).IsEqualTo(LoadingArt.Mark.Count);
+
+            for (var row = 0; row < frame.Count; row++)
+            {
+                await Assert.That(frame[row].Length).IsEqualTo(LoadingArt.Mark[row].Length);
+
+                for (var col = 0; col < frame[row].Length; col++)
+                {
+                    await Assert.That(frame[row][col] == ' ')
+                        .IsEqualTo(LoadingArt.Mark[row][col] == ' ')
+                        .Because($"tick {tick} moved the edge at row {row}, column {col}.");
+                }
+            }
+        }
+    }
+
+    [Test]
+    public async Task It_is_still_a_gg_in_every_frame()
+    {
+        // A SHIMMER, NOT NOISE. If most of the ink changed every frame nobody
+        // would read a letter at all - they would read static in the shape of
+        // one, which says "broken" rather than "working".
+        foreach (var tick in (int[])[3, 11, 27])
+        {
+            var frame = LoadingArt.Of(tick);
+
+            var same = frame
+                .SelectMany((line, row) => line.Select((c, col) => (c, row, col)))
+                .Count(at => at.c == LoadingArt.Mark[at.row][at.col]);
+
+            var all = LoadingArt.Mark.Sum(line => line.Length);
+
+            await Assert.That((double)same / all).IsGreaterThan(0.8)
+                .Because($"tick {tick} left only {same} of {all} characters alone.");
+        }
+    }
+
+    [Test]
+    public async Task But_it_does_change()
+    {
+        var frames = Enumerable.Range(0, LoadingArt.Breath)
+            .Select(t => string.Join('\n', LoadingArt.Of(t)))
+            .ToList();
+
+        await Assert.That(frames.Distinct().Count()).IsGreaterThan(20)
+            .Because("a mark that redrew the same characters every frame is the one that "
+                   + "was already there.");
+    }
+
+    [Test]
+    public async Task And_the_same_tick_draws_the_same_frame()
+    {
+        // DETERMINISTIC, so a paint that happens twice does not flicker between
+        // two versions of one moment - and so this can be tested at all.
+        await Assert.That(string.Join('\n', LoadingArt.Of(9)))
+            .IsEqualTo(string.Join('\n', LoadingArt.Of(9)));
+    }
+
+    [Test]
+    public async Task It_settles_as_it_brightens()
+    {
+        // THE TWO MOVEMENTS ARE ONE. Dim and unsettled, bright and still: the
+        // mark reads as resolving into being rather than as a picture with
+        // static thrown over it.
+        var dimmest = LoadingArt.Of(0);
+        var brightest = LoadingArt.Of(LoadingArt.Breath / 2);
+
+        var moved = (IReadOnlyList<string> frame) => frame
+            .SelectMany((line, row) => line.Select((c, col) => (c, row, col)))
+            .Count(at => at.c != LoadingArt.Mark[at.row][at.col]);
+
+        await Assert.That(moved(brightest)).IsLessThan(moved(dimmest))
+            .Because($"brightest moved {moved(brightest)} characters and dimmest "
+                   + $"moved {moved(dimmest)}.");
+    }
+
+    [Test]
     public async Task Every_line_is_the_same_width()
     {
         // SO THE VIEW CAN CENTRE IT. A ragged frame centres differently line by

@@ -214,8 +214,12 @@ internal sealed class FakeProtocol : IRunnerProtocol
             NextHeartbeatSeconds = HeartbeatSeconds,
             Introductions = waiting,
             Offered = Offered,
+            Preview = Preview,
         });
     }
+
+    /// <summary>The slot this fake tells a machine it was granted, or none.</summary>
+    internal LeasePreview? Preview { get; set; }
 
     /// <summary>Every machine reading this fake was handed.</summary>
     internal List<MachineReading> Machines { get; } = [];

@@ -135,6 +135,28 @@ public class AWaitingTabBreathesTests
     }
 
     [Test]
+    public async Task The_queue_waits_for_what_it_is_derived_from()
+    {
+        // AND IT IS NOT Tabs.HasRead HERE. That answers whether arriving must
+        // ASK for something, and for the queue it never does - the boot builds
+        // it. This asks whether there is anything to LOOK at, and a queue whose
+        // flights and fleet have not landed is not an empty queue.
+        var booting = new AppState { ActiveTab = TabId.Queue };
+
+        await Assert.That(LoadingArt.Waiting(booting)).IsTrue()
+            .Because("it spent every boot saying nothing needed anybody.");
+
+        var landed = booting with
+        {
+            Flights = new Gg.Contracts.FlightList { Flights = [] },
+            Runners = new Gg.Contracts.RunnerList { Runners = [] },
+        };
+
+        await Assert.That(LoadingArt.Waiting(landed)).IsFalse()
+            .Because("both answered, and an empty queue is then a fact rather than a gap.");
+    }
+
+    [Test]
     public async Task A_tab_still_waiting_is()
     {
         var unread = new AppState { ActiveTab = TabId.Flights };

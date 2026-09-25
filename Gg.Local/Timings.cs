@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Gg.Console;
+namespace Gg.Local;
 
 /// <summary>
 /// Where the console's time went, when somebody asked.

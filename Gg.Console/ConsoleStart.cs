@@ -199,7 +199,7 @@ public static class ConsoleStart
         // THE WHOLE THING, so the phases below can be read against a total. A
         // sum that does not match its parts is the finding: it means the time
         // went somewhere nothing measures yet.
-        using var whole = Timings.Active.Measure("boot");
+        using var whole = Gg.Local.Timings.Active.Measure("boot");
 
         try
         {
@@ -287,7 +287,7 @@ public static class ConsoleStart
             // five as observed and then raises the first failure, so a control
             // plane nobody can reach still leaves the catch below with nothing
             // dangling behind it.
-            using (Timings.Active.Measure("boot.round-one"))
+            using (Gg.Local.Timings.Active.Measure("boot.round-one"))
             {
                 await Task.WhenAll(
                     (Task)listing, fleet, waiting, credentials, identity, allowances,
@@ -332,9 +332,9 @@ public static class ConsoleStart
             // NOT `using var' - that would close the phase at the end of the
             // METHOD and charge everything after the reads to them, which is
             // exactly the mistake this file's own numbers made first.
-            var logged = Timings.Active.Measure(
+            var logged = Gg.Local.Timings.Active.Measure(
                 "boot.logs",
-                reads: Timings.Active.Asked
+                reads: Gg.Local.Timings.Active.Asked
                     ? flights.Value.Flights.Count(
                         f => f.State == Gg.Contracts.FlightStates.Open)
                     : null);
@@ -346,7 +346,7 @@ public static class ConsoleStart
                     await room.WaitAsync(cancellationToken);
                     try
                     {
-                        using var one = Timings.Active.Measure("read.log");
+                        using var one = Gg.Local.Timings.Active.Measure("read.log");
                         return (flight.FlightId, Answer: await data.LogAsync(
                             flight.FlightId, cancellationToken));
                     }
@@ -440,7 +440,7 @@ public static class ConsoleStart
                     "story", ct => data.StoryAsync(selectedFlight, ct),
                     partial, cancellationToken);
 
-            using (Timings.Active.Measure("boot.seed-reason-story", reads: 3))
+            using (Gg.Local.Timings.Active.Measure("boot.seed-reason-story", reads: 3))
             {
                 await Task.WhenAll(seeding, reason, story);
             }

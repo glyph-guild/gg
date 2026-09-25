@@ -1,4 +1,5 @@
 using Gg.Console;
+using Gg.Local;
 
 namespace Gg.Console.Tests;
 

@@ -104,6 +104,79 @@ public static class LoadingArt
         return Dimmest + ((1 - Dimmest) * wave);
     }
 
+    /// <summary>The ink of the mark, which is what the shimmer draws from.</summary>
+    /// <remarks>
+    /// <b>The mark's own characters and no others.</b> A palette from outside
+    /// it would read as something landing on the letter rather than the letter
+    /// moving, and these already carry the weights a pen leaves - light commas
+    /// and quotes, heavy eights and blocks.
+    /// </remarks>
+    private static readonly char[] Ink =
+        [.. Mark.SelectMany(line => line).Where(c => c != ' ').Distinct().Order()];
+
+    /// <summary>The mark at one tick, with its ink shimmering.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Deterministic, from the tick and the cell.</b> Nothing random is
+    /// kept: the same tick draws the same frame, so a paint that happens twice
+    /// does not flicker between two versions of one moment, and the whole thing
+    /// stays a pure function of state.
+    /// </para>
+    /// <para>
+    /// <b>It settles as it brightens.</b> The share of cells that move is tied
+    /// to the breath and runs the other way, so the mark is unsettled when dim
+    /// and still when full - one movement rather than a picture with static
+    /// thrown over it.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<string> Of(int tick)
+    {
+        var at = ((tick % Breath) + Breath) % Breath;
+        var wave = (1 - Math.Cos(2 * Math.PI * at / Breath)) / 2;
+
+        // HOW MANY MOVE, AT MOST ONE IN FIVE. The test that asks for four in
+        // five left alone is what holds this: past that a person reads static
+        // in the shape of a letter rather than a letter.
+        var churn = (uint)(0.18 * (1 - wave) * uint.MaxValue / 1);
+
+        return
+        [
+            .. Mark.Select((line, row) => string.Create(line.Length, (line, row, at), (span, what) =>
+            {
+                for (var col = 0; col < span.Length; col++)
+                {
+                    var here = what.line[col];
+
+                    span[col] = here == ' ' || Scatter(what.at, what.row, col) >= churn
+                        ? here
+                        : Ink[Scatter(what.at + 7919, what.row, col) % (uint)Ink.Length];
+                }
+            })),
+        ];
+    }
+
+    /// <summary>One number per cell per tick, spread evenly and cheaply.</summary>
+    /// <remarks>
+    /// <b>A mix rather than a Random.</b> An RNG would need somewhere to keep
+    /// its state, and state outside the model is the thing this console does
+    /// not have - so the cell and the moment ARE the seed. Unchecked because
+    /// wrapping is the arithmetic, not an accident.
+    /// </remarks>
+    private static uint Scatter(int tick, int row, int col)
+    {
+        unchecked
+        {
+            var mixed = (uint)((tick * 2654435761u) ^ ((uint)row * 40503u) ^ ((uint)col * 12289u));
+
+            mixed ^= mixed >> 15;
+            mixed *= 2246822519u;
+            mixed ^= mixed >> 13;
+            mixed *= 3266489917u;
+
+            return mixed ^ (mixed >> 16);
+        }
+    }
+
     /// <summary>Whether the tab on screen has anything to show yet.</summary>
     /// <remarks>
     /// <para>

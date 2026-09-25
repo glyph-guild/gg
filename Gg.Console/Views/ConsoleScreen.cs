@@ -2236,9 +2236,9 @@ public sealed class ConsoleScreen : Window
 
             // ONLY THE MARK, NEVER THE SCREEN. A full Render twenty times a
             // second is the cost this console just had taken out of it, put
-            // back for one Label - so this moves the colour and asks for that
-            // one view to be drawn again.
-            _waiting.SetScheme(ConsoleTheme.Waiting(LoadingArt.Glow(State.LoadingPulse)));
+            // back for one Label - so this redraws that one view and nothing
+            // else.
+            Breathe();
             _waiting.SetNeedsDraw();
             return true;
         });
@@ -3988,6 +3988,20 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private long _lastPaintBeganAt;
 
+    /// <summary>Puts the mark where the breath has got to.</summary>
+    /// <remarks>
+    /// <b>Both halves together, because they are one movement.</b> The ink
+    /// shimmers and the light rises, and they are tied to the same tick - the
+    /// mark settles as it brightens. Assigning the text every frame is fine
+    /// HERE and would not be for the flight pane: this is eleven lines, and
+    /// that was a whole flight's story.
+    /// </remarks>
+    private void Breathe()
+    {
+        _waiting.Text = string.Join('\n', LoadingArt.Of(State.LoadingPulse));
+        _waiting.SetScheme(ConsoleTheme.Waiting(LoadingArt.Glow(State.LoadingPulse)));
+    }
+
     private void Render()
     {
         if (Gg.Local.Timings.Active.Asked && _lastPaintBeganAt != 0)
@@ -4014,15 +4028,7 @@ public sealed class ConsoleScreen : Window
 
         if (waiting)
         {
-            // THE TEXT ONLY ONCE. The shape does not change - the light on it
-            // does - so re-assigning it forty times a breath would be the
-            // Label-layout cost this console just spent an evening removing.
-            if (_waiting.Text.Length == 0)
-            {
-                _waiting.Text = string.Join('\n', LoadingArt.Mark);
-            }
-
-            _waiting.SetScheme(ConsoleTheme.Waiting(LoadingArt.Glow(State.LoadingPulse)));
+            Breathe();
         }
 
         if (_waiting.Visible != waiting)

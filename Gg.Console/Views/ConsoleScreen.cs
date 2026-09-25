@@ -3902,7 +3902,7 @@ public sealed class ConsoleScreen : Window
         // This is a file append and not a read of anything: the scan in
         // LiveStreamingTests forbids a network call, a child process and a
         // credential here, and this is none of the three.
-        using var painted = Timings.Active.Measure($"render.{State.ActiveTab}");
+        using var painted = Gg.Local.Timings.Active.Measure($"render.{State.ActiveTab}");
 
         // THE PIXELS STOP, AND THE MOUSE GOES BACK. One paint happens after the
         // key - the one carrying "frozen" on the activity line - and then

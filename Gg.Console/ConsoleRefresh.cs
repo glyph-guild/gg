@@ -70,7 +70,7 @@ public static class ConsoleRefresh
         // switch so a tab that turns out to be cheap is recorded as cheap -
         // a diagnostic that only measured the branch already suspected would
         // confirm whatever it was pointed at.
-        using var measured = Timings.Active.Measure($"refresh.{tab}");
+        using var measured = Gg.Local.Timings.Active.Measure($"refresh.{tab}");
 
         try
         {
@@ -205,7 +205,7 @@ public static class ConsoleRefresh
         // rule one read over.
         var nominated = data.BoardAsync(cancellationToken: cancellationToken);
 
-        using (Timings.Active.Measure("refresh.lists", reads: 4))
+        using (Gg.Local.Timings.Active.Measure("refresh.lists", reads: 4))
         {
             await Task.WhenAll(listing, fleet, waiting, nominated);
         }
@@ -225,9 +225,9 @@ public static class ConsoleRefresh
         // simply asked a lot.
         // NOT `using var', for ConsoleStart's reason: it would charge the
         // folding after the reads to the reads.
-        var logged = Timings.Active.Measure(
+        var logged = Gg.Local.Timings.Active.Measure(
             "refresh.logs",
-            reads: Timings.Active.Asked
+            reads: Gg.Local.Timings.Active.Asked
                 ? flights.Value.Flights.Count(
                     f => f.State == Gg.Contracts.FlightStates.Open)
                 : null);
@@ -239,7 +239,7 @@ public static class ConsoleRefresh
                 await room.WaitAsync(cancellationToken);
                 try
                 {
-                    using var one = Timings.Active.Measure("read.log");
+                    using var one = Gg.Local.Timings.Active.Measure("read.log");
                     return (flight.FlightId, Answer: await data.LogAsync(
                         flight.FlightId, cancellationToken));
                 }

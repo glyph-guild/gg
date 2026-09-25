@@ -1204,13 +1204,21 @@ static async Task<int> LaunchConsoleAsync()
     // WHERE THE TIME WENT, when somebody asked for it. Read here and nowhere
     // else, beside GG_STATE_DUMP below and for the same reason: a person with
     // a slow console sets one variable, reproduces, and hands back a file.
-    Gg.Console.Timings.Active =
-        Gg.Console.Timings.For(Environment.GetEnvironmentVariable("GG_TIMING"));
+    Gg.Local.Timings.Active =
+        Gg.Local.Timings.For(Environment.GetEnvironmentVariable("GG_TIMING"));
 
     // The queue is loaded through the VERBS, so what the console shows is what
     // `gg flights --json` would print. There is no other route to the data.
     var baseAddress = ControlPlaneAddress();
-    using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
+    // EVERY REQUEST, THROUGH ONE HANDLER. The client sends from more than
+    // forty places; timing the ones already suspected is how a measurement
+    // confirms whatever it was pointed at, and the board's reads were not among
+    // the ones this first guessed at.
+    using var http = new HttpClient(
+        new Gg.Local.TimedHttpHandler(new SocketsHttpHandler()))
+    {
+        BaseAddress = new Uri(baseAddress),
+    };
     var client = new ControlPlaneClient(http);
     var sessions = new FileSessionStore();
     var takes = new TakeCommands(client, sessions);

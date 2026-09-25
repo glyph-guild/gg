@@ -126,6 +126,29 @@ public sealed record HeartbeatAccepted
     public OfferedConfiguration? Offered { get; init; }
 
     /// <summary>
+    /// The exposure slot this MACHINE was granted, or absent when it holds none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The machine's, not the flight's.</b> A tunnel daemon belongs where the
+    /// served app is and is established when the machine is — so the grant is
+    /// asked for once, held for as long as the machine lives, and a flight
+    /// landing on it finds the address already answering.
+    /// </para>
+    /// <para>
+    /// <b>ON THE POLL THAT ALREADY EXISTS</b>, for the reason written two
+    /// members up. Nothing connects inbound to a machine, and a route of its own
+    /// would be a second way to reach one.
+    /// </para>
+    /// <para>
+    /// <b>Nullable, and absence is the ordinary answer.</b> Every tenant that
+    /// has declared no exposure sends none, and a machine one version behind
+    /// reads this response exactly as it did before.
+    /// </para>
+    /// </remarks>
+    public LeasePreview? Preview { get; init; }
+
+    /// <summary>
     /// Credentials this runner should no longer hold, by locator, or absent
     /// when there are none.
     /// </summary>
@@ -669,16 +692,6 @@ public sealed record LeaseGranted
     /// </remarks>
     public required IReadOnlyList<CredentialReference> Credentials { get; init; }
 
-    /// <summary>
-    /// Where this flight's preview was granted, or null when it was granted
-    /// none.
-    /// </summary>
-    /// <remarks>
-    /// <b>Null is the ordinary case and always will be.</b> A flight that serves
-    /// nothing was granted no address, and every lease written before this
-    /// member existed says the same thing by saying nothing.
-    /// </remarks>
-    public LeasePreview? Preview { get; init; }
 
     /// <summary>
     /// Repositories on this flight that the control plane could not name a

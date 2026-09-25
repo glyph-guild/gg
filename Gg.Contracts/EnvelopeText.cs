@@ -755,6 +755,15 @@ public static class EnvelopeText
         text.Append($"  hostnames: {Scalar(exposure.Inventory.Hostnames)}\n");
         text.Append($"  credentials: {Scalar(exposure.Inventory.Credentials)}\n");
 
+        // ONLY WHEN THERE IS ONE. A document that named no port must not gain
+        // one by being written back - that changes what it means without
+        // anybody editing it, and absence is what leaves the provider's own
+        // ingress deciding.
+        if (exposure.Inventory.Port is { } port)
+        {
+            text.Append($"  port: {port}\n");
+        }
+
         return text.ToString();
     }
 

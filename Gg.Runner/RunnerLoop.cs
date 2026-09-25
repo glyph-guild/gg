@@ -216,6 +216,16 @@ public interface IRunnerObserver
     void PreviewUnserved(string diagnosis);
 
     /// <summary>
+    /// This machine is out of service because it is serving a preview.
+    /// </summary>
+    /// <remarks>
+    /// Said out loud, because a runner that takes no work and does not say why
+    /// is indistinguishable from one that is broken - which is the reading an
+    /// operator would otherwise reach for.
+    /// </remarks>
+    void PreviewHolds(string address, string flightNumber);
+
+    /// <summary>
     /// This runner's own credential ends on a date and the control plane will
     /// not extend it.
     /// </summary>
@@ -232,6 +242,8 @@ public sealed class SilentObserver : IRunnerObserver
     public void CannotBeFlownByHand(string diagnosis) { }
 
     public void PreviewUnserved(string diagnosis) { }
+
+    public void PreviewHolds(string address, string flightNumber) { }
 
     public void Claimed(LeaseGranted lease) { }
     public void Renewed(string leaseId, DateTimeOffset expiresAt) { }
@@ -3185,7 +3197,27 @@ public sealed class RunnerLoop(
         string disposition = RunnerDisposition.Completed, string? detail = null)
     {
         var expiresAt = lease.ExpiresAt;
-        var until = _clock.UtcNow + HoldFor;
+
+        // A PREVIEW HOLDS ITS MACHINE UNTIL THE GATE IS ANSWERED. The address
+        // points at a server inside this flight's tree, on this flight's port,
+        // so going back for work would pull both out from under the person who
+        // was asked to look at it.
+        //
+        // BOUNDED BY THE LEASE, NOT BY A CLOCK. This loop already stops when a
+        // renewal comes back fenced or gone, which is what happens once the
+        // gate is answered and the flight lands - so the machine is released by
+        // the same event that makes it free, and nothing here polls or is told.
+        //
+        // The machine stays out of service for as long as nobody answers, and
+        // that is the intent rather than an oversight: what it is serving is
+        // somebody's unreviewed work.
+        var holding = Exposures.TreeRetention.HoldsItsMachine(_served);
+        var until = holding ? DateTimeOffset.MaxValue : _clock.UtcNow + HoldFor;
+
+        if (holding)
+        {
+            _observer.PreviewHolds(_served!.Url!, lease.FlightNumber);
+        }
 
         // THE SESSION IS NOT THIS METHOD'S AND NEVER WAS THE HOLD'S. It was
         // made here once, which gave a person a channel that opened only after

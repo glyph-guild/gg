@@ -156,6 +156,12 @@ public static class ConsoleEnvironment
         Of("GG_STATE_DUMP", file, environment,
            "a file this console writes its whole model to on exit, for a bug report. "
          + "It carries work item titles; it does not carry the live channel."),
+
+        Of("GG_TIMING", file, environment,
+           "a file this console appends a line to for every phase it spends time in - "
+         + "what it was, how long it took, and how many calls it made. Written as it "
+         + "goes rather than on exit, so a console somebody had to kill still says "
+         + "where it was. It carries no flight data: phase names, durations and counts."),
     ];
 
     private static EnvironmentSetting Of(

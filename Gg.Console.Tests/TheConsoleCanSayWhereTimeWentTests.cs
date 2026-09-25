@@ -49,7 +49,7 @@ public class TheConsoleCanSayWhereTimeWentTests
 
         timings.Took("boot.round-one", TimeSpan.FromMilliseconds(412));
 
-        await Assert.That(written).HasCount(1);
+        await Assert.That(written.Count).IsEqualTo(1);
         await Assert.That(written[0]).Contains("boot.round-one");
         await Assert.That(written[0]).Contains("412");
     }
@@ -110,7 +110,7 @@ public class TheConsoleCanSayWhereTimeWentTests
                 .Because("a phase that has not finished has no duration to report.");
         }
 
-        await Assert.That(written).HasCount(1);
+        await Assert.That(written.Count).IsEqualTo(1);
         await Assert.That(written[0]).Contains("boot.logs");
         await Assert.That(written[0]).Contains("19");
     }
@@ -139,7 +139,12 @@ public class TheConsoleCanSayWhereTimeWentTests
         // A FULL DISK MUST NOT END A SESSION. The console is already the thing
         // being complained about; taking it down to report on it would be the
         // worst outcome this change could have.
-        var timings = Timings.Writing(_ => throw new IOException("the disk is full"));
+        var attempts = 0;
+        var timings = Timings.Writing(_ =>
+        {
+            attempts++;
+            throw new IOException("the disk is full");
+        });
 
         timings.Took("boot.round-one", TimeSpan.FromMilliseconds(1));
 
@@ -147,8 +152,10 @@ public class TheConsoleCanSayWhereTimeWentTests
         {
         }
 
-        await Assert.That(true).IsTrue()
-            .Because("reaching this line is the assertion - neither call threw.");
+        await Assert.That(attempts).IsEqualTo(2)
+            .Because("both phases reached the writer and neither failure came back out - "
+                   + "a count proves the calls happened where reaching the next line "
+                   + "would only prove they did not throw.");
     }
 
     [Test]

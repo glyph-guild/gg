@@ -553,6 +553,31 @@ public sealed class RunnerLoop(
     /// </remarks>
     public TimeSpan HoldFor { get; init; } = TimeSpan.FromSeconds(10);
 
+    /// <summary>
+    /// How long a machine serving a preview stays out of service, at most.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The gate normally ends this long before the ceiling does.</b> Once it
+    /// is answered the flight lands, the control plane fences the lease, and the
+    /// renewal below returns rather than waiting - so this is what happens when
+    /// nobody answers, not what happens ordinarily.
+    /// </para>
+    /// <para>
+    /// <b>A ceiling rather than for ever, and the difference is a machine that
+    /// comes back.</b> An unbounded hold loses a runner to a gate somebody
+    /// forgot, with one line of explanation and no way out but a restart. It
+    /// also cannot be tested: a fake control plane renews for ever, so the loop
+    /// never leaves - which is how this first appeared, as an eight-minute CI
+    /// job killed at exit 137.
+    /// </para>
+    /// <para>
+    /// <b>Twelve hours</b>, which is a working day either side of a review and
+    /// the same span a member's own credential lasts.
+    /// </para>
+    /// </remarks>
+    public TimeSpan PreviewHoldFor { get; init; } = TimeSpan.FromHours(12);
+
     private readonly IRunnerProtocol _protocol = protocol;
 
     /// <summary>When this runner next owes the control plane a heartbeat.</summary>
@@ -3212,7 +3237,7 @@ public sealed class RunnerLoop(
         // that is the intent rather than an oversight: what it is serving is
         // somebody's unreviewed work.
         var holding = Exposures.TreeRetention.HoldsItsMachine(_served);
-        var until = holding ? DateTimeOffset.MaxValue : _clock.UtcNow + HoldFor;
+        var until = _clock.UtcNow + (holding ? PreviewHoldFor : HoldFor);
 
         if (holding)
         {

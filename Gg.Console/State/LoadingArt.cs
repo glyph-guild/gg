@@ -99,16 +99,34 @@ public static class LoadingArt
         return Dimmest + ((1 - Dimmest) * wave);
     }
 
-    /// <summary>Whether the tab on screen is still waiting for its read.</summary>
+    /// <summary>Whether the tab on screen has anything to show yet.</summary>
     /// <remarks>
-    /// <b><see cref="Tabs.HasRead"/> asked the other way, and never a second
-    /// answer to it.</b> Two notions of "has this arrived" is how a pane comes
-    /// to breathe over a table that is already full.
+    /// <para>
+    /// <b><see cref="Tabs.HasRead"/> for every tab but the queue, and the
+    /// difference is the point.</b> That method answers whether arriving at a
+    /// tab must ASK for something, and for the queue the answer is no - the
+    /// boot builds it, so landing there fetches nothing. `Going back to a tab
+    /// the boot filled asks for nothing' holds that, and it is right.
+    /// </para>
+    /// <para>
+    /// <b>This asks whether there is anything to LOOK at, which for the queue
+    /// is a different question.</b> Its rows are derived - a flight that needs
+    /// somebody, a runner stranded holding one - so until the flight list and
+    /// the fleet have landed the pane is not an empty queue, it is a queue
+    /// nobody has read yet. It spent every boot saying nothing needed anybody.
+    /// </para>
+    /// <para>
+    /// <b>Two questions, and only here.</b> Anywhere else a second notion of
+    /// "has this arrived" is how a pane comes to breathe over a table that is
+    /// already full, so every other tab defers to the one answer.
+    /// </para>
     /// </remarks>
     public static bool Waiting(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return !Tabs.HasRead(state, state.ActiveTab);
+        return state.ActiveTab == TabId.Queue
+            ? state.Flights is null || state.Runners is null
+            : !Tabs.HasRead(state, state.ActiveTab);
     }
 }

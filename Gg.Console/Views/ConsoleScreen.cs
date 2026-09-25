@@ -33,6 +33,11 @@ public sealed class ConsoleScreen : Window
     // than one per tab: what it says does not depend on which tab is waiting,
     // and eight copies would be eight things to keep in step.
     private readonly Label _waiting;
+
+    // WHAT THE MARK IS COVERING, so it can be uncovered. Exactly the views
+    // hidden are the views restored - a blanket "show everything" afterwards
+    // would reveal panes the rest of Render had deliberately hidden.
+    private readonly List<View> _hiddenBehindTheMark = [];
     private readonly Label _live;
     private readonly Label _browse;
     private readonly FrameView _queuePane;
@@ -4023,6 +4028,28 @@ public sealed class ConsoleScreen : Window
         if (_waiting.Visible != waiting)
         {
             _waiting.Visible = waiting;
+        }
+
+        // AND NOTHING ELSE IN THE TAB. A pane still drawing its table headers
+        // and its "nothing needs you" sentence behind the mark is the pane
+        // saying two things at once, and the sentence is the one that is not
+        // true yet. Hidden here, at the end, so every visibility the rest of
+        // Render decided is already settled before this covers it.
+        foreach (var uncovered in _hiddenBehindTheMark)
+        {
+            uncovered.Visible = true;
+        }
+
+        _hiddenBehindTheMark.Clear();
+
+        if (waiting
+            && _tabbed.FirstOrDefault(t => t.Tab == State.ActiveTab).Pane is { } filling)
+        {
+            foreach (var inside in filling.SubViews.Where(v => v.Visible))
+            {
+                inside.Visible = false;
+                _hiddenBehindTheMark.Add(inside);
+            }
         }
 
         // WHAT THE RUNTIME LOOKS LIKE AT THIS PAINT. A loop that wakes every

@@ -2220,7 +2220,7 @@ public sealed class ConsoleScreen : Window
         // A QUARTER SECOND, which is six shades to a breath and a second and a
         // half to come back around: slow enough to read as breathing rather
         // than flickering, quick enough to say something is happening.
-        _app.AddTimeout(TimeSpan.FromMilliseconds(250), () =>
+        _app.AddTimeout(TimeSpan.FromMilliseconds(50), () =>
         {
             if (!LoadingArt.Waiting(State))
             {
@@ -2228,7 +2228,13 @@ public sealed class ConsoleScreen : Window
             }
 
             State = State with { LoadingPulse = State.LoadingPulse + 1 };
-            Render();
+
+            // ONLY THE MARK, NEVER THE SCREEN. A full Render twenty times a
+            // second is the cost this console just had taken out of it, put
+            // back for one Label - so this moves the colour and asks for that
+            // one view to be drawn again.
+            _waiting.SetScheme(ConsoleTheme.Waiting(LoadingArt.Glow(State.LoadingPulse)));
+            _waiting.SetNeedsDraw();
             return true;
         });
 
@@ -4003,7 +4009,15 @@ public sealed class ConsoleScreen : Window
 
         if (waiting)
         {
-            _waiting.Text = string.Join('\n', LoadingArt.Of(State.LoadingPulse));
+            // THE TEXT ONLY ONCE. The shape does not change - the light on it
+            // does - so re-assigning it forty times a breath would be the
+            // Label-layout cost this console just spent an evening removing.
+            if (_waiting.Text.Length == 0)
+            {
+                _waiting.Text = string.Join('\n', LoadingArt.Mark);
+            }
+
+            _waiting.SetScheme(ConsoleTheme.Waiting(LoadingArt.Glow(State.LoadingPulse)));
         }
 
         if (_waiting.Visible != waiting)

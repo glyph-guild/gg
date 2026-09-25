@@ -56,13 +56,13 @@ public class WhatUpdatingThisMachineTakesTests
         // is current could not be established", which is true and useless -
         // under sudo this process reads ROOT's configuration, so the control
         // plane it asks is the default rather than the tenant's.
-        var plan = For(InstallKind.SelfContained, target: null, underSudo: true);
+        var plan = For(InstallKind.Native, target: null, underSudo: true);
 
-        await Assert.That(plan.Can).IsFalse();
-        await Assert.That(plan.Said).Contains("sudo")
+        await Assert.That(plan.CanApply).IsFalse();
+        await Assert.That(plan.Refusal).Contains("sudo")
             .Because("the refusal has to name the thing that caused it, or the obvious next "
                    + "move is to run it under sudo again.");
-        await Assert.That(plan.Said).Contains("without sudo")
+        await Assert.That(plan.Refusal).Contains("WITHOUT sudo")
             .Because("and it has to name the way out, which is to ask as yourself and run "
                    + "the two commands that come back.");
     }
@@ -72,10 +72,10 @@ public class WhatUpdatingThisMachineTakesTests
     {
         // THE OTHER ARM, because a control plane that is simply down is the
         // commoner cause and must not be explained as a privilege mistake.
-        var plan = For(InstallKind.SelfContained, target: null);
+        var plan = For(InstallKind.Native, target: null);
 
-        await Assert.That(plan.Can).IsFalse();
-        await Assert.That(plan.Said).DoesNotContain("sudo");
+        await Assert.That(plan.CanApply).IsFalse();
+        await Assert.That(plan.Refusal).DoesNotContain("sudo");
     }
 
     // ---- what it refuses, and why ----

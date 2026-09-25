@@ -137,7 +137,8 @@ public static class UpdatePlans
         string? target,
         string? installer,
         bool toolPathWritable,
-        string scratch)
+        string scratch,
+        bool underSudo = false)
     {
         ArgumentNullException.ThrowIfNull(shape);
 
@@ -148,8 +149,20 @@ public static class UpdatePlans
         {
             return Cannot(
                 shape, installed, target,
-                "What version is current could not be established, so nothing was moved. "
-              + "This may already be the newest.");
+                underSudo
+                    // WHOSE CONFIGURATION THIS PROCESS READ. Under sudo it is
+                    // root's, where no control plane is named - so the version
+                    // is asked of the default rather than of the tenant, and
+                    // comes back absent. The plain sentence is true here and
+                    // sends somebody to run it under sudo again, which is the
+                    // one thing that cannot work.
+                    ? "What version is current could not be established, so nothing was "
+                    + "moved. This ran under sudo, which reads root's configuration and "
+                    + "not yours - so it asked a control plane nobody named. Run `gg "
+                    + "update` WITHOUT sudo: it cannot move the bytes itself, and it "
+                    + "prints the two commands that can."
+                    : "What version is current could not be established, so nothing was "
+                    + "moved. This may already be the newest.");
         }
 
         // A VERSION, PROVEN, BEFORE IT REACHES AN ARGUMENT LIST. This string

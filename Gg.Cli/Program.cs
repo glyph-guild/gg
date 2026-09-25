@@ -3869,7 +3869,12 @@ static async Task<int> UpdateReportAsync(bool json)
         current,
         Settings.Value("GG_INSTALLER", InForce.Configuration),
         Writable(shape.ToolPath),
-        Path.Combine(Path.GetTempPath(), $"gg-installer-{Environment.ProcessId}"));
+        Path.Combine(Path.GetTempPath(), $"gg-installer-{Environment.ProcessId}"),
+        // SUDO_USER IS SET BY SUDO AND BY NOTHING ELSE, which makes it the one
+        // honest signal that this process is reading somebody else's
+        // configuration. Being root is not the same question: a machine whose
+        // person IS root reads its own.
+        underSudo: Environment.GetEnvironmentVariable("SUDO_USER") is { Length: > 0 });
 
     if (json)
     {

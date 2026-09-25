@@ -80,6 +80,38 @@ public class TheInstallerVerifiesWhatItInstallsTests
     }
 
     [Test]
+    public async Task A_laptop_is_told_where_its_updates_come_from()
+    {
+        // THE GAP A RELEASED BINARY FELL INTO. `gg update' refuses to pick an
+        // installer for a machine - "unset means gg update says so rather than
+        // choosing one" - because running an installer gg chose is not the
+        // machine's choice. This IS the machine's choice: somebody ran this
+        // script. Nothing recorded that, so every machine installed the way the
+        // README says could not update itself and only found out when it tried.
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.42.0"));
+
+        var installed = await box.RunAsync("--version", "0.42.0");
+
+        await Assert.That(installed.Exit).IsEqualTo(0).Because(installed.Output);
+
+        var recorded = box.GgArguments()
+            .Where(said => said.StartsWith("config set GG_INSTALLER", StringComparison.Ordinal))
+            .ToList();
+
+        await Assert.That(recorded.Count).IsEqualTo(1)
+            .Because("the installer knows how this machine was installed and is the only "
+                   + $"thing that does. Said: {string.Join(" | ", box.GgArguments())}");
+
+        // THE VERSION IT CAME FROM, NEVER `latest'. A machine runs a version
+        // somebody named - the rule one test file over - and this script
+        // installs a newer one when it is run again with a newer --version, so
+        // the copy that installed this machine is a perfectly good updater.
+        await Assert.That(recorded[0]).Contains("/v0.42.0/");
+        await Assert.That(recorded[0]).DoesNotContain("latest");
+    }
+
+    [Test]
     public async Task A_control_plane_is_what_makes_it_a_runner()
     {
         // THE OTHER HALF, and the reason the laptop case is safe: every

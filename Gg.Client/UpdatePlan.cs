@@ -273,8 +273,10 @@ public static class UpdatePlans
             return Cannot(
                 shape, installed, target,
                 "This gg is a self-contained binary and no installer is configured for this "
-              + "machine, so there is nowhere to get one from that this machine chose. "
-              + "Configure it and run this again.");
+              + "machine, so there is nowhere to get one from that this machine chose. Name "
+              + "one with `gg config set GG_INSTALLER <path-or-url>` - the install script "
+              + "attached to a release is the one this machine was installed with - and run "
+              + "this again. A machine installed by that script records it from 0.57.0 on.");
         }
 
         // A PATH IS RUN; ANYTHING ELSE IS FETCHED FIRST, AS ITS OWN STEP. A

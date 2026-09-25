@@ -364,6 +364,37 @@ case ":$PATH:" in
     fi ;;
 esac
 
+# WHERE AN UPDATE COMES FROM, WRITTEN DOWN BY THE THING THAT KNOWS. `gg update`
+# refuses to pick an installer for a machine - "unset means gg update says so
+# rather than choosing one" - because running an installer from a URL gg chose
+# is not the machine's choice. This IS the machine's choice: somebody ran this
+# script, so the script records where it came from and the refusal never fires
+# on a machine installed the ordinary way.
+#
+# THE PERSON'S CONFIG, NOT ROOT'S, for the PATH block's reason above: the file
+# lives under the invoking user's home and gg reads the one belonging to
+# whoever runs it. Under sudo that is not $HOME. A machine with no invoking
+# user - cloud-init, a container - gets nothing here and says so, which is the
+# honest outcome: there is nobody whose config to write.
+installer_url="https://github.com/$repo/releases/latest/download/install.sh"
+
+if [ -n "$home" ] && [ -d "$home" ]; then
+  config_dir="${root}$home/.config/good-grief"
+  mkdir -p "$config_dir"
+  "$target/gg" config set GG_INSTALLER "$installer_url" >/dev/null 2>&1 \
+    && installer_written=1 || installer_written=""
+
+  if [ -n "$installer_written" ]; then
+    [ -z "$who" ] || chown -R "$who" "$config_dir" 2>/dev/null || true
+    printf 'install.sh: `%s update` will fetch its installer from the latest release.\n' \
+      "$command_name"
+  fi
+else
+  printf 'install.sh: no invoking user, so nothing recorded where updates come from - set\n'
+  printf '  GG_INSTALLER to an installer this machine chose before `%s update` will run.\n' \
+    "$command_name"
+fi
+
 # AND WHAT A LAPTOP IS: the binary, and nothing running. Said rather than
 # silent, because "did that make me a runner?" is the question somebody has
 # after typing one line - and because the default control plane is localhost,

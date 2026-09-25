@@ -42,10 +42,41 @@ public class WhatUpdatingThisMachineTakesTests
         string? target = "0.49.0",
         string? toolPath = null,
         bool writable = true,
-        string? installer = Installer) =>
+        string? installer = Installer,
+        bool underSudo = false) =>
         UpdatePlans.For(
             new InstallShape(kind, toolPath), installed, target, installer, writable,
-            scratch: "/tmp/gg-install.sh");
+            scratch: "/tmp/gg-install.sh", underSudo: underSudo);
+
+    [Test]
+    public async Task Under_sudo_an_unknown_target_says_whose_configuration_it_read()
+    {
+        // WHAT KEVIN HIT. The unprivileged run printed the two commands to run,
+        // which is right; running `sudo gg update' instead answers "what version
+        // is current could not be established", which is true and useless -
+        // under sudo this process reads ROOT's configuration, so the control
+        // plane it asks is the default rather than the tenant's.
+        var plan = For(InstallKind.SelfContained, target: null, underSudo: true);
+
+        await Assert.That(plan.Can).IsFalse();
+        await Assert.That(plan.Said).Contains("sudo")
+            .Because("the refusal has to name the thing that caused it, or the obvious next "
+                   + "move is to run it under sudo again.");
+        await Assert.That(plan.Said).Contains("without sudo")
+            .Because("and it has to name the way out, which is to ask as yourself and run "
+                   + "the two commands that come back.");
+    }
+
+    [Test]
+    public async Task And_says_the_ordinary_thing_when_it_is_not_sudo()
+    {
+        // THE OTHER ARM, because a control plane that is simply down is the
+        // commoner cause and must not be explained as a privilege mistake.
+        var plan = For(InstallKind.SelfContained, target: null);
+
+        await Assert.That(plan.Can).IsFalse();
+        await Assert.That(plan.Said).DoesNotContain("sudo");
+    }
 
     // ---- what it refuses, and why ----
 

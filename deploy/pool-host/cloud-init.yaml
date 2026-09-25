@@ -110,7 +110,7 @@ runcmd:
   # /usr/local/bin/gg was root-owned and the unit runs as User=gg. A global
   # install would hand that back silently, and every other test on these files
   # would keep passing.
-  - [sh, -c, 'dotnet tool install GlyphGuild.Gg.Cli --version 0.56.0 --tool-path /usr/local/lib/gg']
+  - [sh, -c, 'dotnet tool install GlyphGuild.Gg.Cli --version 0.57.0 --tool-path /usr/local/lib/gg']
   # So that a person who signs in types `gg`, and the unit names an absolute
   # path. Root owns both the link and its target.
   - [ln, -sf, /usr/local/lib/gg/gg, /usr/local/bin/gg]
@@ -158,7 +158,7 @@ runcmd:
   # with no chown in it - which is why the guard against `chown ... gg` did not
   # see it. PoolProvisioningTests now holds the extraction itself.
   - [mkdir, '-p', /opt/gg-pool-host]
-  - [sh, -c, 'curl -fsSL https://github.com/glyph-guild/gg/releases/download/v0.56.0/gg-pool-host.tar.gz | tar xz --no-same-owner -C /opt/gg-pool-host']
+  - [sh, -c, 'curl -fsSL https://github.com/glyph-guild/gg/releases/download/v0.57.0/gg-pool-host.tar.gz | tar xz --no-same-owner -C /opt/gg-pool-host']
 
   # The proxy. Brought up as root, which is why `gg` needs no access to Docker
   # at all - the one thing that talks to the daemon on this machine is this
@@ -197,7 +197,7 @@ final_message: |
   expiry. A host that was down when its credential ran out needs a
   person again.
 
-  This host runs gg 0.56.0 and nothing on it updates itself. `gg` replaces
+  This host runs gg 0.57.0 and nothing on it updates itself. `gg` replaces
   no binary of its own, by design. To move it, a person runs:
 
     dotnet tool update GlyphGuild.Gg.Cli --version <new> --tool-path /usr/local/lib/gg

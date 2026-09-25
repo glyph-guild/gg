@@ -3930,7 +3930,17 @@ public sealed class ConsoleScreen : Window
             _queue.SelectedItem = Math.Clamp(State.SelectedRow, 0, State.Queue.Count - 1);
         }
 
-        _flight.Text = PaneText.Flight(State);
+        string flightText;
+
+        using (Gg.Local.Timings.Active.Measure("paint.flight-build"))
+        {
+            flightText = PaneText.Flight(State);
+        }
+
+        using (Gg.Local.Timings.Active.Measure("paint.flight-assign"))
+        {
+            _flight.Text = flightText;
+        }
 
         // Frozen means the pixels stop moving, so the terminal's own selection
         // can survive being made. Held lines are already kept in the model;
@@ -3940,7 +3950,10 @@ public sealed class ConsoleScreen : Window
             _live.Text = PaneText.Live(State);
         }
 
-        _browse.Text = PaneText.Browse(State);
+        using (Gg.Local.Timings.Active.Measure("paint.browse-pane"))
+        {
+            _browse.Text = PaneText.Browse(State);
+        }
 
         // THE TABLE WHEN THERE ARE ROWS, THE SENTENCE WHEN THERE ARE NOT. A
         // header over no rows claims a read succeeded and found nothing, which
@@ -3949,13 +3962,32 @@ public sealed class ConsoleScreen : Window
         _syncing = true;
         try
         {
-            Fill(_flightsTable, _flights, Rows.Flights(State), Rows.FlightColumns,
-                State.FlightSelected,
-                r => [r.Number, r.State, r.Kind, r.Loop, r.Age, r.Work]);
+            using (Gg.Local.Timings.Active.Measure("paint.flights-table"))
+            {
+                Fill(_flightsTable, _flights, Rows.Flights(State), Rows.FlightColumns,
+                    State.FlightSelected,
+                    r => [r.Number, r.State, r.Kind, r.Loop, r.Age, r.Work]);
+            }
 
-            Fill(_boardTable, _board, Rows.Board(State), Rows.BoardColumns,
-                State.BoardSelected,
-                r => [r.What, r.Subject, r.For, r.State, r.Kind, r.Since, r.Next, r.Cost]);
+            // SPLIT, because "the board render is slow" is two different
+            // findings with two different fixes: deriving the rows is this
+            // console's own code, and filling the table is Terminal.Gui
+            // measuring every cell it was handed.
+            IReadOnlyList<BoardRow> boardRows;
+
+            using (Gg.Local.Timings.Active.Measure("board.rows"))
+            {
+                boardRows = Rows.Board(State);
+            }
+
+            using (Gg.Local.Timings.Active.Measure(
+                       "board.fill",
+                       reads: Gg.Local.Timings.Active.Asked ? boardRows.Count : null))
+            {
+                Fill(_boardTable, _board, boardRows, Rows.BoardColumns,
+                    State.BoardSelected,
+                    r => [r.What, r.Subject, r.For, r.State, r.Kind, r.Since, r.Next, r.Cost]);
+            }
 
             Fill(_browseTable, null, Rows.Browse(State), Rows.BrowseColumns,
                 State.BrowseSelected,

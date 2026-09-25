@@ -1147,7 +1147,15 @@ public sealed class RunnerLoop(
                     // sweep keeps its one good property: every tree under the
                     // working root belongs to a process that is gone, a rule
                     // with no state behind it and therefore no way to be wrong.
-                    if (_landed.Contains(lease.FlightId))
+                    // AND A PREVIEW'S TREE OUTLIVES ITS FLIGHT, because the
+                    // server the address points at is running inside it. The
+                    // ui-preview kind tells an agent to leave that server up,
+                    // and releasing here left a process whose working directory
+                    // the kernel reported as (deleted) - still listening, still
+                    // answering anything already open, and failing every lazy
+                    // import. Measured twice, on GG-268 and GG-303.
+                    if (!Exposures.TreeRetention.MustKeep(
+                            _landed.Contains(lease.FlightId), _served))
                     {
                         _workspace.Release(lease.FlightId);
                     }

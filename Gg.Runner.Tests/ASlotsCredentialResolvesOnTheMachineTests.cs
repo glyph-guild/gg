@@ -137,9 +137,15 @@ public class ASlotsCredentialResolvesOnTheMachineTests
         var connector = new RecordingConnector();
 
         using var stopping = new CancellationTokenSource();
+        // STOPPED AT THE HOLD, NOT AT THE RELEASE. A machine serving an address
+        // now holds its lease until the gate is answered, so "released:" never
+        // arrives and a test waiting for it waits for ever - which is how this
+        // change first showed itself, as an eight-minute CI job killed at
+        // exit 137.
         observer.OnEvent = e =>
         {
-            if (e.StartsWith("released:", StringComparison.Ordinal))
+            if (e.StartsWith("preview-holds:", StringComparison.Ordinal)
+                || e.StartsWith("released:", StringComparison.Ordinal))
             {
                 stopping.Cancel();
             }

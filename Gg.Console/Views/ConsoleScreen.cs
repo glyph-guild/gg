@@ -28,6 +28,11 @@ public sealed class ConsoleScreen : Window
     private readonly IApplication _app;
     private readonly ListView _queue;
     private readonly Label _flight;
+
+    // THE MARK A WAITING TAB BREATHES. One Label over the whole screen rather
+    // than one per tab: what it says does not depend on which tab is waiting,
+    // and eight copies would be eight things to keep in step.
+    private readonly Label _waiting;
     private readonly Label _live;
     private readonly Label _browse;
     private readonly FrameView _queuePane;
@@ -680,6 +685,17 @@ public sealed class ConsoleScreen : Window
         };
         _flight = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
         _flightPane.Add(_flight);
+
+        // CENTRED, AND NOT FOCUSABLE. It is a thing to look at while waiting,
+        // never a thing to land on - a stop in the tab order over a pane that
+        // is about to fill would move somebody's cursor for them.
+        _waiting = new Label
+        {
+            X = Pos.Center(),
+            Y = Pos.Center(),
+            CanFocus = false,
+            Visible = false,
+        };
 
         _livePane = new FrameView
         {
@@ -2139,6 +2155,11 @@ public sealed class ConsoleScreen : Window
         // have dropped the other with nothing failing to compile.
         Add(_bar, _version, _activity, _hints, _hintsStanding, _notifications, _modal);
 
+        // AFTER THE PANES, so it sits over whichever one is waiting rather than
+        // under it. It is the last thing added for the reason `_modal' is near
+        // the end: order here is depth.
+        Add(_waiting);
+
         KeyDown += OnScreenKeyDown;
 
         // AND THE DIALOG, BELOW IT. A key travels from the focused view
@@ -2190,6 +2211,27 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private void Watch()
     {
+        // THE BREATH, AND ONLY WHILE SOMETHING IS WAITING. A tick that painted
+        // regardless would be this console repainting four times a second for
+        // ever - which is the cost just taken out of it, put back for a mark
+        // nobody is looking at. When nothing waits this does one comparison and
+        // returns.
+        //
+        // A QUARTER SECOND, which is six shades to a breath and a second and a
+        // half to come back around: slow enough to read as breathing rather
+        // than flickering, quick enough to say something is happening.
+        _app.AddTimeout(TimeSpan.FromMilliseconds(250), () =>
+        {
+            if (!LoadingArt.Waiting(State))
+            {
+                return true;
+            }
+
+            State = State with { LoadingPulse = State.LoadingPulse + 1 };
+            Render();
+            return true;
+        });
+
         if (_expectations is not null)
         {
             // WHAT THE CONSOLE IS WAITING TO SEE, on AutoRefresh's terms: the
@@ -3953,6 +3995,21 @@ public sealed class ConsoleScreen : Window
         // LiveStreamingTests forbids a network call, a child process and a
         // credential here, and this is none of the three.
         using var painted = Gg.Local.Timings.Active.Measure($"render.{State.ActiveTab}");
+
+        // THE MARK, WHEN THIS TAB HAS NOTHING YET. Tabs.HasRead asked the other
+        // way round - see LoadingArt.Waiting, which is deliberately the only
+        // place that asks, so a pane cannot breathe over a table that arrived.
+        var waiting = LoadingArt.Waiting(State);
+
+        if (waiting)
+        {
+            _waiting.Text = string.Join('\n', LoadingArt.Of(State.LoadingPulse));
+        }
+
+        if (_waiting.Visible != waiting)
+        {
+            _waiting.Visible = waiting;
+        }
 
         // WHAT THE RUNTIME LOOKS LIKE AT THIS PAINT. A loop that wakes every
         // seven seconds with 2ms of work to show for it is not slow - it is not

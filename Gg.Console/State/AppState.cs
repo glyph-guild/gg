@@ -1958,6 +1958,21 @@ public sealed record AppState
     /// <summary>Where the automatic refresh has got to.</summary>
     public RefreshState Refresh { get; init; } = new();
 
+    /// <summary>Which tick of the breath a waiting tab is on.</summary>
+    /// <remarks>
+    /// <b>Here rather than in the view, on <see cref="Refresh"/>'s precedent.</b>
+    /// A countdown in the corner is the same kind of thing - presentation that
+    /// is still state - and this console's rule is that a view holds no truth
+    /// of its own, so that releasing the terminal and rebuilding from the model
+    /// loses nothing.
+    /// <para>
+    /// <b>It only goes up, and is never reset.</b> Wrapping is
+    /// <see cref="LoadingArt.Of"/>'s problem and it is written to take any int,
+    /// which is why that has a test about <see cref="int.MinValue"/>.
+    /// </para>
+    /// </remarks>
+    public int LoadingPulse { get; init; }
+
     /// <summary>Which row of the runners table the cursor is on.</summary>
     /// <remarks>
     /// <b>The model owns it, like the other three tables.</b> The widget will

@@ -190,6 +190,41 @@ State what is red and *why* it is red. A reviewer — human or agent — should 
 able to tell from the log alone that the assertion was wired to something before
 the implementation existed.
 
+### Cutting a release
+
+**Bumping `<VersionPrefix>` in `Directory.Build.props` IS the release.**
+`publish-cli.yml` runs on every push to `main`, reads the declared number and
+derives nothing from the commit count — so a merge that moves it publishes the
+.NET tool to nuget.org and attaches the native binaries to a GitHub release. A
+merge that does not move it publishes nothing.
+
+**The bump alone fails CI**, and that is the ratchet working.
+`TheHostRunbooksNameWhatExistsTests` enumerates every runbook pinned to the
+version, because a runbook pinned to another version installs something the
+fleet no longer runs. At 0.56.0 that was **seven places in three files**:
+
+- `README.md` — four install lines
+- `deploy/pool-host/cloud-init.yaml` — the `dotnet tool install --version`, the
+  `releases/download/v<ver>/gg-pool-host.tar.gz` fetch, and the final message
+  telling an operator which gg the host runs
+- `deploy/member-browser/Dockerfile` — `ARG GG_VERSION`
+
+The test names the ones it found, so read the failure rather than guessing.
+
+**Do not touch `Gg.Contracts/contract-versions.json`.** The contract has its own
+number and its own rules — see the two-versions note under Non-negotiables — and
+it can contain a string that happens to match this one.
+
+**The control plane's advertised version is separate, and hand-set.**
+`Gg__CurrentVersion` on `ca-gg-api` is what `/v1/version` reports and what tells
+a runner an update exists. Move it **after** the release has published:
+
+    gh release view v<ver>          # wait for this to answer
+    az containerapp update -g rg-goodgrief-dev-001 -n ca-gg-api \
+      --set-env-vars Gg__CurrentVersion=<ver>
+
+Setting it first points the fleet at something that does not exist yet.
+
 ### The rules in force
 
 Force pushes blocked · deletions blocked · PR required · `CI` required green ·

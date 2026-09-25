@@ -156,6 +156,12 @@ whichever shape it finds.
 Either way the command is `gg`. The package id is not `gg` because that one is
 taken on nuget.org; the command is unaffected.
 
+## When it feels slow
+
+The console can say where its time went — set `GG_TIMING` to a path and it
+writes a line per phase. See
+[docs/diagnosing-a-slow-console.md](docs/diagnosing-a-slow-console.md).
+
 ## Build
 
 ```sh

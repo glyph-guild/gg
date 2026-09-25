@@ -223,7 +223,9 @@ public static class ConsoleRefresh
         // phase in the console whose cost grows with the tenant, so a duration
         // without the number beside it could not say whether it was slow or
         // simply asked a lot.
-        using var logged = Timings.Active.Measure(
+        // NOT `using var', for ConsoleStart's reason: it would charge the
+        // folding after the reads to the reads.
+        var logged = Timings.Active.Measure(
             "refresh.logs",
             reads: Timings.Active.Asked
                 ? flights.Value.Flights.Count(
@@ -237,6 +239,7 @@ public static class ConsoleRefresh
                 await room.WaitAsync(cancellationToken);
                 try
                 {
+                    using var one = Timings.Active.Measure("read.log");
                     return (flight.FlightId, Answer: await data.LogAsync(
                         flight.FlightId, cancellationToken));
                 }
@@ -248,6 +251,7 @@ public static class ConsoleRefresh
             .ToList();
 
         var fetched = await Task.WhenAll(reading);
+        logged.Dispose();
 
         return state =>
         {

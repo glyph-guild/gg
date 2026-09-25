@@ -329,7 +329,10 @@ public static class ConsoleStart
 
             // ONE PER OPEN FLIGHT, AND THE COUNT IS THE POINT - the refresh's
             // own sentence, at the other place that pays this.
-            using var logged = Timings.Active.Measure(
+            // NOT `using var' - that would close the phase at the end of the
+            // METHOD and charge everything after the reads to them, which is
+            // exactly the mistake this file's own numbers made first.
+            var logged = Timings.Active.Measure(
                 "boot.logs",
                 reads: Timings.Active.Asked
                     ? flights.Value.Flights.Count(
@@ -343,6 +346,7 @@ public static class ConsoleStart
                     await room.WaitAsync(cancellationToken);
                     try
                     {
+                        using var one = Timings.Active.Measure("read.log");
                         return (flight.FlightId, Answer: await data.LogAsync(
                             flight.FlightId, cancellationToken));
                     }
@@ -353,10 +357,13 @@ public static class ConsoleStart
                 })
                 .ToList();
 
+            var answers = await Task.WhenAll(reading);
+            logged.Dispose();
+
             var logs = new Dictionary<string, Gg.Contracts.FlightLog>(
                 start.Logs, StringComparer.Ordinal);
 
-            foreach (var (flightId, answer) in await Task.WhenAll(reading))
+            foreach (var (flightId, answer) in answers)
             {
                 if (answer is VerbResult.Log log)
                 {

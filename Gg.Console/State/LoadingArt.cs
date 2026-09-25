@@ -33,27 +33,32 @@ namespace Gg.Console;
 /// </remarks>
 public static class LoadingArt
 {
-    /// <summary>The mark: two lower-case g's, bowl, stem and tail.</summary>
+    /// <summary>The mark: two g's, cut the way a pen would.</summary>
     /// <remarks>
-    /// <b>A descender is what makes it a g.</b> The bowl is the top six rows,
-    /// the stem runs down the right of it, and the tail hooks back left
-    /// underneath - without those last four rows this is an o with a nick in
-    /// it, which is the first attempt at this and why the test asks for rows.
+    /// <b>Kevin's, character for character, padded to one width.</b> The block
+    /// version before it was legible and flat; this has the weight shifting
+    /// through the stroke the way a nib does, which is what carries the light
+    /// when it breathes. Every line is padded to the widest because centring is
+    /// the view's job and it can only do it against a rectangle.
+    /// <para>
+    /// <b>A descender is still what makes it a g</b>, and here it is the six
+    /// rows under the bowl - the first attempt at this had none and came out an
+    /// o with a nick in it, which is what the test about rows is for.
+    /// </para>
     /// </remarks>
     public static IReadOnlyList<string> Mark { get; } =
     [
-        "   ██████      ██████   ",
-        "  ██    ██    ██    ██  ",
-        " ██      ██  ██      ██ ",
-        " ██      ██  ██      ██ ",
-        " ██      ██  ██      ██ ",
-        " ██      ██  ██      ██ ",
-        "  ██    ██    ██    ██  ",
-        "   ███████     ███████  ",
-        "         ██          ██ ",
-        "         ██          ██ ",
-        " ██      ██  ██      ██ ",
-        "  ███████     ███████   ",
+        "   ,gggg,gg    ,gggg,gg ",
+        "  dP\"  \"Y8I   dP\"  \"Y8I ",
+        " i8'    ,8I  i8'    ,8I ",
+        ",d8,   ,d8I ,d8,   ,d8I ",
+        "P\"Y8888P\"888P\"Y8888P\"888",
+        "       ,d8I'       ,d8I'",
+        "     ,dP'8I      ,dP'8I ",
+        "    ,8\"  8I     ,8\"  8I ",
+        "    I8   8I     I8   8I ",
+        "    `8, ,8I     `8, ,8I ",
+        "     `Y8P\"       `Y8P\"  "
     ];
 
     /// <summary>How many ticks one breath takes.</summary>
@@ -116,17 +121,40 @@ public static class LoadingArt
     /// nobody has read yet. It spent every boot saying nothing needed anybody.
     /// </para>
     /// <para>
-    /// <b>Two questions, and only here.</b> Anywhere else a second notion of
-    /// "has this arrived" is how a pane comes to breathe over a table that is
-    /// already full, so every other tab defers to the one answer.
+    /// <b>Two questions, and two tabs where they differ.</b> The browse tab is
+    /// the other: <c>BrowseVisible</c> is whether the pane was opened, and
+    /// opening it is what starts the read - so it answers HasRead correctly and
+    /// this incorrectly. Everywhere else a second notion of "has this arrived"
+    /// is how a pane comes to breathe over a table that is already full, so
+    /// every other tab defers to the one answer.
     /// </para>
     /// </remarks>
     public static bool Waiting(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return state.ActiveTab == TabId.Queue
-            ? state.Flights is null || state.Runners is null
-            : !Tabs.HasRead(state, state.ActiveTab);
+        // A PANE WITH SOMETHING TO SAY IS NOT A PANE STILL WAITING. A read that
+        // failed leaves its sentence here, and covering that with a mark
+        // meaning "still reading" would hide the one thing that explains why
+        // nothing is coming - and would breathe over it for ever, since a
+        // failed read does not arrive later.
+        if (state.Diagnosis is { Length: > 0 })
+        {
+            return false;
+        }
+
+        return state.ActiveTab switch
+        {
+            // DERIVED, so it has something to show when its inputs land.
+            TabId.Queue => state.Flights is null || state.Runners is null,
+
+            // OPEN IS NOT ARRIVED. `BrowseVisible' is whether the pane was
+            // opened, which is the right answer to HasRead's question and the
+            // wrong one to this: opening it is what STARTS the read, so the
+            // whole time it is in the air the pane was showing its empty words.
+            TabId.Browse => state.Browse is null,
+
+            _ => !Tabs.HasRead(state, state.ActiveTab),
+        };
     }
 }

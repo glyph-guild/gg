@@ -244,3 +244,44 @@ public sealed record FlightNomination
             : null;
     }
 }
+
+/// <summary>
+/// An airspace document a flight drafted, and the name it is for.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>A request, like its neighbour in this file.</b> Nothing here applies
+/// anything: the control plane holds it as a proposal, and the gate the tenant's
+/// own envelope declares is what decides.
+/// </para>
+/// <para>
+/// <b>The role is named though the document implies it.</b> The parser forks by
+/// role and would reach an answer alone - but then a document that parses as the
+/// wrong thing lands as that wrong thing, silently. Naming it lets the two
+/// disagree, and a disagreement is something that can be refused.
+/// </para>
+/// <para>
+/// <b>The text travels whole, unlike a transcript.</b> A transcript is customer
+/// content and crosses as a reference; an airspace document is the tenant's own
+/// governance text, which already crosses whole every time somebody applies one.
+/// No new disposition, and no member a body could hide in that is not already the
+/// document itself.
+/// </para>
+/// <para>
+/// <b>No <c>based-on</c> member, deliberately.</b> The document carries its own,
+/// and a second copy is a second thing to disagree with the first.
+/// </para>
+/// </remarks>
+[FactKind(FactKinds.DocumentProposal)]
+[PinnedId("c02da844-26e8-4d69-99f5-9b5f7186a234")]
+public sealed record DocumentProposal
+{
+    /// <summary>Which role it claims to be, from <see cref="Roles"/>.</summary>
+    public required string Role { get; init; }
+
+    /// <summary>The declared name in the tenant's topology it is for.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The document, as its author wrote it.</summary>
+    public required string Document { get; init; }
+}

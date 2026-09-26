@@ -77,6 +77,7 @@ public static class FactCategories
         [FactKinds.LoopOutcome] = Flight,
         [FactKinds.LoopTranscript] = Flight,
         [FactKinds.LoopSession] = Flight,
+        [FactKinds.DocumentProposal] = Flight,
         [FactKinds.LoopDigest] = Flight,
         [FactKinds.HumanAccount] = Flight,
 

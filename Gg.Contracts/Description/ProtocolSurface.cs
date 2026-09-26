@@ -1957,6 +1957,7 @@ public static class ProtocolSurface
             [typeof(AllowanceList)] = ["allowances"],
             [typeof(ArtifactReference)] = ["locator", "sha256", "bytes", "mediaType", "scope"],
             [typeof(LoopSession)] = ["artifact"],
+            [typeof(DocumentProposal)] = ["role", "name", "document"],
             [typeof(LearnedContext)] = ["against", "advice"],
             [typeof(LearnedAgainst)] = ["repository", "commit", "image", "envelope"],
             [typeof(ContextBinding)] = ["scope", "constitution"],
@@ -2257,7 +2258,7 @@ public static class ProtocolSurface
                  "headIsFork", "forkSlug", "fileCount", "bytes"],
             [typeof(FactEnvelope)] =
                 ["idempotencyKey", "kind", "digest", "observedAt", "environment", "source", "change",
-                 "loop", "transcript", "session", "landed", "pushed", "loopDigest", "human",
+                 "loop", "transcript", "session", "document", "landed", "pushed", "loopDigest", "human",
                  "nomination", "question", "attended", "proposal", "landing", "preview"],
             [typeof(FactBatch)] = ["generation", "facts"],
             [typeof(FactRejection)] = ["idempotencyKey", "reason"],

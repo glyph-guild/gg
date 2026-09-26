@@ -144,6 +144,18 @@ public static class FactHygiene
         // THE SAME FOUR STRINGS, because it is the same shape one level in. A
         // nested payload whose members nobody cleaned is how the one field
         // nobody thought of stays dirty - which is this file's own argument.
+        // THE ROLE AND THE NAME ARE CLEANED; THE DOCUMENT IS NOT, and that is the
+        // one place in this file where leaving text alone is right. A document is
+        // YAML an author wrote and the control plane parses: stripping control
+        // characters out of it would change what it MEANS, and a document that
+        // arrived altered would be applied altered. It is refused by the parser
+        // if it is malformed, which is the check that belongs to it.
+        FactPayload.Document document => new FactPayload.Document(document.Value with
+        {
+            Role = Text(document.Value.Role),
+            Name = Text(document.Value.Name),
+        }),
+
         FactPayload.Session session => new FactPayload.Session(session.Value with
         {
             Artifact = session.Value.Artifact with

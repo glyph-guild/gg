@@ -4052,7 +4052,10 @@ public sealed class ConsoleScreen : Window
         if (waiting
             && _tabbed.FirstOrDefault(t => t.Tab == State.ActiveTab).Pane is { } filling)
         {
-            foreach (var inside in filling.SubViews.Where(v => v.Visible))
+            // OVER A SNAPSHOT, for the reason the sibling walk below carries:
+            // setting Visible reorders SubViews, and enumerating it while it is
+            // being rewritten throws out of Render and takes the console down.
+            foreach (var inside in filling.SubViews.Where(v => v.Visible).ToArray())
             {
                 inside.Visible = false;
                 _hiddenBehindTheMark.Add(inside);
@@ -4572,7 +4575,12 @@ public sealed class ConsoleScreen : Window
         // later and forgotten here would be the one that still takes the click.
         var covered = ConsoleMouse.CoveredWhile(State);
 
-        foreach (var sibling in SubViews)
+        // OVER A SNAPSHOT, because setting Enabled reorders SubViews underneath
+        // the walk - Terminal.Gui moves a view when its focus or arrangement
+        // changes - and enumerating a list while it is being rewritten throws
+        // out of Render, which takes the console with it. Measured the hard
+        // way: this crashed on the first modal somebody opened.
+        foreach (var sibling in SubViews.ToArray())
         {
             if (!ReferenceEquals(sibling, _modal) && sibling.Enabled == covered)
             {
@@ -4860,7 +4868,10 @@ public sealed class ConsoleScreen : Window
 
         void Walk(View view, int depth)
         {
-            foreach (var child in view.SubViews)
+            // AND THIS ONE TOO. It sets a scheme on every view it reaches, and a
+            // scheme change can move a view in its parent's list - so the walk
+            // takes a copy rather than trusting the list to hold still.
+            foreach (var child in view.SubViews.ToArray())
             {
                 var below = depth;
 

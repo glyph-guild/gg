@@ -106,6 +106,20 @@ public static class MoveKinds
             // refuse the whole landing.
             [LoopMoves.ProposeLanding] = RecordOnly,
 
+            // RECORD-ONLY, AND IT IS THE ONE WHERE THAT ANSWER IS WORTH
+            // ARGUING. A document that governs later flights sounds like the
+            // most outward thing an agent could touch - but granting this move
+            // is not the act, and nothing outside the flight has moved when the
+            // tool is called. The document is held as a proposal; a person
+            // opens the gate the tenant's own envelope declares; and a flight
+            // is evaluated against the governance in force rather than the
+            // governance it is asking for, so it cannot widen its own way in.
+            //
+            // What WOULD make it an outward act is a path that applied it, and
+            // there is deliberately none: the tool writes nothing, holds no
+            // credential and touches no disk.
+            [LoopMoves.ProposeDocument] = RecordOnly,
+
             // AND THE ONE THE GAP ABOVE IS ABOUT, AT ITS WIDEST. `anything`
             // grants every tool the agent binary has, with the permission check
             // off - so the cloudflared paragraph is true of it without needing

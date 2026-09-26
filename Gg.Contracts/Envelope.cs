@@ -284,6 +284,34 @@ public static class LoopMoves
     public const string ProposeLanding = "propose-landing";
 
     /// <summary>
+    /// Handing back an airspace document, for a person to decide on.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The fourth tool on this platform's own server, on the terms the second
+    /// and third set.</b> Its own move and its own whole name: one move granting
+    /// two tools is the prefix grant those two refuse, arriving by another route -
+    /// every tool this platform later adds would be granted retroactively, for
+    /// every envelope in force, with nothing in the record marking the day it
+    /// changed.
+    /// </para>
+    /// <para>
+    /// <b>The most consequential of the four, and the reason it is separate.</b>
+    /// A nomination asks that a flight exist and a landing proposal asks what a
+    /// pull request is called. This asks that the document GOVERNING later
+    /// flights change - so a kind that may draft governance says so in its own
+    /// envelope, and a kind that may not cannot acquire it by being granted
+    /// something else.
+    /// </para>
+    /// <para>
+    /// <b>It grants nothing it asks for.</b> The proposal is held and a person
+    /// opens the gate; a flight is evaluated against the envelope in force and
+    /// never the one it asks for.
+    /// </para>
+    /// </remarks>
+    public const string ProposeDocument = "propose-document";
+
+    /// <summary>
     /// The envelope declining to bound this agent at all.
     /// </summary>
     /// <remarks>
@@ -340,7 +368,8 @@ public static class LoopMoves
     public const string Anything = "anything";
 
     public static IReadOnlyList<string> All { get; } =
-        [Read, Edit, RunTests, Search, Write, Propose, ProposeWorkItem, ProposeLanding, Anything];
+        [Read, Edit, RunTests, Search, Write, Propose, ProposeWorkItem, ProposeLanding,
+         ProposeDocument, Anything];
 
     /// <summary>
     /// Whether this set of moves declines to bound the agent.

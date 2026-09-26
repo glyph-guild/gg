@@ -121,6 +121,6 @@ public class APreviewBelongsToItsKindTests
         };
 
         await Assert.That(loop.Produces).IsNotNull();
-        await Assert.That(loop.Produces!).Contains(FactKinds.PreviewUrl);
+        await Assert.That(loop.Produces).Contains(FactKinds.PreviewUrl);
     }
 }

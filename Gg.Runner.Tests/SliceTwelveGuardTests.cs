@@ -175,7 +175,7 @@ public class SliceTwelveGuardTests
     /// loudly rather than accepting-and-ignoring. That is the property being
     /// bought; the row is the price.
     /// </para>
-    private const string VocabularyAtSliceStart = "0.33.0";
+    private const string VocabularyAtSliceStart = "0.34.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number
@@ -277,7 +277,24 @@ public class SliceTwelveGuardTests
     /// over, because that is the direction in which a fact stops describing what
     /// happened and starts being an instruction.
     /// </para>
-    private const int KindsThatCross = 15;
+    /// <para>
+    /// <b>Sixteen with <c>loop.session</c>, and it is a second
+    /// <c>loop.transcript</c> rather than a second <c>preview.url</c>.</b> The
+    /// paragraph above says a second fact holding something a person is meant to
+    /// FOLLOW would be worth stopping over. This is not one: its locator is
+    /// runner-local and declares itself so, exactly as the transcript's does, and
+    /// nothing is expected to open it except a later flight reading records on the
+    /// machine that made them. It describes what happened and instructs nobody.
+    /// </para>
+    /// <para>
+    /// <b>Why it is not the transcript.</b> Two files, and neither is a superset
+    /// of the other - measured on GG-309, where the teardown records exist only in
+    /// the stream we capture and the composed prompt and every tool input exist
+    /// only in the agent's own file. A reader handed two facts of ONE kind would
+    /// have to tell them apart by inspecting a locator, which is a naming
+    /// convention doing a schema's job.
+    /// </para>
+    private const int KindsThatCross = 16;
 
     [Test]
     public async Task Attestations_are_not_facts_and_the_count_moves_only_with_an_argument()

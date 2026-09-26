@@ -76,6 +76,7 @@ public static class FactCategories
         // tree to push from.
         [FactKinds.LoopOutcome] = Flight,
         [FactKinds.LoopTranscript] = Flight,
+        [FactKinds.LoopSession] = Flight,
         [FactKinds.LoopDigest] = Flight,
         [FactKinds.HumanAccount] = Flight,
 

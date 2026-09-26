@@ -184,5 +184,10 @@
     "version": "0.33.0",
     "surface": "cb0e9980c76ba3dd3c1e3342f3379a67015ca79870166f98b4a0be8920ab5b18",
     "kinds": "change.manifest, destination.landed, destination.pushed, environment.identity, flight.nomination, handoff.account, landing.proposal, loop.attended, loop.digest, loop.outcome, loop.question, loop.transcript, preview.url, source.provenance, work-item.proposal"
+  },
+  {
+    "version": "0.34.0",
+    "surface": "6f929621e187180e8e8e31fb2c064a5240af848448c365b0076a02cbfc0dc129",
+    "kinds": "change.manifest, destination.landed, destination.pushed, environment.identity, flight.nomination, handoff.account, landing.proposal, loop.attended, loop.digest, loop.outcome, loop.question, loop.session, loop.transcript, preview.url, source.provenance, work-item.proposal"
   }
 ]

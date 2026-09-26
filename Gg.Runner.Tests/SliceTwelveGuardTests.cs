@@ -175,7 +175,7 @@ public class SliceTwelveGuardTests
     /// loudly rather than accepting-and-ignoring. That is the property being
     /// bought; the row is the price.
     /// </para>
-    private const string VocabularyAtSliceStart = "0.35.0";
+    private const string VocabularyAtSliceStart = "0.36.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number

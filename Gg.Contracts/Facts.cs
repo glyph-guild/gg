@@ -449,7 +449,7 @@ public static class FactVocabulary
     /// loop.digest.refusedMoves is empty for such a flight by construction: a
     /// refusal is a tool the envelope did not name, and this envelope named
     /// them all. NO KIND CHANGED.
-    public const string Version = "0.35.0";
+    public const string Version = "0.36.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>

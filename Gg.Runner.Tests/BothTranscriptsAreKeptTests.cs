@@ -46,20 +46,32 @@ namespace Gg.Runner.Tests;
 /// </remarks>
 public class BothTranscriptsAreKeptTests
 {
-    /// <summary>A fixture from the real GG-309 run, not one I invented.</summary>
-    private static string Fixture(string name)
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Gg.sln")))
-        {
-            dir = dir.Parent;
-        }
-
-        var root = dir ?? throw new InvalidOperationException("Gg.sln not found");
-
-        return File.ReadAllText(Path.Combine(
-            root.FullName, "Gg.Runner.Tests", "Fixtures", name));
-    }
+    /// <summary>
+    /// An init record with the two members this reads, and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Hand-written, against this project's own preference, and
+    /// <see cref="FixtureCleanlinessTests"/> is why.</b> A captured record of
+    /// this shape cannot ship to a public repository: its
+    /// <c>memory_paths.auto</c> contains <c>.claude/projects/</c>, which that
+    /// scan forbids outright because it is where an operator's private notes for
+    /// a project live. The first version of this test shipped the real capture
+    /// and the build refused it, correctly.
+    /// </para>
+    /// <para>
+    /// <b>So the evidence moved rather than being dropped.</b> The derivation
+    /// that had to be right is the slug, and that is asserted below against the
+    /// real <c>cwd</c> and directory pair from GG-309 - two strings in source,
+    /// carrying no home directory and no toolbox. What is hand-written here is
+    /// only the envelope around them.
+    /// </para>
+    /// </remarks>
+    private static string Init(string sessionId, string cwd, string? memory) =>
+        "{\"type\":\"system\",\"subtype\":\"init\""
+      + $",\"session_id\":\"{sessionId}\",\"cwd\":\"{cwd}\""
+      + (memory is null ? "" : $",\"memory_paths\":{{\"auto\":\"{memory}\"}}")
+      + "}\n";
 
     /// <summary>
     /// The path this derives is the one the file was actually fetched from.
@@ -72,12 +84,13 @@ public class BothTranscriptsAreKeptTests
     [Test]
     public async Task The_session_file_is_found_from_the_streams_own_init_record()
     {
-        var found = ClaudeSession.FileIn(Fixture("agent-session-init.ndjson"), home: "/var/lib/gg");
+        var found = ClaudeSession.FileIn(
+            Init("a-session", "/state/trees/a-tree", "/state/notes/-state-trees-a-tree/memory/"),
+            home: "/state");
 
-        await Assert.That(found).IsEqualTo(
-            "/var/lib/gg/.claude/projects/"
-          + "-var-lib-gg--cache-good-grief-trees-01a0d9d9-98e8-7534-abeb-660051b40ade/"
-          + "f10e9e4e-73a1-4ac1-ab92-1f83a2dee6d3.jsonl");
+        await Assert.That(found).IsEqualTo("/state/notes/-state-trees-a-tree/a-session.jsonl")
+            .Because("the directory is the agent's own answer, taken as its parent, so a change "
+                   + "to that layout reaches us as a different string rather than a wrong guess.");
     }
 
     /// <summary>
@@ -93,7 +106,8 @@ public class BothTranscriptsAreKeptTests
     public async Task A_stream_without_an_init_record_names_no_session()
     {
         await Assert.That(ClaudeSession.FileIn(
-            Fixture("agent-session-no-init.ndjson"), home: "/var/lib/gg")).IsNull();
+            "{\"type\":\"assistant\"}\n{\"type\":\"result\",\"subtype\":\"success\"}\n",
+            home: "/state")).IsNull();
     }
 
     /// <summary>

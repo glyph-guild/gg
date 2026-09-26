@@ -935,7 +935,7 @@ public static class EnvelopeYaml
     {
         var root = RequireMap(document, "");
         Closed(root, BasedOnKey, "description", "brief", "context", "environment", "environments",
-               "repository", "repositories", "accepts", "produces", "variables", "targeting", "instructions",
+               "repository", "repositories", "accepts", "produces", "learned", "variables", "targeting", "instructions",
                "obligations", "loops", "destinations", "offers");
 
         var context = RequireMap(Require(root, "context"), "context");
@@ -1004,6 +1004,13 @@ public static class EnvelopeYaml
             // shape. Absent is null and an empty map is an empty list, and the
             // two must not collapse: declaring none is a decision, saying
             // nothing is not.
+            // LEARNED CONTEXT, READ WHOLE OR NOT AT ALL. Absent is null - a
+            // document that has been taught nothing - and a present section is
+            // required to name what it was learned against, which Validate
+            // enforces where the author can still act rather than here.
+            Learned = root.Entries.TryGetValue("learned", out var learned)
+                ? MapLearned(RequireMap(learned, "learned"))
+                : null,
             Variables = root.Entries.TryGetValue("variables", out var variables)
                 ? [.. RequireMap(variables, "variables").Entries
                     .Select(e => MapVariable(e.Key, e.Value))]
@@ -1039,6 +1046,43 @@ public static class EnvelopeYaml
     /// Refused here rather than at apply, because a name no environment can
     /// carry is a document that would apply cleanly and set nothing.
     /// </remarks>
+    /// <summary>
+    /// A learned-context section, read as declared.
+    /// </summary>
+    /// <remarks>
+    /// <b>Absent members stay absent.</b> An `against` naming nothing and an
+    /// `advice` that is empty are both refusals, and both are made by Validate so
+    /// the message can name the document rather than the parser.
+    /// </remarks>
+    private static LearnedContext MapLearned(MapNode learned)
+    {
+        Closed(learned, "against", "advice");
+
+        var against = learned.Entries.TryGetValue("against", out var header)
+            ? RequireMap(header, "learned.against")
+            : null;
+
+        return new LearnedContext
+        {
+            Against = new LearnedAgainst
+            {
+                Repository = Optional(against, "repository"),
+                Commit = Optional(against, "commit"),
+                Image = Optional(against, "image"),
+                Envelope = Optional(against, "envelope"),
+            },
+            Advice = learned.Entries.TryGetValue("advice", out var advice)
+                ? Strings(advice, "learned.advice")
+                : [],
+        };
+    }
+
+    /// <summary>A scalar from a map that may not be there at all.</summary>
+    private static string? Optional(MapNode? map, string key) =>
+        map is not null && map.Entries.TryGetValue(key, out var value)
+            ? RequireScalar(value, key)
+            : null;
+
     private static EnvelopeVariable MapVariable(string name, Node body)
     {
         var variable = new EnvelopeVariable

@@ -1175,27 +1175,7 @@ public sealed record FactEnvelope
                  + "budget nobody can enforce.";
         }
 
-        // Exactly one payload, and it is the one the kind named. Counting
-        // rather than checking the named field alone, so a second payload
-        // travelling alongside is refused too.
-        var carried = new (string Kind, bool Present)[]
-        {
-            (FactKinds.EnvironmentIdentity, envelope.Environment is not null),
-            (FactKinds.SourceProvenance, envelope.Source is not null),
-            (FactKinds.ChangeManifest, envelope.Change is not null),
-            (FactKinds.LoopOutcome, envelope.Loop is not null),
-            (FactKinds.LoopTranscript, envelope.Transcript is not null),
-            (FactKinds.DestinationLanded, envelope.Landed is not null),
-            (FactKinds.DestinationPushed, envelope.Pushed is not null),
-            (FactKinds.LoopDigest, envelope.LoopDigest is not null),
-            (FactKinds.HumanAccount, envelope.Human is not null),
-            (FactKinds.FlightNomination, envelope.Nomination is not null),
-            (FactKinds.WorkItemProposal, envelope.Proposal is not null),
-            (FactKinds.LandingProposal, envelope.Landing is not null),
-            (FactKinds.LoopQuestion, envelope.Question is not null),
-            (FactKinds.LoopAttended, envelope.Attended is not null),
-            (FactKinds.PreviewUrl, envelope.Preview is not null),
-        };
+        var carried = Carried(envelope);
 
         var present = carried.Where(c => c.Present).ToList();
         if (present.Count != 1)
@@ -1292,6 +1272,72 @@ public sealed record FactEnvelope
 
         return envelope.Change is { } change ? ChangeManifest.Validate(change) : null;
     }
+
+    /// <summary>
+    /// Which payload each kind travels in, and whether this envelope carries it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Exactly one payload, and it is the one the kind named. Counting rather
+    /// than checking the named field alone, so a second payload travelling
+    /// alongside is refused too.
+    /// </para>
+    /// <para>
+    /// <b>Extracted so <see cref="KindsWithASlot"/> can be derived from it</b>
+    /// rather than written beside it. A second list of the same names is a second
+    /// thing to forget, and forgetting this one is what refused a live flight's
+    /// <c>loop.session</c> with "this one carries 0".
+    /// </para>
+    /// </remarks>
+    private static (string Kind, bool Present)[] Carried(FactEnvelope envelope) =>
+    [
+        (FactKinds.EnvironmentIdentity, envelope.Environment is not null),
+        (FactKinds.SourceProvenance, envelope.Source is not null),
+        (FactKinds.ChangeManifest, envelope.Change is not null),
+        (FactKinds.LoopOutcome, envelope.Loop is not null),
+        (FactKinds.LoopTranscript, envelope.Transcript is not null),
+        (FactKinds.LoopSession, envelope.Session is not null),
+        (FactKinds.DocumentProposal, envelope.Document is not null),
+        (FactKinds.DestinationLanded, envelope.Landed is not null),
+        (FactKinds.DestinationPushed, envelope.Pushed is not null),
+        (FactKinds.LoopDigest, envelope.LoopDigest is not null),
+        (FactKinds.HumanAccount, envelope.Human is not null),
+        (FactKinds.FlightNomination, envelope.Nomination is not null),
+        (FactKinds.WorkItemProposal, envelope.Proposal is not null),
+        (FactKinds.LandingProposal, envelope.Landing is not null),
+        (FactKinds.LoopQuestion, envelope.Question is not null),
+        (FactKinds.LoopAttended, envelope.Attended is not null),
+        (FactKinds.PreviewUrl, envelope.Preview is not null),
+    ];
+
+    /// <summary>
+    /// The kinds <see cref="Validate"/> can count a payload for.
+    /// </summary>
+    /// <remarks>
+    /// <b>Named without the word "payload" on purpose.</b> The fact-surface scan
+    /// refuses a member on a wire type whose name suggests it could hold content,
+    /// and it caught this one. Renaming is the honest fix — exempting it would
+    /// teach the next person that the scan is negotiable, which is the argument
+    /// <c>MediaType</c> was renamed under.
+    /// </para>
+    /// <para>
+    /// <b>Public so the gap can be asserted, and derived so it cannot lie.</b>
+    /// A kind registered every other way and missing here is a fact a runner
+    /// ships and ingress refuses — which is what happened to <c>loop.session</c>
+    /// on GG-324, after the constant, the list, the pinned type, the envelope
+    /// slot, the JSON members, the vocabulary, the category, the pipeline, the
+    /// hygiene and the disposition were all in place. Nothing that built an
+    /// envelope directly could see it, so the first thing to notice was a runner
+    /// on the fleet.
+    /// </remarks>
+    public static IReadOnlyList<string> KindsWithASlot { get; } =
+        [.. Carried(new FactEnvelope
+        {
+            IdempotencyKey = "none",
+            Kind = FactKinds.LoopOutcome,
+            Digest = new string('0', 64),
+            ObservedAt = DateTimeOffset.UnixEpoch,
+        }).Select(c => c.Kind)];
 
     private static bool IsSha256(string? value) =>
         value is { Length: 64 } && value.All(c => char.IsAsciiDigit(c) || (c >= 'a' && c <= 'f'));

@@ -2175,6 +2175,19 @@ public sealed class ConsoleScreen : Window
         // nothing anybody could see.
         _modal.KeyDown += OnModalKeyDown;
 
+        // AND THE MOUSE, ONE STEP EARLIER THAN ANY VIEW. While a modal is open
+        // a click that lands on what it covers asks the library to focus a view
+        // nobody can see, and the library ends the process rather than
+        // declining - see ConsoleMouse. This is the application's own event: it
+        // is raised with a screen position before a view is chosen, and marking
+        // it handled stops it there.
+        //
+        // THE EARLIEST HOOK IS THE ONLY SAFE ONE. Excluding the covered panes
+        // instead, by setting Enabled on them, crashes inside Terminal.Gui's
+        // own setter - it walks every descendant and moves focus as it goes,
+        // and moving focus reorders the list it is walking.
+        _app.Mouse.MouseEvent += OnMouseBeforeRouting;
+
         // AND THE BODY, WHICH IS THE ONE THAT ACTUALLY HAS THE KEYBOARD. The
         // label is CanFocus, so a dialog handing focus to its first focusable
         // child hands it here - and a key goes to the focused view first. That
@@ -3872,6 +3885,28 @@ public sealed class ConsoleScreen : Window
         Dispatch(command);
     }
 
+    /// <summary>Drops a click that a modal is drawn over, before the library
+    /// decides which view it belongs to.</summary>
+    /// <remarks>
+    /// <b>The frame, not the mode, decides what gets through.</b> A modal is a
+    /// dialog somewhere on the screen rather than the whole of it, so the
+    /// question is geometric: the event carries a screen position and the
+    /// dialog knows where it is. Asking the state alone would swallow the
+    /// modal's own clicks, which is the bug this replaces.
+    /// </remarks>
+    private void OnMouseBeforeRouting(object? sender, Mouse mouse)
+    {
+        ArgumentNullException.ThrowIfNull(mouse);
+
+        var overTheModal = _modal.Visible
+                        && _modal.FrameToScreen().Contains(mouse.ScreenPosition);
+
+        if (ConsoleMouse.SwallowedWhile(State, overTheModal))
+        {
+            mouse.Handled = true;
+        }
+    }
+
     private void OnScreenKeyDown(object? sender, Key key)
     {
         var stroke = KeyTranslator.Translate(key);
@@ -4565,29 +4600,6 @@ public sealed class ConsoleScreen : Window
         // the process - see ConsoleMouse. Written once here rather than at the
         // two places that used to ask about freezing, so the console cannot
         // hold the mouse in a state nobody decided it should.
-        // WHAT THE MODAL COVERS STOPS TAKING CLICKS. The library's hit test
-        // declines to descend into a subview that is not Enabled, so this takes
-        // every pane behind the modal out of reach in one place - and a click
-        // can no longer ask it to focus a view nobody can see, which is what
-        // used to end the process.
-        //
-        // EVERY SIBLING BUT THE MODAL, derived rather than listed: a pane added
-        // later and forgotten here would be the one that still takes the click.
-        var covered = ConsoleMouse.CoveredWhile(State);
-
-        // OVER A SNAPSHOT, because setting Enabled reorders SubViews underneath
-        // the walk - Terminal.Gui moves a view when its focus or arrangement
-        // changes - and enumerating a list while it is being rewritten throws
-        // out of Render, which takes the console with it. Measured the hard
-        // way: this crashed on the first modal somebody opened.
-        foreach (var sibling in SubViews.ToArray())
-        {
-            if (!ReferenceEquals(sibling, _modal) && sibling.Enabled == covered)
-            {
-                sibling.Enabled = !covered;
-            }
-        }
-
         var ours = ConsoleMouse.OursWhile(State);
 
         if (ours != _mouseIsOurs)

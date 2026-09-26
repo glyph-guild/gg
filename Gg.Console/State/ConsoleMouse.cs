@@ -29,8 +29,8 @@ public static class ConsoleMouse
     /// <remarks>
     /// <b>Freezing only, now.</b> A modal used to take the mouse away too, and
     /// that is what made every modal unclickable - the pointer turning into a
-    /// text selection was the terminal taking its own back. What a modal covers
-    /// is disabled instead; see <see cref="CoveredWhile"/>.
+    /// text selection was the terminal taking its own back. A click that misses
+    /// the modal is dropped instead; see <see cref="SwallowedWhile"/>.
     /// </remarks>
     public static bool OursWhile(AppState state)
     {
@@ -39,7 +39,8 @@ public static class ConsoleMouse
         return !state.Frozen;
     }
 
-    /// <summary>Whether the panes behind a modal must stop taking clicks.</summary>
+    /// <summary>Whether a click at this point is dropped rather than routed,
+    /// because a modal is open and the click missed it.</summary>
     /// <remarks>
     /// <para>
     /// <b>Because focusing a covered view ends the process.</b> A click on what
@@ -49,23 +50,39 @@ public static class ConsoleMouse
     /// reproduced in a pty at the exact cell, and still present in 2.5.0.
     /// </para>
     /// <para>
-    /// <b>Disabled rather than transparent.</b> The library's hit test declines
-    /// to descend into a subview that is not <c>Enabled</c>, which takes the
-    /// whole subtree out in one place. <c>ViewportSettingsFlags.TransparentMouse</c>
-    /// reads like the right answer and is not: it is applied per view rather
-    /// than per subtree, and per CELL at that - a view that drew at the point
-    /// keeps the click, and its children are never excluded.
+    /// <b>Dropped before routing, rather than disabling what it covers.</b>
+    /// Two other mechanisms were tried against the live console and both are
+    /// wrong, each for its own reason:
     /// </para>
     /// <para>
-    /// <b>It dims what it disables</b>, because Terminal.Gui draws a disabled
-    /// view in <c>VisualRole.Disabled</c>. That is a visible change and it is
-    /// the price of the modal being clickable at all.
+    /// <c>Enabled</c> reads like the answer - the library's hit test declines
+    /// to descend into a subview that is not enabled, which looks like a
+    /// subtree exclusion in one assignment. It is not one assignment. The
+    /// setter walks every descendant itself, and on the way it grants or drops
+    /// focus, and focus moves a view within its parent's list. So the setter
+    /// throws out of its own <c>foreach</c>, from inside the library, and the
+    /// console goes with it. Snapshotting our own walk does not help: the walk
+    /// that throws is theirs.
+    /// </para>
+    /// <para>
+    /// <c>ViewportSettingsFlags.TransparentMouse</c> reads like the answer too,
+    /// and is not: it is applied per view rather than per subtree, and per CELL
+    /// at that - a view that drew at the point keeps the click, and its
+    /// children are never excluded.
+    /// </para>
+    /// <para>
+    /// What is left is the application's own pre-routing event, which is raised
+    /// with a screen position before any view is consulted and stops when it is
+    /// marked handled. It changes nothing about any view, so nothing is dimmed,
+    /// no focus moves, and there is no list to invalidate.
     /// </para>
     /// </remarks>
-    public static bool CoveredWhile(AppState state)
+    /// <param name="state">The console's state, which says whether a modal is drawn.</param>
+    /// <param name="overTheModal">Whether the point is inside the modal's own frame.</param>
+    public static bool SwallowedWhile(AppState state, bool overTheModal)
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return Modals.IsDrawn(state.Mode);
+        return Modals.IsDrawn(state.Mode) && !overTheModal;
     }
 }

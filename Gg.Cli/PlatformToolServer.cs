@@ -1170,6 +1170,34 @@ public static class PlatformToolServer
     /// records one to a place that leaves nothing behind.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Why this document does not read as the role it claims, or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>The parser's own words, relayed.</b> Rewording them here would be a
+    /// second explanation of one schema, and the parser's is the one that decides.
+    /// A role this build does not know has already been refused above.
+    /// </remarks>
+    private static string? Refused(string role, string document)
+    {
+        try
+        {
+            if (string.Equals(role, Gg.Contracts.Roles.Narrowing, StringComparison.Ordinal))
+            {
+                return Gg.Contracts.Authoring.EnvelopeYaml.ParseNarrowing(document).Diagnosis;
+            }
+
+            return Gg.Contracts.Authoring.EnvelopeYaml.Parse(document).Diagnosis;
+        }
+        catch (Exception failure) when (failure is not OperationCanceledException)
+        {
+            // A THROW IS A REFUSAL TOO. The parser answers with a diagnosis for
+            // what it can read and throws for what it cannot, and an agent needs
+            // the same answer either way rather than a tool that dies on it.
+            return failure.Message;
+        }
+    }
+
     /// <summary>Declares <c>DocumentProposalTool</c>.</summary>
     private static void DocumentProposal(Utf8JsonWriter writer)
     {
@@ -1261,6 +1289,23 @@ public static class PlatformToolServer
             return Content(id, isError: true,
                 $"Refused: '{role}' is not a role this platform has. It has "
               + string.Join(", ", Gg.Contracts.Roles.All) + ". Nothing was recorded.");
+        }
+
+        // PARSED BEFORE IT IS ACKNOWLEDGED, and this is the half that was missing.
+        // `DocumentTool`'s own virtue is that "the document is VALIDATED before it
+        // lands, so a refusal teaches the schema" - and validating the role alone
+        // was half of it. GG-327 handed back a thoughtful document in a schema it
+        // invented, because `describe_airspace` explains the keys and a fleet
+        // flight is not offered it: the only thing that can teach a flight the
+        // schema is the tool it hands the document to.
+        //
+        // LOAD-BEARING RATHER THAN KIND. The extractor reads only calls whose
+        // result came back without an error, so a refusal here is a document that
+        // never becomes a fact - and an agent told why can fix it and call again,
+        // which this tool's description already promises.
+        if (Refused(role, document) is { } why)
+        {
+            return Content(id, isError: true, $"Refused: {why} Nothing was recorded.");
         }
 
         return Content(id, isError: false,

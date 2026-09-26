@@ -227,7 +227,12 @@ public class PlatformToolServerTests
         }
     }
 
-    private static async Task<IReadOnlyList<JsonDocument>> ExchangeAsync(params string[] lines)
+    /// <remarks>
+    /// Internal so <c>ARefusalTeachesTheSchemaTests</c> can drive the same server
+    /// rather than stand up a second one — a second definition of how this server
+    /// is spoken to is a second place for the handshake to drift.
+    /// </remarks>
+    internal static async Task<IReadOnlyList<JsonDocument>> ExchangeAsync(params string[] lines)
     {
         var output = new StringWriter();
         await PlatformToolServer.RunAsync(new StringReader(string.Join('\n', lines)), output);

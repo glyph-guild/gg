@@ -33,6 +33,36 @@ public static class EnvironmentSurvey
     /// file" would eventually hash something that is not one, and the hash of a
     /// file nobody expected is a fact nobody can interpret.
     /// </remarks>
+    /// <summary>
+    /// Directories whose contents are somebody else's dependencies.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The <c>.git</c> skip's argument, one directory over.</b> That one says
+    /// "git's own object store is not a customer's dependency graph"; neither is a
+    /// vendored package's. Measured on GG-327: nine locks fingerprinted for one
+    /// flight, six of them shipped by packages under <c>node_modules</c>.
+    /// </para>
+    /// <para>
+    /// <b>Why it matters rather than being untidy.</b> This fact exists so two
+    /// flights of one repository can be compared. A fingerprint that includes
+    /// whatever locks a dependency happened to ship moves when an unrelated package
+    /// publishes, so two flights of the SAME commit can disagree — and it grows
+    /// with the tree rather than with the project.
+    /// </para>
+    /// <para>
+    /// <b>A list rather than a pattern</b>, for the reason the file names are one:
+    /// <c>node_modules</c> is measured and the rest are here on the same argument,
+    /// each being a place a package manager puts other people's code rather than a
+    /// place anybody writes their own.
+    /// </para>
+    /// </remarks>
+    private static readonly string[] VendoredDirectories =
+    [
+        "node_modules", "vendor", "bower_components", "Pods",
+        ".venv", "venv", "site-packages", ".tox",
+    ];
+
     private static readonly string[] LockFileNames =
     [
         "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "npm-shrinkwrap.json",
@@ -163,6 +193,16 @@ public static class EnvironmentSurvey
             // git's own object store is not a customer's dependency graph.
             if (file.Contains($"{Path.DirectorySeparatorChar}.git{Path.DirectorySeparatorChar}",
                     StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            // NOR IS A VENDORED PACKAGE'S. Checked per segment rather than by
+            // substring, so a project directory that merely contains the word -
+            // `my-node_modules-tool` - is still the customer's own.
+            if (Path.GetRelativePath(treePath, file)
+                .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Any(segment => VendoredDirectories.Contains(segment, StringComparer.Ordinal)))
             {
                 continue;
             }

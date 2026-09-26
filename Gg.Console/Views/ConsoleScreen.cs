@@ -4562,6 +4562,24 @@ public sealed class ConsoleScreen : Window
         // the process - see ConsoleMouse. Written once here rather than at the
         // two places that used to ask about freezing, so the console cannot
         // hold the mouse in a state nobody decided it should.
+        // WHAT THE MODAL COVERS STOPS TAKING CLICKS. The library's hit test
+        // declines to descend into a subview that is not Enabled, so this takes
+        // every pane behind the modal out of reach in one place - and a click
+        // can no longer ask it to focus a view nobody can see, which is what
+        // used to end the process.
+        //
+        // EVERY SIBLING BUT THE MODAL, derived rather than listed: a pane added
+        // later and forgotten here would be the one that still takes the click.
+        var covered = ConsoleMouse.CoveredWhile(State);
+
+        foreach (var sibling in SubViews)
+        {
+            if (!ReferenceEquals(sibling, _modal) && sibling.Enabled == covered)
+            {
+                sibling.Enabled = !covered;
+            }
+        }
+
         var ours = ConsoleMouse.OursWhile(State);
 
         if (ours != _mouseIsOurs)

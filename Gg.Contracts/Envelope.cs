@@ -3072,7 +3072,14 @@ public sealed record Envelope
             return null;
         }
 
-        if (!learned.Against.Names)
+        // ASKED HERE RATHER THAN ON THE RECORD, because a computed property on a
+        // wire type is a wire member: `Names` shipped as `names` in the JSON and
+        // the declared-members guard caught it. A contract record holds data.
+        var against = learned.Against;
+        var named = against.Repository is { Length: > 0 } || against.Commit is { Length: > 0 }
+                 || against.Image is { Length: > 0 } || against.Envelope is { Length: > 0 };
+
+        if (!named)
         {
             return "learned.against names nothing. Advice that does not say what it was "
                  + "learned against cannot be told to have gone stale, so it would outlive "
@@ -3473,11 +3480,6 @@ public sealed record LearnedAgainst
 
     /// <summary>The version of this kind's own document at the time.</summary>
     public string? Envelope { get; init; }
-
-    /// <summary>Whether it names anything at all.</summary>
-    public bool Names =>
-        Repository is { Length: > 0 } || Commit is { Length: > 0 }
-        || Image is { Length: > 0 } || Envelope is { Length: > 0 };
 }
 
 [PinnedId("c4a97e51-3b28-4d60-8f7a-e13952cb0a68")]

@@ -1650,6 +1650,14 @@ public static class PlatformToolServer
           + "governs. This is how a tenant tells agents how to behave without changing "
           + "any code.");
         said.AppendLine(
+            "  learned:            for a work kind, what earlier flights found out about "
+          + "the environment, under `advice:`, with an `against:` header naming what it "
+          + "was learned against - any of repository, commit, image, envelope. DRAFTED BY "
+          + "A MACHINE AND REVIEWED BY A PERSON: adding to it is a widening and takes the "
+          + "gate, unlike every other list here, which widens by dropping something. "
+          + "Instructions are policy a person wrote; this is advice measured from flights "
+          + "that already ran, and the agent is told which is which.");
+        said.AppendLine(
             $"  targeting:          for a work kind, which machine gets the work. "
           + $"{Either(Gg.Contracts.AllowanceTargeting.All)}. About ALLOWANCES rather than "
           + "machines: a subscription is the scarce thing and a machine is not. Omitting "

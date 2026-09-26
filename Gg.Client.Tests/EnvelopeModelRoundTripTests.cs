@@ -315,6 +315,7 @@ public class EnvelopeModelRoundTripTests
             nameof(Destination.MaySelect), nameof(Destination.MayPerform),
             nameof(Destination.MayWrite),
             nameof(DestinationSelection.Environments), nameof(DestinationSelection.Repositories),
+            nameof(Envelope.Learned),
             nameof(EnvelopeNarrowing.Obligations),
         ];
 

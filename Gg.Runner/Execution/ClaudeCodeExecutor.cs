@@ -1423,7 +1423,73 @@ public sealed class ClaudeCodeExecutor(
                 // from an empty fetch.
                 Scope = ArtifactScopes.RunnerLocal,
             },
+
+            // THE AGENT'S OWN RECORD, TAKEN INTO OUR STORE RATHER THAN POINTED
+            // AT. It is written under a directory named after the working tree,
+            // and the tree is deleted when the flight ends - so a reference left
+            // where it lies points into a layout that is not ours, retained by
+            // nobody, named after something gone. TranscriptStore's whole
+            // argument applied to a second file.
+            Session = await SessionAsync(transcript.ToString(), request, cancellationToken),
         };
+    }
+
+    /// <summary>
+    /// The agent's own session record, copied beside the transcript, or null.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Null every time anything is missing, and none of them is an error.</b>
+    /// A stream that announced no session, a file the agent has not written, a
+    /// read that is refused: each leaves the caller with one record instead of
+    /// two, which is what it had before this existed. Failing a finished flight
+    /// over a diagnostic copy would trade the work for the record of it.
+    /// </para>
+    /// <para>
+    /// <b>Copied, not referenced in place</b> - see the remark at the call.
+    /// </para>
+    /// </remarks>
+    private static async Task<ArtifactReference?> SessionAsync(
+        string recorded, ExecutorRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (ClaudeSession.FileIn(
+                    recorded,
+                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile))
+                is not { Length: > 0 } wrote
+                || !File.Exists(wrote))
+            {
+                return null;
+            }
+
+            // BESIDE THE TRANSCRIPT, under the same flight and loop, because one
+            // retention decision for two files is the only one anybody can act
+            // on. `.session.jsonl` rather than `.ndjson`: same shape, and the
+            // name says which of the two a reader is holding.
+            var kept = Path.ChangeExtension(request.TranscriptPath, null) + ".session.jsonl";
+            var bytes = await File.ReadAllBytesAsync(wrote, cancellationToken);
+
+            Directory.CreateDirectory(Path.GetDirectoryName(kept)!);
+            await File.WriteAllBytesAsync(kept, bytes, cancellationToken);
+
+            return new ArtifactReference
+            {
+                Locator = kept,
+                Sha256 = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(),
+                Bytes = bytes.LongLength,
+                MediaType = "application/x-ndjson",
+                Scope = ArtifactScopes.RunnerLocal,
+            };
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     /// <summary>

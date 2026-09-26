@@ -453,6 +453,36 @@ public sealed record ExecutorRun
     public ArtifactReference? Transcript { get; init; }
 
     /// <summary>
+    /// Where the agent's OWN session record is, when it kept one and we could
+    /// find it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A second member rather than a list, because the two are not
+    /// interchangeable.</b> A consumer asking for "the transcript" has to say
+    /// which one it means: a gate offering a person something to read wants the
+    /// stream we captured, and a pass reconstructing what an agent was told wants
+    /// this one. A list would let either quietly take the wrong file.
+    /// </para>
+    /// <para>
+    /// <b>And neither is a superset of the other</b>, which is why keeping only
+    /// one was not an option. Measured on GG-309: the stream holds the teardown
+    /// records and drops the initial message; the session holds the composed
+    /// prompt and every tool input and holds none of the teardown. The datum that
+    /// explained that flight — <c>run_in_background: true</c> on a tool input —
+    /// exists only here, and the record that the task was then killed exists only
+    /// in the stream.
+    /// </para>
+    /// <para>
+    /// <b>Null is ordinary.</b> An attended session measured nothing, the
+    /// move-bound probe is not a flight, and a stream that named no session names
+    /// no file. Absent means the caller has one record instead of two, not that
+    /// anything failed.
+    /// </para>
+    /// </remarks>
+    public ArtifactReference? Session { get; init; }
+
+    /// <summary>
     /// What the run spent, or null where it could not be counted.
     /// </summary>
     /// <remarks>

@@ -1,5 +1,6 @@
 using Gg.Contracts;
 using Gg.Runner.Execution;
+using Gg.Runner.Facts;
 
 namespace Gg.Runner.Tests;
 
@@ -168,5 +169,49 @@ public class BothTranscriptsAreKeptTests
         await Assert.That(run.Session!.Locator).IsNotEqualTo(run.Transcript!.Locator)
             .Because("two files, two locators - a single reference would lose whichever "
                    + "one it did not point at.");
+    }
+
+    /// <summary>
+    /// And it crosses, as its own fact, carrying the reference and not the bytes.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Its own kind, because a payload type carries exactly one.</b>
+    /// <c>FactKindAttribute</c> is not <c>AllowMultiple</c>, and
+    /// <c>ArtifactReference</c> is already <c>loop.transcript</c> - so the session
+    /// cannot ride that kind however identical its shape. It wraps the reference
+    /// rather than restating its five members, because a second copy of a shape is
+    /// a second thing to keep in step.
+    /// </para>
+    /// <para>
+    /// <b>The reference and never the body.</b> ADR-0006's disposition, and
+    /// <c>ArtifactReference</c>'s own remark: there is deliberately no field a body
+    /// could travel in. This fact inherits that by being nothing but a reference.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task The_session_crosses_as_its_own_fact()
+    {
+        var reference = new ArtifactReference
+        {
+            Locator = "/state/transcripts/f/implement.session.jsonl",
+            Sha256 = new string('c', 64),
+            Bytes = 3,
+            MediaType = "application/x-ndjson",
+            Scope = ArtifactScopes.RunnerLocal,
+        };
+
+        var digested = FactPipeline.Digest(
+            FactHygiene.Clean(new GatheredFacts(
+                [new FactPayload.Session(new LoopSession { Artifact = reference })])),
+            "a-flight",
+            DateTimeOffset.UnixEpoch);
+
+        await Assert.That(digested.Items.Select(f => f.Kind)).Contains(FactKinds.LoopSession);
+
+        await Assert.That(digested.Items.Single().Session!.Artifact.Locator)
+            .IsEqualTo(reference.Locator)
+            .Because("a fact that serialized to a digest and nothing is the shape the "
+                   + "four-way registration exists to refuse.");
     }
 }

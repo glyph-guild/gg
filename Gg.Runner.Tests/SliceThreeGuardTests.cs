@@ -67,7 +67,24 @@ public class SliceThreeGuardTests
     /// are answered by an admission against a menu a person wrote, which is the
     /// property that made a second ask arguable at all.
     /// </remarks>
-    private const int KindsThatCross = 15;
+    /// <para>
+    /// <b>Sixteen with <c>loop.session</c>, and it is a second
+    /// <c>loop.transcript</c> rather than a second <c>preview.url</c>.</b> The
+    /// paragraph above says a second fact holding something a person is meant to
+    /// FOLLOW would be worth stopping over. This is not one: its locator is
+    /// runner-local and declares itself so, exactly as the transcript's does, and
+    /// nothing is expected to open it except a later flight reading records on the
+    /// machine that made them. It describes what happened and instructs nobody.
+    /// </para>
+    /// <para>
+    /// <b>Why it is not the transcript.</b> Two files, and neither is a superset
+    /// of the other - measured on GG-309, where the teardown records exist only in
+    /// the stream we capture and the composed prompt and every tool input exist
+    /// only in the agent's own file. A reader handed two facts of ONE kind would
+    /// have to tell them apart by inspecting a locator, which is a naming
+    /// convention doing a schema's job.
+    /// </para>
+    private const int KindsThatCross = 16;
 
     [Test]
     public async Task A_moved_vocabulary_version_has_a_ledger_entry()
@@ -179,6 +196,19 @@ public class SliceThreeGuardTests
         // why it carries neither a credential nor a port: a fact holding
         // something somebody follows is one that can carry a secret by accident.
         // A SECOND FACT CARRYING A REACHABLE ADDRESS IS THE ONE TO STOP OVER.
+        //
+        // SIXTEEN, AND IT IS NOT THAT SECOND ADDRESS. loop.session is where the
+        // AGENT kept its own record of a session, and it is a second
+        // loop.transcript rather than a second preview.url: the locator is
+        // runner-local and says so, and nothing is expected to open it but a
+        // later flight reading records on the machine that made them. So the
+        // number worth watching stays at three, and the address count stays at
+        // one. Why it is not simply the transcript: two files, and neither is a
+        // superset of the other - measured on GG-309, where the teardown records
+        // exist only in the stream we capture and the composed prompt and every
+        // tool input exist only in the agent's file. Two facts of one kind would
+        // be told apart by inspecting a locator, which is a naming convention
+        // doing a schema's job.
         // This test
         // used to say "no fact
         // kind has been added" and the halt it produced is what sent the decision
@@ -202,6 +232,7 @@ public class SliceThreeGuardTests
                 FactKinds.LandingProposal,
                 FactKinds.LoopQuestion,
                 FactKinds.LoopTranscript,
+                FactKinds.LoopSession,
                 FactKinds.SourceProvenance,
                 FactKinds.WorkItemProposal,
                 FactKinds.PreviewUrl,

@@ -2255,8 +2255,8 @@ public static class ProtocolSurface
                  "headIsFork", "forkSlug", "fileCount", "bytes"],
             [typeof(FactEnvelope)] =
                 ["idempotencyKey", "kind", "digest", "observedAt", "environment", "source", "change",
-                 "loop", "transcript", "landed", "pushed", "loopDigest", "human", "nomination",
-                 "question", "attended", "proposal", "landing", "preview"],
+                 "loop", "transcript", "session", "landed", "pushed", "loopDigest", "human",
+                 "nomination", "question", "attended", "proposal", "landing", "preview"],
             [typeof(FactBatch)] = ["generation", "facts"],
             [typeof(FactRejection)] = ["idempotencyKey", "reason"],
             // Refusals only: accepted and duplicates are answers the write has,

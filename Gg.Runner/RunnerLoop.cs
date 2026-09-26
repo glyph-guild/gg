@@ -2435,6 +2435,15 @@ public sealed class RunnerLoop(
                 payloads.Add(new FactPayload.Transcript(transcript));
             }
 
+            // AND THE AGENT'S OWN RECORD, when it kept one. A second fact rather
+            // than a second locator on the first: the two files hold different
+            // halves of what happened, and a reader told to pick one by its name
+            // is a naming convention doing a schema's job.
+            if (run.Session is { } session)
+            {
+                payloads.Add(new FactPayload.Session(new LoopSession { Artifact = session }));
+            }
+
             // And what the transcript SAID, extracted. The reference above only
             // resolves on this machine, so without this a person on the other
             // side has a hash and a path they cannot follow.

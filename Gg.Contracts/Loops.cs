@@ -105,6 +105,32 @@ public sealed record ArtifactReference
     public required string Scope { get; init; }
 }
 
+/// <summary>
+/// Where the agent kept its own record of the session.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>It wraps a reference rather than restating one.</b> Five members copied
+/// from <see cref="ArtifactReference"/> would be five to keep in step, and the
+/// shape is not merely similar - it is the same thing about a different file.
+/// What forces a separate type at all is that <c>FactKindAttribute</c> is not
+/// <c>AllowMultiple</c>, so <c>ArtifactReference</c> cannot be both
+/// <c>loop.transcript</c> and this.
+/// </para>
+/// <para>
+/// <b>Required, because a session fact with no artifact is nothing.</b> Absence
+/// is expressed by shipping no fact at all, which is the ordinary case for an
+/// attended session, the move-bound probe, and a sweep.
+/// </para>
+/// </remarks>
+[FactKind(FactKinds.LoopSession)]
+[PinnedId("b4dc10c9-97ed-4726-b4fc-b4ffa37449a4")]
+public sealed record LoopSession
+{
+    /// <summary>The file, as a reference and never as a body.</summary>
+    public required ArtifactReference Artifact { get; init; }
+}
+
 /// <summary>How far a locator reaches.</summary>
 /// <remarks>
 /// Named rather than implied, because the answer today is the narrow one and a

@@ -42,6 +42,10 @@ public class AModalOwnsTheMouseTooTests
     [Test]
     public async Task The_console_holds_the_mouse_while_nothing_is_open()
     {
+        await Assert.That(ConsoleMouse.CoveredWhile(new AppState())).IsFalse()
+            .Because("with no modal drawn there is nothing covered, and the panes take their "
+                   + "own clicks the way they always did.");
+
         await Assert.That(ConsoleMouse.OursWhile(new AppState())).IsTrue()
             .Because("clicking a row, a tab or a pane is how half the console is used, and "
                    + "none of that goes near the path that throws.");
@@ -52,7 +56,15 @@ public class AModalOwnsTheMouseTooTests
     {
         foreach (var mode in Modals.Drawn)
         {
-            await Assert.That(ConsoleMouse.OursWhile(new AppState { Mode = mode })).IsFalse()
+            // THE MOUSE STAYS OURS NOW. Handing it back was how a covered view
+            // was kept from being focused - and it cost every modal its clicks.
+            // What is covered is disabled instead, so the click never reaches a
+            // view that cannot take focus and the modal keeps the mouse.
+            await Assert.That(ConsoleMouse.CoveredWhile(new AppState { Mode = mode })).IsTrue()
+                .Because($"{mode} draws a modal over the panes, and a click on one of them "
+                       + "asks the library to focus a hidden view, which ends the process.");
+
+            await Assert.That(ConsoleMouse.OursWhile(new AppState { Mode = mode })).IsTrue()
                 .Because($"{mode} draws over what is behind it, and a click that lands on "
                        + "what it covers asks the library to focus a hidden view.");
         }
@@ -67,6 +79,7 @@ public class AModalOwnsTheMouseTooTests
         foreach (var mode in Modals.NotDrawn.Keys)
         {
             await Assert.That(ConsoleMouse.OursWhile(new AppState { Mode = mode })).IsTrue();
+            await Assert.That(ConsoleMouse.CoveredWhile(new AppState { Mode = mode })).IsFalse();
         }
     }
 
@@ -76,7 +89,12 @@ public class AModalOwnsTheMouseTooTests
         // FREEZING ALREADY DID THIS, and it has to keep doing it whichever mode
         // it froze in: the pixels have stopped, so a selection is the only
         // thing the mouse is for.
+        // FREEZING KEEPS ITS OWN REASON, and it is the one this was built for:
+        // a person selecting text needs the terminal's own selection back, and
+        // nothing about that is a covered view.
         await Assert.That(ConsoleMouse.OursWhile(new AppState { Frozen = true })).IsFalse();
+        await Assert.That(ConsoleMouse.CoveredWhile(new AppState { Frozen = true })).IsFalse()
+            .Because("a frozen screen covers nothing; it stops moving.");
 
         await Assert.That(ConsoleMouse.OursWhile(
             new AppState { Frozen = true, Mode = UiMode.Help })).IsFalse();

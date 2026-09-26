@@ -506,6 +506,16 @@ public sealed record ExecutorRun
     public Gg.Contracts.FlightNomination? Nomination { get; init; }
 
     /// <summary>
+    /// The airspace document this run handed back, when it handed one back.
+    /// </summary>
+    /// <remarks>
+    /// Beside the nomination because it is the same kind of thing: a request the
+    /// agent DECLARED through a tool, not a measurement. Null is ordinary and is
+    /// every flight that was not drafting governance.
+    /// </remarks>
+    public Gg.Contracts.DocumentProposal? Document { get; init; }
+
+    /// <summary>
     /// The changes this run proposed be made to work items, in the order it
     /// proposed them.
     /// </summary>

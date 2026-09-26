@@ -402,6 +402,13 @@ public static class PlatformToolServer
                 // but not granted is one the agent cannot call. Withholding it
                 // here instead would put half the grant in this file.
                 Landing(writer);
+
+                // A FIFTH, ON THE FOURTH'S TERMS, and the one that asks for the
+                // most: that the document GOVERNING later flights change. Still
+                // offered unconditionally and still granted one move at a time,
+                // because putting half a grant in this file is the thing the
+                // paragraph above refuses.
+                DocumentProposal(writer);
             }
 
             writer.WriteEndArray();
@@ -1075,6 +1082,11 @@ public static class PlatformToolServer
             return Named(id, arguments);
         }
 
+        if (string.Equals(called, DocumentProposalTool.Name, StringComparison.Ordinal))
+        {
+            return Handed(id, arguments);
+        }
+
         if (sweep)
         {
             return SweepNominated(id, arguments);
@@ -1158,6 +1170,104 @@ public static class PlatformToolServer
     /// records one to a place that leaves nothing behind.
     /// </para>
     /// </remarks>
+    /// <summary>Declares <c>DocumentProposalTool</c>.</summary>
+    private static void DocumentProposal(Utf8JsonWriter writer)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("name", Gg.Local.DocumentProposalTool.Name);
+        writer.WriteString("description",
+            "Hand back an airspace document you have drafted, for one declared name in "
+          + "this tenant's topology. THIS APPLIES NOTHING. It is recorded as a proposal, "
+          + "and a person opens the gate the tenant's own envelope declares before "
+          + "anything changes - so a document cannot put itself in force, and a flight is "
+          + "judged against the governance in force rather than the governance it is "
+          + "asking for. The document is checked before it is recorded: if it does not "
+          + "read as the role you named, nothing is recorded and you are told why, so fix "
+          + "it and call again. Call it once you are sure; calling it again replaces what "
+          + "you handed back.");
+        writer.WriteStartObject("inputSchema");
+        writer.WriteString("type", "object");
+        writer.WriteStartObject("properties");
+
+        writer.WriteStartObject(Gg.Local.DocumentProposalTool.RoleArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "What kind of document this is. One of: "
+          + string.Join(", ", Gg.Contracts.Roles.All) + ".");
+        writer.WriteEndObject();
+
+        writer.WriteStartObject(Gg.Local.DocumentProposalTool.NameArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "The declared name in the tenant's topology this document is for.");
+        writer.WriteEndObject();
+
+        writer.WriteStartObject(Gg.Local.DocumentProposalTool.DocumentArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description", "The document itself, as YAML.");
+        writer.WriteEndObject();
+
+        writer.WriteEndObject();
+
+        writer.WriteStartArray("required");
+        writer.WriteStringValue(Gg.Local.DocumentProposalTool.RoleArgument);
+        writer.WriteStringValue(Gg.Local.DocumentProposalTool.NameArgument);
+        writer.WriteStringValue(Gg.Local.DocumentProposalTool.DocumentArgument);
+        writer.WriteEndArray();
+
+        writer.WriteEndObject();
+        writer.WriteEndObject();
+    }
+
+    /// <summary>
+    /// A document handed back: checked, then acknowledged.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Validated before it answers, and that is load-bearing rather than
+    /// helpful.</b> The runner reads only calls whose result came back without an
+    /// error, so a refusal here is a document that never becomes a fact. If this
+    /// acknowledged first and checked later, an agent could land a malformed
+    /// governance document by calling and not reading the reply.
+    /// </para>
+    /// <para>
+    /// <b>It writes nothing.</b> Unlike <c>DocumentTool</c>, which puts a draft in
+    /// a working copy for a person to read, this records nothing anywhere: what
+    /// carries the document is the fact the runner ships from the transcript.
+    /// This server holds no credential and touches no disk, which is what makes
+    /// it safe to start as a child of a process the threat model treats as
+    /// compromised.
+    /// </para>
+    /// </remarks>
+    private static string Handed(JsonElement id, JsonElement arguments)
+    {
+        var role = Text(arguments, Gg.Local.DocumentProposalTool.RoleArgument);
+        var named = Text(arguments, Gg.Local.DocumentProposalTool.NameArgument);
+        var document = Text(arguments, Gg.Local.DocumentProposalTool.DocumentArgument);
+
+        if (role is null || named is null || document is null)
+        {
+            return Content(id, isError: true,
+                $"Refused: handing back a document needs "
+              + $"'{Gg.Local.DocumentProposalTool.RoleArgument}', "
+              + $"'{Gg.Local.DocumentProposalTool.NameArgument}' and "
+              + $"'{Gg.Local.DocumentProposalTool.DocumentArgument}'. Nothing was recorded.");
+        }
+
+        // AGAINST THE CONTRACT'S OWN LIST, not one written here. A role nobody
+        // declared is a document the control plane can neither apply nor refuse.
+        if (!Gg.Contracts.Roles.All.Contains(role, StringComparer.Ordinal))
+        {
+            return Content(id, isError: true,
+                $"Refused: '{role}' is not a role this platform has. It has "
+              + string.Join(", ", Gg.Contracts.Roles.All) + ". Nothing was recorded.");
+        }
+
+        return Content(id, isError: false,
+            $"Recorded as a proposal for '{named}'. Nothing has changed: a person opens "
+          + "the gate before it takes effect.");
+    }
+
     private static string Proposed(JsonElement id, JsonElement arguments)
     {
         var operation = Text(arguments, OperationArgument);

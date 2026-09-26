@@ -2466,6 +2466,15 @@ public sealed class RunnerLoop(
                 payloads.Add(new FactPayload.Nomination(nomination));
             }
 
+            // AND THE DOCUMENT IT DRAFTED, which asks that what governs later
+            // flights change. It applies nothing: the control plane holds it as
+            // a proposal and a person opens the gate the tenant's own envelope
+            // declares.
+            if (run.Document is { } drafted)
+            {
+                payloads.Add(new FactPayload.Document(drafted));
+            }
+
             // ONE FACT EACH, in the order they were proposed. A link proposed
             // after a re-field was proposed by an agent that had already
             // decided the first one, and a person admits them one at a time -

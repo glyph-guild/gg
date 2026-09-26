@@ -369,13 +369,13 @@ public class PlatformToolServerTests
             .IsEquivalentTo((string[])
             [
                 HelpTool.Name, NominationTool.Name, WorkItemProposalTool.Name,
-                LandingProposalTool.Name,
+                LandingProposalTool.Name, DocumentProposalTool.Name,
             ])
             .Because("a flight nominates a work kind, asks a person for a decision it may "
-                   + "not make, proposes work items, and says what the proposal it opens "
-                   + "should be called. The envelope decides which of those it is granted; "
-                   + "the server should not be offering it two more that belong to the "
-                   + "console.");
+                   + "not make, proposes work items, says what the proposal it opens "
+                   + "should be called, and hands back an airspace document it drafted. "
+                   + "The envelope decides which of those it is granted; the server should "
+                   + "not be offering it two more that belong to the console.");
     }
 
     [Test]
@@ -593,25 +593,56 @@ public class PlatformToolServerTests
         // adds neither.
         //
         // COUNTED ACROSS THE THREE SHAPES, because no session is offered all
-        // eight any more: a tool a session cannot use is a wrong answer
+        // nine any more: a tool a session cannot use is a wrong answer
         // somebody has to be talked out of, and one was. The total is still
         // what an eighth has to argue against - the argument is about adding a
         // tool to this server, not about which session sees it.
-        // A NINTH still has to make its own argument. None of these eight is it.
+        // NINE NOW, AND HERE IS THE ARGUMENT THE COUNT ASKED FOR.
+        // `propose_document` is the whole output of a KIND of work, the way the
+        // nomination and the work-item proposal are: a learning flight reads the
+        // records of past flights and its product is one proposed document. So
+        // it is granted the way those are - by a declared move,
+        // LoopMoves.ProposeDocument, whole and by name, rather than by widening
+        // one that exists, which would retroactively change what every envelope
+        // already declaring it permits.
+        //
+        // IT IS NOT `submit_document`, and the two must not be confused. That
+        // one writes a draft into a local airspace working copy for a person to
+        // read, and is granted by the launch that asked for a draft. A runner
+        // has no working copy - the estate holds documents rather than
+        // repositories - so this one writes NOTHING. It validates, answers, and
+        // the runner reads the call out of the transcript afterwards. Two tools
+        // whose names nearly collide is a real cost, paid because the
+        // alternative is one tool that behaves differently depending on how the
+        // server was started, which is worse.
+        //
+        // WHY AN EIGHTH THING AN INJECTED AGENT CAN REACH IS AFFORDABLE, and
+        // this one needs the argument most, because what it asks for is that the
+        // document GOVERNING later flights change. It applies nothing: the
+        // proposal is held, a person opens the gate the tenant's own envelope
+        // declares, and a flight is evaluated against the governance in force
+        // rather than the governance it is asking for - so it cannot widen its
+        // own way in, and an agent that drafted itself more permission would be
+        // asking a person to grant it. The same property that made the fourth
+        // and fifth affordable: one more thing to reach, not one more thing to
+        // DECIDE.
+        //
+        // A TENTH still has to make its own argument. None of these nine is it.
         var listed = (await OfferedAsync(intentPath: null, documentRoot: "/tmp/tree"))
             .Concat(await OfferedAsync(intentPath: "/tmp/intent", documentRoot: null))
             .Concat(await OfferedAsync(intentPath: null, documentRoot: null))
             .Order(StringComparer.Ordinal)
             .ToList();
 
-        await Assert.That(listed.Count).IsEqualTo(8)
-            .Because("one channel, eight tools. A ninth is a decision somebody has to "
-                   + "argue for, in this comment, where the last six were argued for. "
+        await Assert.That(listed.Count).IsEqualTo(9)
+            .Because("one channel, nine tools. A tenth is a decision somebody has to "
+                   + "argue for, in this comment, where the last seven were argued for. "
                    + "And each appears in exactly one shape, or a session is being offered "
                    + "something it cannot do. Found: " + string.Join(", ", listed));
         await Assert.That(listed).IsEquivalentTo(
             new[] { NominationTool.Name, HelpTool.Name, IntentTool.Name,
                     WorkItemProposalTool.Name, LandingProposalTool.Name, DocumentTool.Name,
+                    DocumentProposalTool.Name,
                     AirspaceContextTool.Name, AirspacePullTool.Name })
             .Because("named rather than counted, so a tool cannot arrive by swapping which "
                    + "ones are declared. Found: " + string.Join(", ", listed));

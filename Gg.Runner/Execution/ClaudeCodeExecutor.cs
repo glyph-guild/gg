@@ -1154,6 +1154,12 @@ public sealed class ClaudeCodeExecutor(
         // name: one move granting two tools is the prefix grant the comment
         // above refuses, arriving by a different route.
         LoopMoves.ProposeLanding => LandingProposalTool.Qualified,
+        // THE FOURTH, AND THE MOST CONSEQUENTIAL. Its own move and its own whole
+        // name, on the terms the two above set - and the reason to keep them
+        // apart is sharper here: this one asks that the document GOVERNING later
+        // flights change, so a kind that may draft governance says so in its own
+        // envelope rather than acquiring it by being granted something else.
+        LoopMoves.ProposeDocument => DocumentProposalTool.Qualified,
         // THE ONE VALUE WITH NO ANSWER, and the fall-through below is why it
         // has to throw rather than return one. `anything` grants no tool: it
         // removes the allow-list, so nothing ever asks this question on the
@@ -1399,6 +1405,10 @@ public sealed class ClaudeCodeExecutor(
             // its own extractor - but it is read here, once, from the stream
             // this machine already has.
             Nomination = TranscriptDigest.Nomination(transcript.ToString()),
+            // AND THE DOCUMENT, at the same boundary and from the same text. The
+            // most consequential of the declared values: it asks that the
+            // document governing later flights change, and it applies nothing.
+            Document = TranscriptDigest.Document(transcript.ToString()),
             // AND THE PROPOSALS, at the same boundary and from the same text.
             // The extractor for these shipped a slice before anything called
             // it, so a triage flight produced no proposal facts at all and

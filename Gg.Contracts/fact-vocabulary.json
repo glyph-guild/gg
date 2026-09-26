@@ -192,7 +192,7 @@
   },
   {
     "version": "0.35.0",
-    "surface": "6a8884dfdd7bc308a163ba5803c86897c99bc75ba6578a6a4a932069fd94b54d",
+    "surface": "f5dde98192c3f6ba1489d80b275de4c68bea0e1df942eef271613ede8273fc95",
     "kinds": "change.manifest, destination.landed, destination.pushed, document.proposal, environment.identity, flight.nomination, handoff.account, landing.proposal, loop.attended, loop.digest, loop.outcome, loop.question, loop.session, loop.transcript, preview.url, source.provenance, work-item.proposal"
   }
 ]

@@ -648,6 +648,131 @@ public static class TranscriptDigest
         return null;
     }
 
+    /// <summary>
+    /// The airspace document this run handed back, or null.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The nomination's walk, over a different tool.</b> Calls collected in
+    /// order, results collected by id, and the last call whose result came back
+    /// without an error wins - an agent that called twice changed its mind, and
+    /// the newest answer is the one.
+    /// </para>
+    /// <para>
+    /// <b>A call with no result is not a proposal.</b> The server validates
+    /// before it answers, so an unanswered call is one it refused or never saw.
+    /// Reading it anyway would let an agent land a document the server rejected,
+    /// by calling and not waiting.
+    /// </para>
+    /// <para>
+    /// <b>And prose is never read as one.</b> A document extracted from what an
+    /// agent wrote would be a governance change composed of whatever the text
+    /// contained, which is the classifier <c>blocked</c> already refuses to be.
+    /// </para>
+    /// </remarks>
+    public static Gg.Contracts.DocumentProposal? Document(string transcript)
+    {
+        ArgumentNullException.ThrowIfNull(transcript);
+
+        var asked = new List<(string Id, Gg.Contracts.DocumentProposal Proposal)>();
+        var answered = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var line in transcript.Split('\n'))
+        {
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            JsonDocument document;
+            try
+            {
+                document = JsonDocument.Parse(line);
+            }
+            catch (JsonException)
+            {
+                continue;
+            }
+
+            using (document)
+            {
+                if (document.RootElement.ValueKind != JsonValueKind.Object
+                    || !document.RootElement.TryGetProperty("message", out var message)
+                    || message.ValueKind != JsonValueKind.Object
+                    || !message.TryGetProperty("content", out var content)
+                    || content.ValueKind != JsonValueKind.Array)
+                {
+                    continue;
+                }
+
+                foreach (var block in content.EnumerateArray())
+                {
+                    if (block.ValueKind != JsonValueKind.Object
+                        || !block.TryGetProperty("type", out var type))
+                    {
+                        continue;
+                    }
+
+                    switch (type.GetString())
+                    {
+                        case "tool_use":
+                            Drafted(block, asked);
+                            break;
+
+                        case "tool_result":
+                            Answered(block, answered);
+                            break;
+                    }
+                }
+            }
+        }
+
+        for (var i = asked.Count - 1; i >= 0; i--)
+        {
+            if (answered.Contains(asked[i].Id))
+            {
+                return asked[i].Proposal;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>One call to the document tool, if that is what this block is.</summary>
+    /// <remarks>
+    /// <b>All three arguments or none.</b> The server refuses a partial call, so
+    /// this is defence against a transcript that came from somewhere else - and
+    /// the extractor may not invent the missing part of a governance document.
+    /// </remarks>
+    private static void Drafted(
+        JsonElement block, List<(string Id, Gg.Contracts.DocumentProposal Proposal)> asked)
+    {
+        if (!block.TryGetProperty("name", out var name)
+            || !string.Equals(
+                name.GetString(), DocumentProposalTool.Qualified, StringComparison.Ordinal)
+            || !block.TryGetProperty("id", out var id)
+            || id.GetString() is not { Length: > 0 } callId
+            || !block.TryGetProperty("input", out var input)
+            || input.ValueKind != JsonValueKind.Object)
+        {
+            return;
+        }
+
+        if (Argument(input, DocumentProposalTool.RoleArgument) is not { } role
+            || Argument(input, DocumentProposalTool.NameArgument) is not { } named
+            || Argument(input, DocumentProposalTool.DocumentArgument) is not { } text)
+        {
+            return;
+        }
+
+        asked.Add((callId, new Gg.Contracts.DocumentProposal
+        {
+            Role = role,
+            Name = named,
+            Document = text,
+        }));
+    }
+
     /// <summary>How one tool's calls went: how many came back, and how many were refused.</summary>
     /// <param name="Answered">Calls that came back without an error.</param>
     /// <param name="Refused">Calls the tool answered with an error.</param>

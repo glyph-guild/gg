@@ -33,7 +33,14 @@ public static class QueueSelection
     /// </summary>
     /// <param name="fromView">What the list now reports, or null for no selection.</param>
     /// <param name="inModel">What the model currently holds.</param>
-    public static Command? Wanted(int? fromView, int inModel)
+    /// <param name="notices">
+    /// How many notice lines sit above the rows. <c>PaneText.QueueRows</c> puts
+    /// them there, so a list index is a model index plus this - and reading one
+    /// as the other is why the last row could not be selected: the view kept
+    /// reporting a number one higher than the model held, this read every
+    /// redraw as a move, and Render assigned the cursor back short of the end.
+    /// </param>
+    public static Command? Wanted(int? fromView, int inModel, int notices = 0)
     {
         // NO SELECTION IS NOT A CHOICE. Repopulating clears it, and a redraw
         // must never look like a keystroke.
@@ -42,14 +49,25 @@ public static class QueueSelection
             return null;
         }
 
-        // AND THE ROW ALREADY HELD IS NOT A CHOICE EITHER. Render assigns
-        // SelectedItem back after repopulating, which raises the event a second
-        // time; acting on that would be the same recursion by a shorter route.
-        if (wanted == inModel)
+        // A NOTICE IS NOT A ROW SOMEBODY CAN BE ON. Below the offset there is no
+        // model row to mean, and the nearest one is the top - so acting would
+        // drag the cursor to the first flight because somebody clicked a
+        // sentence above it.
+        var row = wanted - notices;
+
+        if (row < 0)
         {
             return null;
         }
 
-        return wanted > inModel ? Command.SelectNext : Command.SelectPrevious;
+        // AND THE ROW ALREADY HELD IS NOT A CHOICE EITHER. Render assigns
+        // SelectedItem back after repopulating, which raises the event a second
+        // time; acting on that would be the same recursion by a shorter route.
+        if (row == inModel)
+        {
+            return null;
+        }
+
+        return row > inModel ? Command.SelectNext : Command.SelectPrevious;
     }
 }

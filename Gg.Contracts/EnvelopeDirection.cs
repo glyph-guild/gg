@@ -190,6 +190,18 @@ public static class EnvelopeDirection
             return produces;
         }
 
+        // ADVICE WIDENS BY ARRIVING, WHICH IS THE OPPOSITE DIRECTION FROM EVERY
+        // LIST ABOVE, and reusing `Declared` here would have had it exactly
+        // backwards. `accepts:` and `produces:` widen by DROPPING, because a
+        // declaration withdrawn is a gate that stops firing. Learned context is
+        // not a declaration about what may happen: it is text that reaches an
+        // agent. A line added is new influence over every later flight of this
+        // kind, and a line given up is influence surrendered.
+        if (Advised(applied.Learned, proposed.Learned) is { } learned)
+        {
+            return learned;
+        }
+
         // GIVING UP `least-spent` IS A WIDENING, and the asymmetry is the
         // point. Holding a higher-spent machine back is a protection over
         // somebody's own subscription; letting whichever machine asks first
@@ -646,6 +658,37 @@ public static class EnvelopeDirection
     /// disappeared cannot be argued into <i>unchanged</i>.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Advice that was not there before, which is new influence.
+    /// </summary>
+    /// <remarks>
+    /// <b>Only additions, and the header is deliberately not compared.</b>
+    /// Re-learning against a newer commit while the advice is unchanged says the
+    /// same thing about a different environment - a fact about provenance, not new
+    /// reach. What a person is being asked to approve is words an agent will read,
+    /// so words are what this measures.
+    /// </remarks>
+    private static EnvelopeWidening? Advised(LearnedContext? was, LearnedContext? now)
+    {
+        if (now is null)
+        {
+            return null;
+        }
+
+        var added = now.Advice
+            .Except(was?.Advice ?? [], StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        return added.Count == 0
+            ? null
+            : Widen("learned",
+                $"'learned:' gains {Describe(string.Join("; ", added))}, which reaches the agent "
+              + "of every later flight of this kind. It was drafted by a machine, so a person "
+              + "reading these words is the only thing between a repository's own text and "
+              + "every prompt that follows.");
+    }
+
     private static EnvelopeWidening? Declared(
         string field, IReadOnlyList<string>? was, IReadOnlyList<string>? now, string consequence)
     {

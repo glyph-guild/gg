@@ -1957,6 +1957,8 @@ public static class ProtocolSurface
             [typeof(AllowanceList)] = ["allowances"],
             [typeof(ArtifactReference)] = ["locator", "sha256", "bytes", "mediaType", "scope"],
             [typeof(LoopSession)] = ["artifact"],
+            [typeof(LearnedContext)] = ["against", "advice"],
+            [typeof(LearnedAgainst)] = ["repository", "commit", "image", "envelope"],
             [typeof(ContextBinding)] = ["scope", "constitution"],
             [typeof(Obligation)] = ["id", "check", "when", "rule", "approver", "provenance", "evidence"],
             [typeof(LoopBudget)] = ["wallClock", "attempts"],

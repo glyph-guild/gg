@@ -135,6 +135,30 @@ public static class EnvelopeText
             Sequence(text, "produces", produces, depth: 0);
         }
 
+        // LEARNED CONTEXT, RENDERED ONLY WHEN DECLARED, for the reason variables
+        // are: a document that has been taught nothing must not gain a section by
+        // being written out, or a pull reports a change nobody made.
+        if (envelope.Learned is { } learned)
+        {
+            text.Append("learned:\n  against:\n");
+
+            foreach (var (key, value) in ((string, string?)[])
+                [("repository", learned.Against.Repository), ("commit", learned.Against.Commit),
+                 ("image", learned.Against.Image), ("envelope", learned.Against.Envelope)])
+            {
+                if (value is { Length: > 0 })
+                {
+                    text.Append($"    {key}: {Scalar(value)}\n");
+                }
+            }
+
+            text.Append("  advice:\n");
+            foreach (var line in learned.Advice)
+            {
+                text.Append($"    - {Scalar(line)}\n");
+            }
+        }
+
         // VARIABLES, RENDERED ONLY WHEN DECLARED. An empty map is written as an
         // empty map, because declaring none is a decision and a rendering that
         // grew a line by itself would report a change nobody made.

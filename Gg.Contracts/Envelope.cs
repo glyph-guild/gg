@@ -1854,6 +1854,45 @@ public sealed record Envelope
     public IReadOnlyList<string>? Produces { get; init; }
 
     /// <summary>
+    /// What earlier flights of this kind found out about the environment, or null
+    /// when nothing has been learned.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The envelope states the goal; this states the how.</b> A goal is true of
+    /// every environment and ages only when the kind's intent changes. A technique
+    /// is a command, and commands rot - which is what the header on
+    /// <see cref="LearnedContext.Against"/> exists to make computable rather than
+    /// guessed. <c>ui-preview</c>'s <i>"start the server in the background"</i> is
+    /// the technique this replaces: correct prose naming the wrong mechanism, which
+    /// no author could have got right without measuring the environment first.
+    /// </para>
+    /// <para>
+    /// <b>Work-kind-only, on the security ground <see cref="Produces"/> is.</b> A
+    /// narrowing composes across layers and may live in a customer's own
+    /// repository. One that could ADD advice would be putting prose from a
+    /// repository into the prompt of every later flight of that kind, reviewed by
+    /// nobody - the injection path the gate exists to close, reached around it.
+    /// <see cref="EnvelopeNarrowing"/> has no member for this at all.
+    /// </para>
+    /// <para>
+    /// <b>Nullable, never absorbing and never required</b>, by this file's own rule
+    /// on <see cref="Instructions"/>: absorbing is right for a member being
+    /// repaired and wrong for one being added. Absence is a document that did not
+    /// say, and a pull that invented a section would put words in an author's mouth
+    /// and then diff against them.
+    /// </para>
+    /// <para>
+    /// <b>Drafted by a machine and reviewed by a person.</b> It is the only member
+    /// here with that provenance, which is why it reaches an agent fenced as
+    /// reviewed words that grant nothing rather than as the operator's own
+    /// instructions.
+    /// </para>
+    /// </remarks>
+    [Composes(MergeOperators.WorkKindOnly)]
+    public LearnedContext? Learned { get; init; }
+
+    /// <summary>
     /// Environment variables set on what a flight runs, or null when the
     /// document says nothing about them.
     /// </summary>
@@ -2172,6 +2211,11 @@ public sealed record Envelope
         if (Producing(envelope) is { } producing)
         {
             return producing;
+        }
+
+        if (Learning(envelope) is { } learning)
+        {
+            return learning;
         }
 
         if (Accepting(envelope) is { } accepting)
@@ -3010,6 +3054,38 @@ public sealed record Envelope
     /// where an author can still act, and the refusal names the vocabulary
     /// rather than saying the envelope is invalid.
     /// </remarks>
+    /// <summary>
+    /// Learned context says what it was learned against, and says something.
+    /// </summary>
+    /// <remarks>
+    /// <b>Refused where the author can still act</b>, which is the disposition
+    /// <see cref="Producing"/> uses and for the same reason: the failure direction
+    /// is permissive. Advice with no header is advice nothing can ever invalidate,
+    /// so it outlives every environment it was true of and no gate reports a fault.
+    /// A header with no advice is the converse - a provenance record for nothing,
+    /// and the shape a required header invites if nobody refuses it.
+    /// </remarks>
+    private static string? Learning(Envelope envelope)
+    {
+        if (envelope.Learned is not { } learned)
+        {
+            return null;
+        }
+
+        if (!learned.Against.Names)
+        {
+            return "learned.against names nothing. Advice that does not say what it was "
+                 + "learned against cannot be told to have gone stale, so it would outlive "
+                 + "every environment it was true of. Name at least one of: repository, "
+                 + "commit, image, envelope.";
+        }
+
+        return learned.Advice.Count == 0
+            ? "learned.advice is empty. A header with no advice records the provenance of "
+            + "nothing - remove the section, or say what an agent should be told."
+            : null;
+    }
+
     private static string? Producing(Envelope envelope)
     {
         if (envelope.Produces is not { } produces)
@@ -3339,6 +3415,71 @@ public static class DestinationOpening
 /// gains none.
 /// </para>
 /// </remarks>
+/// <summary>
+/// What a work kind has been taught about its environment, and what that was
+/// learned against.
+/// </summary>
+/// <remarks>
+/// <b>Advice, deliberately, rather than measurements.</b> The point is to direct
+/// an agent around what this place is like, and a measurement directs nobody. The
+/// header is what keeps advice honest as it ages: it does not soften the advice,
+/// it makes the question <i>is this still true</i> answerable.
+/// </remarks>
+[PinnedId("181065a5-1988-4629-b482-ce4d50969dc7")]
+public sealed record LearnedContext
+{
+    /// <summary>What this was learned against, so staleness can be computed.</summary>
+    public required LearnedAgainst Against { get; init; }
+
+    /// <summary>
+    /// What to tell an agent, in the words a person approved.
+    /// </summary>
+    /// <remarks>
+    /// Never empty. A header with no advice is a provenance record for nothing,
+    /// and the shape a required header invites if nobody refuses it.
+    /// </remarks>
+    public required IReadOnlyList<string> Advice { get; init; }
+}
+
+/// <summary>
+/// The environment a piece of advice was learned against.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Every member nullable, and at least one required.</b> A pass may know the
+/// commit and not the image; demanding all four would make this a form to fill in
+/// and the values would stop meaning anything. All four absent is a header written
+/// to satisfy a check, and is refused.
+/// </para>
+/// <para>
+/// <b>They do not age equally, which is the point of naming them separately.</b> A
+/// lockfile moving is strong evidence advice about installing has rotted; an
+/// arbitrary commit is noise. An image repin is strong. A rewrite of the kind's
+/// own instructions is strong, because the advice was learned against a different
+/// intent.
+/// </para>
+/// </remarks>
+[PinnedId("f6394630-bda3-492e-b3df-e6c9390b0b1a")]
+public sealed record LearnedAgainst
+{
+    /// <summary>The repository, as a slug.</summary>
+    public string? Repository { get; init; }
+
+    /// <summary>The commit the flights it was learned from worked from.</summary>
+    public string? Commit { get; init; }
+
+    /// <summary>The member image those flights ran on.</summary>
+    public string? Image { get; init; }
+
+    /// <summary>The version of this kind's own document at the time.</summary>
+    public string? Envelope { get; init; }
+
+    /// <summary>Whether it names anything at all.</summary>
+    public bool Names =>
+        Repository is { Length: > 0 } || Commit is { Length: > 0 }
+        || Image is { Length: > 0 } || Envelope is { Length: > 0 };
+}
+
 [PinnedId("c4a97e51-3b28-4d60-8f7a-e13952cb0a68")]
 public sealed record EnvelopeVariable
 {

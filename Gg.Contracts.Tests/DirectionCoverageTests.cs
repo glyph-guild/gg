@@ -191,6 +191,22 @@ public class DirectionCoverageTests
         // null to anything is still a widening: selecting a name where none was
         // selected is new reach, which is the reading slice ten set and an
         // end-to-end test defends.
+        // ADDING ADVICE WIDENS AND REMOVING IT DOES NOT, which inverts every list
+        // beside it: `accepts:` and `produces:` widen by dropping a declaration,
+        // and advice widens by arriving. It is text an agent reads rather than a
+        // claim about what may happen, so words gained are influence gained.
+        new("Envelope.Learned", "learned",
+            Doc(),
+            Doc() with
+            {
+                Learned = new LearnedContext
+                {
+                    Against = new LearnedAgainst { Commit = "a1b2c3d" },
+                    Advice = ["Wait for the install before starting the server."],
+                },
+            },
+            ReverseAlsoWidens: false),
+
         new("Envelope.Environments", "environments",
             Doc(), Doc() with { Environments = ["dev", "prod"] }, ReverseAlsoWidens: false),
 

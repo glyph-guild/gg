@@ -119,7 +119,15 @@ public class AKindMayCarryLearnedContextTests
         var again = EnvelopeYaml.Parse(EnvelopeText.Render(first.Envelope!));
 
         await Assert.That(again.Diagnosis).IsNull();
-        await Assert.That(again.Envelope!.Learned).IsEqualTo(first.Envelope!.Learned)
+        // PART BY PART, because a record's own equality compares an
+        // IReadOnlyList member by REFERENCE - so `IsEqualTo` on the whole thing
+        // can never pass here however faithful the round trip, and would have
+        // read as the writer dropping something.
+        await Assert.That(again.Envelope!.Learned!.Against)
+            .IsEqualTo(first.Envelope!.Learned!.Against);
+
+        await Assert.That(again.Envelope.Learned.Advice)
+            .IsEquivalentTo(first.Envelope.Learned.Advice)
             .Because("a member the writer drops is a member a pull silently deletes, which is "
                    + "how an author's document loses a section nobody meant to remove.");
     }

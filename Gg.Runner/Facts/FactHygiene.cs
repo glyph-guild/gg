@@ -141,6 +141,20 @@ public static class FactHygiene
             Scope = Text(transcript.Value.Scope),
         }),
 
+        // THE SAME FOUR STRINGS, because it is the same shape one level in. A
+        // nested payload whose members nobody cleaned is how the one field
+        // nobody thought of stays dirty - which is this file's own argument.
+        FactPayload.Session session => new FactPayload.Session(session.Value with
+        {
+            Artifact = session.Value.Artifact with
+            {
+                Locator = Text(session.Value.Artifact.Locator),
+                Sha256 = Text(session.Value.Artifact.Sha256),
+                MediaType = Text(session.Value.Artifact.MediaType),
+                Scope = Text(session.Value.Artifact.Scope),
+            },
+        }),
+
         FactPayload.Landing landing => new FactPayload.Landing(landing.Value with
         {
             DestinationId = Text(landing.Value.DestinationId),

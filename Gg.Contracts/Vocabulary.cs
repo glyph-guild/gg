@@ -171,6 +171,7 @@ public static class Vocabulary
         typeof(DigestError),
         typeof(DestinationAdmission),
         typeof(ArtifactReference),
+        typeof(LoopSession),
         typeof(ContextBinding),
         typeof(Obligation),
         typeof(LoopBudget),

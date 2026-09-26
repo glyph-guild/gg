@@ -65,6 +65,34 @@ public static class FactKinds
     public const string LoopTranscript = "loop.transcript";
 
     /// <summary>
+    /// Where the AGENT's own record of the session is, as distinct from the
+    /// stream this platform captured.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Two files, and neither is a superset of the other.</b> Measured on
+    /// GG-309: the captured stream holds the teardown - the task the agent
+    /// backgrounded being killed when its session ended - and drops the initial
+    /// message; the agent's own file holds the composed prompt, the full message
+    /// content and every tool input, and holds none of the teardown. The datum
+    /// that explained that flight was <c>run_in_background: true</c> on a tool
+    /// input, which exists only in the agent's file, and the record that the task
+    /// was then killed exists only in ours.
+    /// </para>
+    /// <para>
+    /// <b>Its own kind rather than a second <c>loop.transcript</c>.</b> A reader
+    /// handed two facts of one kind would have to tell them apart by inspecting a
+    /// locator, which is a naming convention doing a schema's job.
+    /// </para>
+    /// <para>
+    /// <b>A reference, like the transcript, and for the same reason.</b> What
+    /// crosses is a hash, a size and a locator; the bytes are customer-adjacent
+    /// and stay on the machine that made them.
+    /// </para>
+    /// </remarks>
+    public const string LoopSession = "loop.session";
+
+    /// <summary>
     /// Where a flight's work landed, once a destination admitted it.
     /// </summary>
     /// <remarks>
@@ -209,6 +237,7 @@ public static class FactKinds
     /// </remarks>
     public static IReadOnlyList<string> All { get; } =
         [EnvironmentIdentity, SourceProvenance, ChangeManifest, LoopOutcome, LoopTranscript,
+         LoopSession,
          DestinationLanded,
          DestinationPushed,
          LoopDigest,
@@ -1000,6 +1029,14 @@ public sealed record FactEnvelope
 
     /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.LoopTranscript"/>.</summary>
     public ArtifactReference? Transcript { get; init; }
+
+    /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.LoopSession"/>.</summary>
+    /// <remarks>
+    /// Beside <see cref="Transcript"/> rather than replacing it: the two hold
+    /// different halves of what an agent did, and a consumer has to say which one
+    /// it wants.
+    /// </remarks>
+    public LoopSession? Session { get; init; }
 
     /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.DestinationLanded"/>.</summary>
     public DestinationLanded? Landed { get; init; }

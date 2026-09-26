@@ -42,9 +42,9 @@ public class AModalOwnsTheMouseTooTests
     [Test]
     public async Task The_console_holds_the_mouse_while_nothing_is_open()
     {
-        await Assert.That(ConsoleMouse.CoveredWhile(new AppState())).IsFalse()
-            .Because("with no modal drawn there is nothing covered, and the panes take their "
-                   + "own clicks the way they always did.");
+        await Assert.That(ConsoleMouse.SwallowedWhile(new AppState(), overTheModal: false)).IsFalse()
+            .Because("with no modal drawn there is nothing to swallow, and the panes take "
+                   + "their own clicks the way they always did.");
 
         await Assert.That(ConsoleMouse.OursWhile(new AppState())).IsTrue()
             .Because("clicking a row, a tab or a pane is how half the console is used, and "
@@ -58,11 +58,20 @@ public class AModalOwnsTheMouseTooTests
         {
             // THE MOUSE STAYS OURS NOW. Handing it back was how a covered view
             // was kept from being focused - and it cost every modal its clicks.
-            // What is covered is disabled instead, so the click never reaches a
-            // view that cannot take focus and the modal keeps the mouse.
-            await Assert.That(ConsoleMouse.CoveredWhile(new AppState { Mode = mode })).IsTrue()
+            // A click that misses the modal is dropped before it is routed, so
+            // it never reaches a view that cannot take focus.
+            await Assert.That(ConsoleMouse.SwallowedWhile(
+                new AppState { Mode = mode }, overTheModal: false)).IsTrue()
                 .Because($"{mode} draws a modal over the panes, and a click on one of them "
                        + "asks the library to focus a hidden view, which ends the process.");
+
+            // AND THE MODAL'S OWN CLICKS GET THROUGH, which is the whole point:
+            // swallowing every click while a modal is up is the bug this
+            // replaces, not the fix for it.
+            await Assert.That(ConsoleMouse.SwallowedWhile(
+                new AppState { Mode = mode }, overTheModal: true)).IsFalse()
+                .Because($"a click inside the {mode} modal is a click on the only thing a "
+                       + "person can see, and it is the one the modal exists to take.");
 
             await Assert.That(ConsoleMouse.OursWhile(new AppState { Mode = mode })).IsTrue()
                 .Because($"{mode} draws over what is behind it, and a click that lands on "
@@ -79,7 +88,8 @@ public class AModalOwnsTheMouseTooTests
         foreach (var mode in Modals.NotDrawn.Keys)
         {
             await Assert.That(ConsoleMouse.OursWhile(new AppState { Mode = mode })).IsTrue();
-            await Assert.That(ConsoleMouse.CoveredWhile(new AppState { Mode = mode })).IsFalse();
+            await Assert.That(ConsoleMouse.SwallowedWhile(
+                new AppState { Mode = mode }, overTheModal: false)).IsFalse();
         }
     }
 
@@ -93,8 +103,10 @@ public class AModalOwnsTheMouseTooTests
         // a person selecting text needs the terminal's own selection back, and
         // nothing about that is a covered view.
         await Assert.That(ConsoleMouse.OursWhile(new AppState { Frozen = true })).IsFalse();
-        await Assert.That(ConsoleMouse.CoveredWhile(new AppState { Frozen = true })).IsFalse()
-            .Because("a frozen screen covers nothing; it stops moving.");
+        await Assert.That(ConsoleMouse.SwallowedWhile(
+            new AppState { Frozen = true }, overTheModal: false)).IsFalse()
+            .Because("a frozen screen covers nothing; it stops moving, and the terminal "
+                   + "has the mouse anyway.");
 
         await Assert.That(ConsoleMouse.OursWhile(
             new AppState { Frozen = true, Mode = UiMode.Help })).IsFalse();

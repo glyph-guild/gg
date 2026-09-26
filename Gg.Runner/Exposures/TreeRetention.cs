@@ -35,8 +35,14 @@ public static class TreeRetention
     /// whose connector would not start reports a diagnosis and no url — there is
     /// nothing running, so there is nothing to protect and the tree goes back.
     /// </remarks>
-    public static bool MustKeep(bool landed, ExposureServed? serving) =>
-        !landed || ServesAnAddress(serving);
+    /// <param name="produces">
+    /// What this flight's kind declares it produces, or null when the document
+    /// said nothing. <b>The discriminator this rule was missing.</b> A tree kept
+    /// for a preview nobody asked for is disk nothing reclaims.
+    /// </param>
+    public static bool MustKeep(
+        bool landed, ExposureServed? serving, IReadOnlyList<string>? produces) =>
+        !landed || (ServesAnAddress(serving) && Previews(produces));
 
     /// <summary>
     /// Whether this machine must hold its lease rather than go back for work.
@@ -61,8 +67,30 @@ public static class TreeRetention
     /// could disagree would leave a held machine serving from a released tree,
     /// which is exactly the state GG-303 was found in.
     /// </para>
+    /// <para>
+    /// <b>AND THE KIND HAS TO WANT ONE, which this rule did not ask.</b>
+    /// <c>_served</c> is the MACHINE's: set once, on the beat, when it learned its
+    /// slot, and true for every flight that lands there afterwards. So a learning
+    /// rehearsal on a slot-holding machine held it for twelve hours and took no
+    /// other work — measured on GG-327, where grounding the flight did not release
+    /// it because the hold is not the flight's state. The paragraph above always
+    /// said "a flight gated on a preview"; this is that sentence enforced.
+    /// </para>
     /// </remarks>
-    public static bool HoldsItsMachine(ExposureServed? serving) => ServesAnAddress(serving);
+    public static bool HoldsItsMachine(
+        ExposureServed? serving, IReadOnlyList<string>? produces) =>
+        ServesAnAddress(serving) && Previews(produces);
+
+    /// <summary>Whether this flight's kind asked for a preview at all.</summary>
+    /// <remarks>
+    /// <b>The kind's own declaration rather than a new flag.</b> A work kind that
+    /// wants a preview already says <c>preview.url</c> in <c>produces:</c>, and one
+    /// that does not already says nothing — and null is silence rather than
+    /// emptiness, which is not a claim to anything.
+    /// </remarks>
+    private static bool Previews(IReadOnlyList<string>? produces) =>
+        produces is not null
+        && produces.Contains(Gg.Contracts.FactKinds.PreviewUrl, StringComparer.Ordinal);
 
     /// <summary>Whether anything is actually answering at this machine's slot.</summary>
     /// <remarks>

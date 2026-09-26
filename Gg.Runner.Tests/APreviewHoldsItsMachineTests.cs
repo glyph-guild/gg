@@ -28,6 +28,17 @@ namespace Gg.Runner.Tests;
 /// </remarks>
 public class APreviewHoldsItsMachineTests
 {
+
+    /// <summary>What a previewing kind declares, since the rule now asks.</summary>
+    /// <remarks>
+    /// <b>Added when the rule learned to ask.</b> These cases were written when
+    /// serving an address was the whole test, and a learning rehearsal on a
+    /// slot-holding machine showed that it is not — see
+    /// <c>APreviewBelongsToItsKindTests</c>. What they assert is unchanged and
+    /// still right: for a kind that DOES want a preview, serving is the test.
+    /// </remarks>
+    private static readonly string[] Previewing =
+        [Gg.Contracts.FactKinds.LoopOutcome, Gg.Contracts.FactKinds.PreviewUrl];
     private static ExposureServed Serving() => new()
     {
         Url = "https://jdapp-01.goodgrief.dev",
@@ -45,7 +56,7 @@ public class APreviewHoldsItsMachineTests
     [Test]
     public async Task A_machine_serving_an_address_holds_until_the_lease_ends()
     {
-        await Assert.That(TreeRetention.HoldsItsMachine(Serving())).IsTrue()
+        await Assert.That(TreeRetention.HoldsItsMachine(Serving(), Previewing)).IsTrue()
             .Because("the address points at a server in this flight's tree on this flight's "
                    + "port, so taking a second flight would pull both out from under the "
                    + "person who was asked to look at it.");
@@ -56,7 +67,7 @@ public class APreviewHoldsItsMachineTests
     {
         // EVERY FLIGHT TODAY. A runner that held after every flight would take
         // one piece of work and never another.
-        await Assert.That(TreeRetention.HoldsItsMachine(null)).IsFalse();
+        await Assert.That(TreeRetention.HoldsItsMachine(null, Previewing)).IsFalse();
     }
 
     [Test]
@@ -64,7 +75,7 @@ public class APreviewHoldsItsMachineTests
     {
         // NO ADDRESS MEANS NO SERVER, and nobody was told to go and look at
         // anything - so there is no reason to keep the machine out of service.
-        await Assert.That(TreeRetention.HoldsItsMachine(Unserved())).IsFalse();
+        await Assert.That(TreeRetention.HoldsItsMachine(Unserved(), Previewing)).IsFalse();
     }
 
     [Test]
@@ -74,7 +85,7 @@ public class APreviewHoldsItsMachineTests
         // so must the machine, for the same reason and at the same moment - two
         // rules that could disagree would leave a held machine serving from a
         // released tree, which is the state GG-303 was found in.
-        await Assert.That(TreeRetention.HoldsItsMachine(Serving()))
-            .IsEqualTo(TreeRetention.MustKeep(landed: true, Serving()));
+        await Assert.That(TreeRetention.HoldsItsMachine(Serving(), Previewing))
+            .IsEqualTo(TreeRetention.MustKeep(landed: true, Serving(), Previewing));
     }
 }

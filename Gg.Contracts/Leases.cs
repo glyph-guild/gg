@@ -401,6 +401,33 @@ public sealed record LeaseLoop
     public required string OnExhaustion { get; init; }
 
     /// <summary>
+    /// What this flight's kind declares it produces, or null when the document
+    /// said nothing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Carried because the runner was exceeding it.</b> <c>produces:</c> is
+    /// "what the kind can YIELD, not what its runner POSTS" — and with no way to
+    /// read it, the runner shipped <c>preview.url</c> for every flight on a machine
+    /// that held an exposure slot, and held that machine for twelve hours
+    /// afterwards. Measured on GG-327: a learning rehearsal advertised an address
+    /// it never served and pinned a worker for half a day.
+    /// </para>
+    /// <para>
+    /// <b>Nullable, and null is silence.</b> Every envelope written before
+    /// <c>produces:</c> existed says nothing, and none of them wanted a machine
+    /// held — so absence must read as "asked for no preview" rather than as an
+    /// empty claim to one.
+    /// </para>
+    /// <para>
+    /// <b>The whole list rather than a flag.</b> A boolean would answer today's
+    /// question and no other, and the next fact a runner has to decide whether to
+    /// ship would need a second one beside it.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<string>? Produces { get; init; }
+
+    /// <summary>
     /// What the last attempt tried and ruled out, for a loop resuming its work.
     /// </summary>
     /// <remarks>

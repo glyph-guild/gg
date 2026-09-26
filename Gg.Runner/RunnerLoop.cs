@@ -1192,7 +1192,7 @@ public sealed class RunnerLoop(
                     // answering anything already open, and failing every lazy
                     // import. Measured twice, on GG-268 and GG-303.
                     if (!Exposures.TreeRetention.MustKeep(
-                            _landed.Contains(lease.FlightId), _served))
+                            _landed.Contains(lease.FlightId), _served, lease.Loop?.Produces))
                     {
                         _workspace.Release(lease.FlightId);
                     }
@@ -2526,7 +2526,14 @@ public sealed class RunnerLoop(
         // ABSENT IS ORDINARY. A machine holding no slot, or one whose connector
         // would not start, ships no fact - and a gate reading no address says
         // the preview is gone rather than offering a dead one.
-        if (_served is { Url: { Length: > 0 } address } served)
+        // AND THE KIND HAS TO HAVE ASKED. `_served` is the machine's, set once on
+        // the beat, so without this every flight that lands here ships an address
+        // for somebody else's app - which GG-327, a learning rehearsal, did.
+        // `produces:` is "what the kind can YIELD, not what its runner POSTS", and
+        // a runner posting outside it is that field's own permissive failure.
+        if (_served is { Url: { Length: > 0 } address } served
+            && lease.Loop?.Produces is { } declares
+            && declares.Contains(Gg.Contracts.FactKinds.PreviewUrl, StringComparer.Ordinal))
         {
             payloads.Add(new FactPayload.Preview(new PreviewUrl
             {
@@ -3254,7 +3261,7 @@ public sealed class RunnerLoop(
         // The machine stays out of service for as long as nobody answers, and
         // that is the intent rather than an oversight: what it is serving is
         // somebody's unreviewed work.
-        var holding = Exposures.TreeRetention.HoldsItsMachine(_served);
+        var holding = Exposures.TreeRetention.HoldsItsMachine(_served, lease.Loop?.Produces);
         var until = _clock.UtcNow + (holding ? PreviewHoldFor : HoldFor);
 
         if (holding)

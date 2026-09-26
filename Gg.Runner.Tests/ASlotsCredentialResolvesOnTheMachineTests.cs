@@ -107,6 +107,12 @@ public class ASlotsCredentialResolvesOnTheMachineTests
             Moves = [LoopMoves.Read, LoopMoves.Edit],
             WallClockSeconds = 600,
             OnExhaustion = ExhaustionPolicies.HandoffToHuman,
+
+            // DECLARED, BECAUSE THE RUNNER NOW ASKS. Serving an address was the
+            // whole test until a learning rehearsal on a slot-holding machine
+            // shipped one it never served and held the machine for twelve hours.
+            // A kind that wants a preview says so; this one does.
+            Produces = [Gg.Contracts.FactKinds.PreviewUrl],
         },
     };
 

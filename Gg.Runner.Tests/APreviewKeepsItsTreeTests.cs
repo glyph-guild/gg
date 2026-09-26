@@ -30,6 +30,17 @@ namespace Gg.Runner.Tests;
 /// </remarks>
 public class APreviewKeepsItsTreeTests
 {
+
+    /// <summary>What a previewing kind declares, since the rule now asks.</summary>
+    /// <remarks>
+    /// <b>Added when the rule learned to ask.</b> These cases were written when
+    /// serving an address was the whole test, and a learning rehearsal on a
+    /// slot-holding machine showed that it is not — see
+    /// <c>APreviewBelongsToItsKindTests</c>. What they assert is unchanged and
+    /// still right: for a kind that DOES want a preview, serving is the test.
+    /// </remarks>
+    private static readonly string[] Previewing =
+        [Gg.Contracts.FactKinds.LoopOutcome, Gg.Contracts.FactKinds.PreviewUrl];
     [Test]
     public async Task A_flight_serving_a_preview_is_not_released()
     {
@@ -40,7 +51,7 @@ public class APreviewKeepsItsTreeTests
             Slot = "01",
         };
 
-        await Assert.That(TreeRetention.MustKeep(landed: true, serving)).IsTrue()
+        await Assert.That(TreeRetention.MustKeep(landed: true, serving, Previewing)).IsTrue()
             .Because("the server the address points at runs inside that tree, so releasing it "
                    + "leaves a process whose working directory the kernel reports as deleted - "
                    + "up, and failing every lazy import.");
@@ -52,7 +63,7 @@ public class APreviewKeepsItsTreeTests
         // EVERY FLIGHT TODAY. A landed flight's tree is reclaimed, and a machine
         // that kept them all would fill its own disk - which this estate has
         // already measured once.
-        await Assert.That(TreeRetention.MustKeep(landed: true, serving: null)).IsFalse();
+        await Assert.That(TreeRetention.MustKeep(landed: true, serving: null, Previewing)).IsFalse();
     }
 
     [Test]
@@ -60,7 +71,7 @@ public class APreviewKeepsItsTreeTests
     {
         // UNCHANGED. A tree that did not land is already kept for handoff, and
         // this must not quietly become the only reason one is.
-        await Assert.That(TreeRetention.MustKeep(landed: false, serving: null)).IsTrue();
+        await Assert.That(TreeRetention.MustKeep(landed: false, serving: null, Previewing)).IsTrue();
     }
 
     [Test]
@@ -75,6 +86,6 @@ public class APreviewKeepsItsTreeTests
             Diagnosis = "cloudflared is not on this machine",
         };
 
-        await Assert.That(TreeRetention.MustKeep(landed: true, unserved)).IsFalse();
+        await Assert.That(TreeRetention.MustKeep(landed: true, unserved, Previewing)).IsFalse();
     }
 }

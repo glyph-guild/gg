@@ -34,7 +34,7 @@ public class AFlightMayProposeADocumentTests
 {
     private static DocumentProposal Drafted() => new()
     {
-        Role = AirspaceRoles.WorkKind,
+        Role = Roles.WorkKind,
         Name = "ui-preview",
         Document = "based-on: ui-preview@v7\ncontext:\n  scope: \"**\"\n",
     };
@@ -58,7 +58,7 @@ public class AFlightMayProposeADocumentTests
     [Test]
     public async Task It_names_a_role_from_the_closed_list()
     {
-        await Assert.That(AirspaceRoles.All).Contains(Drafted().Role);
+        await Assert.That(Roles.All).Contains(Drafted().Role);
     }
 
     /// <summary>

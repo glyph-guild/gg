@@ -24,6 +24,9 @@ public abstract record FactPayload
     /// <summary>The agent's own record of the session, beside our stream.</summary>
     public sealed record Session(LoopSession Value) : FactPayload;
 
+    /// <summary>An airspace document this flight drafted, asking it be applied.</summary>
+    public sealed record Document(DocumentProposal Value) : FactPayload;
+
     /// <summary>Where the work landed, once a destination admitted it.</summary>
     public sealed record Landing(DestinationLanded Value) : FactPayload;
 
@@ -125,6 +128,7 @@ public sealed record FilteredFacts(IReadOnlyList<FactEnvelope> Items);
 [JsonSerializable(typeof(LoopOutcome))]
 [JsonSerializable(typeof(ArtifactReference))]
 [JsonSerializable(typeof(LoopSession))]
+[JsonSerializable(typeof(DocumentProposal))]
 [JsonSerializable(typeof(DestinationLanded))]
 [JsonSerializable(typeof(LoopDigest))]
 [JsonSerializable(typeof(WorkItemProposal))]
@@ -302,6 +306,15 @@ public static class FactPipeline
                     Session = session.Value,
                 },
 
+                FactPayload.Document document => new FactEnvelope
+                {
+                    IdempotencyKey = Key(flightId, kind, digest),
+                    Kind = kind,
+                    Digest = digest,
+                    ObservedAt = observedAt,
+                    Document = document.Value,
+                },
+
                 FactPayload.Change change => new FactEnvelope
                 {
                     IdempotencyKey = Key(flightId, kind, digest),
@@ -436,6 +449,9 @@ public static class FactPipeline
         FactPayload.Session session => (
             FactKinds.LoopSession,
             JsonSerializer.Serialize(session.Value, FactJsonContext.Default.LoopSession)),
+        FactPayload.Document document => (
+            FactKinds.DocumentProposal,
+            JsonSerializer.Serialize(document.Value, FactJsonContext.Default.DocumentProposal)),
         FactPayload.Digest summary => (
             FactKinds.LoopDigest,
             JsonSerializer.Serialize(summary.Value, FactJsonContext.Default.LoopDigest)),

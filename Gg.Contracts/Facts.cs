@@ -180,6 +180,30 @@ public static class FactKinds
     public const string FlightNomination = "flight.nomination";
 
     /// <summary>
+    /// An airspace document a flight drafted, asking that it be applied.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The second kind that is an agent's REQUEST</b>, and it takes that shape
+    /// deliberately. <see cref="FlightNomination"/> asks that a flight exist and
+    /// admission decides; this asks that a document change and the gate decides.
+    /// </para>
+    /// <para>
+    /// <b>Why a fact rather than a route.</b> A flight with a runner has no way to
+    /// lodge a proposal: the drafting tool writes into a local airspace working
+    /// copy and a runner has none, and admission reads a proposal the flight
+    /// already carries. This is the door the runner already has, with the ledger
+    /// and the attribution that come with it.
+    /// </para>
+    /// <para>
+    /// <b>It applies nothing.</b> The proposal is held, a person opens the gate,
+    /// and a flight is evaluated against the envelope in force rather than the one
+    /// it is asking for - so a document cannot widen its own way in.
+    /// </para>
+    /// </remarks>
+    public const string DocumentProposal = "document.proposal";
+
+    /// <summary>
     /// A question an agent could not answer from the work itself.
     /// </summary>
     /// <remarks>
@@ -237,7 +261,7 @@ public static class FactKinds
     /// </remarks>
     public static IReadOnlyList<string> All { get; } =
         [EnvironmentIdentity, SourceProvenance, ChangeManifest, LoopOutcome, LoopTranscript,
-         LoopSession,
+         LoopSession, DocumentProposal,
          DestinationLanded,
          DestinationPushed,
          LoopDigest,
@@ -425,7 +449,7 @@ public static class FactVocabulary
     /// loop.digest.refusedMoves is empty for such a flight by construction: a
     /// refusal is a tool the envelope did not name, and this envelope named
     /// them all. NO KIND CHANGED.
-    public const string Version = "0.34.0";
+    public const string Version = "0.35.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>
@@ -1037,6 +1061,14 @@ public sealed record FactEnvelope
     /// it wants.
     /// </remarks>
     public LoopSession? Session { get; init; }
+
+    /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.DocumentProposal"/>.</summary>
+    /// <remarks>
+    /// A request rather than a measurement, like <see cref="Nomination"/>, and it
+    /// sits beside it for that reason rather than among the accounts of what
+    /// happened.
+    /// </remarks>
+    public DocumentProposal? Document { get; init; }
 
     /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.DestinationLanded"/>.</summary>
     public DestinationLanded? Landed { get; init; }

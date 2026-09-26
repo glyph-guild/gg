@@ -84,7 +84,7 @@ public class SliceThreeGuardTests
     /// have to tell them apart by inspecting a locator, which is a naming
     /// convention doing a schema's job.
     /// </para>
-    private const int KindsThatCross = 16;
+    private const int KindsThatCross = 17;
 
     [Test]
     public async Task A_moved_vocabulary_version_has_a_ledger_entry()
@@ -233,6 +233,7 @@ public class SliceThreeGuardTests
                 FactKinds.LoopQuestion,
                 FactKinds.LoopTranscript,
                 FactKinds.LoopSession,
+                FactKinds.DocumentProposal,
                 FactKinds.SourceProvenance,
                 FactKinds.WorkItemProposal,
                 FactKinds.PreviewUrl,

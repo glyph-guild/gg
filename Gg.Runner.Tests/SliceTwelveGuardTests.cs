@@ -175,7 +175,7 @@ public class SliceTwelveGuardTests
     /// loudly rather than accepting-and-ignoring. That is the property being
     /// bought; the row is the price.
     /// </para>
-    private const string VocabularyAtSliceStart = "0.34.0";
+    private const string VocabularyAtSliceStart = "0.35.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number
@@ -294,7 +294,7 @@ public class SliceTwelveGuardTests
     /// have to tell them apart by inspecting a locator, which is a naming
     /// convention doing a schema's job.
     /// </para>
-    private const int KindsThatCross = 16;
+    private const int KindsThatCross = 17;
 
     [Test]
     public async Task Attestations_are_not_facts_and_the_count_moves_only_with_an_argument()

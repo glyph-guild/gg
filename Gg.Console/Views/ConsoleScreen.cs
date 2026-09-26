@@ -3937,7 +3937,8 @@ public sealed class ConsoleScreen : Window
         // decides what is selected and the view reports what was clicked. What
         // a change MEANS is QueueSelection's, because a redraw raises this event
         // twice and neither raise is a person.
-        if (QueueSelection.Wanted(args.NewValue, State.SelectedRow) is { } command)
+        if (QueueSelection.Wanted(args.NewValue, State.SelectedRow, State.Notices.Count)
+            is { } command)
         {
             State = Reducer.Reduce(State, command);
             Render();
@@ -4102,9 +4103,16 @@ public sealed class ConsoleScreen : Window
         }
 
         _queue.SetSource(new ObservableCollection<string>(PaneText.QueueRows(State)));
+
         if (State.Queue.Count > 0)
         {
-            _queue.SelectedItem = Math.Clamp(State.SelectedRow, 0, State.Queue.Count - 1);
+            // PAST THE NOTICES. They are rows in this list and are not rows in
+            // the model, so a model index has to be moved down by however many
+            // there are - without this the cursor cannot reach the last row,
+            // which is exactly what it could not do.
+            _queue.SelectedItem =
+                State.Notices.Count
+                + Math.Clamp(State.SelectedRow, 0, State.Queue.Count - 1);
         }
 
         // ONLY WHEN IT IS ON SCREEN. `_flightPane' is added to the queue tab and

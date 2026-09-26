@@ -30,6 +30,43 @@ namespace Gg.Console.Tests;
 public class TheQueueCursorCanMoveTests
 {
     [Test]
+    public async Task A_notice_above_the_rows_shifts_what_the_view_reports()
+    {
+        // KEVIN COULD NOT SELECT THE LAST QUEUE ROW. PaneText.QueueRows puts a
+        // notice line above the rows - he had one, the advisory saying his gg
+        // was behind - so the list index and the model index differ by however
+        // many notices there are, and nothing subtracted them.
+        //
+        // WHAT THAT DOES: the view reports index 3 for model row 2, this reads
+        // it as "moved down" and reduces SelectNext for ever, and Render then
+        // assigns SelectedItem back without the offset - so the cursor sits one
+        // row above the bottom and the last row cannot be reached at all.
+        await Assert.That(QueueSelection.Wanted(fromView: 3, inModel: 2, notices: 1)).IsNull()
+            .Because("with one notice above them, list row 3 IS model row 2 - the same row, "
+                   + "which is not a move.");
+    }
+
+    [Test]
+    public async Task And_a_move_is_read_against_the_offset()
+    {
+        await Assert.That(QueueSelection.Wanted(fromView: 4, inModel: 2, notices: 1))
+            .IsEqualTo(Command.SelectNext);
+        await Assert.That(QueueSelection.Wanted(fromView: 2, inModel: 2, notices: 1))
+            .IsEqualTo(Command.SelectPrevious);
+    }
+
+    [Test]
+    public async Task Clicking_a_notice_is_not_a_queue_move()
+    {
+        // A NOTICE IS NOT A ROW SOMEBODY CAN BE ON. Read as a model index it is
+        // negative, and the nearest queue row is the top one - so a click on
+        // the advisory would drag the cursor to the first flight, which is a
+        // move nobody asked for.
+        await Assert.That(QueueSelection.Wanted(fromView: 0, inModel: 2, notices: 1)).IsNull();
+        await Assert.That(QueueSelection.Wanted(fromView: 1, inModel: 2, notices: 2)).IsNull();
+    }
+
+    [Test]
     public async Task A_list_with_no_selection_has_not_chosen_anything()
     {
         // THE BUG. null is "this list has no selection", which is what

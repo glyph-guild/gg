@@ -2946,14 +2946,23 @@ static async Task<int> RunnerUpAsync()
     // so the executor and its login cannot disagree about the agent.
     var agentDeclaration = Settings.Value(
         Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable, inForce);
+
+    // AND WHERE ITS CREDENTIAL IS, resolved the same way and handed to the same
+    // three places. Resolved rather than left to the environment because a value
+    // in the configuration file has to reach this as surely as a variable does -
+    // the half-read that made a released runner ignore its own file.
+    var agentCredential = Settings.Value(
+        Gg.Runner.Execution.ExecutorConfiguration.CredentialVariable, inForce);
     var executor = Gg.Runner.Execution.ExecutorConfiguration.FromEnvironment(
         readers: Gg.Local.IntentConfiguration.FromEnvironment(
             Settings.Value(Gg.Local.IntentConfiguration.ReadersVariable, inForce),
             Settings.Value(Gg.Local.IntentConfiguration.ServedVariable, inForce)),
         secretFor: locator => MachineCredentialStore.SecretFor(locator),
-        declaration: agentDeclaration);
+        declaration: agentDeclaration,
+        credential: agentCredential);
     var agent = Gg.Runner.Execution.ExecutorConfiguration.AgentFromEnvironment(
-        declaration: agentDeclaration);
+        declaration: agentDeclaration,
+        credential: agentCredential);
 
     // WHERE THIS RUNNER IS RUNNING, for any console that wants to look. A
     // runner outlives the console that started it - reparented to init a moment
@@ -3352,14 +3361,23 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
     // AND THE AGENT FROM ONE RESOLVED VALUE, for runner up's reason.
     var agentDeclaration = Settings.Value(
         Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable, InForce.Configuration);
+
+    // AND WHERE ITS CREDENTIAL IS. A MEMBER IS THE MACHINE THIS EXISTS FOR: its
+    // store starts empty, nothing can deliver a secret into it, and its container
+    // is replaced every twelve hours - so a reference it READS is the only kind of
+    // credential it can keep.
+    var agentCredential = Settings.Value(
+        Gg.Runner.Execution.ExecutorConfiguration.CredentialVariable, InForce.Configuration);
     var executor = Gg.Runner.Execution.ExecutorConfiguration.FromEnvironment(
         readers: Gg.Local.IntentConfiguration.FromEnvironment(
             Settings.Value(Gg.Local.IntentConfiguration.ReadersVariable, InForce.Configuration),
             Settings.Value(Gg.Local.IntentConfiguration.ServedVariable, InForce.Configuration)),
         secretFor: locator => MachineCredentialStore.SecretFor(locator),
-        declaration: agentDeclaration);
+        declaration: agentDeclaration,
+        credential: agentCredential);
     var agent = Gg.Runner.Execution.ExecutorConfiguration.AgentFromEnvironment(
-        declaration: agentDeclaration);
+        declaration: agentDeclaration,
+        credential: agentCredential);
 
     // THE KEY THIS MEMBER CAN BE REACHED ON, and it had none. Everything else
     // about the channel was built and correct; a member simply never got one,

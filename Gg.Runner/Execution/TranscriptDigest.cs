@@ -758,17 +758,27 @@ public static class TranscriptDigest
             return;
         }
 
-        if (Argument(input, DocumentProposalTool.RoleArgument) is not { } role
-            || Argument(input, DocumentProposalTool.NameArgument) is not { } named
-            || Argument(input, DocumentProposalTool.DocumentArgument) is not { } text)
+        if (Argument(input, DocumentProposalTool.DocumentArgument) is not { } text)
         {
             return;
         }
 
+        // THE RUNNER NAMES THE DOCUMENT, because the agent no longer can and never
+        // could. `learn-work-kind` tells a flight to work "as the kind named in your
+        // task" and no kind is named in the task - not on `gg fly`, not on the lease,
+        // not in the prompt - so GG-330 read `role` and `name` off the only thing it
+        // could see, its own kind, thirteen times. Advice is keyed by what it was
+        // learned against now, so the target is the tenant's own document and each
+        // entry says its own subject.
+        //
+        // STILL CARRIED ON THE FACT rather than dropped from it. A reader of the
+        // evidence should be able to see WHAT was proposed and WHERE without knowing
+        // this rule, and a fact that omits its own target is one that needs the code
+        // read to be understood.
         asked.Add((callId, new Gg.Contracts.DocumentProposal
         {
-            Role = role,
-            Name = named,
+            Role = Gg.Contracts.Roles.Root,
+            Name = Gg.Contracts.EnvelopeNames.Root,
             Document = text,
         }));
     }

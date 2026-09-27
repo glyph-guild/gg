@@ -138,24 +138,30 @@ public static class EnvelopeText
         // LEARNED CONTEXT, RENDERED ONLY WHEN DECLARED, for the reason variables
         // are: a document that has been taught nothing must not gain a section by
         // being written out, or a pull reports a change nobody made.
-        if (envelope.Learned is { } learned)
+        if (envelope.Learned is { Count: > 0 } learned)
         {
-            text.Append("learned:\n  against:\n");
+            text.Append("learned:\n");
 
-            foreach (var (key, value) in ((string, string?)[])
-                [("repository", learned.Against.Repository), ("commit", learned.Against.Commit),
-                 ("image", learned.Against.Image), ("envelope", learned.Against.Envelope)])
+            foreach (var entry in learned)
             {
-                if (value is { Length: > 0 })
+                text.Append("  - against:\n");
+
+                foreach (var (key, value) in ((string, string?)[])
+                    [("repository", entry.Against.Repository), ("commit", entry.Against.Commit),
+                     ("image", entry.Against.Image), ("envelope", entry.Against.Envelope)])
                 {
-                    text.Append($"    {key}: {Scalar(value)}\n");
+                    if (value is { Length: > 0 })
+                    {
+                        text.Append($"      {key}: {Scalar(value)}\n");
+                    }
                 }
-            }
 
-            text.Append("  advice:\n");
-            foreach (var line in learned.Advice)
-            {
-                text.Append($"    - {Scalar(line)}\n");
+                text.Append("    advice:\n");
+
+                foreach (var line in entry.Advice)
+                {
+                    text.Append($"      - {Scalar(line)}\n");
+                }
             }
         }
 

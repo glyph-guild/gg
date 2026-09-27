@@ -31,19 +31,19 @@ public class ALearnedAmendmentIsReadOnItsOwnTests
     {
         var read = EnvelopeYaml.ParseLearning("""
             learned:
-              against:
-                commit: "a1b2c3d"
-                repository: "JDX/JDNext"
-              advice:
-                - "node_modules is absent at checkout; npm install takes about fifty seconds."
-                - "jsdom performs no layout, so a margin assertion proves nothing."
+              - against:
+                  commit: "a1b2c3d"
+                  repository: "JDX/JDNext"
+                advice:
+                  - "node_modules is absent at checkout; npm install takes about fifty seconds."
+                  - "jsdom performs no layout, so a margin assertion proves nothing."
             """);
 
         await Assert.That(read.Diagnosis).IsNull()
             .Because($"nothing is wrong with it: {read.Diagnosis}");
 
         await Assert.That(read.Learned).IsNotNull();
-        await Assert.That(read.Learned!.Advice.Count).IsEqualTo(2);
+        await Assert.That(read.Learned!.Single().Advice.Count).IsEqualTo(2);
     }
 
     [Test]
@@ -73,10 +73,25 @@ public class ALearnedAmendmentIsReadOnItsOwnTests
         // true, neither complete, and together a contradiction an author bounces
         // between. `Strings` passed the PARENT path into RequireScalar for every
         // item, which is why both blamed 'learned.advice'.
-        var blocks = EnvelopeYaml.ParseLearning(
-            "learned:\n  advice:\n    - point: \"x\"\n      basis: \"y\"\n");
+        // INSIDE A VALID ENTRY, so the diagnosis is about `advice` and not about the
+        // list that now holds the entries. Written as a block at the top level, both
+        // cases would be refused for their OUTER shape and this test would pass
+        // without ever reaching the thing it is named after.
+        var blocks = EnvelopeYaml.ParseLearning("""
+            learned:
+              - against:
+                  commit: "a1b2c3d"
+                advice:
+                  - point: "x"
+                    basis: "y"
+            """);
 
-        var scalar = EnvelopeYaml.ParseLearning("learned:\n  advice: \"x\"\n");
+        var scalar = EnvelopeYaml.ParseLearning("""
+            learned:
+              - against:
+                  commit: "a1b2c3d"
+                advice: "x"
+            """);
 
         await Assert.That(blocks.Diagnosis).IsNotNull();
         await Assert.That(scalar.Diagnosis).IsNotNull();

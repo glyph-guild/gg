@@ -1217,22 +1217,22 @@ public static class PlatformToolServer
         writer.WriteStartObject();
         writer.WriteString("name", Gg.Local.DocumentProposalTool.Name);
         writer.WriteString("description",
-            "Hand back what you LEARNED about this environment, for one declared work kind "
-          + "in this tenant's topology. You are not writing a governing document and cannot: "
-          + "the only keys are 'learned' and, if you want to say which version you drafted "
-          + "against, 'based-on'. Anything that governs - context, obligations, loops, "
-          + "destinations, instructions - is refused by name, because what an agent is "
-          + "permitted to do is a person's to write and never yours. The shape is exactly "
-          + "this:\n\n"
+            "Hand back what you LEARNED about this environment. You are not writing a "
+          + "governing document and cannot: the only key is 'learned', a list of entries, "
+          + "each saying what it was learned against and what to tell the next agent. "
+          + "Anything that governs - context, obligations, loops, destinations, "
+          + "instructions - is refused by name, because what an agent is permitted to do "
+          + "is a person's to write and never yours. You name no document and no role: "
+          + "advice is filed under what it was learned against, so an entry's 'against' is "
+          + "the whole of where it belongs. The shape is exactly this:\n\n"
           + "learned:\n"
-          + "  against:            # at least one of these, so staleness can be computed\n"
-          + "    repository: acme/web\n"
-          + "    commit: a1b2c3d\n"
-          + "    image: ghcr.io/acme/ci:12\n"
-          + "    envelope: ui-preview@v4\n"
-          + "  advice:             # a list of single values, each a sentence\n"
-          + "    - \"node_modules is absent at checkout; npm install takes about fifty seconds.\"\n"
-          + "    - \"jsdom performs no layout, so a margin assertion proves nothing here.\"\n\n"
+          + "  - against:          # at least one of these, so staleness can be computed\n"
+          + "      repository: acme/web\n"
+          + "      commit: a1b2c3d\n"
+          + "      image: ghcr.io/acme/ci:12\n"
+          + "    advice:            # a list of single values, each a sentence\n"
+          + "      - \"node_modules is absent at checkout; npm install takes about fifty seconds.\"\n"
+          + "      - \"jsdom performs no layout, so a margin assertion proves nothing here.\"\n\n"
           + "THIS APPLIES NOTHING. It is recorded as a proposal, and a person opens the gate "
           + "the tenant's own envelope declares before anything changes - so advice cannot "
           + "put itself in force, and a flight is judged against the governance in force "
@@ -1244,29 +1244,14 @@ public static class PlatformToolServer
         writer.WriteString("type", "object");
         writer.WriteStartObject("properties");
 
-        writer.WriteStartObject(Gg.Local.DocumentProposalTool.RoleArgument);
-        writer.WriteString("type", "string");
-        writer.WriteString("description",
-            "What kind of document this is. One of: "
-          + string.Join(", ", Gg.Contracts.Roles.All) + ".");
-        writer.WriteEndObject();
-
-        writer.WriteStartObject(Gg.Local.DocumentProposalTool.NameArgument);
-        writer.WriteString("type", "string");
-        writer.WriteString("description",
-            "The declared name in the tenant's topology this document is for.");
-        writer.WriteEndObject();
-
         writer.WriteStartObject(Gg.Local.DocumentProposalTool.DocumentArgument);
         writer.WriteString("type", "string");
-        writer.WriteString("description", "The document itself, as YAML.");
+        writer.WriteString("description", "What you learned, as YAML.");
         writer.WriteEndObject();
 
         writer.WriteEndObject();
 
         writer.WriteStartArray("required");
-        writer.WriteStringValue(Gg.Local.DocumentProposalTool.RoleArgument);
-        writer.WriteStringValue(Gg.Local.DocumentProposalTool.NameArgument);
         writer.WriteStringValue(Gg.Local.DocumentProposalTool.DocumentArgument);
         writer.WriteEndArray();
 
@@ -1296,68 +1281,30 @@ public static class PlatformToolServer
     /// </remarks>
     private static string Handed(JsonElement id, JsonElement arguments)
     {
-        var role = Text(arguments, Gg.Local.DocumentProposalTool.RoleArgument);
-        var named = Text(arguments, Gg.Local.DocumentProposalTool.NameArgument);
         var document = Text(arguments, Gg.Local.DocumentProposalTool.DocumentArgument);
 
-        if (role is null || named is null || document is null)
+        if (document is null)
         {
             return Content(id, isError: true,
-                $"Refused: handing back a document needs "
-              + $"'{Gg.Local.DocumentProposalTool.RoleArgument}', "
-              + $"'{Gg.Local.DocumentProposalTool.NameArgument}' and "
+                $"Refused: handing back what you learned needs "
               + $"'{Gg.Local.DocumentProposalTool.DocumentArgument}'. Nothing was recorded.");
         }
 
-        // AGAINST THE CONTRACT'S OWN LIST, not one written here. A role nobody
-        // declared is a document the control plane can neither apply nor refuse.
-        if (!Gg.Contracts.Roles.All.Contains(role, StringComparer.Ordinal))
-        {
-            return Content(id, isError: true,
-                $"Refused: '{role}' is not a role this platform has. It has "
-              + string.Join(", ", Gg.Contracts.Roles.All) + ". Nothing was recorded.");
-        }
-
-        // AND THEN THE ONE ROLE ANYTHING CONSUMES. `ProposedDocumentReceptor` holds
-        // work kinds and logs every other role out loud, deliberately - each one
-        // needs its own parse and its own submit, and six untested paths shipped to
-        // look complete is how a role nobody exercised lands silently wrong.
-        //
-        // MEASURED ON GG-330, which found the gap from the other side. It tried
-        // `watch`, then `narrowing`, and the three calls that came back "recorded"
-        // were all narrowing and all discarded at the far end. A tool that accepts
-        // what nothing consumes tells a flight its work is safe when it is gone -
-        // and this one had already cost a rehearsal every proposal it made.
-        if (!string.Equals(role, Gg.Contracts.Roles.WorkKind, StringComparison.Ordinal))
-        {
-            return Content(id, isError: true,
-                $"Refused: a flight amends the learned context of a work kind, and "
-              + $"'{role}' documents are not held - nothing consumes one yet, so one "
-              + $"handed back here would be dropped without reaching anybody. "
-              + $"'{Gg.Contracts.Roles.WorkKind}' is the only role this records. "
-              + "Nothing was recorded.");
-        }
-
-        // PARSED BEFORE IT IS ACKNOWLEDGED, and this is the half that was missing.
-        // `DocumentTool`'s own virtue is that "the document is VALIDATED before it
-        // lands, so a refusal teaches the schema" - and validating the role alone
-        // was half of it. GG-327 handed back a thoughtful document in a schema it
-        // invented, because `describe_airspace` explains the keys and a fleet
-        // flight is not offered it: the only thing that can teach a flight the
-        // schema is the tool it hands the document to.
-        //
-        // LOAD-BEARING RATHER THAN KIND. The extractor reads only calls whose
-        // result came back without an error, so a refusal here is a document that
-        // never becomes a fact - and an agent told why can fix it and call again,
-        // which this tool's description already promises.
+        // NO ROLE AND NO NAME TO CHECK, which retires two arms rather than fixing
+        // them. GG-330 was refused eight times for a `watch` document judged against
+        // the work-kind schema, and three of its accepted proposals were `narrowing`
+        // documents the control plane discards - and underneath both, the kind it was
+        // rehearsing is named nowhere, so `name` was an argument it could not answer.
+        // Advice is keyed by what it was learned against now: the runner names the
+        // document, each entry names its own subject, and the agent names nothing.
         if (Refused(document) is { } why)
         {
             return Content(id, isError: true, $"Refused: {why} Nothing was recorded.");
         }
 
         return Content(id, isError: false,
-            $"Recorded as a proposal for '{named}'. Nothing has changed: a person opens "
-          + "the gate before it takes effect.");
+            "Recorded as a proposal. Nothing has changed: a person opens the gate before "
+          + "it takes effect.");
     }
 
     private static string Proposed(JsonElement id, JsonElement arguments)

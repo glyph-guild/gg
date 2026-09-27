@@ -34,7 +34,7 @@ namespace Gg.Contracts.Tests;
 /// exactly as it has none for <c>produces</c>.
 /// </para>
 /// </remarks>
-public class AKindMayCarryLearnedContextTests
+public class ATenantMayCarryLearnedContextTests
 {
     private static string WithLearned(string learned) => $"""
         context:
@@ -62,22 +62,22 @@ public class AKindMayCarryLearnedContextTests
         """;
 
     [Test]
-    public async Task A_kind_may_declare_it_and_it_reads_back()
+    public async Task A_tenant_may_declare_it_and_it_reads_back()
     {
         var read = EnvelopeYaml.Parse(WithLearned("""
             learned:
-              against:
-                repository: "JDX/JDNext"
-                commit: "a1b2c3d"
-              advice:
-                - "npm ci under src/JDX.Web takes about four minutes here."
+              - against:
+                  repository: "JDX/JDNext"
+                  commit: "a1b2c3d"
+                advice:
+                  - "npm ci under src/JDX.Web takes about four minutes here."
             """));
 
         await Assert.That(read.Diagnosis).IsNull();
         await Assert.That(read.Envelope!.Learned).IsNotNull();
-        await Assert.That(read.Envelope.Learned!.Against.Repository).IsEqualTo("JDX/JDNext");
-        await Assert.That(read.Envelope.Learned.Against.Commit).IsEqualTo("a1b2c3d");
-        await Assert.That(read.Envelope.Learned.Advice.Single())
+        await Assert.That(read.Envelope.Learned!.Single().Against.Repository).IsEqualTo("JDX/JDNext");
+        await Assert.That(read.Envelope.Learned!.Single().Against.Commit).IsEqualTo("a1b2c3d");
+        await Assert.That(read.Envelope.Learned!.Single().Advice.Single())
             .IsEqualTo("npm ci under src/JDX.Web takes about four minutes here.");
     }
 
@@ -92,7 +92,7 @@ public class AKindMayCarryLearnedContextTests
     /// in an author's mouth and then diff against them.
     /// </remarks>
     [Test]
-    public async Task A_kind_that_declares_none_does_not_gain_one_on_a_render()
+    public async Task A_document_that_declares_none_does_not_gain_one_on_a_render()
     {
         var read = EnvelopeYaml.Parse(WithLearned(""));
 
@@ -106,12 +106,12 @@ public class AKindMayCarryLearnedContextTests
     {
         var first = EnvelopeYaml.Parse(WithLearned("""
             learned:
-              against:
-                image: "sha256:abc"
-                envelope: "v7"
-              advice:
-                - "Serve on the port, not a port."
-                - "The dev server needs ninety seconds before it answers."
+              - against:
+                  image: "sha256:abc"
+                  envelope: "v7"
+                advice:
+                  - "Serve on the port, not a port."
+                  - "The dev server needs ninety seconds before it answers."
             """));
 
         await Assert.That(first.Diagnosis).IsNull();
@@ -123,11 +123,11 @@ public class AKindMayCarryLearnedContextTests
         // IReadOnlyList member by REFERENCE - so `IsEqualTo` on the whole thing
         // can never pass here however faithful the round trip, and would have
         // read as the writer dropping something.
-        await Assert.That(again.Envelope!.Learned!.Against)
-            .IsEqualTo(first.Envelope!.Learned!.Against);
+        await Assert.That(again.Envelope!.Learned!.Single().Against)
+            .IsEqualTo(first.Envelope!.Learned!.Single().Against);
 
-        await Assert.That(again.Envelope.Learned.Advice)
-            .IsEquivalentTo(first.Envelope.Learned.Advice)
+        await Assert.That(again.Envelope.Learned!.Single().Advice)
+            .IsEquivalentTo(first.Envelope.Learned!.Single().Advice)
             .Because("a member the writer drops is a member a pull silently deletes, which is "
                    + "how an author's document loses a section nobody meant to remove.");
     }
@@ -146,10 +146,10 @@ public class AKindMayCarryLearnedContextTests
     {
         var read = EnvelopeYaml.ParseNarrowing("""
             learned:
-              against:
-                commit: "a1b2c3d"
-              advice:
-                - "Anything at all."
+              - against:
+                  commit: "a1b2c3d"
+                advice:
+                  - "Anything at all."
             """);
 
         await Assert.That(read.Diagnosis).IsNotNull();

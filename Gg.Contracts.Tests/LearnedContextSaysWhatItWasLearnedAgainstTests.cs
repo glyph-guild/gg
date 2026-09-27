@@ -24,6 +24,34 @@ namespace Gg.Contracts.Tests;
 /// </remarks>
 public class LearnedContextSaysWhatItWasLearnedAgainstTests
 {
+    /// <summary>One learned-context entry, built from the block each case is about.</summary>
+    /// <remarks>
+    /// <b>Re-indented in code rather than written as a list at every call site.</b>
+    /// <c>learned:</c> became a list when advice was re-keyed by what it was learned
+    /// against, and dashing each fixture by hand would have left the negative cases
+    /// passing for a SHAPE reason instead of the rule they each name - a test that
+    /// still goes red for the wrong cause is worse than one that goes green.
+    /// </remarks>
+    private static string AsEntry(string block)
+    {
+        var lines = block.TrimEnd('\n').Split('\n');
+        var indented = lines.Where(l => l.Trim().Length > 0).ToList();
+        var least = indented.Count == 0 ? 0 : indented.Min(l => l.Length - l.TrimStart().Length);
+
+        return string.Join("\n", lines.Select((line, at) =>
+        {
+            if (line.Trim().Length == 0)
+            {
+                return line;
+            }
+
+            var relative = (line.Length - line.TrimStart().Length) - least;
+            return at == 0
+                ? new string(' ', 2) + "- " + line.TrimStart()
+                : new string(' ', 4 + relative) + line.TrimStart();
+        }));
+    }
+
     private static string Learned(string body) => $"""
         context:
           scope: "**"
@@ -31,7 +59,7 @@ public class LearnedContextSaysWhatItWasLearnedAgainstTests
         accepts: [repository]
         produces: [loop.outcome]
         learned:
-        {body}
+        {AsEntry(body)}
         obligations:
           in-scope:
             check: machine

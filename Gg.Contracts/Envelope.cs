@@ -61,6 +61,25 @@ public static class ExecutorRungs
 /// move along it is a reviewed change on recorded evidence, so the other two
 /// arrive with the mechanism that governs them and not before.
 /// </remarks>
+/// <summary>
+/// The documents every tenant has, by the name the topology gives them.
+/// </summary>
+/// <remarks>
+/// <b>A name is not a role, and this exists because the runner now needs to say
+/// one.</b> A flight that hands back advice is amending the tenant's root, so the
+/// runner has to name the document - and the only "root" in this contract was
+/// <see cref="Roles.Root"/>, which is what a document IS rather than what it is
+/// called. The control plane had its own constant; the runner had none, so the
+/// alternative was a literal on one side agreeing with a constant on the other by
+/// coincidence. They are the same string today and are declared separately anyway,
+/// because nothing would notice the day one of them moved.
+/// </remarks>
+public static class EnvelopeNames
+{
+    /// <summary>The tenant's own document, which every other one composes onto.</summary>
+    public const string Root = "root";
+}
+
 [VocabularyOf(VocabularyFingerprints.Contract)]
 public static class ObligationChecks
 {
@@ -1897,12 +1916,37 @@ public sealed record Envelope
     /// no author could have got right without measuring the environment first.
     /// </para>
     /// <para>
-    /// <b>Work-kind-only, on the security ground <see cref="Produces"/> is.</b> A
-    /// narrowing composes across layers and may live in a customer's own
-    /// repository. One that could ADD advice would be putting prose from a
-    /// repository into the prompt of every later flight of that kind, reviewed by
-    /// nobody - the injection path the gate exists to close, reached around it.
-    /// <see cref="EnvelopeNarrowing"/> has no member for this at all.
+    /// <b>A LIST, keyed by what each entry was learned against.</b> This was a single
+    /// block composing <c>work-kind-only</c>, and that was the wrong axis: every
+    /// finding the first two rehearsals produced was about a REPOSITORY or an IMAGE -
+    /// <c>node_modules</c> absent at checkout, <c>npx stylelint</c> silently fetching
+    /// its own copy, jsdom performing no layout so a margin assertion proves nothing,
+    /// a US/UK spelling split in a grep, no <c>dotnet</c> and no <c>docker</c> on the
+    /// PATH - and not one was about <c>ui-preview</c> versus <c>review</c>.
+    /// <see cref="LearnedAgainst"/> already said advice is learned AGAINST something,
+    /// so the operator was binding it to an axis nothing had measured.
+    /// </para>
+    /// <para>
+    /// <b>And the cost of that axis was paid by an agent.</b> <c>learn-work-kind</c>
+    /// tells a flight to work "as the kind named in your task", no kind is named in
+    /// the task, and so GG-330 named its own kind thirteen times - correctly, from
+    /// the only information it had. Keyed by its subject instead, nothing has to name
+    /// a target: a flight reads the entries whose <c>against</c> matches its own
+    /// <c>source.provenance</c>, which the runner already ships.
+    /// </para>
+    /// <para>
+    /// <b>The injection ground that chose <c>work-kind-only</c> is NOT what changed
+    /// here, and this paragraph replaces the one that said it was.</b> The risk is
+    /// real: a narrowing composes across layers and may live in a customer's own
+    /// repository, so one that could ADD advice would put prose from a repository
+    /// into the prompt of every later flight, reviewed by nobody - the injection path
+    /// the gate exists to close, reached around it. But the operator was never what
+    /// stopped it. <see cref="EnvelopeNarrowing"/> has exactly ONE member,
+    /// <see cref="EnvelopeNarrowing.Obligations"/>, and the narrowing reader closes
+    /// its root to <c>based-on</c> and that key alone - so <c>learned:</c> in a
+    /// narrowing is refused by name, whatever this operator says. The protection is
+    /// the TYPE. Leaving the old paragraph in place beside <c>Append</c> would have
+    /// told the next reader the door had been opened.
     /// </para>
     /// <para>
     /// <b>Nullable, never absorbing and never required</b>, by this file's own rule
@@ -1918,8 +1962,8 @@ public sealed record Envelope
     /// instructions.
     /// </para>
     /// </remarks>
-    [Composes(MergeOperators.WorkKindOnly)]
-    public LearnedContext? Learned { get; init; }
+    [Composes(MergeOperators.Append)]
+    public IReadOnlyList<LearnedContext>? Learned { get; init; }
 
     /// <summary>
     /// Environment variables set on what a flight runs, or null when the
@@ -3094,8 +3138,53 @@ public sealed record Envelope
     /// A header with no advice is the converse - a provenance record for nothing,
     /// and the shape a required header invites if nobody refuses it.
     /// </remarks>
-    private static string? Learning(Envelope envelope) =>
-        envelope.Learned is { } learned ? ValidateLearned(learned) : null;
+    private static string? Learning(Envelope envelope)
+    {
+        if (envelope.Learned is not { } entries)
+        {
+            return null;
+        }
+
+        foreach (var entry in entries)
+        {
+            if (ValidateLearned(entry) is { } invalid)
+            {
+                return invalid;
+            }
+        }
+
+        // BOUNDED BY WHAT IT IS ABOUT, not by how many rehearsals have run. Newer
+        // advice about a repository REPLACES older advice about it, so two entries
+        // naming one subject is two answers to one question - and a reader filtering
+        // by provenance would have to pick between them by position, which is a
+        // naming convention doing a schema's job.
+        var doubled = entries
+            .Select(Subject)
+            .Where(subject => subject is not null)
+            .GroupBy(subject => subject!, StringComparer.Ordinal)
+            .FirstOrDefault(group => group.Count() > 1);
+
+        return doubled is null
+            ? null
+            : $"learned names '{doubled.Key}' twice. Advice about one thing replaces "
+            + "older advice about it rather than accumulating beside it, so keep one "
+            + "entry per repository, image or envelope.";
+    }
+
+    /// <summary>What one piece of advice is ABOUT, for telling entries apart.</summary>
+    /// <remarks>
+    /// In the order a reader would ask: the repository is the most specific thing a
+    /// rehearsal learns about, then the image, then the envelope it was measured
+    /// against. A commit is deliberately NOT a subject - advice learned at one commit
+    /// is advice about the repository, and keying on the commit would let a second
+    /// rehearsal of the same repository accumulate beside the first rather than
+    /// replace it, which is the unbounded growth this exists to stop.
+    /// </remarks>
+    private static string? Subject(LearnedContext learned) =>
+        learned.Against.Repository is { Length: > 0 } repository ? repository
+        : learned.Against.Image is { Length: > 0 } image ? image
+        : learned.Against.Envelope is { Length: > 0 } envelope ? envelope
+        : null;
 
     /// <summary>
     /// The schema's rule about learned context, asked without an envelope around it.

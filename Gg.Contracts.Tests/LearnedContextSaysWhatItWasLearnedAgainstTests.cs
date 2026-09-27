@@ -139,4 +139,76 @@ public class LearnedContextSaysWhatItWasLearnedAgainstTests
             .Because("a pass may know the commit and not the image, and demanding all four "
                    + "would make the header a form to fill in.");
     }
+
+    /// <summary>
+    /// A commit is a commit id and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Measured on GG-333</b>, the first rehearsal to hand its advice back
+    /// cleanly. Its entry read:
+    /// </para>
+    /// <code>
+    /// commit: 3a6de3c (HEAD detached at FETCH_HEAD)
+    /// </code>
+    /// <para>
+    /// git's own chatter, pasted into the ONE field whose whole purpose is to be
+    /// compared later. <see cref="LearnedAgainst"/> exists so advice can be told to
+    /// have gone stale — <i>"advice that cannot be told to have gone stale will
+    /// outlive every environment it was true of"</i> — and a value like that can
+    /// never match a commit id, so the staleness check silently never fires. The
+    /// document was valid, the round trip was clean, and the field was useless.
+    /// </para>
+    /// <para>
+    /// <b>Refused rather than trimmed to the leading sha.</b> Trimming would be this
+    /// schema guessing which part of a string the author meant, and it would take
+    /// `3a6de3c (HEAD detached...)` and `3a6de3c-dirty` to the same place. A refusal
+    /// reaches the agent at the tool, where it can look again and answer.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task A_commit_carrying_anything_but_a_commit_is_refused()
+    {
+        foreach (var written in (string[])
+            ["3a6de3c (HEAD detached at FETCH_HEAD)", "3a6de3c-dirty", "HEAD",
+             "refs/heads/develop", "3a6de3c ", "not a sha"])
+        {
+            var read = EnvelopeYaml.Parse(Learned($"""
+                against:
+                  commit: "{written}"
+                advice:
+                  - "Something worth saying."
+                """));
+
+            await Assert.That(read.Diagnosis).IsNotNull()
+                .Because($"'{written}' cannot be compared with a commit id, so advice "
+                       + "written against it can never be told to have gone stale.");
+
+            await Assert.That(read.Diagnosis!).Contains("commit")
+                .Because("and the refusal names the field, so an agent can fix it and "
+                       + "call again rather than guessing which value was wrong.");
+        }
+    }
+
+    [Test]
+    public async Task A_commit_id_short_or_long_is_taken()
+    {
+        // BOTH ENDS, because refusing a short sha would refuse what `git rev-parse
+        // --short` hands an agent, and refusing a long one would refuse what a
+        // machine has. Seven is git's own short default.
+        foreach (var written in (string[])
+            ["3a6de3c", "3a6de3c5cbe45e6bd23e6579d54c30db053a03f3",
+             "3A6DE3C5CBE45E6BD23E6579D54C30DB053A03F3"])
+        {
+            var read = EnvelopeYaml.Parse(Learned($"""
+                against:
+                  commit: "{written}"
+                advice:
+                  - "Something worth saying."
+                """));
+
+            await Assert.That(read.Diagnosis).IsNull()
+                .Because($"'{written}' is a commit id: {read.Diagnosis}");
+        }
+    }
 }

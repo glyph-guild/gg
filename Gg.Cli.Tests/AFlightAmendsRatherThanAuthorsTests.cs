@@ -16,9 +16,10 @@ namespace Gg.Cli.Tests;
 /// <b>1. The tool validated a WHOLE envelope when the flight had one field.</b> To
 /// say what it had learned, the agent had to author <c>context</c>,
 /// <c>obligations</c>, <c>loops</c> and <c>destinations</c> for a document it does
-/// not administer — and every required key it did not have is a key it has to
-/// invent. It invented <c>obligations: none: {check: …}</c>, which is a policy
-/// statement, to get past a validator.
+/// not administer — <see cref="Gg.Contracts.Envelope"/> has four <c>required</c>
+/// members — and every required key it did not have is a key it has to invent. It
+/// invented <c>obligations: none: {check: …}</c>, which is a policy statement, to get
+/// past a validator.
 /// </para>
 /// <para>
 /// <b>2. <c>PlatformToolServer.Refused</c> dispatched two of the parser's six role

@@ -285,10 +285,9 @@ public static class EnvelopeYaml
     /// <remarks>
     /// <para>
     /// <b>A fifth entry point rather than a flag on <see cref="Parse"/>, because the
-    /// language already refuses the alternative.</b> <see cref="Envelope"/> has five
-    /// <c>required</c> members - <c>Text</c>, <c>Context</c>, <c>Obligations</c>,
-    /// <c>Loops</c>, <c>Destinations</c> - so a partial envelope cannot be typed as
-    /// one. Pretending otherwise is precisely what GG-330 was made to do: it needed
+    /// language already refuses the alternative.</b> <see cref="Envelope"/> has four
+    /// <c>required</c> members - <c>Context</c>, <c>Obligations</c>, <c>Loops</c> and
+    /// <c>Destinations</c> - so a partial envelope cannot be typed as one. Pretending otherwise is precisely what GG-330 was made to do: it needed
     /// to say one thing, was asked for a governing document, and invented
     /// <c>obligations: none: {check: human, approver: root}</c> to get past the
     /// validator.

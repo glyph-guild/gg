@@ -9,9 +9,9 @@ namespace Gg.Contracts.Tests;
 /// <remarks>
 /// <para>
 /// <b>Why a fifth parse entry point rather than a flag on <c>Parse</c>.</b>
-/// <see cref="Envelope"/> has five <c>required</c> members — <c>Text</c>,
-/// <c>Context</c>, <c>Obligations</c>, <c>Loops</c>, <c>Destinations</c> — so an
-/// amendment cannot BE an envelope; the type will not hold one. That is the
+/// <see cref="Envelope"/> has four <c>required</c> members — <c>Context</c>,
+/// <c>Obligations</c>, <c>Loops</c> and <c>Destinations</c> — so an amendment cannot
+/// BE an envelope; the type will not hold one. That is the
 /// language enforcing the same thing this slice is arguing: a partial envelope is
 /// not a kind of envelope, and pretending otherwise is what made GG-330 invent
 /// <c>obligations</c> it did not mean.

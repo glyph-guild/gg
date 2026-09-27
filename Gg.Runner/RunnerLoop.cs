@@ -2195,6 +2195,12 @@ public sealed class RunnerLoop(
             // and does not derive anything from it: it hands the agent what a person
             // said and lets the envelope keep deciding what may happen.
             Feedback = lease.Feedback,
+            // WHAT EARLIER FLIGHTS LEARNED ABOUT THIS PLACE, from the LOOP rather
+            // than the lease's top level, because advice is about the environment this
+            // loop runs in - and the control plane has already chosen which entries
+            // this flight is owed. Passed through untouched: reformatting it here would
+            // be the second wording LeaseLoop.Instructions exists to stop.
+            Learned = loop.Learned,
             // THE CLASSIFIER'S HANDOVER, carried the same way and for the
             // same reason: prose from outside this platform that the prompt
             // must show and the agent must not obey.

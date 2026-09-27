@@ -383,6 +383,16 @@ public sealed record ExecutorRequest
     public string? NominationNote { get; init; }
 
     /// <summary>
+    /// What earlier flights learned about this place, as a person approved it, or null.
+    /// </summary>
+    /// <remarks>
+    /// Rendered by the control plane and carried on the lease, so this is passed
+    /// through rather than composed: see <see cref="Gg.Contracts.LeaseLoop.Learned"/>
+    /// for why one place decides what a flight is told.
+    /// </remarks>
+    public string? Learned { get; init; }
+
+    /// <summary>
     /// What this flight may nominate, when it may nominate anything.
     /// </summary>
     /// <remarks>

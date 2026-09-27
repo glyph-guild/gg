@@ -508,6 +508,33 @@ public sealed record LeaseLoop
     public string? Brief { get; init; }
 
     /// <summary>
+    /// What earlier flights learned about this place, as a person approved it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Rendered here rather than composed there</b>, on <see cref="Instructions"/>'s
+    /// own terms and for its reason: the runner never sees an envelope, so one place
+    /// decides what a flight is told. The FILTERING is the same decision - advice is
+    /// keyed by what it was learned against, and which entries this flight is owed is
+    /// a question about the flight that the control plane can answer and a runner
+    /// cannot.
+    /// </para>
+    /// <para>
+    /// <b>Null where nothing has been approved, never an empty heading.</b> A block
+    /// over no advice tells an agent something was learned about its environment when
+    /// nothing was, and most tenants have approved none.
+    /// </para>
+    /// <para>
+    /// <b>It does not carry the standing of <see cref="Instructions"/> and the prompt
+    /// says so.</b> These words were drafted by a MACHINE and approved by a person;
+    /// the operator's instructions are policy. An agent that cannot tell them apart
+    /// will eventually read advice as permission, which is the one failure this path
+    /// is able to cause in every later flight at once.
+    /// </para>
+    /// </remarks>
+    public string? Learned { get; init; }
+
+    /// <summary>
     /// What the flight's destination asks about the proposal it will open, or
     /// null when it asks nothing.
     /// </summary>

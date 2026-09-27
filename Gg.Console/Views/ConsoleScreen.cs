@@ -38,11 +38,9 @@ public sealed class ConsoleScreen : Window
     // hidden are the views restored - a blanket "show everything" afterwards
     // would reveal panes the rest of Render had deliberately hidden.
     private readonly List<View> _hiddenBehindTheMark = [];
-    private readonly Label _live;
     private readonly Label _browse;
     private readonly FrameView _queuePane;
     private readonly FrameView _flightPane;
-    private readonly FrameView _livePane;
     private readonly FrameView _browsePane;
     private readonly FrameView _repositoriesPane;
     private readonly Label _repositories;
@@ -715,24 +713,6 @@ public sealed class ConsoleScreen : Window
             CanFocus = false,
             Visible = false,
         };
-
-        _livePane = new FrameView
-        {
-            Title = "live",
-            X = 0,
-            Y = 0,
-            Width = Dim.Fill(),
-            Height = Dim.Fill(1),
-            Visible = false,
-        };
-        // A Label, not a TextView. TextView is obsolete in this Terminal.Gui
-        // and obsolete warnings are errors here - which turned out to be a
-        // better answer than the one it blocked. Copying out of a TUI is the
-        // TERMINAL's own selection, and what defeats it is the application
-        // repainting underneath. Freeze stops the repaint, so the terminal's
-        // selection works, and no widget has to reimplement selection at all.
-        _live = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
-        _livePane.Add(_live);
 
         // THE SAME REGION AS EVIDENCE AND LIVE, and never on at the same time.
         // Three panes over one region is why BrowseToggled turns the other two
@@ -2083,7 +2063,6 @@ public sealed class ConsoleScreen : Window
             // walks the enum - reached it third, and `tab' skipped six tabs.
             // TabGoesLeftToRightTests holds the two orders together now.
             (TabId.Runners, Tabbed(_runnersPane)),
-            (TabId.Live, Tabbed(_livePane)),
             (TabId.Browse, Tabbed(_browsePane)),
             (TabId.Repositories, Tabbed(_repositoriesPane)),
             (TabId.Envelope, Tabbed(_envelopePane)),
@@ -2138,7 +2117,7 @@ public sealed class ConsoleScreen : Window
         // parent, and the block is about the ROW rather than the border
         // anyway.
         _airspaceTable.SetScheme(ConsoleTheme.Picked());
-        Muted(_airspaceAbsent, _airspaceNoDocument, _live, _flight, _modalBody,
+        Muted(_airspaceAbsent, _airspaceNoDocument, _flight, _modalBody,
             _runners, _flightIntent, _flightLogAbsent);
 
         // THE CORNER, OVER THE RIGHT-HAND END OF THE TAB STRIP - the least
@@ -4223,19 +4202,6 @@ public sealed class ConsoleScreen : Window
         // Frozen means the pixels stop moving, so the terminal's own selection
         // can survive being made. Held lines are already kept in the model;
         // this is the half of the promise the view owes.
-        // THE FLIGHT PANE'S RULE, AND THE SAME SENTENCE: `_livePane' is on the
-        // live tab and no other, so handing this Label a tail nobody is looking
-        // at buys a layout and nothing else. A tail is the one pane that can be
-        // arbitrarily long, which makes it the worst of the three to paint
-        // blind.
-        if (State.ActiveTab == TabId.Live && !State.Frozen)
-        {
-            using (Gg.Local.Timings.Active.Measure("paint.live-pane"))
-            {
-                _live.Text = PaneText.Live(State);
-            }
-        }
-
         if (State.ActiveTab == TabId.Browse)
         {
             using (Gg.Local.Timings.Active.Measure("paint.browse-pane"))
@@ -4398,7 +4364,6 @@ public sealed class ConsoleScreen : Window
         _board.Text = PaneText.Board(State);
         _repositories.Text = PaneText.Repositories(State);
         _runners.Text = PaneText.Runners(State);
-        _livePane.Title = State.Frozen ? "live (frozen — ctrl+f to resume)" : "live";
 
         // WHICH ONE IS CHOSEN, IN THE TITLE. It changes what every flight this
         // console opens will name, so a person glancing at the frame should
@@ -6155,7 +6120,6 @@ public sealed class ConsoleScreen : Window
         {
             TabId.Flights => _flightsTable.Visible ? _flightsTable : _flights,
             TabId.Board => _boardTable.Visible ? _boardTable : _board,
-            TabId.Live => _live,
             TabId.Browse => _browseTable.Visible ? _browseTable : _browse,
             TabId.Repositories => _repositoriesTable.Visible ? _repositoriesTable : _repositories,
 

@@ -1,3 +1,5 @@
+using Gg.Contracts;
+
 namespace Gg.Console.Tests;
 
 /// <summary>
@@ -216,14 +218,45 @@ public class LiveBetweenSessionsTests
     {
         // LiveAttachFact has existed with no caller. Watching is recorded; what
         // was watched is not, which is rule 6.
+        //
+        // THROUGH THE WATCH KEY, because the tab it used to be toggled onto is
+        // gone. What is recorded and where it is kept are unchanged.
         var ui = new ScriptedUi(
-            s => new UiOutcome(Command.OpenFlight, Reducer.Reduce(s, Command.ToggleLive)),
-            s => new UiOutcome(Command.OpenFlight, Reducer.Reduce(s, Command.ToggleLive)),
+            s => new UiOutcome(Command.OpenFlight, Reducer.Reduce(s, Command.WatchThisFlight)),
+            s => new UiOutcome(Command.OpenFlight, Reducer.Reduce(s, Command.CloseModal)),
             s => new UiOutcome(Command.Quit, s));
 
         new ConsoleLoop(ui, new NoEditor(),
             tails: new LiveTails(_ => new ScriptedSource(exists: true))).Run(
-                Watching("f1") with { LiveVisible = false });
+                Watching("f1") with
+                {
+                    LiveVisible = false,
+                    Mode = UiMode.FlightDetail,
+                    Flights = new FlightList
+                    {
+                        Flights =
+                        [
+                            new FlightSummary
+                            {
+                                FlightId = "f1",
+                                FlightNumber = "GG-1",
+                                Name = "a flight",
+                                Intent = new FlightIntent
+                                {
+                                    Kind = FlightIntentKinds.Text,
+                                    Text = "do it",
+                                },
+                                CreatedAt = DateTimeOffset.UnixEpoch,
+                                RunnerProtocolVersion = 1,
+                                FactVocabularyVersion = "0.25.0",
+                                ConstitutionVersion = "1.0.0",
+                                EnvelopeVersion = "none",
+                                Attempts = 1,
+                                Facts = [],
+                            },
+                        ],
+                    },
+                });
 
         var facts = ui.StatesSeen[^1].AttachFacts;
 

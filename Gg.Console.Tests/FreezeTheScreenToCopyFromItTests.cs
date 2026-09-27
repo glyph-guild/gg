@@ -89,12 +89,14 @@ public class FreezeTheScreenToCopyFromItTests
     }
 
     [Test]
-    public async Task The_live_tabs_old_key_no_longer_means_freeze()
+    public async Task The_old_tab_scoped_key_no_longer_means_freeze()
     {
         // ONE WORD, ONE KEY. `f` froze on the live tab and nowhere else; two
         // keys for one act is a second thing to learn, and the tab-scoped one
-        // was the half that could not be found from anywhere else.
-        await Assert.That(Keymap.Resolve(KeyStroke.Char('f'), KeymapContext.For(On(TabId.Live))))
+        // was the half that could not be found from anywhere else. The tab has
+        // since gone entirely and freezing is the whole screen's, so the key
+        // must not have come back anywhere.
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('f'), KeymapContext.For(On(TabId.Browse))))
             .IsNotEqualTo(Command.ToggleFreeze);
     }
 
@@ -116,9 +118,11 @@ public class FreezeTheScreenToCopyFromItTests
     public async Task What_arrived_while_it_was_frozen_is_not_lost()
     {
         // THE HALF THAT ALREADY WORKED, kept: the live tail banks its lines
-        // while the pixels are still and flushes them on the way out.
+        // while the pixels are still and flushes them on the way out. Still
+        // true now the tail is drawn in a modal - freeze is the screen's, and
+        // the buffer it banks into is the same one.
         var frozen = Reducer.Reduce(
-            On(TabId.Live) with { Live = [Said("one")] }, Command.ToggleFreeze) with
+            On(TabId.Queue) with { Live = [Said("one")] }, Command.ToggleFreeze) with
         {
             Held = [Said("two"), Said("three")],
         };

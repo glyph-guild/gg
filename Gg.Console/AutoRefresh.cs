@@ -186,7 +186,7 @@ public sealed class AutoRefresh(
     /// modal now, which this does not refresh.
     /// </remarks>
     private static bool Reads(TabId tab) =>
-        tab is not (TabId.Live or TabId.Browse);
+        tab is not TabId.Browse;
 
     private static AppState Folded(AppState state, Task<Func<AppState, AppState>> finished)
     {

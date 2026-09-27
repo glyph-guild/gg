@@ -1,3 +1,5 @@
+using Gg.Contracts;
+
 namespace Gg.Console.Tests;
 
 /// <summary>
@@ -21,6 +23,32 @@ public class ReducerTests
     private static AppState WithQueue(params string[] ids) => new()
     {
         Queue = [.. ids.Select(id => Row(id))],
+    };
+
+    /// <summary>Opens the watch on one flight, the way a person does.</summary>
+    private static AppState Watching(AppState state, string flightId) =>
+        Reducer.Reduce(
+            state with
+            {
+                Mode = UiMode.FlightDetail,
+                Flights = new FlightList { Flights = [AFlight(flightId)] },
+                FlightSelected = 0,
+            },
+            Command.WatchThisFlight);
+
+    private static FlightSummary AFlight(string id) => new()
+    {
+        FlightId = id,
+        FlightNumber = $"GG-{id}",
+        Name = id,
+        Intent = new FlightIntent { Kind = FlightIntentKinds.Text, Text = "do it" },
+        CreatedAt = T0,
+        RunnerProtocolVersion = 1,
+        FactVocabularyVersion = "0.25.0",
+        ConstitutionVersion = "1.0.0",
+        EnvelopeVersion = "none",
+        Attempts = 1,
+        Facts = [],
     };
 
     // ---- the keymap commands ----
@@ -82,7 +110,6 @@ public class ReducerTests
         }
 
         await Assert.That(seen).Contains(TabId.Repositories);
-        await Assert.That(seen).Contains(TabId.Live);
         await Assert.That(seen).Contains(TabId.Queue)
             .Because("and the queue is in the ring, because it is a tab like the others.");
     }
@@ -92,11 +119,11 @@ public class ReducerTests
     {
         // Otherwise the screen shows a view nobody opened and every key appears
         // to do nothing, which is the same symptom as a hang.
-        var state = new AppState { LiveVisible = true, ActiveTab = TabId.Live };
+        var state = new AppState { BrowseVisible = true, ActiveTab = TabId.Browse };
 
-        var closed = Reducer.Reduce(state, Command.ToggleLive);
+        var closed = Reducer.Reduce(state, Command.ToggleBrowse);
 
-        await Assert.That(closed.LiveVisible).IsFalse();
+        await Assert.That(closed.BrowseVisible).IsFalse();
         await Assert.That(closed.ActiveTab).IsEqualTo(TabId.Queue);
         await Assert.That(Tabs.All).Contains(closed.ActiveTab);
     }
@@ -256,9 +283,10 @@ public class ReducerTests
     [Test]
     public async Task AttachingTheLiveViewIsRecordedAsAFactOnTheFlight()
     {
-        var state = WithQueue("a") with { Flight = null };
-
-        var attached = Reducer.Reduce(state, Command.ToggleLive);
+        // THROUGH THE WATCH, because that is where watching happens now. It
+        // used to be the cursor moving with the live pane open, which was true
+        // of a pane beside the queue and cannot be true of a modal over it.
+        var attached = Watching(WithQueue("a"), "a");
 
         var fact = attached.AttachFacts.Single();
         await Assert.That(fact.FlightId).IsEqualTo("a");
@@ -271,13 +299,13 @@ public class ReducerTests
     {
         var state = WithQueue("a");
 
-        for (var i = 0; i < 4; i++)
+        for (var i = 0; i < 2; i++)
         {
-            state = Reducer.Reduce(state, Command.ToggleLive);
+            state = Reducer.Reduce(Watching(state, "a"), Command.CloseModal);
         }
 
         await Assert.That(state.AttachFacts.Single().AttachCount).IsEqualTo(2)
-            .Because("two attaches and two detaches is two attaches.");
+            .Because("opening the watch twice is two attaches; closing it is not a third.");
     }
 
     [Test]
@@ -294,11 +322,12 @@ public class ReducerTests
     [Test]
     public async Task TheRateIsAttachedFlightsOverFlightsSeen()
     {
-        // Attaching is per FLIGHT WATCHED, not per keypress: moving the cursor
-        // while the live view is open is watching the flight you moved to.
+        // PER FLIGHT WATCHED, not per keypress, and the denominator is still
+        // the queue: how much of what needed somebody did somebody feel they
+        // had to watch.
         var state = WithQueue("a", "b", "c", "d");
-        state = Reducer.Reduce(state, Command.ToggleLive);   // watching a
-        state = Reducer.Reduce(state, Command.SelectNext);   // now watching b
+        state = Reducer.Reduce(Watching(state, "a"), Command.CloseModal);
+        state = Reducer.Reduce(Watching(state, "b"), Command.CloseModal);
 
         await Assert.That(AttachRate.Of(state)).IsEqualTo(0.5d);
     }

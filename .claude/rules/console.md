@@ -17,4 +17,5 @@ paths:
 - Externally-sourced text — PR titles, branch names, author handles, paths —
   is stripped of terminal control sequences at INGRESS, before storage. Not
   at render time.
-- The live view pane is OFF by default. It is a trust artifact meant to decay.
+- The live view is a modal somebody opens, not a tab. It is a trust artifact
+  meant to decay, and a permanent seat on the bar is the opposite of decaying.

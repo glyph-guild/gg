@@ -41,13 +41,13 @@ public class TabsTakeTheWholeScreenTests
         // THE WHOLE POINT. Under one shared region this was impossible, and the
         // reducer enforced it by clearing the other flags.
         var state = Reducer.Reduce(new AppState(), Command.ToggleRepositories);
-        state = Reducer.Reduce(state, Command.ToggleLive);
+        state = Reducer.Reduce(state, Command.ToggleBrowse);
 
         await Assert.That(state.RepositoriesVisible).IsTrue()
-            .Because("opening the live view is not a reason to throw away the evidence "
+            .Because("opening the browser is not a reason to throw away the evidence "
                    + "somebody was reading beside it.");
-        await Assert.That(state.LiveVisible).IsTrue();
-        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Live)
+        await Assert.That(state.BrowseVisible).IsTrue();
+        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Browse)
             .Because("the one just opened is the one showing.");
     }
 
@@ -58,11 +58,11 @@ public class TabsTakeTheWholeScreenTests
         // rather than as a sentence in a comment. Six panes drawn over one
         // region is what this replaces.
         var state = Reducer.Reduce(new AppState(), Command.ToggleRepositories);
-        state = Reducer.Reduce(state, Command.ToggleLive);
+        state = Reducer.Reduce(state, Command.ToggleBrowse);
 
         var drawn = Enum.GetValues<TabId>().Where(tab => Tabs.Showing(state, tab)).ToList();
 
-        await Assert.That(drawn).IsEquivalentTo((TabId[])[TabId.Live])
+        await Assert.That(drawn).IsEquivalentTo((TabId[])[TabId.Browse])
             .Because("exactly one tab is on the screen. Found: " + string.Join(", ", drawn));
     }
 
@@ -92,20 +92,22 @@ public class TabsTakeTheWholeScreenTests
         // order of the bar. ReducerTests.TabWalksEveryTabAndComesBackRound is
         // the full circuit; this is the order.
         //
-        // AMENDED AGAIN when evidence stopped being a tab: this used to start
-        // there and step to live. Live is still the anchor, and browse is
-        // still what follows it - the pair that made this test worth having is
-        // intact, one tab earlier.
-        var state = Reducer.Reduce(new AppState(), Command.ToggleLive);
+        // AMENDED AGAIN when the live view stopped being a tab: this used to
+        // start there and step to browse. Browse is the anchor now and
+        // repositories is what follows it - the pair that made this test worth
+        // having is intact, one tab along.
+        var state = Reducer.Reduce(new AppState(), Command.ToggleBrowse);
 
-        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Live);
-
-        state = Reducer.Reduce(state, Command.FocusNextPane);
-        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Browse)
-            .Because("browse is the tab after live on the bar.");
+        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Browse);
 
         state = Reducer.Reduce(state, Command.FocusNextPane);
-        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Repositories);
+        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Repositories)
+            .Because("repositories is the tab after browse on the bar.");
+
+        state = Reducer.Reduce(state, Command.FocusNextPane);
+        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Envelope)
+            .Because("and the airspace is the tab after repositories, so this is walking "
+                   + "the bar rather than bouncing between two.");
     }
 
     [Test]
@@ -149,17 +151,17 @@ public class TabsTakeTheWholeScreenTests
     public async Task A_views_own_key_switches_to_it_rather_than_closing_it_from_elsewhere()
     {
         // The key means "show me this", and only means "close it" when it is
-        // already what you are looking at. Pressing `v` while reading the live
-        // view should not silently discard the evidence tab.
+        // already what you are looking at. Pressing `v` while reading the browse
+        // tab should not silently discard the evidence tab.
         var state = Reducer.Reduce(new AppState(), Command.ToggleRepositories);
-        state = Reducer.Reduce(state, Command.ToggleLive);
+        state = Reducer.Reduce(state, Command.ToggleBrowse);
         state = Reducer.Reduce(state, Command.ToggleRepositories);
 
         await Assert.That(state.ActiveTab).IsEqualTo(TabId.Repositories);
         await Assert.That(state.RepositoriesVisible).IsTrue()
             .Because("it was open and somebody asked for it, so it is showing rather than "
                    + "gone.");
-        await Assert.That(state.LiveVisible).IsTrue()
+        await Assert.That(state.BrowseVisible).IsTrue()
             .Because("and the one they were on is still open behind it.");
     }
 
@@ -167,13 +169,13 @@ public class TabsTakeTheWholeScreenTests
     public async Task The_bar_marks_the_one_showing_and_names_the_rest()
     {
         var state = Reducer.Reduce(new AppState(), Command.ToggleRepositories);
-        state = Reducer.Reduce(state, Command.ToggleLive);
+        state = Reducer.Reduce(state, Command.ToggleBrowse);
 
         // WAS ABOUT A STRING IN THE TITLE, which is what the bar used to be.
         // The component marks the one showing itself, so what the model owes it
         // is which tab that is - and Tabs.Showing is where that is asserted,
         // one test up. What is left here is the titles, which are the model's.
-        await Assert.That(Tabs.Title(state, TabId.Live)).Contains("live", StringComparison.OrdinalIgnoreCase);
+        await Assert.That(Tabs.Title(state, TabId.Browse)).Contains("browse", StringComparison.OrdinalIgnoreCase);
         // NAMED FOR WHAT THE VERBS ARE CALLED, not for the enum member. The tab
         // renders as Airspace because that is the word on the verbs it acts on;
         // Envelope stays the name of one document, and of the key.
@@ -181,7 +183,7 @@ public class TabsTakeTheWholeScreenTests
             .Contains("airspace", StringComparison.OrdinalIgnoreCase)
             .Because("every tab is on the bar now, including the views nobody has opened - "
                    + "the bar's job is to say what there is.");
-        await Assert.That(Tabs.Showing(state, TabId.Live)).IsTrue();
+        await Assert.That(Tabs.Showing(state, TabId.Browse)).IsTrue();
     }
 
     [Test]

@@ -779,9 +779,6 @@ public enum TabId
     Runners,
 
 
-    /// <summary>The runner's normalised output. Off by default.</summary>
-    Live,
-
     /// <summary>The tracker's work items, to fly one.</summary>
     Browse,
 

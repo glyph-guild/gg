@@ -1191,5 +1191,11 @@
     "surface": "cc599c657f31c747847cee8bc6fa048b3a23b14fe5a2c9d8edb3286221efbcbd",
     "endpoints": "349cd91fc172499e8df4e05c14f2dc0ebb6b5938a7a1c5922532e38c07107e94",
     "note": "ENVELOPE.FOLD: advice arriving, folded onto advice already held. The wire surface does NOT move - ContractSurfaceTests stays green - and the version moves because the control plane needs the rule. IT BELONGS HERE rather than where the folding happens: the control plane folds, since the document being amended lives there and a runner has no estate, but what 'replace' MEANS is a schema question and Validate's refusal of two entries for one subject already depends on the same notion of a subject. A rule written control-plane-side would be a second copy of it, free to drift from the one that refuses. A REPLACEMENT HAPPENS IN PLACE AND AN ARRIVAL GOES ON THE END, which is not cosmetic: the stored document is serialized and a version's digest is over its bytes, so a fold that reordered would mint a new version out of advice that had not changed - and every one of those versions goes to a person at a gate. Folding onto null and onto an empty list are the same thing and neither is an error."
+  },
+  {
+    "version": "0.240.0",
+    "surface": "cc599c657f31c747847cee8bc6fa048b3a23b14fe5a2c9d8edb3286221efbcbd",
+    "endpoints": "349cd91fc172499e8df4e05c14f2dc0ebb6b5938a7a1c5922532e38c07107e94",
+    "note": "THE ROOT DOCUMENT'S NAME MOVES TO AirspaceNames, and the EnvelopeNames class added at 0.238.0 is removed. A MISTAKE WORTH RECORDING RATHER THAN QUIETLY FIXING: the control plane has had its own EnvelopeNames for a long time, with its own parse rule and 37 files referring to it, so the new class collided with it on sight - CS0104 'ambiguous reference' in every file importing both namespaces. A new TYPE in this contract is a name in a namespace both repos read, and the control plane's existing vocabulary is part of what shared means. AirspaceNames is the right home anyway: it is where a name's validity is already decided. The wire surface does not move. Root is still deliberately NOT asserted equal to Roles.Root, though it is the same string, because a guard over that coincidence is a guard against ever renaming the root document."
   }
 ]

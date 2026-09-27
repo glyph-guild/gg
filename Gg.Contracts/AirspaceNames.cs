@@ -43,6 +43,31 @@ public static class AirspaceNames
     public const int MaxLength = 64;
 
     /// <summary>
+    /// The document every tenant has, which every other one composes onto.
+    /// </summary>
+    /// <remarks>
+    /// <b>Here because a name is validated here, and because the runner now has to say
+    /// this one.</b> A flight that hands back advice is amending the tenant's root, so
+    /// the runner names the document - and the only <c>root</c> this contract had was
+    /// <see cref="Roles.Root"/>, which is what a document IS rather than what it is
+    /// called.
+    /// <para>
+    /// <b>It was briefly its own <c>EnvelopeNames</c> class, and that was a mistake
+    /// worth recording:</b> the control plane has had a class of that name for a long
+    /// time, with its own parse rule and 37 files referring to it, so the two collided
+    /// on sight. The lesson is not about this constant - it is that a new type in the
+    /// contract is a name in a shared namespace, and the control plane's existing
+    /// vocabulary is part of what "shared" means.
+    /// </para>
+    /// <para>
+    /// Deliberately NOT asserted equal to <see cref="Roles.Root"/>, though it is the
+    /// same string: a guard over that coincidence is a guard against ever renaming the
+    /// root document.
+    /// </para>
+    /// </remarks>
+    public const string Root = "root";
+
+    /// <summary>
     /// Which directory renders which role. The one table, read both ways, so the
     /// mapping cannot disagree with its own inverse.
     /// </summary>

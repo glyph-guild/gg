@@ -778,7 +778,7 @@ public static class TranscriptDigest
         asked.Add((callId, new Gg.Contracts.DocumentProposal
         {
             Role = Gg.Contracts.Roles.Root,
-            Name = Gg.Contracts.EnvelopeNames.Root,
+            Name = Gg.Contracts.AirspaceNames.Root,
             Document = text,
         }));
     }

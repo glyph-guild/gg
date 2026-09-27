@@ -61,25 +61,6 @@ public static class ExecutorRungs
 /// move along it is a reviewed change on recorded evidence, so the other two
 /// arrive with the mechanism that governs them and not before.
 /// </remarks>
-/// <summary>
-/// The documents every tenant has, by the name the topology gives them.
-/// </summary>
-/// <remarks>
-/// <b>A name is not a role, and this exists because the runner now needs to say
-/// one.</b> A flight that hands back advice is amending the tenant's root, so the
-/// runner has to name the document - and the only "root" in this contract was
-/// <see cref="Roles.Root"/>, which is what a document IS rather than what it is
-/// called. The control plane had its own constant; the runner had none, so the
-/// alternative was a literal on one side agreeing with a constant on the other by
-/// coincidence. They are the same string today and are declared separately anyway,
-/// because nothing would notice the day one of them moved.
-/// </remarks>
-public static class EnvelopeNames
-{
-    /// <summary>The tenant's own document, which every other one composes onto.</summary>
-    public const string Root = "root";
-}
-
 [VocabularyOf(VocabularyFingerprints.Contract)]
 public static class ObligationChecks
 {

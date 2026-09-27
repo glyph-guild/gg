@@ -257,6 +257,34 @@ public static class EnvelopeComposition
         //
         // Only full documents contribute. A narrowing has no such member and
         // will not get one: it declares what it ADDS, and text is not that.
+        // WHAT EARLIER FLIGHTS LEARNED ABOUT THIS PLACE, from every layer that has a
+        // full document, appended in the same order instructions are.
+        //
+        // IT WAS NOT HERE AT ALL UNTIL GG-337, and the way it went missing is the
+        // lesson: `Learned` declares [Composes(MergeOperators.Append)], and that
+        // attribute is DOCUMENTATION - this composer is hand-written and does not read
+        // it. So the member composed by not being mentioned, which for a base of
+        // `workKind ?? root` means the floor's advice was dropped for every flight that
+        // had a work kind. Root carried four approved sentences and the agent saw none.
+        //
+        // No provenance stamped, unlike an instruction. Advice already says what it was
+        // learned AGAINST, which is the question a reader of it has; which document it
+        // was written into is not - and a second answer would be one more thing able to
+        // disagree with the first.
+        var learnedEntries = new List<LearnedContext>();
+
+        foreach (var layer in layers
+            .Where(l => l.Document?.Learned is not null)
+            .OrderBy(l => InstructionRank(l.Role))
+            .ThenBy(l => l.Name, StringComparer.Ordinal))
+        {
+            learnedEntries.AddRange(layer.Document!.Learned!);
+        }
+
+        // NULL RATHER THAN EMPTY, the rule this whole path keeps: a block over nothing
+        // tells an agent something was learned about its environment when nothing was.
+        var learned = learnedEntries.Count == 0 ? null : learnedEntries;
+
         var instructions = new List<EnvelopeInstruction>();
 
         foreach (var layer in layers
@@ -374,6 +402,7 @@ public static class EnvelopeComposition
                 Repositories = repositories,
                 Obligations = composed,
                 Instructions = instructions,
+                Learned = learned,
                 Destinations = destinations,
             },
         };

@@ -86,7 +86,6 @@ public static class Tabs
             // and one of them arriving alone is a board that looks complete
             // and is not - so it says "not read yet" until both have answered.
             TabId.Board => state.Board is not null && state.Watches is not null,
-            TabId.Live => state.LiveVisible,
             TabId.Browse => state.BrowseVisible,
             TabId.Repositories => state.RepositoriesVisible,
             TabId.Envelope => state.EnvelopeVisible,
@@ -128,7 +127,6 @@ public static class Tabs
         // EveryTabIsOnTheBarTests.
         TabId.Queue => KeyStroke.Char(','),
         TabId.Flights => KeyStroke.Char('.'),
-        TabId.Live => KeyStroke.Char('l'),
         TabId.Browse => KeyStroke.Char('b'),
         TabId.Repositories => KeyStroke.Char('r'),
         // `u' because every letter that reads is taken: r is repositories, n is
@@ -170,7 +168,6 @@ public static class Tabs
         // six below they are the reducer's own.
         TabId.Queue => Command.ShowQueueTab,
         TabId.Flights => Command.ShowFlightsTab,
-        TabId.Live => Command.ToggleLive,
         TabId.Browse => Command.ToggleBrowse,
         TabId.Repositories => Command.ToggleRepositories,
         // NOT A SHELL COMMAND, unlike the four below it. Showing this reads
@@ -262,7 +259,6 @@ public static class Tabs
     {
         TabId.Queue => "queue",
         TabId.Flights => "flights",
-        TabId.Live => "live",
         TabId.Browse => "browse",
         TabId.Repositories => "repositories",
         TabId.Runners => "runners",

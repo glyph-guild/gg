@@ -163,7 +163,10 @@ public class LivePaneTests
     {
         // Built in 4b against nothing. This is it against a stream that moves:
         // a copy that works, over output with a hole in it nobody can see.
-        var state = Reducer.Reduce(AnState(), Command.ToggleLive);
+        // ATTACHED DIRECTLY, because what this is about is the stream and the
+        // freeze. The view is opened by a modal now and the key that used to
+        // do it is gone; the flag underneath is the same one.
+        var state = AnState() with { LiveVisible = true };
         state = Reducer.StreamArrived(state, Line("before the freeze"));
 
         var frozen = Reducer.Reduce(state, Command.ToggleFreeze);
@@ -203,26 +206,14 @@ public class LivePaneTests
         await Assert.That(PaneText.Live(new AppState())).IsEqualTo("Nothing is running.");
     }
 
-    [Test]
-    public async Task The_attach_rate_follows_the_selection_rather_than_the_keypress()
-    {
-        // Per 4b: counting keypresses measures how often somebody presses `l`.
-        // Moving the cursor while the pane is open IS watching the flight you
-        // moved to, and that is the number we want to fall.
-        var state = Reducer.Reduce(AnState(), Command.ToggleLive);
-
-        await Assert.That(state.AttachFacts.Single().AttachCount).IsEqualTo(1);
-
-        state = Reducer.Reduce(state, Command.SelectNext);
-
-        await Assert.That(state.AttachFacts.Count).IsEqualTo(2)
-            .Because("the second flight was watched, without a key that says 'watch' being pressed.");
-
-        var closed = Reducer.Reduce(state, Command.ToggleLive);
-
-        await Assert.That(closed.AttachFacts.Sum(f => f.AttachCount)).IsEqualTo(2)
-            .Because("detaching does not count, or a rate that should fall looks like it doubled.");
-    }
+    // THE ATTACH RATE FOLLOWED THE SELECTION, AND NOW IT DOES NOT.
+    // `The_attach_rate_follows_the_selection_rather_than_the_keypress` was here
+    // and asserted the opposite of what this console does: moving the cursor
+    // with the pane open counted as watching the flight moved to. That was
+    // right for a pane beside the queue and cannot be right for a modal over
+    // it, because the cursor does not move underneath one. Watching is now a
+    // key that says watch, and the count is taken where it is pressed - see
+    // ReducerTests and TheLiveTabIsGoneTests.
 
     private static StreamLine Line(string text) =>
         new() { Kind = StreamLineKind.Text, Text = text, At = T0 };

@@ -51,15 +51,17 @@ public static class Reducer
             // whatever was watched before: older lines sitting above this
             // flight's first ones, with nothing saying they are not its.
             Command.WatchThisFlight => PaneText.Detailed(state) is { } watched
-                ? state with
-                {
-                    Mode = UiMode.Watching,
-                    ModeBeneath = state.Mode,
-                    WatchedFlightId = watched.FlightId,
-                    WatchedRunnerId = null,
-                    LiveVisible = true,
-                    Live = [],
-                }
+                ? RecordAttach(
+                    state with
+                    {
+                        Mode = UiMode.Watching,
+                        ModeBeneath = state.Mode,
+                        WatchedFlightId = watched.FlightId,
+                        WatchedRunnerId = null,
+                        LiveVisible = true,
+                        Live = [],
+                    },
+                    watched.FlightId)
                 : state,
 
             Command.ShowFlight => Modal(state, UiMode.FlightDetail) with
@@ -497,7 +499,6 @@ public static class Reducer
             // because opening them fetches something.
             Command.ToggleRunners => Toggled(state, TabId.Runners),
             Command.ShowRunner => RunnerShown(state),
-            Command.ToggleLive => ToggleLive(state),
             Command.ToggleFreeze => ToggleFreeze(state),
 
             // Quit and OpenEditor end the UI session; the shell handles them.
@@ -801,7 +802,6 @@ public static class Reducer
     private static AppState Showing(AppState state, TabId tab, bool open) => Arrived(state with
     {
         ActiveTab = open ? tab : TabId.Queue,
-        LiveVisible = tab == TabId.Live ? open : state.LiveVisible,
         BrowseVisible = tab == TabId.Browse ? open : state.BrowseVisible,
         RepositoriesVisible = tab == TabId.Repositories ? open : state.RepositoriesVisible,
         EnvelopeVisible = tab == TabId.Envelope ? open : state.EnvelopeVisible,
@@ -950,28 +950,12 @@ public static class Reducer
             Queue = [.. state.Queue.Select((r, i) => i == landed ? r with { UnreadArrivals = 0 } : r)],
         });
 
-        // Moving the cursor while the live view is open IS watching the flight
-        // you moved to. Counting only the keypress that opened the pane would
-        // measure how often somebody presses `l`, which is not the number we
-        // want to fall.
-        return moved.LiveVisible ? RecordAttach(moved, attached: true) : moved;
-    }
-
-    /// <summary>
-    /// Shows or hides the live view, and records that it happened.
-    /// </summary>
-    /// <remarks>
-    /// The fact is written on ATTACH only. Counting detaches too would double
-    /// every number and make a rate that should fall look like it doubled.
-    /// </remarks>
-    private static AppState ToggleLive(AppState state)
-    {
-        var next = Toggled(state, TabId.Live);
-
-        // THE FACT IS ABOUT ATTACHING, not about which tab is showing. Bringing
-        // an already-open live tab forward is not a second attach, and counting
-        // it as one would double every number on a rate that should fall.
-        return RecordAttach(next, next.LiveVisible && !state.LiveVisible);
+        // THE ATTACH IS NO LONGER A CURSOR MOVE. It was, and the reasoning held
+        // while the live view was a pane beside the queue: moving the cursor
+        // with it open IS watching the flight you moved to. The watch is a
+        // modal now, the cursor cannot move underneath one, and this would be a
+        // branch that never runs. It is recorded where watching happens.
+        return moved;
     }
 
     /// <summary>
@@ -981,14 +965,18 @@ public static class Reducer
     /// The count goes up on ATTACH only. Counting detaches would double every
     /// number and make a rate that should fall look like it doubled.
     /// </remarks>
-    private static AppState RecordAttach(AppState state, bool attached)
+    private static AppState RecordAttach(AppState state, string? watched)
     {
         // A NOMINATION CANNOT BE WATCHED, so there is no fact to write. The
-        // live pane tails a flight's output and a standing nomination has no
+        // live view tails a flight's output and a standing nomination has no
         // flight - so a fact keyed on a blank id would be one row that every
         // unwatchable row shared, and the count on it would be a count of
         // nothing anybody watched.
-        if (state.Selected is not { FlightId: { } flightId })
+        //
+        // THE FLIGHT IS NAMED BY THE CALLER NOW. It used to be read off the
+        // queue cursor, because the pane followed the cursor; the watch names
+        // what it is watching, and the cursor is somewhere else entirely.
+        if (watched is not { Length: > 0 } flightId)
         {
             return state;
         }
@@ -997,8 +985,8 @@ public static class Reducer
         var updated = new LiveAttachFact
         {
             FlightId = flightId,
-            Attached = attached,
-            AttachCount = (existing?.AttachCount ?? 0) + (attached ? 1 : 0),
+            Attached = true,
+            AttachCount = (existing?.AttachCount ?? 0) + 1,
         };
 
         return state with

@@ -1888,8 +1888,6 @@ public static class Keymap
             new(KeyStroke.Char(';'), Command.ShowBoardTab, "board")
                 { OffTheHintLine = true },
 
-            new(KeyStroke.Char('l'), Command.ToggleLive, Closes(context, TabId.Live, "live"))
-                { OffTheHintLine = true },
             new(KeyStroke.Char('b'), Command.ToggleBrowse, Closes(context, TabId.Browse, "browse"))
                 { OffTheHintLine = true },
             new(KeyStroke.Char('r'), Command.ToggleRepositories,

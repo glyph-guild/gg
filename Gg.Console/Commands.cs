@@ -197,9 +197,6 @@ public enum Command
     /// </remarks>
     NextWorkItemTab,
 
-    /// <summary>Attach or detach the live view. Recorded as a fact.</summary>
-    ToggleLive,
-
     /// <summary>Hold the live view still so text can be selected.</summary>
     ToggleFreeze,
 

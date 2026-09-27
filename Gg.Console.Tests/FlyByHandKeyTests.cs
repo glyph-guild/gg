@@ -108,7 +108,7 @@ public class FlyByHandKeyTests
                  [
                      .. Enum.GetValues<TabId>().Select(tab => Normal() with { Showing = tab }),
                      Normal() with { Takeable = true, HandedBackable = true },
-                     Normal() with { Showing = TabId.Live, Frozen = true },
+                     Normal() with { Showing = TabId.Browse, Frozen = true },
                  ])
         {
             var duplicates = Bindings(context)

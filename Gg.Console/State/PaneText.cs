@@ -209,7 +209,6 @@ public static class PaneText
             TabId.Flights => Flights(state),
             TabId.Board => Board(state),
             TabId.Runners => Runners(state),
-            TabId.Live => Live(state),
             TabId.Browse => Browse(state),
             TabId.Repositories => Repositories(state),
             TabId.Envelope => AirspaceAbsence(state),

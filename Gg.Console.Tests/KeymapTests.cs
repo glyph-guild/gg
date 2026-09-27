@@ -229,13 +229,13 @@ public class KeymapTests
         string Toggle(KeymapContext context, Command command) => Keymap
             .Bindings(context).Single(b => b.Command == command).Description;
 
-        await Assert.That(Toggle(new(UiMode.Normal, TabId.Queue), Command.ToggleLive))
-            .IsEqualTo("live");
-        await Assert.That(Toggle(new(UiMode.Normal, TabId.Live), Command.ToggleLive))
-            .IsEqualTo("close live");
-        await Assert.That(Toggle(new(UiMode.Normal, TabId.Repositories), Command.ToggleLive))
-            .IsEqualTo("live")
-            .Because("the live tab is still there behind this one, and l goes to it.");
+        await Assert.That(Toggle(new(UiMode.Normal, TabId.Queue), Command.ToggleBrowse))
+            .IsEqualTo("browse");
+        await Assert.That(Toggle(new(UiMode.Normal, TabId.Browse), Command.ToggleBrowse))
+            .IsEqualTo("close browse");
+        await Assert.That(Toggle(new(UiMode.Normal, TabId.Repositories), Command.ToggleBrowse))
+            .IsEqualTo("browse")
+            .Because("the browse tab is still there behind this one, and b goes to it.");
 
         // THE ANCHOR, AND IT IS OFF THE LINE NOW. The three above moved because
         // their keys moved onto the tabs, not because a toggle stopped saying
@@ -243,9 +243,9 @@ public class KeymapTests
         // says it. It is read from the binding rather than from the line
         // because the line is capped at seven keys and freeze is advertised on
         // the frozen screen itself.
-        await Assert.That(Description(new(UiMode.Normal, TabId.Live), Command.ToggleFreeze))
+        await Assert.That(Description(new(UiMode.Normal, TabId.Browse), Command.ToggleFreeze))
             .IsEqualTo("freeze to select");
-        await Assert.That(Description(new(UiMode.Normal, TabId.Live, Frozen: true), Command.ToggleFreeze))
+        await Assert.That(Description(new(UiMode.Normal, TabId.Browse, Frozen: true), Command.ToggleFreeze))
             .IsEqualTo("unfreeze");
     }
 

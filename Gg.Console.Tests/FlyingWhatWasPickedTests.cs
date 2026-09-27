@@ -193,7 +193,6 @@ public class FlyingWhatWasPickedTests
         // reducer, asserted here rather than remembered.
         foreach (var context in (KeymapContext[])
         [
-            new(UiMode.Normal, TabId.Live),
             new(UiMode.Normal, TabId.Browse),
             new(UiMode.Normal, TabId.Browse),
         ])

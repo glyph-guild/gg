@@ -211,9 +211,10 @@ public class TheScreenRefreshesItselfTests
 
         clock.Wait(TimeSpan.FromSeconds(30));
 
-        // The live pane is a local file and the browser is a child process this
-        // console already owns. Neither is a thing to go and ask about.
-        var state = refresh.Advance(new AppState { ActiveTab = TabId.Live });
+        // The browser is a child process this console already owns, so it is
+        // not a thing to go and ask about. The live view was the other one, and
+        // it is a modal now rather than a tab a refresh could land on.
+        var state = refresh.Advance(new AppState { ActiveTab = TabId.Browse });
 
         await Assert.That(reads.Asked).IsEmpty();
         await Assert.That(state.Refresh.NextIn).IsEqualTo(30)

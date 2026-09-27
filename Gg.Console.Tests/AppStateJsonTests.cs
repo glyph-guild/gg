@@ -175,7 +175,7 @@ public class AppStateJsonTests
     {
         // Serialized as numbers, inserting a mode would silently change what
         // every stored state means. This is cheap now and unrecoverable later.
-        var json = AppStateJson.Serialize(new AppState { Mode = UiMode.Help, LiveVisible = true, ActiveTab = TabId.Live });
+        var json = AppStateJson.Serialize(new AppState { Mode = UiMode.Help, LiveVisible = true, ActiveTab = TabId.Browse });
 
         await Assert.That(json).Contains("\"Help\"");
         await Assert.That(json).Contains("\"Live\"");

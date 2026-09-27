@@ -3171,6 +3171,59 @@ public sealed record Envelope
             + "entry per repository, image or envelope.";
     }
 
+    /// <summary>
+    /// Advice arriving, folded onto advice already held.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Here rather than where the folding happens.</b> The control plane folds,
+    /// because the document being amended lives there and a runner has no estate -
+    /// but what "replace" MEANS is a schema question, and <see cref="Validate"/>'s
+    /// refusal of two entries for one subject already depends on the same notion.
+    /// A rule written on the folding side would be a second copy of it, free to drift
+    /// from the one that refuses.
+    /// </para>
+    /// <para>
+    /// <b>A replacement happens in place and an arrival goes on the end.</b> Not
+    /// cosmetic: the stored document is serialized and a version's digest is over its
+    /// bytes, so a fold that reordered would mint a new version out of advice that had
+    /// not changed - and every one of those versions goes to a person at a gate.
+    /// </para>
+    /// <para>
+    /// <b>An entry with no subject at all cannot be folded onto anything</b>, so it is
+    /// appended. <see cref="ValidateLearned"/> refuses one of those before it can get
+    /// here, which is the right order: this decides where advice goes, not whether it
+    /// was allowed to be written.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<LearnedContext> Fold(
+        IReadOnlyList<LearnedContext>? held, IReadOnlyList<LearnedContext> arriving)
+    {
+        ArgumentNullException.ThrowIfNull(arriving);
+
+        var folded = (held ?? []).ToList();
+
+        foreach (var entry in arriving)
+        {
+            var subject = Subject(entry);
+            var at = subject is null
+                ? -1
+                : folded.FindIndex(existing =>
+                    string.Equals(Subject(existing), subject, StringComparison.Ordinal));
+
+            if (at < 0)
+            {
+                folded.Add(entry);
+            }
+            else
+            {
+                folded[at] = entry;
+            }
+        }
+
+        return folded;
+    }
+
     /// <summary>What one piece of advice is ABOUT, for telling entries apart.</summary>
     /// <remarks>
     /// In the order a reader would ask: the repository is the most specific thing a

@@ -236,8 +236,8 @@ public class AdviceIsKeyedByWhatItWasLearnedAgainstTests
 
         var folded = Envelope.Fold(current, [Advice("one/a", "Replaced.")]);
 
-        await Assert.That(folded.Select(e => e.Against.Repository).ToList())
-            .IsEquivalentTo(new[] { "one/a", "two/b" })
+        await Assert.That(string.Join(",", folded.Select(e => e.Against.Repository)))
+            .IsEqualTo("one/a,two/b")
             .Because("replacing the first entry must not move it behind the second.");
     }
 

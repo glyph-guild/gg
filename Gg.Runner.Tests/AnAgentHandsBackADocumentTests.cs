@@ -32,15 +32,18 @@ namespace Gg.Runner.Tests;
 /// </remarks>
 public class AnAgentHandsBackADocumentTests
 {
-    private const string Role = "work-kind";
-
+    /// <remarks>
+    /// <b>The call carries a document and nothing else.</b> It sent a <c>role</c> and
+    /// a <c>name</c> until advice was re-keyed by what it was learned against: the
+    /// kind being rehearsed is named nowhere a flight can read, so GG-330 answered
+    /// both from its own kind, thirteen times. The runner names the document now.
+    /// </remarks>
     private static string Stream(string id, bool answered)
     {
         var call =
             "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\","
           + "\"id\":\"" + id + "\",\"name\":\"" + DocumentProposalTool.Qualified + "\","
-          + "\"input\":{\"role\":\"" + Role + "\",\"name\":\"ui-preview\","
-          + "\"document\":\"based-on: ui-preview@v7\\n\"}}]}}\n";
+          + "\"input\":{\"document\":\"based-on: ui-preview@v7\\n\"}}]}}\n";
 
         var result =
             "{\"type\":\"user\",\"message\":{\"content\":[{\"type\":\"tool_result\","
@@ -66,8 +69,11 @@ public class AnAgentHandsBackADocumentTests
         var proposal = TranscriptDigest.Document(Stream("call-1", answered: true));
 
         await Assert.That(proposal).IsNotNull();
-        await Assert.That(proposal!.Role).IsEqualTo(Role);
-        await Assert.That(proposal.Name).IsEqualTo("ui-preview");
+        // THE RUNNER'S ANSWER, NOT THE AGENT'S. Both were arguments and both are
+        // filled here now, because advice is filed under what it was learned against
+        // and the document it lands on is the tenant's own.
+        await Assert.That(proposal!.Role).IsEqualTo(Gg.Contracts.Roles.Root);
+        await Assert.That(proposal.Name).IsEqualTo(Gg.Contracts.EnvelopeNames.Root);
         await Assert.That(proposal.Document).Contains("based-on:");
     }
 

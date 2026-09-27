@@ -199,11 +199,14 @@ public class DirectionCoverageTests
             Doc(),
             Doc() with
             {
-                Learned = new LearnedContext
-                {
-                    Against = new LearnedAgainst { Commit = "a1b2c3d" },
-                    Advice = ["Wait for the install before starting the server."],
-                },
+                Learned =
+                [
+                    new LearnedContext
+                    {
+                        Against = new LearnedAgainst { Commit = "a1b2c3d" },
+                        Advice = ["Wait for the install before starting the server."],
+                    },
+                ],
             },
             ReverseAlsoWidens: false),
 

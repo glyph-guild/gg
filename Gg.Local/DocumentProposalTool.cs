@@ -43,12 +43,16 @@ public static class DocumentProposalTool
     /// <summary>The name an agent calls and the extractor looks for.</summary>
     public const string Qualified = $"mcp__{Server}__{Name}";
 
-    /// <summary>Which role the document claims to be.</summary>
-    public const string RoleArgument = "role";
-
-    /// <summary>The declared name in the tenant's topology it is for.</summary>
-    public const string NameArgument = "name";
-
-    /// <summary>The document itself, as its author wrote it.</summary>
+    /// <summary>What was learned, as its author wrote it.</summary>
+    /// <remarks>
+    /// <b>The only argument, and that is the fix rather than a tidy-up.</b> It took a
+    /// <c>role</c> and a <c>name</c> until GG-330 showed what asking for them costs:
+    /// the kind being rehearsed is named NOWHERE - not on <c>gg fly</c>, not on the
+    /// lease, not in the prompt - so the flight guessed three roles and named its own
+    /// kind thirteen times, correctly, from the only information it had. An agent
+    /// cannot misname what it is never asked to name, and advice is now keyed by what
+    /// it was learned against rather than by who will read it, so there is nothing
+    /// left to name: the runner says the document and the entry says its subject.
+    /// </remarks>
     public const string DocumentArgument = "document";
 }

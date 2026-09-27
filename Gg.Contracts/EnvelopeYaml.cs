@@ -217,7 +217,7 @@ public sealed record LearningParse
     public string? BasedOn { get; init; }
 
     /// <summary>What was learned, or null when there is a diagnosis.</summary>
-    public LearnedContext? Learned { get; init; }
+    public IReadOnlyList<LearnedContext>? Learned { get; init; }
 
     /// <summary>What was wrong, or null when nothing was.</summary>
     public string? Diagnosis { get; init; }
@@ -338,14 +338,22 @@ public static class EnvelopeYaml
             // and both were told only that the key was unknown.
             Closed(root, BasedOnKey, "learned");
 
-            var learned = MapLearned(RequireMap(Require(root, "learned"), "learned"));
+            // A LIST, THE SAME SHAPE THE ENVELOPE'S OWN KEY HAS. One rehearsal
+            // usually learns about one thing, and it would have been shorter to take
+            // a bare block here - but `learned:` meaning a block in one document and
+            // a list in another is a second shape for one key name, and GG-330 spent
+            // nine of its thirty-five calls on shape alone.
+            var learned = MapLearnedList(Require(root, "learned"), "learned");
 
             // THE SCHEMA'S OWN RULE, not a second copy of it. An amendment carrying
             // a header that names nothing, or no advice at all, is refused here
             // where its author can still act - which is this tool's whole virtue.
-            if (Envelope.ValidateLearned(learned) is { } invalid)
+            foreach (var entry in learned)
             {
-                return new LearningParse { Diagnosis = invalid };
+                if (Envelope.ValidateLearned(entry) is { } invalid)
+                {
+                    return new LearningParse { Diagnosis = invalid };
+                }
             }
 
             return new LearningParse
@@ -1128,7 +1136,7 @@ public static class EnvelopeYaml
             // required to name what it was learned against, which Validate
             // enforces where the author can still act rather than here.
             Learned = root.Entries.TryGetValue("learned", out var learned)
-                ? MapLearned(RequireMap(learned, "learned"))
+                ? MapLearnedList(learned, "learned")
                 : null,
             Variables = root.Entries.TryGetValue("variables", out var variables)
                 ? [.. RequireMap(variables, "variables").Entries
@@ -1173,12 +1181,45 @@ public static class EnvelopeYaml
     /// `advice` that is empty are both refusals, and both are made by Validate so
     /// the message can name the document rather than the parser.
     /// </remarks>
-    private static LearnedContext MapLearned(MapNode learned)
+    /// <summary>A sequence of learned-context entries, or a refusal naming the shape.</summary>
+    /// <remarks>
+    /// Separate from <see cref="Strings"/>'s lesson only in what the items are: the
+    /// container and the items are both named, and an item names its own position
+    /// rather than borrowing its parent's path, because "entry 2" is something an
+    /// author can go and look at.
+    /// </remarks>
+    private static IReadOnlyList<LearnedContext> MapLearnedList(Node node, string path)
+    {
+        if (node is not SeqNode sequence)
+        {
+            throw new EnvelopeSyntaxException(
+                $"'{path}' should be a list of blocks, each with its own 'against' and "
+              + $"'advice'; this is {Shape(node)}.");
+        }
+
+        var entries = new List<LearnedContext>(sequence.Items.Count);
+
+        foreach (var (item, at) in sequence.Items.Select((item, at) => (item, at)))
+        {
+            if (item is not MapNode block)
+            {
+                throw new EnvelopeSyntaxException(
+                    $"'{path}' should be a list of blocks, each with its own 'against' and "
+                  + $"'advice'; entry {at + 1} is {Shape(item)}.");
+            }
+
+            entries.Add(MapLearned(block, $"{path}[{at + 1}]"));
+        }
+
+        return entries;
+    }
+
+    private static LearnedContext MapLearned(MapNode learned, string path = "learned")
     {
         Closed(learned, "against", "advice");
 
         var against = learned.Entries.TryGetValue("against", out var header)
-            ? RequireMap(header, "learned.against")
+            ? RequireMap(header, $"{path}.against")
             : null;
 
         return new LearnedContext
@@ -1191,7 +1232,7 @@ public static class EnvelopeYaml
                 Envelope = Optional(against, "envelope"),
             },
             Advice = learned.Entries.TryGetValue("advice", out var advice)
-                ? Strings(advice, "learned.advice")
+                ? Strings(advice, $"{path}.advice")
                 : [],
         };
     }

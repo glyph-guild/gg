@@ -668,15 +668,24 @@ public static class EnvelopeDirection
     /// reach. What a person is being asked to approve is words an agent will read,
     /// so words are what this measures.
     /// </remarks>
-    private static EnvelopeWidening? Advised(LearnedContext? was, LearnedContext? now)
+    /// <remarks>
+    /// <b>Flattened across entries, because a line is the unit of influence.</b>
+    /// Learned context became a list keyed by what each entry was learned against, and
+    /// the widening question did not change with it: what reaches an agent is a
+    /// SENTENCE, so a sentence arriving is the widening whichever entry carries it.
+    /// Comparing entry by entry would have made moving a line between two subjects
+    /// read as a removal and an addition, which is one change reported as two.
+    /// </remarks>
+    private static EnvelopeWidening? Advised(
+        IReadOnlyList<LearnedContext>? was, IReadOnlyList<LearnedContext>? now)
     {
         if (now is null)
         {
             return null;
         }
 
-        var added = now.Advice
-            .Except(was?.Advice ?? [], StringComparer.Ordinal)
+        var added = now.SelectMany(entry => entry.Advice)
+            .Except((was ?? []).SelectMany(entry => entry.Advice), StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToList();
 
@@ -684,9 +693,9 @@ public static class EnvelopeDirection
             ? null
             : Widen("learned",
                 $"'learned:' gains {Describe(string.Join("; ", added))}, which reaches the agent "
-              + "of every later flight of this kind. It was drafted by a machine, so a person "
-              + "reading these words is the only thing between a repository's own text and "
-              + "every prompt that follows.");
+              + "of every later flight whose repository or image that advice was learned "
+              + "against. It was drafted by a machine, so a person reading these words is the "
+              + "only thing between a repository's own text and every prompt that follows.");
     }
 
     private static EnvelopeWidening? Declared(

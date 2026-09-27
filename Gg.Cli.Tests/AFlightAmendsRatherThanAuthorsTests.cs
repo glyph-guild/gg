@@ -56,13 +56,13 @@ public class AFlightAmendsRatherThanAuthorsTests
     /// <summary>What GG-330 should have been able to hand back on its first call.</summary>
     private const string Amendment = """
         learned:
-          against:
-            commit: "a1b2c3d"
-          advice:
-            - "node_modules is absent at checkout; npm install takes about fifty seconds."
+          - against:
+              commit: "a1b2c3d"
+            advice:
+              - "node_modules is absent at checkout; npm install takes about fifty seconds."
         """;
 
-    private static string Call(string document, string role = "work-kind") =>
+    private static string Call(string document) =>
         JsonSerializer.Serialize(new
         {
             jsonrpc = "2.0",
@@ -73,17 +73,14 @@ public class AFlightAmendsRatherThanAuthorsTests
                 name = "propose_document",
                 arguments = new Dictionary<string, string>
                 {
-                    ["role"] = role,
-                    ["name"] = "ui-preview",
                     ["document"] = document,
                 },
             },
         });
 
-    private static async Task<(bool IsError, string Text)> AnsweredAsync(
-        string document, string role = "work-kind")
+    private static async Task<(bool IsError, string Text)> AnsweredAsync(string document)
     {
-        var answers = await PlatformToolServerTests.ExchangeAsync(Call(document, role));
+        var answers = await PlatformToolServerTests.ExchangeAsync(Call(document));
         var result = answers[0].RootElement.GetProperty("result");
 
         return (result.TryGetProperty("isError", out var flag) && flag.GetBoolean(),
@@ -153,34 +150,29 @@ public class AFlightAmendsRatherThanAuthorsTests
               probe-obligation:
                 check: human
                 approver: root
-            """, role: "narrowing");
+            """);
 
         await Assert.That(isError).IsTrue()
             .Because("this was accepted three times on GG-330 and dropped by the control plane "
                    + "each time, so the flight was told 'recorded' about nothing.");
     }
 
-    [Test]
-    [MethodDataSource(nameof(RolesTheControlPlaneDoesNotHold))]
-    public async Task A_role_nothing_consumes_is_refused_by_name(string role)
-    {
-        // ONE CASE PER ROLE, which is the coverage that was missing: the old file
-        // had two tests over one role, so four arms judging documents against the
-        // work-kind schema shipped invisibly.
-        var (isError, text) = await AnsweredAsync(Amendment, role);
+    // A_role_nothing_consumes_is_refused_by_name LIVED HERE, one case per role, and it
+    // was the coverage this file was written to add: four of the parser's six role arms
+    // were never dispatched, so `watch`, `strategy`, `fleet-profile` and `exposure`
+    // documents were judged against the WORK-KIND schema and told to fix keys they had
+    // never had.
+    //
+    // IT IS GONE BECAUSE THE ARGUMENT IS GONE, which is a better outcome than a guard
+    // over it. There is no `role` to send and no `name` to send: advice is filed under
+    // what it was learned against, the runner names the document, and an agent cannot
+    // misname what it is never asked to name. A test per role would be a test over a
+    // parameter that no longer exists.
+    //
+    // If a role ever gets something that consumes it, the argument comes back and so
+    // does this test - and `EnvelopeYaml` still holds the five role parsers, unused,
+    // which is the honest state to leave them in.
 
-        await Assert.That(isError).IsTrue()
-            .Because($"'{role}' is logged and dropped by the receptor, so accepting it here "
-                   + "tells the flight its work was recorded when nothing was.");
-
-        await Assert.That(text).Contains(Gg.Contracts.Roles.WorkKind)
-            .Because("and it names the role that IS held, rather than only refusing.");
-    }
-
-    public static IEnumerable<Func<string>> RolesTheControlPlaneDoesNotHold() =>
-        [.. Gg.Contracts.Roles.All
-            .Where(role => !string.Equals(role, Gg.Contracts.Roles.WorkKind, StringComparison.Ordinal))
-            .Select<string, Func<string>>(role => () => role)];
 
     [Test]
     public async Task Advice_in_the_wrong_shape_says_which_shape_it_wants()
@@ -194,19 +186,19 @@ public class AFlightAmendsRatherThanAuthorsTests
         // would have ended it.
         var (_, listOfBlocks) = await AnsweredAsync("""
             learned:
-              against:
-                commit: "a1b2c3d"
-              advice:
-                - point: "npm install takes about fifty seconds"
-                  basis: "ran it and timed it"
+              - against:
+                  commit: "a1b2c3d"
+                advice:
+                  - point: "npm install takes about fifty seconds"
+                    basis: "ran it and timed it"
             """);
 
         var (_, bareScalar) = await AnsweredAsync("""
             learned:
-              against:
-                commit: "a1b2c3d"
-              advice: |
-                npm install takes about fifty seconds
+              - against:
+                  commit: "a1b2c3d"
+                advice: |
+                  npm install takes about fifty seconds
             """);
 
         await Assert.That(listOfBlocks).IsNotEqualTo(bareScalar)

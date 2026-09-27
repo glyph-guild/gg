@@ -777,7 +777,7 @@ public static class CliArgs
         "gg                             the console",
         "gg fly <text>|--uri <uri>|--ticket <provider>#<id>  open a flight",
         "  --repo <name>                which repository it is about, by its registered name",
-        "  --runner <id>                open it for one machine",
+        "  --runner <id|name>           open it for one machine",
         "  --work-kind <name>           which work kind's rules govern it",
         "  --environment <name>         which charted environment it runs in",
         "  --attended                   and watch it from wherever you are",
@@ -813,25 +813,25 @@ public static class CliArgs
         "gg ground <flight> <why>          stop a flight that could still have been done",
         "gg take <flight> [--return <outcome> [--note <note>]]  take a flight over, and hand it back",
         "gg runner labels               what each runner advertises, with its disposition",
-        "gg runner retire <id>          take a runner out of the fleet, for good",
+        "gg runner retire <id|name>     take a runner out of the fleet, for good",
         "gg tenant name <name>          what this tenant is called; only somebody who",
         "                                 administers it may say",
         "gg fleet enroll --profile <name> --uses <n> --expires <duration> [--tenant | --claim [--reserve]]",
         "                                 a token some machines may join with, shown once",
         "gg fleet tokens                this tenant's enrollment tokens, without their secrets",
         "gg fleet revoke <id>           an enrollment token enrolls nothing more",
-        "gg runner claim|unclaim <id>   make a machine yours, or give it back",
+        "gg runner claim|unclaim <id|name>  make a machine yours, or give it back",
         "gg runner reserve|release <id> keep your machine to your own flights, or not",
         "gg runner ownership <id> tenant|open  an admin's word: nobody's to claim, or anybody's",
-        "gg runner watch <id>           watch it, and whatever it flies next",
+        "gg runner watch <id|name>      watch it, and whatever it flies next",
         "gg runner repin <id>           trust a runner's key again after it changed",
         "gg invite                      a link that makes somebody a second principal here",
         "gg credential add --repo <slug>  register a credential (the value is prompted for)",
-        "gg credential send --runner <id> --repo <slug>|--agent <name>",
+        "gg credential send --runner <id|name> --repo <slug>|--agent <name>",
         "                                 put one on a machine that cannot be reached any other way",
         "gg credential list             the references the control plane holds",
         "gg credential rm <id>          forget one, here and there",
-        "gg agent login --runner <id> [--agent <name>]",
+        "gg agent login --runner <id|name> [--agent <name>]",
         "                                 log a runner's agent in from here: it runs the ceremony,",
         "                                 you visit the URL and bring back the code",
         // WAS "the repositories this tenant has registered", which describes
@@ -1266,7 +1266,7 @@ public static class CliArgs
                 "gg runner ownership needs a runner id and tenant or open. Run gg runners to "
               + "see the fleet."),
             ["runner", "claim", ..] => Unknown(
-                "gg runner claim needs one runner id - the machine that is yours. Run gg runners "
+                "gg runner claim needs one runner, by id or by name - the machine that is yours. Run gg runners "
               + "to see the fleet."),
             ["runner", "unclaim", ..] => Unknown(
                 "gg runner unclaim needs one runner id. Run gg runners to see whose each one is."),
@@ -1288,7 +1288,7 @@ public static class CliArgs
             ["runner", "repin", ..] => Unknown(
                 "gg runner repin needs one runner id - the one whose key changed."),
             ["runner", "retire", ..] => Unknown(
-                "gg runner retire needs one runner id. Run gg runners to see the fleet."),
+                "gg runner retire needs one runner, by id or by name. Run gg runners to see the fleet."),
             ["tenant", "name", ..] => Unknown(
                 "gg tenant name needs the name, in one argument - gg tenant name \"Acme\". "
               + "Run gg whoami to see what this tenant is called now."),
@@ -1992,8 +1992,8 @@ public static class CliArgs
         if (runner is not { Length: > 0 })
         {
             return Unknown(
-                "gg agent login needs --runner <id>: which machine's agent to log in. "
-              + "`gg runners` lists them.");
+                "gg agent login needs --runner <id|name>: which machine's agent to log in. "
+              + "`gg runners` lists them, and either the id or the machine's name will do.");
         }
 
         try
@@ -2065,8 +2065,8 @@ public static class CliArgs
         if (runner is not { Length: > 0 })
         {
             return Unknown(
-                "gg credential send needs --runner <id>: which machine to put it on. "
-              + "`gg runners` lists them.");
+                "gg credential send needs --runner <id|name>: which machine to put it on. "
+              + "`gg runners` lists them, and either the id or the machine's name will do.");
         }
 
         // ONE SEND, ONE CREDENTIAL. Two locators would be two files and one

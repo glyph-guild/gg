@@ -100,6 +100,17 @@ public sealed record Configuration
     public string? RunnerLabels { get; init; }
 
     /// <summary>
+    /// Where this machine's agent credential is, when it is not the local file.
+    /// </summary>
+    /// <remarks>
+    /// A reference and never a value: a <c>keyvault://</c> reference this machine
+    /// reads with its managed identity, or a <c>local:agent/…</c> locator.
+    /// <c>ExecutorConfiguration.LocatorFor</c> refuses anything else without
+    /// repeating what it was given.
+    /// </remarks>
+    public string? AgentCredential { get; init; }
+
+    /// <summary>
     /// Whether this machine's resident runner sweeps on its own: <c>on</c>,
     /// the default, or <c>off</c>.
     /// </summary>
@@ -409,6 +420,8 @@ public sealed record Configuration
                 Get = c => c.Installer, With = (c, v) => c with { Installer = v } },
         new() { Variable = "GG_RUNNER_LABELS", Key = "runner-labels",
                 Get = c => c.RunnerLabels, With = (c, v) => c with { RunnerLabels = v } },
+        new() { Variable = "GG_AGENT_CREDENTIAL", Key = "agent-credential",
+                Get = c => c.AgentCredential, With = (c, v) => c with { AgentCredential = v } },
         new() { Variable = "GG_RUNNER_SWEEPS", Key = "runner-sweeps",
                 Get = c => c.RunnerSweeps, With = (c, v) => c with { RunnerSweeps = v } },
 

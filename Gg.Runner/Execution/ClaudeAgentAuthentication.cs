@@ -38,10 +38,19 @@ namespace Gg.Runner.Execution;
 /// attended executor's <c>spawn</c> shape; the default runs it.
 /// </param>
 /// <param name="clock">For <c>MeasuredAt</c>. The system clock by default.</param>
+/// <param name="locator">
+/// Where this machine's claude credential is, or null for the local file every
+/// machine has always used. A <c>keyvault://</c> reference is read by the
+/// machine's managed identity — which is the only way a pool member, whose store
+/// starts empty and whose container is replaced every twelve hours, can hold
+/// one at all. Validated by <c>ExecutorConfiguration.LocatorFor</c> before it
+/// reaches here.
+/// </param>
 public sealed class ClaudeAgentAuthentication(
     string binary = "claude",
     Func<ProcessStartInfo, CancellationToken, Task<(int Exit, string Output)>>? run = null,
-    IClock? clock = null) : IAuthenticateAnAgent
+    IClock? clock = null,
+    string? locator = null) : IAuthenticateAnAgent
 {
     private readonly string _binary = binary;
     private readonly Func<ProcessStartInfo, CancellationToken, Task<(int Exit, string Output)>> _run =
@@ -63,7 +72,7 @@ public sealed class ClaudeAgentAuthentication(
 
     public string Provider => "claude";
 
-    public string Locator { get; } = CredentialLocator.ForAgent("claude");
+    public string Locator { get; } = locator ?? CredentialLocator.ForAgent("claude");
 
     public string TokenVariable => "CLAUDE_CODE_OAUTH_TOKEN";
 

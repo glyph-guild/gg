@@ -44,7 +44,7 @@ public class AnAgentCredentialCanBeAVaultReferenceTests
     private const string Declared = "claude=/usr/local/bin/claude";
 
     private const string AVaultReference =
-        "keyvault://kv-example.vault.azure.net/agent-claude";
+        "keyvault://a-vault.example.invalid/agent-claude";
 
     /// <summary>Token-shaped, and it must never appear in a diagnosis.</summary>
     private const string APastedToken =
@@ -54,7 +54,7 @@ public class AnAgentCredentialCanBeAVaultReferenceTests
     public async Task A_declared_reference_is_what_the_agent_reads()
     {
         var agent = ExecutorConfiguration.AgentFromEnvironment(
-            declaration: Declared, credential: AVaultReference);
+            declaration: Declared, locator: AVaultReference);
 
         await Assert.That(agent!.Locator).IsEqualTo(AVaultReference)
             .Because("the store routes on the scheme, so naming a vault reference here is the "
@@ -65,7 +65,7 @@ public class AnAgentCredentialCanBeAVaultReferenceTests
     public async Task Absent_keeps_the_local_locator_every_machine_already_uses()
     {
         var agent = ExecutorConfiguration.AgentFromEnvironment(
-            declaration: Declared, credential: null);
+            declaration: Declared, locator: null);
 
         await Assert.That(agent!.Locator).IsEqualTo(CredentialLocator.ForAgent("claude"))
             .Because("a machine with a token already placed must keep deriving the same file. "
@@ -76,7 +76,7 @@ public class AnAgentCredentialCanBeAVaultReferenceTests
     public async Task A_local_agent_locator_may_be_named_outright()
     {
         var agent = ExecutorConfiguration.AgentFromEnvironment(
-            declaration: Declared, credential: CredentialLocator.ForAgent("claude"));
+            declaration: Declared, locator: CredentialLocator.ForAgent("claude"));
 
         await Assert.That(agent!.Locator).IsEqualTo(CredentialLocator.ForAgent("claude"))
             .Because("the default spelled out loud is not a different setting, and refusing it "
@@ -88,7 +88,7 @@ public class AnAgentCredentialCanBeAVaultReferenceTests
     {
         var refused = Assert.Throws<InvalidOperationException>(
             () => ExecutorConfiguration.AgentFromEnvironment(
-                declaration: Declared, credential: APastedToken));
+                declaration: Declared, locator: APastedToken));
 
         await Assert.That(refused).IsNotNull()
             .Because("a value where a name belongs is the one mistake this setting invites, and "
@@ -101,13 +101,13 @@ public class AnAgentCredentialCanBeAVaultReferenceTests
     {
         var refused = Assert.Throws<InvalidOperationException>(
             () => ExecutorConfiguration.AgentFromEnvironment(
-                declaration: Declared, credential: APastedToken));
+                declaration: Declared, locator: APastedToken));
 
         await Assert.That(refused!.Message).DoesNotContain(APastedToken)
             .Because("the slot credential's rule, for its reason: the refusal is the moment a "
                    + "token has been pasted, and a diagnosis quoting it puts the secret into a "
                    + "console and a flight log.");
-        await Assert.That(refused.Message).Contains(ExecutorConfiguration.CredentialVariable)
+        await Assert.That(refused.Message).Contains(ExecutorConfiguration.LocatorVariable)
             .Because("it has to say which setting to fix, and the variable's name is the one "
                    + "part of this that is safe to print.");
     }
@@ -121,7 +121,7 @@ public class AnAgentCredentialCanBeAVaultReferenceTests
         // tracker's credential owns.
         var refused = Assert.Throws<InvalidOperationException>(
             () => ExecutorConfiguration.AgentFromEnvironment(
-                declaration: Declared, credential: "local:repo/jdx-jdnext"));
+                declaration: Declared, locator: "local:repo/jdx-jdnext"));
 
         await Assert.That(refused).IsNotNull();
     }
@@ -131,7 +131,7 @@ public class AnAgentCredentialCanBeAVaultReferenceTests
     {
         var refused = Assert.Throws<InvalidOperationException>(
             () => ExecutorConfiguration.AgentFromEnvironment(
-                declaration: Declared, credential: "keyvault://not-a-vault"));
+                declaration: Declared, locator: "keyvault://not-a-vault"));
 
         await Assert.That(refused).IsNotNull()
             .Because("a reference that cannot be parsed fails at the first probe instead, which "

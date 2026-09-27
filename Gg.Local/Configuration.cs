@@ -108,7 +108,7 @@ public sealed record Configuration
     /// <c>ExecutorConfiguration.LocatorFor</c> refuses anything else without
     /// repeating what it was given.
     /// </remarks>
-    public string? AgentCredential { get; init; }
+    public string? AgentLocator { get; init; }
 
     /// <summary>
     /// Whether this machine's resident runner sweeps on its own: <c>on</c>,
@@ -420,8 +420,8 @@ public sealed record Configuration
                 Get = c => c.Installer, With = (c, v) => c with { Installer = v } },
         new() { Variable = "GG_RUNNER_LABELS", Key = "runner-labels",
                 Get = c => c.RunnerLabels, With = (c, v) => c with { RunnerLabels = v } },
-        new() { Variable = "GG_AGENT_CREDENTIAL", Key = "agent-credential",
-                Get = c => c.AgentCredential, With = (c, v) => c with { AgentCredential = v } },
+        new() { Variable = "GG_AGENT_LOCATOR", Key = "agent-locator",
+                Get = c => c.AgentLocator, With = (c, v) => c with { AgentLocator = v } },
         new() { Variable = "GG_RUNNER_SWEEPS", Key = "runner-sweeps",
                 Get = c => c.RunnerSweeps, With = (c, v) => c with { RunnerSweeps = v } },
 

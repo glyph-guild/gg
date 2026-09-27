@@ -111,6 +111,16 @@ public static class ConsoleEnvironment
         Of("GG_RUNNER_HOLD_SECONDS", file, environment,
            "how long a claim waits for work before coming back empty."),
 
+        // SAID HERE BECAUSE A CREDENTIAL NOBODY CAN SEE IS ONE NOBODY CAN
+        // DIAGNOSE. A machine holding for want of an agent login is the one
+        // machine somebody is reading this page about, and "where does it look
+        // for the token" is the question. It names a place, never a value, so
+        // the page can print it.
+        Of(Gg.Runner.Execution.ExecutorConfiguration.LocatorVariable, file, environment,
+           "where this machine's agent credential is: a `keyvault://` reference it reads "
+         + "with its own managed identity, or a `local:agent/<name>` locator. Unset means "
+         + "the local file, which is what `gg credential send` and `gg agent login` write."),
+
         // SAID HERE BECAUSE IT DECIDES WHETHER THIS MACHINE RUNS AN AGENT UNASKED.
         // A switch nobody can find is a switch nobody turns off - and "on by
         // default" is only true of a setting the page shows as on.

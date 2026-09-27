@@ -18,6 +18,25 @@ public abstract record CliAction
         bool Json { get; }
     }
 
+    /// <summary>
+    /// A verb that acts on one machine, named however a person named it.
+    /// </summary>
+    /// <remarks>
+    /// <b>An interface so the resolution happens once.</b> Twelve verbs take a
+    /// machine, and a name that worked on <c>agent login</c> and not on
+    /// <c>claim</c> would be worse than no names at all - somebody learns it
+    /// works and then meets the one that refuses. Program resolves this before
+    /// it dispatches anything, so every one of them takes both.
+    /// </remarks>
+    public interface INameAMachine
+    {
+        /// <summary>What was typed: an id, or a machine's name.</summary>
+        string RunnerId { get; }
+
+        /// <summary>The same verb, against the machine that turned out to be.</summary>
+        CliAction WithRunner(string runnerId);
+    }
+
     public sealed record LaunchConsole : CliAction;
 
     public sealed record PrintVersion : CliAction;
@@ -404,7 +423,8 @@ public abstract record CliAction
     public sealed record RunnerLabels(bool Json) : CliAction, IEmitsResult;
 
     /// <summary>Takes a runner out of the fleet. There is no undo.</summary>
-    public sealed record RunnerRetire(string RunnerId, bool Json) : CliAction, IEmitsResult;
+    public sealed record RunnerRetire(string RunnerId, bool Json) : CliAction, IEmitsResult, INameAMachine
+    { public CliAction WithRunner(string runnerId) => this with { RunnerId = runnerId }; }
 
     /// <summary><c>gg tenant name</c>: what this tenant is called.</summary>
     /// <remarks>
@@ -426,20 +446,25 @@ public abstract record CliAction
     public sealed record FleetRevoke(string TokenId, bool Json) : CliAction, IEmitsResult;
 
     /// <summary><c>gg runner claim &lt;id&gt;</c>: this machine is mine.</summary>
-    public sealed record RunnerClaim(string RunnerId, bool Json) : CliAction, IEmitsResult;
+    public sealed record RunnerClaim(string RunnerId, bool Json) : CliAction, IEmitsResult, INameAMachine
+    { public CliAction WithRunner(string runnerId) => this with { RunnerId = runnerId }; }
 
     /// <summary><c>gg runner unclaim &lt;id&gt;</c>: give it back to open.</summary>
-    public sealed record RunnerUnclaim(string RunnerId, bool Json) : CliAction, IEmitsResult;
+    public sealed record RunnerUnclaim(string RunnerId, bool Json) : CliAction, IEmitsResult, INameAMachine
+    { public CliAction WithRunner(string runnerId) => this with { RunnerId = runnerId }; }
 
     /// <summary><c>gg runner reserve &lt;id&gt;</c>: my runner takes only my flights.</summary>
-    public sealed record RunnerReserve(string RunnerId, bool Json) : CliAction, IEmitsResult;
+    public sealed record RunnerReserve(string RunnerId, bool Json) : CliAction, IEmitsResult, INameAMachine
+    { public CliAction WithRunner(string runnerId) => this with { RunnerId = runnerId }; }
 
     /// <summary><c>gg runner release &lt;id&gt;</c>: my runner takes the tenant's work again.</summary>
-    public sealed record RunnerRelease(string RunnerId, bool Json) : CliAction, IEmitsResult;
+    public sealed record RunnerRelease(string RunnerId, bool Json) : CliAction, IEmitsResult, INameAMachine
+    { public CliAction WithRunner(string runnerId) => this with { RunnerId = runnerId }; }
 
     /// <summary><c>gg runner ownership &lt;id&gt; tenant|open</c>: an admin's word.</summary>
     public sealed record RunnerOwnershipSet(string RunnerId, string Ownership, bool Json)
-        : CliAction, IEmitsResult;
+        : CliAction, IEmitsResult, INameAMachine
+    { public CliAction WithRunner(string runnerId) => this with { RunnerId = runnerId }; }
 
     /// <summary>
     /// Watch what a runner's flight is saying, from wherever you are.
@@ -450,10 +475,12 @@ public abstract record CliAction
     /// nothing called them - a person opening the console found a suggested
     /// <c>ssh</c> command and no way to use any of it.
     /// </remarks>
-    public sealed record RunnerWatch(string RunnerId, int Lines, bool Json) : CliAction;
+    public sealed record RunnerWatch(string RunnerId, int Lines, bool Json) : CliAction, INameAMachine
+    { public CliAction WithRunner(string runnerId) => this with { RunnerId = runnerId }; }
 
     /// <summary>Forgets a runner's pinned key, so the next one is trusted afresh.</summary>
-    public sealed record RunnerRepin(string RunnerId, bool Json) : CliAction, IEmitsResult;
+    public sealed record RunnerRepin(string RunnerId, bool Json) : CliAction, IEmitsResult, INameAMachine
+    { public CliAction WithRunner(string runnerId) => this with { RunnerId = runnerId }; }
 
     public sealed record Invite(bool Json) : CliAction, IEmitsResult;
 
@@ -495,7 +522,8 @@ public abstract record CliAction
     /// history and in <c>ps</c> output before any code of ours has run.
     /// </remarks>
     public sealed record CredentialSend(
-        string RunnerId, string Repo, bool Json) : CliAction, IEmitsResult;
+        string RunnerId, string Repo, bool Json) : CliAction, IEmitsResult, INameAMachine
+    { public CliAction WithRunner(string runnerId) => this with { RunnerId = runnerId }; }
 
     /// <summary>
     /// Puts an agent's own long-lived token onto one runner.
@@ -517,7 +545,8 @@ public abstract record CliAction
     /// </para>
     /// </remarks>
     public sealed record AgentCredentialSend(
-        string RunnerId, string Agent, bool Json) : CliAction, IEmitsResult;
+        string RunnerId, string Agent, bool Json) : CliAction, IEmitsResult, INameAMachine
+    { public CliAction WithRunner(string runnerId) => this with { RunnerId = runnerId }; }
 
     /// <summary>
     /// Logs a runner's agent in from here, over the channel.
@@ -531,7 +560,8 @@ public abstract record CliAction
     /// <c>AgentLoginArgsTests</c> holds the shape.
     /// </remarks>
     public sealed record AgentLogin(
-        string RunnerId, string Agent, bool Json) : CliAction, IEmitsResult;
+        string RunnerId, string Agent, bool Json) : CliAction, IEmitsResult, INameAMachine
+    { public CliAction WithRunner(string runnerId) => this with { RunnerId = runnerId }; }
 
     public sealed record CredentialList(bool Json) : CliAction, IEmitsResult;
 

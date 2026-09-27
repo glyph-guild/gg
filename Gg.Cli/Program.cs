@@ -6,7 +6,12 @@ using Gg.Console;
 using Gg.Contracts;
 using Gg.Local;
 
-return CliArgs.Parse(args) switch
+// A MACHINE'S NAME, WHEREVER AN ID GOES, AND RESOLVED ONCE. Twelve verbs take
+// a machine, and a name that worked on `agent login' and not on `claim' would
+// be worse than no names - somebody learns it works and then meets the one that
+// refuses. Done here, before anything is dispatched, so a verb added later gets
+// it by implementing the interface rather than by remembering to.
+return await ByName(CliArgs.Parse(args)) switch
 {
     CliAction.LaunchConsole => await LaunchConsoleAsync(),
     // Taking a flight over runs in the DEVELOPER role like every other verb here,
@@ -729,6 +734,77 @@ static string ControlPlaneAddress() =>
 /// two views of one document rather than two implementations that agree today.
 /// The console at step 4b renders the same value through the same code.
 /// </remarks>
+/// <summary>
+/// Turns a machine's name into the machine, for any verb that takes one.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>A uuid costs no read.</b> Shape alone decides it, so a script that holds
+/// an id neither pays for a fleet listing nor starts failing when one does -
+/// which would be a new way for every verb here to break, for a value that
+/// never needed looking up.
+/// </para>
+/// <para>
+/// <b>And a name that cannot be settled is refused as a parse is.</b> It comes
+/// back as Unknown, so it prints and exits the way `gg claim --nonsense' always
+/// did rather than as a failure from inside the verb.
+/// </para>
+/// </remarks>
+static async Task<CliAction> ByName(CliAction action)
+{
+    // FLY IS THE ODD ONE AND IS NAMED HERE. Its machine is optional and the
+    // member is called Runner, so it cannot carry the interface - and leaving
+    // it out would mean `gg fly --runner vmlinux001' was the one place a name
+    // did not work, which is the inconsistency this whole thing is against.
+    var named = action switch
+    {
+        CliAction.INameAMachine machine => machine.RunnerId,
+        CliAction.Fly { Runner: { Length: > 0 } flying } => flying,
+        _ => null,
+    };
+
+    if (named is null || RunnerNamed.LooksLikeAnId(named))
+    {
+        return action;
+    }
+
+    using var http = new HttpClient { BaseAddress = new Uri(ControlPlaneAddress()) };
+    var commands = new FlightCommands(new ControlPlaneClient(http), new FileSessionStore());
+
+    RunnerList fleet;
+
+    try
+    {
+        fleet = await commands.RunnerLabelsAsync() is VerbResult.RunnerLabels listed
+            ? listed.Value
+            : new RunnerList { Runners = [] };
+    }
+    catch (Exception why) when (why is HttpRequestException or DecisionRefusedException
+                                        or InvalidOperationException)
+    {
+        // THE NAME IS WHY WE ARE HERE, so the refusal says so. "Connection
+        // refused" against a verb that never mentioned the network reads as the
+        // verb being broken.
+        return new CliAction.Unknown(
+            $"'{named}' is a machine's name, and the fleet could not be read to find out "
+          + $"which machine: {why.Message} Pass the runner's id instead.");
+    }
+
+    var found = RunnerNamed.Resolve(named, fleet.Runners);
+
+    if (found.RunnerId is not { } resolved)
+    {
+        return new CliAction.Unknown(found.Said);
+    }
+
+    return action switch
+    {
+        CliAction.INameAMachine machine => machine.WithRunner(resolved),
+        CliAction.Fly fly => fly with { Runner = resolved },
+        _ => action,
+    };
+}
+
 static async Task<int> EmitAsync(bool json, Func<FlightCommands, Task<VerbResult>> run)
 {
     var baseAddress = ControlPlaneAddress();

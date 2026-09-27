@@ -187,4 +187,74 @@ public class AdviceIsKeyedByWhatItWasLearnedAgainstTests
             .Because("two ideas, declared separately, so a runner naming the document it "
                    + "amends is not relying on a role's value.");
     }
+
+    [Test]
+    public async Task Advice_arriving_replaces_advice_about_the_same_subject()
+    {
+        // THE MERGE RULE, IN THE CONTRACT rather than in whichever side folds. The
+        // control plane does the folding today because the document being amended
+        // lives there - but what "replace" MEANS is a schema question, and a rule
+        // written on one side is a rule the other can come to disagree with.
+        var current = (IReadOnlyList<LearnedContext>)
+        [
+            Advice("JDX/JDNext", "npm install takes about fifty seconds."),
+            Advice("acme/web", "The dev server needs ninety seconds."),
+        ];
+
+        var folded = Envelope.Fold(current,
+        [
+            Advice("JDX/JDNext", "jsdom performs no layout."),
+            Advice("ghcr.io/acme/ci:12", "No dotnet and no docker on PATH.", image: true),
+        ]);
+
+        await Assert.That(folded.Count).IsEqualTo(3)
+            .Because("one subject was already known and was replaced; one is new and "
+                   + "was appended.");
+
+        await Assert.That(folded.Single(e => e.Against.Repository == "JDX/JDNext").Advice.Single())
+            .IsEqualTo("jsdom performs no layout.")
+            .Because("newer advice about a repository REPLACES older advice about it - a "
+                   + "rehearsal that ran again learned the environment as it now is.");
+
+        await Assert.That(folded.Single(e => e.Against.Repository == "acme/web").Advice.Single())
+            .IsEqualTo("The dev server needs ninety seconds.")
+            .Because("and a subject nobody rehearsed this time is left exactly alone.");
+    }
+
+    [Test]
+    public async Task The_order_advice_was_learned_in_is_kept()
+    {
+        // A REPLACEMENT HAPPENS IN PLACE, and an arrival goes on the end. Not
+        // cosmetic: the stored document is serialized and its bytes are what a
+        // version's digest is over, so a fold that reordered would mint a new
+        // version out of advice that had not changed.
+        var current = (IReadOnlyList<LearnedContext>)
+        [
+            Advice("one/a", "First."),
+            Advice("two/b", "Second."),
+        ];
+
+        var folded = Envelope.Fold(current, [Advice("one/a", "Replaced.")]);
+
+        await Assert.That(folded.Select(e => e.Against.Repository).ToList())
+            .IsEquivalentTo(new[] { "one/a", "two/b" })
+            .Because("replacing the first entry must not move it behind the second.");
+    }
+
+    [Test]
+    public async Task Folding_onto_nothing_is_what_arrived()
+    {
+        // A TENANT THAT HAS BEEN TAUGHT NOTHING YET. Absence and an empty list are
+        // the same thing to arrive into, and neither is an error.
+        await Assert.That(Envelope.Fold(null, [Advice("one/a", "First.")]).Count).IsEqualTo(1);
+        await Assert.That(Envelope.Fold([], [Advice("one/a", "First.")]).Count).IsEqualTo(1);
+    }
+
+    private static LearnedContext Advice(string subject, string advice, bool image = false) => new()
+    {
+        Against = image
+            ? new LearnedAgainst { Image = subject }
+            : new LearnedAgainst { Repository = subject },
+        Advice = [advice],
+    };
 }

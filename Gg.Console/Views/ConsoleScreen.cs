@@ -4075,8 +4075,13 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private void Breathe()
     {
-        _waiting.Text = string.Join('\n', LoadingArt.Of(State.LoadingPulse));
-        _waiting.SetScheme(ConsoleTheme.Waiting(LoadingArt.Glow(State.LoadingPulse)));
+        // WHICH PACE, FROM WHAT THE MARK IS FOR. Both come from the same place
+        // so the glow and the shimmer cannot be given different ones - which
+        // would leave the ink churning under a mark that had gone still.
+        var breath = Screensaver.Showing(State) ? Screensaver.Breath : LoadingArt.Breath;
+
+        _waiting.Text = string.Join('\n', LoadingArt.Of(State.LoadingPulse, breath));
+        _waiting.SetScheme(ConsoleTheme.Waiting(LoadingArt.Glow(State.LoadingPulse, breath)));
     }
 
     private void Render()

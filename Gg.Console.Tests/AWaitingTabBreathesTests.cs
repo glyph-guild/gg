@@ -143,7 +143,7 @@ public class AWaitingTabBreathesTests
         // of a logo in an empty pane says nothing about whether anything is
         // happening. The SHAPE holds still and the light on it moves - a mark
         // whose characters changed would shimmer rather than breathe.
-        var over = Enumerable.Range(0, LoadingArt.Breath).Select(LoadingArt.Glow).ToList();
+        var over = Enumerable.Range(0, LoadingArt.Breath).Select(tick => LoadingArt.Glow(tick)).ToList();
 
         await Assert.That(over.Distinct().Count()).IsGreaterThan(8)
             .Because("a handful of steps is a flicker; smooth means many.");
@@ -158,8 +158,8 @@ public class AWaitingTabBreathesTests
         // eye reads the change rather than the movement - which is the whole
         // difference between breathing and blinking.
         var steps = Enumerable.Range(0, LoadingArt.Breath + 1)
-            .Select(LoadingArt.Glow)
-            .Zip(Enumerable.Range(1, LoadingArt.Breath + 1).Select(LoadingArt.Glow),
+            .Select(tick => LoadingArt.Glow(tick))
+            .Zip(Enumerable.Range(1, LoadingArt.Breath + 1).Select(tick => LoadingArt.Glow(tick)),
                  (a, b) => Math.Abs(b - a))
             .ToList();
 

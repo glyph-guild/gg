@@ -1566,6 +1566,28 @@ public sealed record AppState
     /// <summary>Held still so text can be selected.</summary>
     public bool Frozen { get; init; }
 
+    /// <summary>Whether the mark is covering the screen.</summary>
+    /// <remarks>
+    /// <b>Beside <see cref="Frozen"/> and not a <see cref="UiMode"/>.</b> Both
+    /// are things that happen TO the screen rather than things on it, and both
+    /// have to be true of whatever mode is underneath. A screensaver that was a
+    /// mode would have to remember what it covered, and there is one slot for
+    /// that - <see cref="ModeBeneath"/> - which the watch already spends. This
+    /// covers a watch over a flight modal and uncovers both.
+    /// </remarks>
+    public bool Screening { get; init; }
+
+    /// <summary>Seconds since anybody touched the keyboard or clicked.</summary>
+    /// <remarks>
+    /// <b>Ticks rather than a timestamp.</b> The console already counts
+    /// seconds for the refresh countdown, so this rides that tick and stays a
+    /// plain number - which is what lets the whole model be written to JSON and
+    /// rebuilt after the terminal has been handed to an editor. A
+    /// <c>DateTimeOffset</c> of "when somebody last typed" would be a clock
+    /// this side would have to be given, for an answer a counter already has.
+    /// </remarks>
+    public int IdleTicks { get; init; }
+
     /// <summary>What the live pane shows.</summary>
     public IReadOnlyList<StreamLine> Live { get; init; } = [];
 

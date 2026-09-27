@@ -90,20 +90,19 @@ public class AScreensaverCoversAnIdleConsoleTests
     // ---- waking ----
 
     [Test]
-    public async Task Any_key_at_all_wakes_it()
+    public async Task Space_escape_or_enter_wakes_it()
     {
+        // NOT EVERY KEY, AND THE CONSOLE'S OWN GUARDS DECIDED THAT. Binding all
+        // ninety-five printable keys was written first and backed out: it
+        // satisfies the rule that advertised keys are the live ones, and then
+        // puts a hundred and twenty rows on the help page, because the
+        // catalogue lists what is bound.
         var context = KeymapContext.For(new AppState { Screening = true });
 
-        foreach (var key in new[]
-                 {
-                     KeyStroke.Char('j'), KeyStroke.Char('x'), KeyStroke.Char(' '),
-                     KeyStroke.Char('~'), KeyStroke.Esc, KeyStroke.EnterKey,
-                     KeyStroke.Control('f'),
-                 })
+        foreach (var key in new[] { KeyStroke.Char(' '), KeyStroke.Esc, KeyStroke.EnterKey })
         {
             await Assert.That(Keymap.Resolve(key, context)).IsEqualTo(Command.WakeScreen)
-                .Because($"{key.Name} is a person at the keyboard, and that is the whole "
-                       + "of what a screensaver is listening for.");
+                .Because($"{key.Name} is what a person presses at a screen showing nothing.");
         }
     }
 
@@ -113,34 +112,56 @@ public class AScreensaverCoversAnIdleConsoleTests
         // THE MODE IS NOT TOUCHED, which is the reason this is a flag and not a
         // mode. A watch open over a flight modal is two levels of something to
         // put back, and the console has one slot to remember them in.
-        var watching = new AppState
+        var screening = new AppState
         {
-            Mode = UiMode.Watching,
-            ModeBeneath = UiMode.FlightDetail,
+            Mode = UiMode.Normal,
+            ActiveTab = TabId.Board,
             Screening = true,
             IdleTicks = Screensaver.After,
         };
 
-        var woken = Reducer.Reduce(watching, Command.WakeScreen);
+        var woken = Reducer.Reduce(screening, Command.WakeScreen);
 
         await Assert.That(woken.Screening).IsFalse();
         await Assert.That(woken.IdleTicks).IsEqualTo(0);
-        await Assert.That(woken.Mode).IsEqualTo(UiMode.Watching);
-        await Assert.That(woken.ModeBeneath).IsEqualTo(UiMode.FlightDetail);
+        await Assert.That(woken.Mode).IsEqualTo(UiMode.Normal);
+        await Assert.That(woken.ActiveTab).IsEqualTo(TabId.Board)
+            .Because("it covered the board and the board is what is there again.");
     }
 
     [Test]
-    public async Task And_the_key_that_woke_it_does_nothing_else()
+    public async Task A_question_somebody_left_open_is_not_covered()
     {
-        // PRESSING x TO WAKE MUST NOT GROUND A FLIGHT. Every key resolving to
-        // WakeScreen is what guarantees it, and this is that guarantee written
-        // down where somebody changing the arm will see it.
-        var screening = new AppState { Mode = UiMode.FlightDetail, Screening = true };
+        // A MODAL IS NOT A CONSOLE AT REST. It is a question waiting for
+        // somebody, and covering it would mean waking to a question already
+        // asked and no longer on the screen.
+        //
+        // It is also what keeps waking to one set of keys: the help page lists
+        // what is bound per mode, and a mark that could be up over any of the
+        // thirty would have put its three keys on all thirty.
+        var reading = new AppState { Mode = UiMode.FlightDetail };
 
-        await Assert.That(Keymap.Resolve(KeyStroke.Char('x'), KeymapContext.For(screening)))
-            .IsEqualTo(Command.WakeScreen)
-            .Because("x grounds a flight in this very mode, and the person pressing it "
-                   + "was looking at a screensaver.");
+        for (var second = 0; second < Screensaver.After * 2; second++)
+        {
+            reading = Reducer.Idled(reading);
+        }
+
+        await Assert.That(reading.Screening).IsFalse();
+    }
+
+    [Test]
+    public async Task And_nothing_underneath_answers_while_it_is_up()
+    {
+        // PRESSING x AT A SCREENSAVER MUST NOT GROUND A FLIGHT. The mark
+        // outranks the mode, so the keys underneath it are unreachable until it
+        // is gone - which is the half that makes "wake" safe rather than the
+        // half that makes it convenient.
+        var screening = new AppState { Mode = UiMode.Normal, Screening = true };
+
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('f'), KeymapContext.For(screening)))
+            .IsNull()
+            .Because("f is a key on the plain console, and the person pressing it was looking "
+                   + "at a screen with nothing on it.");
     }
 
     // ---- what it shows ----

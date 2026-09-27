@@ -568,6 +568,23 @@ public enum Command
     /// </remarks>
     WatchThisFlight,
 
+    /// <summary>Cover the screen with the mark.</summary>
+    /// <remarks>
+    /// <b>Bound to an obscure key on purpose.</b> Five minutes of idleness is
+    /// the way in that matters, and a way in that takes five minutes cannot be
+    /// shown to anybody - so there is a key, and it is one nobody presses by
+    /// accident.
+    /// </remarks>
+    ShowScreensaver,
+
+    /// <summary>Put back whatever the mark was covering.</summary>
+    /// <remarks>
+    /// <b>What every key means while it is up</b>, which is what a person
+    /// expects of a screensaver and what stops the key that woke it also doing
+    /// whatever it usually does.
+    /// </remarks>
+    WakeScreen,
+
     /// <summary>Put a credential on the runner under the cursor.</summary>
     /// <remarks>
     /// <para>

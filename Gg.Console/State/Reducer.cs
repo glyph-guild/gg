@@ -50,6 +50,16 @@ public static class Reducer
             // AND THE BUFFER IS EMPTIED, because what is in it belonged to
             // whatever was watched before: older lines sitting above this
             // flight's first ones, with nothing saying they are not its.
+            // THE MARK GOES UP, AND THE MODE IS NOT TOUCHED. It covers
+            // whatever is there and the same thing is under it when it goes.
+            Command.ShowScreensaver => state with { Screening = true, IdleTicks = 0 },
+
+            // AND COMES DOWN ON ANYTHING. The count goes back to nought with
+            // it: a key that woke the console is somebody at the keyboard, so
+            // starting the five minutes again from that moment is the whole
+            // meaning of the number.
+            Command.WakeScreen => Touched(state) with { Screening = false },
+
             Command.WatchThisFlight => PaneText.Detailed(state) is { } watched
                 ? RecordAttach(
                     state with
@@ -995,6 +1005,50 @@ public static class Reducer
                 ? [.. state.AttachFacts, updated]
                 : [.. state.AttachFacts.Select(f => f.FlightId == flightId ? updated : f)],
         };
+    }
+
+    /// <summary>
+    /// One second in which nobody did anything.
+    /// </summary>
+    /// <remarks>
+    /// <b>On the refresh tick, which runs whatever else is happening.</b> A
+    /// timer of its own would be a second thing waking the loop up once a
+    /// second for a number the first one could have carried.
+    /// </remarks>
+    public static AppState Idled(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        // ALREADY UP IS NOT MORE IDLE. Letting the count run on under the mark
+        // would be a number that means nothing, and one that has to be reset
+        // in two places instead of one.
+        //
+        // AND A MODAL IS NOT A CONSOLE AT REST. A dialog somebody left open is
+        // a question waiting for them; covering it would mean waking up to a
+        // question they have already been asked and cannot see. It is also what
+        // keeps the wake keys to one set rather than one per mode.
+        if (state.Screening || state.Mode != UiMode.Normal)
+        {
+            return state;
+        }
+
+        var idle = state.IdleTicks + 1;
+
+        return state with { IdleTicks = idle, Screening = Screensaver.Due(idle) };
+    }
+
+    /// <summary>Somebody pressed something, or clicked.</summary>
+    /// <remarks>
+    /// <b>The count only, never the mark.</b> Waking is what takes the mark
+    /// down and it is a command, because it is a thing that happened rather
+    /// than a thing that is true - and a key does both: it wakes, and its five
+    /// minutes start again.
+    /// </remarks>
+    public static AppState Touched(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state.IdleTicks == 0 ? state : state with { IdleTicks = 0 };
     }
 
     /// <summary>

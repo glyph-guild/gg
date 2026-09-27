@@ -175,6 +175,12 @@ public class TheSignInModalReadsTests
             ],
             LiveVisible = true,
             Frozen = true,
+
+            // THE MARK, which outranks every flag above it: while this is true
+            // the keymap answers one thing whatever the rest of this model
+            // says. It is here because the derivation has to READ it, which is
+            // what this model is for.
+            Screening = true,
             BrowseVisible = true,
             EnvelopeVisible = true,
             RepositoriesVisible = true,

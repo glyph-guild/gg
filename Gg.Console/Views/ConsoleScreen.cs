@@ -4600,6 +4600,12 @@ public sealed class ConsoleScreen : Window
         // the last eight per cent is eight per cent more of it.
         var whole = PaneText.ModalIsFullScreen(State.Mode);
 
+        // AND THE ORIGIN WITH IT. Pos.Center() against Dim.Fill() asks the
+        // layout to centre a thing whose width depends on where it starts;
+        // pinned to the corner it is one answer instead of two.
+        _modal.X = whole ? 0 : Pos.Center();
+        _modal.Y = whole ? 0 : Pos.Center();
+
         _modal.Width = whole ? Dim.Fill() : document ? Dim.Percent(92) : Math.Max(52, wide);
         _modal.Height = whole ? Dim.Fill() : document ? Dim.Percent(88) : Math.Max(12, tall);
 

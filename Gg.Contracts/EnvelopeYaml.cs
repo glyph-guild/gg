@@ -186,6 +186,43 @@ public sealed record WatchParse
 /// should not have to guess our canonical form, and <c>show</c> normalises it.
 /// </para>
 /// </remarks>
+/// <summary>What reading a learned-context amendment produced.</summary>
+/// <remarks>
+/// <para>
+/// <b>A separate result because an amendment is not a small envelope.</b> The other
+/// five parse results each carry the document their role names; this one carries a
+/// SECTION, and the document it belongs to is not here and cannot be - it lives in
+/// the estate, which is the control plane's and not a runner's.
+/// </para>
+/// <para>
+/// <b>No <c>Notes</c>.</b> The others carry what was true of the text and not of the
+/// model, and comments are the only member of that set. An amendment's comments are
+/// not round-tripped anywhere: it is folded onto a document and the document's own
+/// text is what is stored, so a note here would be a fact about something nobody
+/// keeps.
+/// </para>
+/// </remarks>
+public sealed record LearningParse
+{
+    /// <summary>
+    /// Which version of the document this was drafted against, if it said.
+    /// </summary>
+    /// <remarks>
+    /// The same consumed key the others carry, and for the same reason - a
+    /// precondition the applier states rather than a member of the model. A flight
+    /// that names it is saying what it read, which is how an amendment drafted
+    /// against a document that has since moved can be told apart from one that was
+    /// not.
+    /// </remarks>
+    public string? BasedOn { get; init; }
+
+    /// <summary>What was learned, or null when there is a diagnosis.</summary>
+    public LearnedContext? Learned { get; init; }
+
+    /// <summary>What was wrong, or null when nothing was.</summary>
+    public string? Diagnosis { get; init; }
+}
+
 public static class EnvelopeYaml
 {
     /// <summary>Reads envelope text, or says what is wrong with it.</summary>
@@ -239,6 +276,89 @@ public static class EnvelopeYaml
             BasedOn = Consumed(document),
             Notes = Notes(text),
         };
+    }
+
+
+    /// <summary>
+    /// Reads what a flight learned, without the document it amends.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A fifth entry point rather than a flag on <see cref="Parse"/>, because the
+    /// language already refuses the alternative.</b> <see cref="Envelope"/> has five
+    /// <c>required</c> members - <c>Text</c>, <c>Context</c>, <c>Obligations</c>,
+    /// <c>Loops</c>, <c>Destinations</c> - so a partial envelope cannot be typed as
+    /// one. Pretending otherwise is precisely what GG-330 was made to do: it needed
+    /// to say one thing, was asked for a governing document, and invented
+    /// <c>obligations: none: {check: human, approver: root}</c> to get past the
+    /// validator.
+    /// </para>
+    /// <para>
+    /// <b>Shape only, because this runs runner-side and there is no estate here.</b>
+    /// The document being amended lives in the control plane, which folds this onto
+    /// the pinned version and refuses the RESULT if the result is wrong. A runner
+    /// that could read the estate to validate against it would be a runner that has
+    /// to be trusted with the estate.
+    /// </para>
+    /// <para>
+    /// <b>The root is closed to two keys and that is the whole surface.</b> Every
+    /// governing key - <c>context</c>, <c>obligations</c>, <c>loops</c>,
+    /// <c>destinations</c>, <c>instructions</c> - is refused BY NAME rather than
+    /// parsed and dropped, because a flight that writes one has misunderstood what
+    /// it was asked for and a silence would let it keep thinking so.
+    /// </para>
+    /// </remarks>
+    public static LearningParse ParseLearning(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        Node document;
+        try
+        {
+            document = Read(text);
+        }
+        catch (EnvelopeSyntaxException refusal)
+        {
+            return new LearningParse { Diagnosis = refusal.Message };
+        }
+        catch (YamlException malformed)
+        {
+            return new LearningParse
+            {
+                Diagnosis = $"This is not readable as YAML at line {malformed.Start.Line}, "
+                          + $"column {malformed.Start.Column}: {malformed.Message}",
+            };
+        }
+
+        try
+        {
+            var root = RequireMap(document, "");
+
+            // NAMED, so the refusal for a governing key says which key and what was
+            // wanted instead. GG-327 wrote `learned_against`, GG-330 wrote it again,
+            // and both were told only that the key was unknown.
+            Closed(root, BasedOnKey, "learned");
+
+            var learned = MapLearned(RequireMap(Require(root, "learned"), "learned"));
+
+            // THE SCHEMA'S OWN RULE, not a second copy of it. An amendment carrying
+            // a header that names nothing, or no advice at all, is refused here
+            // where its author can still act - which is this tool's whole virtue.
+            if (Envelope.ValidateLearned(learned) is { } invalid)
+            {
+                return new LearningParse { Diagnosis = invalid };
+            }
+
+            return new LearningParse
+            {
+                Learned = learned,
+                BasedOn = Consumed(document),
+            };
+        }
+        catch (EnvelopeSyntaxException refusal)
+        {
+            return new LearningParse { Diagnosis = refusal.Message };
+        }
     }
 
 
@@ -1405,16 +1525,69 @@ public static class EnvelopeYaml
 
     private static MapNode RequireMap(Node node, string path) =>
         node as MapNode
-        ?? throw new EnvelopeSyntaxException($"'{path}' should be a block of keys.");
+        ?? throw new EnvelopeSyntaxException(
+            $"'{path}' should be a block of keys; this is {Shape(node)}.");
 
     private static string RequireScalar(Node node, string path) =>
         (node as ScalarNode)?.Value
-        ?? throw new EnvelopeSyntaxException($"'{path}' should be a single value.");
+        ?? throw new EnvelopeSyntaxException(
+            $"'{path}' should be a single value; this is {Shape(node)}.");
 
-    private static IReadOnlyList<string> Strings(Node node, string path) =>
-        node is SeqNode sequence
-            ? [.. sequence.Items.Select(item => RequireScalar(item, path))]
-            : throw new EnvelopeSyntaxException($"'{path}' should be a list.");
+    /// <summary>
+    /// A list of plain strings, saying so in both directions.
+    /// </summary>
+    /// <remarks>
+    /// <b>Measured on GG-330, which bounced between the two halves of this for two
+    /// calls running.</b> It sent <c>advice</c> as a list of blocks and was told
+    /// <i>"should be a single value"</i>, because every item was checked against
+    /// the PARENT path; it then sent a bare scalar and was told <i>"should be a
+    /// list"</i>. Each was true and neither was complete, so the two sentences read
+    /// as a contradiction and the author had no way to satisfy both. Nothing said
+    /// the thing that would have ended it: a list OF SINGLE VALUES.
+    /// <para>
+    /// So both messages name the container AND the items, and an item names its own
+    /// position rather than borrowing its parent's path - because "item 2" is
+    /// something an author can go and look at.
+    /// </para>
+    /// </remarks>
+    private static IReadOnlyList<string> Strings(Node node, string path)
+    {
+        if (node is not SeqNode sequence)
+        {
+            throw new EnvelopeSyntaxException(
+                $"'{path}' should be a list of single values; this is {Shape(node)}.");
+        }
+
+        var values = new List<string>(sequence.Items.Count);
+
+        foreach (var (item, at) in sequence.Items.Select((item, at) => (item, at)))
+        {
+            if (item is not ScalarNode scalar)
+            {
+                throw new EnvelopeSyntaxException(
+                    $"'{path}' should be a list of single values; item {at + 1} is "
+                  + $"{Shape(item)}.");
+            }
+
+            values.Add(scalar.Value);
+        }
+
+        return values;
+    }
+
+    /// <summary>What a node IS, in the words the expectations are written in.</summary>
+    /// <remarks>
+    /// Named from the same three phrases the refusals use, so "should be a block of
+    /// keys; this is a list" reads as one sentence about one mismatch rather than
+    /// two vocabularies meeting.
+    /// </remarks>
+    private static string Shape(Node node) => node switch
+    {
+        MapNode => "a block of keys",
+        SeqNode => "a list",
+        ScalarNode => "a single value",
+        _ => "not readable as any of them",
+    };
 
     /// <summary>
     /// The named children of a map, as (name, body) pairs.

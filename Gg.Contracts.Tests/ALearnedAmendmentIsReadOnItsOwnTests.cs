@@ -43,7 +43,7 @@ public class ALearnedAmendmentIsReadOnItsOwnTests
             .Because($"nothing is wrong with it: {read.Diagnosis}");
 
         await Assert.That(read.Learned).IsNotNull();
-        await Assert.That(read.Learned!.Advice).HasCount(2);
+        await Assert.That(read.Learned!.Advice.Count).IsEqualTo(2);
     }
 
     [Test]

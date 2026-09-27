@@ -3250,11 +3250,40 @@ public sealed record Envelope
                  + "commit, image, envelope.";
         }
 
+        // A COMMIT IS A COMMIT ID AND NOTHING ELSE. GG-333 wrote
+        // `3a6de3c (HEAD detached at FETCH_HEAD)` - git's own chatter, in the one
+        // field whose whole purpose is to be compared later. The document was valid,
+        // the round trip was clean, and the staleness check could never fire against
+        // it, which is the quietest way for this header to stop meaning anything.
+        //
+        // REFUSED RATHER THAN TRIMMED to the leading sha: trimming would be this
+        // schema guessing which part of a string an author meant, and it would take
+        // `3a6de3c (HEAD detached...)` and `3a6de3c-dirty` to the same place.
+        if (against.Commit is { Length: > 0 } commit && !IsCommitId(commit))
+        {
+            return $"learned.against.commit is '{commit}', which is not a commit id. It is "
+                 + "compared against a later flight's own commit to decide whether advice "
+                 + "has gone stale, so it has to be the id and nothing else - no branch, "
+                 + "no 'HEAD detached at ...', no trailing state. Between 7 and 64 hex "
+                 + "characters.";
+        }
+
         return learned.Advice.Count == 0
             ? "learned.advice is empty. A header with no advice records the provenance of "
             + "nothing - remove the section, or say what an agent should be told."
             : null;
     }
+
+    /// <summary>Whether a string could be a commit id, short or long.</summary>
+    /// <remarks>
+    /// <b>Both ends are taken deliberately.</b> Seven is git's own short default and
+    /// what <c>git rev-parse --short</c> hands an agent; sixty-four is a sha256
+    /// object id, which git can already be configured to produce. Refusing either end
+    /// would refuse a value somebody legitimately has.
+    /// </remarks>
+    private static bool IsCommitId(string value) =>
+        value.Length is >= 7 and <= 64
+        && value.All(character => char.IsAsciiHexDigit(character));
 
     private static string? Producing(Envelope envelope)
     {

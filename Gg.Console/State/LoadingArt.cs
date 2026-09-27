@@ -88,15 +88,23 @@ public static class LoadingArt
     /// that looks empty again, which is the one thing this exists to stop.
     /// </para>
     /// </remarks>
-    public static double Glow(int tick)
+    /// <param name="breath">
+    /// How many ticks one breath takes. <see cref="Breath"/> unless the caller
+    /// wants a slower one - the screensaver does, because a mark somebody
+    /// glances at for two seconds and a mark a room looks at for an hour want
+    /// different paces out of the same curve.
+    /// </param>
+    public static double Glow(int tick, int? breath = null)
     {
+        var over = breath ?? Breath;
+
         // REMAINDER, THEN LIFTED. C# gives a negative remainder for a negative
         // left side, which would put the phase behind the start of the breath -
         // the arithmetic that makes `int.MinValue' the interesting case rather
         // than a silly one.
-        var at = ((tick % Breath) + Breath) % Breath;
+        var at = ((tick % over) + over) % over;
 
-        var wave = (1 - Math.Cos(2 * Math.PI * at / Breath)) / 2;
+        var wave = (1 - Math.Cos(2 * Math.PI * at / over)) / 2;
 
         // THE FLOOR IS THE POINT ABOVE, and the span is what is left over it.
         const double Dimmest = 0.35;
@@ -129,10 +137,16 @@ public static class LoadingArt
     /// thrown over it.
     /// </para>
     /// </remarks>
-    public static IReadOnlyList<string> Of(int tick)
+    /// <param name="breath">
+    /// How many ticks one breath takes, as <see cref="Glow"/> takes it. Both
+    /// have to be given the same one: the ink settles as the mark brightens, so
+    /// a shimmer on one pace under a glow on another comes apart.
+    /// </param>
+    public static IReadOnlyList<string> Of(int tick, int? breath = null)
     {
-        var at = ((tick % Breath) + Breath) % Breath;
-        var wave = (1 - Math.Cos(2 * Math.PI * at / Breath)) / 2;
+        var over = breath ?? Breath;
+        var at = ((tick % over) + over) % over;
+        var wave = (1 - Math.Cos(2 * Math.PI * at / over)) / 2;
 
         // HOW MANY MOVE, AT MOST ONE IN FIVE. The test that asks for four in
         // five left alone is what holds this: past that a person reads static

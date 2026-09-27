@@ -1197,5 +1197,11 @@
     "surface": "cc599c657f31c747847cee8bc6fa048b3a23b14fe5a2c9d8edb3286221efbcbd",
     "endpoints": "349cd91fc172499e8df4e05c14f2dc0ebb6b5938a7a1c5922532e38c07107e94",
     "note": "THE ROOT DOCUMENT'S NAME MOVES TO AirspaceNames, and the EnvelopeNames class added at 0.238.0 is removed. A MISTAKE WORTH RECORDING RATHER THAN QUIETLY FIXING: the control plane has had its own EnvelopeNames for a long time, with its own parse rule and 37 files referring to it, so the new class collided with it on sight - CS0104 'ambiguous reference' in every file importing both namespaces. A new TYPE in this contract is a name in a namespace both repos read, and the control plane's existing vocabulary is part of what shared means. AirspaceNames is the right home anyway: it is where a name's validity is already decided. The wire surface does not move. Root is still deliberately NOT asserted equal to Roles.Root, though it is the same string, because a guard over that coincidence is a guard against ever renaming the root document."
+  },
+  {
+    "version": "0.241.0",
+    "surface": "cc599c657f31c747847cee8bc6fa048b3a23b14fe5a2c9d8edb3286221efbcbd",
+    "endpoints": "349cd91fc172499e8df4e05c14f2dc0ebb6b5938a7a1c5922532e38c07107e94",
+    "note": "A COMMIT IS A COMMIT ID AND NOTHING ELSE. ValidateLearned refuses a learned.against.commit that is not 7-64 hex characters. MEASURED ON GG-333, the first rehearsal to hand its advice back cleanly: it wrote '3a6de3c (HEAD detached at FETCH_HEAD)' - git's own chatter, in the one field whose whole purpose is to be compared later. LearnedAgainst exists so advice can be told to have gone stale, and that value can never match a commit id, so the check silently never fires: the document was valid, the round trip was clean, and the field was useless. REFUSED RATHER THAN TRIMMED to the leading sha - trimming would be the schema guessing which part of a string an author meant, and would take '3a6de3c (HEAD detached...)' and '3a6de3c-dirty' to the same place. A refusal reaches the agent at the tool, where it can look again. Both ends of the range are taken deliberately: seven is git's short default and what `git rev-parse --short` hands an agent, sixty-four is a sha256 object id. The wire surface does not move."
   }
 ]

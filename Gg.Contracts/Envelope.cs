@@ -3094,12 +3094,23 @@ public sealed record Envelope
     /// A header with no advice is the converse - a provenance record for nothing,
     /// and the shape a required header invites if nobody refuses it.
     /// </remarks>
-    private static string? Learning(Envelope envelope)
+    private static string? Learning(Envelope envelope) =>
+        envelope.Learned is { } learned ? ValidateLearned(learned) : null;
+
+    /// <summary>
+    /// The schema's rule about learned context, asked without an envelope around it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Public because a flight amends learned context WITHOUT authoring a
+    /// document</b>, and the amendment has to be held to the same rule as the
+    /// section it becomes. Shared rather than reimplemented beside the amendment
+    /// parser, so a runner and the control plane cannot come to disagree about what
+    /// advice has to carry - which is the same reason <see cref="Validate"/> is here
+    /// rather than in the reader.
+    /// </remarks>
+    public static string? ValidateLearned(LearnedContext learned)
     {
-        if (envelope.Learned is not { } learned)
-        {
-            return null;
-        }
+        ArgumentNullException.ThrowIfNull(learned);
 
         // ASKED HERE RATHER THAN ON THE RECORD, because a computed property on a
         // wire type is a wire member: `Names` shipped as `names` in the JSON and

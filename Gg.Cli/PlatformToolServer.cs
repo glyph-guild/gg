@@ -1178,16 +1178,29 @@ public static class PlatformToolServer
     /// second explanation of one schema, and the parser's is the one that decides.
     /// A role this build does not know has already been refused above.
     /// </remarks>
-    private static string? Refused(string role, string document)
+    /// <summary>What is wrong with what a flight handed back, or null.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One parse, because there is one thing a flight may hand back.</b> This used
+    /// to pick between <c>ParseNarrowing</c> and <c>Parse</c> on the role, which
+    /// meant `strategy`, `watch`, `fleet-profile` and `exposure` were all judged
+    /// against the WORK-KIND envelope schema. GG-330 said <c>role: watch</c> and was
+    /// told <i>"'obligations' is missing, and an envelope without it governs
+    /// nothing"</i> - a key a watch document has never had. The path whose whole
+    /// purpose is to teach the schema taught the wrong one, with authority, eight
+    /// times running, and the agent did what it was told and invented an obligation.
+    /// </para>
+    /// <para>
+    /// The role is gated to <c>work-kind</c> before this is reached, so the four
+    /// uncalled arms are not a gap here any more - they are a decision for the day a
+    /// role gets something that consumes it.
+    /// </para>
+    /// </remarks>
+    private static string? Refused(string document)
     {
         try
         {
-            if (string.Equals(role, Gg.Contracts.Roles.Narrowing, StringComparison.Ordinal))
-            {
-                return Gg.Contracts.Authoring.EnvelopeYaml.ParseNarrowing(document).Diagnosis;
-            }
-
-            return Gg.Contracts.Authoring.EnvelopeYaml.Parse(document).Diagnosis;
+            return Gg.Contracts.Authoring.EnvelopeYaml.ParseLearning(document).Diagnosis;
         }
         catch (Exception failure) when (failure is not OperationCanceledException)
         {
@@ -1204,15 +1217,29 @@ public static class PlatformToolServer
         writer.WriteStartObject();
         writer.WriteString("name", Gg.Local.DocumentProposalTool.Name);
         writer.WriteString("description",
-            "Hand back an airspace document you have drafted, for one declared name in "
-          + "this tenant's topology. THIS APPLIES NOTHING. It is recorded as a proposal, "
-          + "and a person opens the gate the tenant's own envelope declares before "
-          + "anything changes - so a document cannot put itself in force, and a flight is "
-          + "judged against the governance in force rather than the governance it is "
-          + "asking for. The document is checked before it is recorded: if it does not "
-          + "read as the role you named, nothing is recorded and you are told why, so fix "
-          + "it and call again. Call it once you are sure; calling it again replaces what "
-          + "you handed back.");
+            "Hand back what you LEARNED about this environment, for one declared work kind "
+          + "in this tenant's topology. You are not writing a governing document and cannot: "
+          + "the only keys are 'learned' and, if you want to say which version you drafted "
+          + "against, 'based-on'. Anything that governs - context, obligations, loops, "
+          + "destinations, instructions - is refused by name, because what an agent is "
+          + "permitted to do is a person's to write and never yours. The shape is exactly "
+          + "this:\n\n"
+          + "learned:\n"
+          + "  against:            # at least one of these, so staleness can be computed\n"
+          + "    repository: acme/web\n"
+          + "    commit: a1b2c3d\n"
+          + "    image: ghcr.io/acme/ci:12\n"
+          + "    envelope: ui-preview@v4\n"
+          + "  advice:             # a list of single values, each a sentence\n"
+          + "    - \"node_modules is absent at checkout; npm install takes about fifty seconds.\"\n"
+          + "    - \"jsdom performs no layout, so a margin assertion proves nothing here.\"\n\n"
+          + "THIS APPLIES NOTHING. It is recorded as a proposal, and a person opens the gate "
+          + "the tenant's own envelope declares before anything changes - so advice cannot "
+          + "put itself in force, and a flight is judged against the governance in force "
+          + "rather than the advice it is offering. It is checked before it is recorded: if "
+          + "it does not read, nothing is recorded and you are told why, so fix it and call "
+          + "again. Call it the moment you know one thing rather than saving it for the end; "
+          + "calling it again replaces what you handed back.");
         writer.WriteStartObject("inputSchema");
         writer.WriteString("type", "object");
         writer.WriteStartObject("properties");
@@ -1291,6 +1318,26 @@ public static class PlatformToolServer
               + string.Join(", ", Gg.Contracts.Roles.All) + ". Nothing was recorded.");
         }
 
+        // AND THEN THE ONE ROLE ANYTHING CONSUMES. `ProposedDocumentReceptor` holds
+        // work kinds and logs every other role out loud, deliberately - each one
+        // needs its own parse and its own submit, and six untested paths shipped to
+        // look complete is how a role nobody exercised lands silently wrong.
+        //
+        // MEASURED ON GG-330, which found the gap from the other side. It tried
+        // `watch`, then `narrowing`, and the three calls that came back "recorded"
+        // were all narrowing and all discarded at the far end. A tool that accepts
+        // what nothing consumes tells a flight its work is safe when it is gone -
+        // and this one had already cost a rehearsal every proposal it made.
+        if (!string.Equals(role, Gg.Contracts.Roles.WorkKind, StringComparison.Ordinal))
+        {
+            return Content(id, isError: true,
+                $"Refused: a flight amends the learned context of a work kind, and "
+              + $"'{role}' documents are not held - nothing consumes one yet, so one "
+              + $"handed back here would be dropped without reaching anybody. "
+              + $"'{Gg.Contracts.Roles.WorkKind}' is the only role this records. "
+              + "Nothing was recorded.");
+        }
+
         // PARSED BEFORE IT IS ACKNOWLEDGED, and this is the half that was missing.
         // `DocumentTool`'s own virtue is that "the document is VALIDATED before it
         // lands, so a refusal teaches the schema" - and validating the role alone
@@ -1303,7 +1350,7 @@ public static class PlatformToolServer
         // result came back without an error, so a refusal here is a document that
         // never becomes a fact - and an agent told why can fix it and call again,
         // which this tool's description already promises.
-        if (Refused(role, document) is { } why)
+        if (Refused(document) is { } why)
         {
             return Content(id, isError: true, $"Refused: {why} Nothing was recorded.");
         }

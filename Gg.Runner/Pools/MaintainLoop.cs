@@ -70,6 +70,12 @@ public sealed class MaintainLoop(
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay;
     private readonly Action<string> _narrate = narrate ?? (_ => { });
 
+    /// <summary>What this cycle found standing wrong, gathered as it attests.</summary>
+    private readonly HashSet<string> _standing = new(StringComparer.Ordinal);
+
+    /// <summary>What the last cycle already said, so only a change is said again.</summary>
+    private readonly HashSet<string> _saidStanding = new(StringComparer.Ordinal);
+
     /// <summary>Where a member this loop creates should answer to.</summary>
     /// <remarks>
     /// Passed in rather than read here: which control plane a host answers to is
@@ -216,6 +222,12 @@ public sealed class MaintainLoop(
                     await AttestAsync(pool, action.Action, observed, probe, action.ActionId,
                         cancellationToken);
                 }
+
+                // AND THE CYCLE SAYS WHAT IT FOUND, here rather than per
+                // attestation, because "what is standing wrong" is a fact about
+                // the whole pass and a member-by-member answer would flap
+                // between two members every five seconds.
+                SayStanding(pool);
 
                 // A SERVED CYCLE CLEARS IT, so an hour of health does not inherit a
                 // bad minute's wait.
@@ -641,14 +653,76 @@ public sealed class MaintainLoop(
         return null;
     }
 
+    /// <summary>
+    /// One line about one observation, for a person on the host.
+    /// </summary>
+    /// <remarks>
+    /// The attestation's own fields and nothing composed: a sentence that said
+    /// more than the ledger would be a second account of the same act, free to
+    /// disagree with the one the control plane reads.
+    /// </remarks>
+    private static string Line(string pool, string action, PoolObservation observed) =>
+        observed.Diagnosis is { Length: > 0 } why
+            ? $"{pool}: {action} {observed.Outcome} - {why}"
+            : $"{pool}: {action} {observed.Outcome}";
+
+    /// <summary>
+    /// Says what is standing wrong: once when it arrives, once when it clears.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Because this loop turns every five seconds.</b> A standing failure
+    /// repeated every turn is seventeen thousand identical lines a day, which
+    /// reads the same as silence and costs more to page through. Found live: a
+    /// pool whose member had exited attested that fact every five seconds for 27
+    /// hours and the host's journal held nothing but systemd's restart lines.
+    /// </para>
+    /// <para>
+    /// <b>And the clearing is half of it.</b> A loop that only ever announced
+    /// faults leaves its last word standing after the fault is gone, so somebody
+    /// reading back finds a problem that no longer exists.
+    /// </para>
+    /// </remarks>
+    private void SayStanding(string pool)
+    {
+        foreach (var line in _standing.Where(l => !_saidStanding.Contains(l)))
+        {
+            _narrate(line);
+        }
+
+        if (_standing.Count == 0 && _saidStanding.Count > 0)
+        {
+            _narrate($"{pool}: every member verifies again.");
+        }
+
+        _saidStanding.Clear();
+        _saidStanding.UnionWith(_standing);
+        _standing.Clear();
+    }
+
     private Task AttestAsync(
         string pool,
         string action,
         PoolObservation observed,
         ScopeProbe probe,
         Guid? actionId,
-        CancellationToken cancellationToken) =>
-        _protocol.AttestAsync(pool, new PoolAttestation
+        CancellationToken cancellationToken)
+    {
+        // AN ACTION IS AN EVENT; A VERIFY IS STATE. Told apart by actionId,
+        // which is null exactly when this is the loop's own look at a member:
+        // anything else was DECIDED somewhere, is rare, and somebody is waiting
+        // to see whether it landed - so it is said every time, outcome included,
+        // because "a refresh ran" and "a refresh worked" are different sentences.
+        if (actionId is not null)
+        {
+            _narrate(Line(pool, action, observed));
+        }
+        else if (!string.Equals(observed.Outcome, PoolOutcomes.Verified, StringComparison.Ordinal))
+        {
+            _ = _standing.Add(Line(pool, action, observed));
+        }
+
+        return _protocol.AttestAsync(pool, new PoolAttestation
         {
             AttestationId = Guid.CreateVersion7(),
             Pool = pool,
@@ -662,6 +736,7 @@ public sealed class MaintainLoop(
             Diagnosis = observed.Diagnosis,
             RecipeCommit = observed.RecipeCommit,
         }, cancellationToken);
+    }
     /// <summary>
     /// What this member is to be made of, including a nonce minted for it.
     /// </summary>

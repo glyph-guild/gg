@@ -108,13 +108,16 @@ public static class ConsoleWatchRunner
         // would sit above it unlabelled.
         return state with { Live = [] } with
         {
-            // THE MODAL CLOSES, because the thing it was asked from is now
-            // happening behind it and the pane it happens in is another tab.
-            Mode = UiMode.Normal,
+            // THE MODAL STAYS, AND THIS ONE OPENS OVER IT. It used to close -
+            // "the thing it was asked from is now happening behind it and the
+            // pane it happens in is another tab" - which meant asking to see
+            // more of a machine took away the machine you were reading. The
+            // watch is a modal now, so escape comes back here rather than out.
+            Mode = UiMode.Watching,
+            ModeBeneath = UiMode.Runner,
             WatchedRunnerId = row.Id,
             WatchedFlightId = null,
             LiveVisible = true,
-            ActiveTab = TabId.Live,
             LastRunner = row.Work is { Length: > 0 } flying
                 ? $"Watching {row.Label}, flying {flying}. The pane says how it is going."
                 : $"Watching {row.Label}. It is flying nothing yet; work will appear here "

@@ -553,6 +553,24 @@ public enum Command
     /// </remarks>
     WatchRunner,
 
+    /// <summary>Watch the flight the modal is open on.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The way in that <see cref="AppState.WatchedFlightId"/> was waiting
+    /// for.</b> The field was declared, read by <c>LiveTails</c> and cleared by
+    /// the runner watch, and nothing in the product ever set it - so the live
+    /// view could only ever follow the queue cursor, which points at flights
+    /// that need somebody rather than at the one being read.
+    /// </para>
+    /// <para>
+    /// <b>It starts nothing.</b> Unlike <see cref="WatchRunner"/>, which
+    /// reaches another machine over the control plane and therefore has to
+    /// happen with the terminal free, this opens a tail on a file this machine
+    /// already writes. That is why it is not the shell's.
+    /// </para>
+    /// </remarks>
+    WatchThisFlight,
+
     /// <summary>Put a credential on the runner under the cursor.</summary>
     /// <remarks>
     /// <para>

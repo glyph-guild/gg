@@ -109,6 +109,20 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private readonly ListView _readingSaid;
 
+    /// <summary>The watch's output, in a list so it scrolls.</summary>
+    /// <remarks>
+    /// <b>A list and not a Label, for the reason the flight pane learned.</b> A
+    /// Label does not scroll, so every line past the bottom of the frame is
+    /// laid out and then invisible - which on the flight pane cost 1,973ms a
+    /// paint. This body is an unbounded tail, so it is the last place that
+    /// could afford it.
+    /// </remarks>
+    private readonly ListView _watchSaid;
+
+    private readonly View _watchBody;
+
+    private IReadOnlyList<string>? _watchShowing;
+
     /// <summary>What is in the list now, so a redraw does not lose the scroll.</summary>
     private IReadOnlyList<string>? _readingSaidShowing;
 
@@ -2021,9 +2035,25 @@ public sealed class ConsoleScreen : Window
 
         _readingBody.Add(_readingSaid);
 
+        // THE WATCH, WHICH IS THE READING BODY'S SHAPE OVER A TAIL. A document
+        // list rather than a plain one, because this is the body with no end
+        // and a person needs to know there is more above what they can see.
+        _watchSaid = CollectionViews.Document();
+
+        _watchBody = new View
+        {
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            Visible = false,
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
+
+        _watchBody.Add(_watchSaid);
+
         _modal.Add(
             _modalBody, _flightBody, _runnerBody, _readingBody, _helpBody, _filterBody,
-            _itemBody, _kindBody, _credentialRepoBody);
+            _itemBody, _kindBody, _credentialRepoBody, _watchBody);
 
         // THE QUEUE TAB IS TWO PANES, so it gets a container: the list a person
         // drives and the detail of whatever it lands on are one view of one
@@ -4459,7 +4489,9 @@ public sealed class ConsoleScreen : Window
         var item = State.Mode is UiMode.WorkItemDetail;
         var kind = State.Mode is UiMode.WorkKindChoice;
         var credentialRepo = State.Mode is UiMode.CredentialRepositoryChoice;
+        var watching = State.Mode is UiMode.Watching;
 
+        _watchBody.Visible = watching;
         _flightBody.Visible = flight;
         _runnerBody.Visible = runner;
         _readingBody.Visible = reading;
@@ -4470,7 +4502,12 @@ public sealed class ConsoleScreen : Window
         _credentialRepoBody.Visible = credentialRepo;
         _modalBody.Visible =
             !flight && !runner && !reading && !helping && !filtering && !item && !kind
-            && !credentialRepo;
+            && !credentialRepo && !watching;
+
+        if (watching)
+        {
+            FillWatch();
+        }
 
         if (helping)
         {
@@ -4556,8 +4593,15 @@ public sealed class ConsoleScreen : Window
         // buttons. Five was the guess and it cut the last two lines of the body.
         var tall = body.Length + (_modalButtons.Count > 0 ? 7 : 3);
 
-        _modal.Width = document ? Dim.Percent(92) : Math.Max(52, wide);
-        _modal.Height = document ? Dim.Percent(88) : Math.Max(12, tall);
+        // THE WATCH TAKES THE TERMINAL. A document is 92 by 88, which is right
+        // for prose read once - but this opens OVER a document, and two boxes
+        // that size on top of each other read as one box redrawn rather than
+        // as something having opened. It is also the only body with no end, so
+        // the last eight per cent is eight per cent more of it.
+        var whole = PaneText.ModalIsFullScreen(State.Mode);
+
+        _modal.Width = whole ? Dim.Fill() : document ? Dim.Percent(92) : Math.Max(52, wide);
+        _modal.Height = whole ? Dim.Fill() : document ? Dim.Percent(88) : Math.Max(12, tall);
 
         // THE WINDOW, WHICH IS READ FROM OUTSIDE THIS ONE. Only when it
         // changes: Terminal.Gui pushes the title out as OSC 0, and re-sending
@@ -5451,6 +5495,43 @@ public sealed class ConsoleScreen : Window
     /// to be a place in the new document.
     /// </para>
     /// </remarks>
+    /// <summary>The watch's output, and it stays on the newest line.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>From PaneText.Modal, which is also what copy takes.</b> One producer,
+    /// so the words a person pastes are the words they were reading rather than
+    /// a second rendering that could differ from it.
+    /// </para>
+    /// <para>
+    /// <b>Only when the lines change</b>, because setting a list's source
+    /// resets where somebody scrolled to, and Render runs once a second for the
+    /// countdown - the same reason the reading panes check.
+    /// </para>
+    /// <para>
+    /// <b>And it follows the tail.</b> A list left at row zero shows the
+    /// beginning of what a runner said, which for a thing still being written
+    /// is the least interesting end of it. This is what a person means by
+    /// watching.
+    /// </para>
+    /// </remarks>
+    private void FillWatch()
+    {
+        var lines = PaneText.Modal(State).Split('\n');
+
+        if (_watchShowing is not null && _watchShowing.SequenceEqual(lines))
+        {
+            return;
+        }
+
+        _watchShowing = lines;
+        _watchSaid.SetSource(new ObservableCollection<string>(lines));
+
+        if (lines.Length > 0)
+        {
+            _watchSaid.SelectedItem = lines.Length - 1;
+        }
+    }
+
     private void FillReading()
     {
         var lines = State.Mode switch

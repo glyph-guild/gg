@@ -1323,6 +1323,28 @@ public static class Keymap
             new(KeyStroke.Esc, Command.CloseModal, "leave it alone"),
         ],
 
+        // A SCREENFUL OF SOMEBODY ELSE'S OUTPUT, and three things to do with
+        // it. Its own arm and not a fall-through: the default below is Normal's
+        // whole keyset, so a mode without one is the main screen with a frame
+        // over it - answering fly, ground and take-over to a person who thinks
+        // they are reading a log.
+        UiMode.Watching =>
+        [
+            // COPY IS AS MUCH THE POINT AS WATCHING IS. What a runner said is
+            // what somebody pastes into the message about why it went wrong,
+            // and PaneText.Modal - which is what CopyModal takes - is the same
+            // producer this modal is drawn from.
+            new(KeyStroke.Char('c'), Command.CopyModal, "copy"),
+            new(KeyStroke.Esc, Command.CloseModal, "back"),
+
+            // AND NO j/k, DELIBERATELY. The flight modal binds them because it
+            // has a log cursor in the model for them to move; this has no
+            // cursor of its own, and Reducer.Moved's fallback is the tab
+            // underneath - so binding them here would scroll the flights list
+            // behind a modal covering it. The arrows reach the widget directly
+            // and scroll what is actually on screen.
+        ],
+
         UiMode.FlightDetail =>
         [
             new(KeyStroke.Char('x'), Command.AskToGround, "ground it"),
@@ -1365,6 +1387,12 @@ public static class Keymap
             // reading modes already bind this key to it. A modal full of
             // somebody else's prose is exactly where a person wants to take
             // the words with them.
+            // WHAT IT IS SAYING RIGHT NOW, over the top of what it is. The
+            // runner modal has had `w' since watching existed and this modal
+            // had nothing on it - so a person reading a flight had to leave it,
+            // find the machine, and press the same letter there.
+            new(KeyStroke.Char('w'), Command.WatchThisFlight, "watch it"),
+
             new(KeyStroke.Char('c'), Command.CopyModal, "copy"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
             // THE LOG'S CURSOR, and the entry it lands on is the one that

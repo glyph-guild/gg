@@ -41,6 +41,27 @@ public static class Reducer
             // draw at once; ReadInFlight is what lets the log say it is still
             // coming rather than that there is none. See Reducer.FlightShown
             // for what happens when it arrives.
+            // THE FLIGHT IS NAMED, NOT FOLLOWED. LiveTails prefers
+            // WatchedFlightId over the queue cursor and nothing ever set it, so
+            // the pane could only draw whatever the cursor happened to be on -
+            // which, on the queue, is a list of flights needing somebody rather
+            // than the one being read.
+            //
+            // AND THE BUFFER IS EMPTIED, because what is in it belonged to
+            // whatever was watched before: older lines sitting above this
+            // flight's first ones, with nothing saying they are not its.
+            Command.WatchThisFlight => PaneText.Detailed(state) is { } watched
+                ? state with
+                {
+                    Mode = UiMode.Watching,
+                    ModeBeneath = state.Mode,
+                    WatchedFlightId = watched.FlightId,
+                    WatchedRunnerId = null,
+                    LiveVisible = true,
+                    Live = [],
+                }
+                : state,
+
             Command.ShowFlight => Modal(state, UiMode.FlightDetail) with
             {
                 ReadInFlight = true,
@@ -282,6 +303,25 @@ public static class Reducer
             // CLOSING A CONFIRMATION IS AN ANSWER, not a dismissal. Leaving
             // PendingFlight behind would let the next 'y' - aimed at something
             // else entirely - open the flight this person just declined.
+            // A WATCH CLOSES BACK ONTO WHAT IT WAS OPENED OVER, and it is the
+            // only modal that closes onto anything. Every other one was opened
+            // from the main screen, so Normal is where it came from; this one
+            // was opened over a flight or over a runner, and landing on Normal
+            // would close what somebody was reading as the price of having
+            // looked at it.
+            //
+            // THE TAIL STOPS WITH IT. LiveVisible is what the tick reads before
+            // it advances anything, so leaving it on would keep a file open for
+            // a modal nobody has in front of them.
+            Command.CloseModal when state.Mode == UiMode.Watching => state with
+            {
+                Mode = state.ModeBeneath,
+                ModeBeneath = UiMode.Normal,
+                LiveVisible = false,
+                WatchedFlightId = null,
+                WatchedRunnerId = null,
+            },
+
             Command.CloseModal => state.Mode == UiMode.ConfirmFlight
                 ? FlightDeclined(state)
                 // AND THE QUESTION CLOSES WITH THE MODAL. One left open behind a

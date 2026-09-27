@@ -137,10 +137,18 @@ public class WatchingAnIdleRunnerFromTheModalTests
                    + "there is not one yet, which is the point.");
 
         await Assert.That(after.LiveVisible).IsTrue();
-        await Assert.That(after.ActiveTab).IsEqualTo(TabId.Live);
-        await Assert.That(after.Mode).IsEqualTo(UiMode.Normal)
-            .Because("the modal closes, because what it was asked from is now happening "
-                   + "behind it in another tab.");
+
+        // THE MODAL NO LONGER CLOSES, AND THAT WAS THE DEFECT. It used to land
+        // on Normal and switch to the live tab, so asking to see more of a
+        // machine took away the machine you were reading - two moves from what
+        // you were looking at, to look harder at it.
+        await Assert.That(after.Mode).IsEqualTo(UiMode.Watching)
+            .Because("the watch opens over the runner modal rather than sending somebody "
+                   + "to a tab about it.");
+
+        await Assert.That(after.ModeBeneath).IsEqualTo(UiMode.Runner)
+            .Because("escape has to come back to the machine this was asked from, and this "
+                   + "modal has two parents so it cannot infer which.");
     }
 
     [Test]

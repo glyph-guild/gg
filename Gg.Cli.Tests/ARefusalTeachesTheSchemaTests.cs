@@ -78,39 +78,12 @@ public class ARefusalTeachesTheSchemaTests
             .Because("and it has to say so in the word the other refusals use.");
     }
 
-    [Test]
-    public async Task A_document_that_reads_as_the_role_is_recorded()
-    {
-        var (isError, text) = await AnsweredAsync("""
-            context:
-              scope: "**"
-              constitution: "1.0.0"
-            accepts: [repository]
-            produces: [loop.outcome]
-            learned:
-              against:
-                commit: "a1b2c3d"
-              advice:
-                - "npm ci under src/JDX.Web takes about fifty seconds."
-            obligations:
-              in-scope:
-                check: machine
-                rule: no-file-outside-scope
-            loops:
-              implement:
-                executor: frontier
-                discharges: [in-scope]
-                moves: [read, edit]
-                budget:
-                  wall-clock: "20m"
-                on-exhaustion: handoff-to-human
-            destinations:
-              forge:
-                kind: pull-request
-                requires: [in-scope]
-            """);
-
-        await Assert.That(isError).IsFalse().Because("Answered: " + text);
-        await Assert.That(text).Contains("Nothing has changed");
-    }
+    // A_document_that_reads_as_the_role_is_recorded LIVED HERE, and it asserted
+    // that a complete work-kind envelope handed back by a flight is recorded.
+    // GG-330 is why it does not any more: the completeness it required is what
+    // made a rehearsal invent `obligations` to satisfy a validator, and a flight
+    // authoring governance was never its standing. The accepting case now lives in
+    // `AFlightAmendsRatherThanAuthorsTests`, where the document is the one thing
+    // the flight actually has - what it learned - and the refusing case for a
+    // governing document lives beside it.
 }

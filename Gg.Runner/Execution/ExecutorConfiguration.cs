@@ -55,7 +55,7 @@ public static class ExecutorConfiguration
         IReadOnlyList<IntentReader>? readers = null,
         Func<string, string?>? secretFor = null,
         string? declaration = null,
-        string? credential = null) =>
+        string? locator = null) =>
         // THE CHOICE IS MADE HERE, IN THE DEFAULT, which is where the vcs and
         // destination seams learned it has to be: "the adapterFor parameter
         // was passed only from tests, which is the same bug one layer up".
@@ -78,7 +78,7 @@ public static class ExecutorConfiguration
                 // AND HOW ITS AGENT AUTHENTICATES, from the same parse, so a
                 // runner cannot pick an executor for one agent and an adapter
                 // for another.
-                AgentFor(declared, CredentialOr(credential)))
+                AgentFor(declared, LocatorOr(locator)))
             : null;
 
     /// <summary>
@@ -109,7 +109,7 @@ public static class ExecutorConfiguration
     /// </param>
     public static Func<IntentReader, SelfInvocation, IExecutorPort>? ForSweeps(
         Func<string, string?>? secretFor = null, string? declaration = null,
-        string? credential = null) =>
+        string? locator = null) =>
         ExecutorDeclaration.ParseOrNull(
             declaration ?? Environment.GetEnvironmentVariable(BinaryVariable), BinaryVariable)
             is { } declared
@@ -120,7 +120,7 @@ public static class ExecutorConfiguration
                 secretFor,
                 // IN SWEEP MODE, decided by the launcher rather than here.
                 self,
-                AgentFor(declared, CredentialOr(credential)))
+                AgentFor(declared, LocatorOr(locator)))
             : null;
 
     /// <summary>Where this machine's agent credential is named, when it is.</summary>
@@ -132,7 +132,7 @@ public static class ExecutorConfiguration
     /// answers, and the ratchet that keeps the binary honest would then be
     /// guarding a credential too.
     /// </remarks>
-    public const string CredentialVariable = "GG_AGENT_CREDENTIAL";
+    public const string LocatorVariable = "GG_AGENT_LOCATOR";
 
     /// <summary>How this machine's agent authenticates, or null for none - from the environment.</summary>
     /// <remarks>
@@ -146,16 +146,16 @@ public static class ExecutorConfiguration
     /// this machine has.
     /// </param>
     /// <param name="credential">
-    /// Where the agent's credential is, or null to read the environment. Passed
+    /// Where the agent's credential is kept, or null to read the environment. Passed
     /// at every entry point that builds an agent rather than resolved inside
     /// <see cref="AgentFor"/>, so this file keeps its rule that one place reads
     /// the environment and nothing downstream reaches a different answer.
     /// </param>
     public static IAuthenticateAnAgent? AgentFromEnvironment(
-        string? declaration = null, string? credential = null) =>
+        string? declaration = null, string? locator = null) =>
         ExecutorDeclaration.ParseOrNull(
             declaration ?? Environment.GetEnvironmentVariable(BinaryVariable), BinaryVariable) is { } declared
-            ? AgentFor(declared, CredentialOr(credential))
+            ? AgentFor(declared, LocatorOr(locator))
             : null;
 
     /// <summary>The declared credential, or what the environment says.</summary>
@@ -168,8 +168,8 @@ public static class ExecutorConfiguration
     /// <i>wired at all three composition roots - a missed one serves no preview
     /// and says nothing</i>.
     /// </remarks>
-    private static string? CredentialOr(string? credential) =>
-        credential ?? Environment.GetEnvironmentVariable(CredentialVariable);
+    private static string? LocatorOr(string? locator) =>
+        locator ?? Environment.GetEnvironmentVariable(LocatorVariable);
 
     /// <summary>
     /// The locator an agent's credential is read from: the declared one, or the
@@ -196,16 +196,16 @@ public static class ExecutorConfiguration
     /// variable's name is the only part safe to print.
     /// </para>
     /// </remarks>
-    public static string LocatorFor(string? credential, string provider)
+    public static string LocatorFor(string? declaredLocator, string provider)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(provider);
 
-        if (string.IsNullOrWhiteSpace(credential))
+        if (string.IsNullOrWhiteSpace(declaredLocator))
         {
             return CredentialLocator.ForAgent(provider);
         }
 
-        var declared = credential.Trim();
+        var declared = declaredLocator.Trim();
 
         if (KeyVaultReference.Names(declared))
         {
@@ -252,7 +252,7 @@ public static class ExecutorConfiguration
     }
 
     private static InvalidOperationException Refused(string what) =>
-        new($"{CredentialVariable} {what}");
+        new($"{LocatorVariable} {what}");
 
     /// <summary>How the declared agent authenticates.</summary>
     /// <remarks>
@@ -263,7 +263,7 @@ public static class ExecutorConfiguration
     /// means claude" is the assumption this whole declaration exists to end.
     /// </remarks>
     public static IAuthenticateAnAgent AgentFor(
-        ExecutorDeclaration declared, string? credential = null)
+        ExecutorDeclaration declared, string? locator = null)
     {
         ArgumentNullException.ThrowIfNull(declared);
 
@@ -271,7 +271,7 @@ public static class ExecutorConfiguration
         {
             ExecutorDeclaration.Claude => new ClaudeAgentAuthentication(
                 declared.Binary,
-                locator: LocatorFor(credential, ExecutorDeclaration.Claude)),
+                locator: LocatorFor(locator, ExecutorDeclaration.Claude)),
             var other => throw new InvalidOperationException(
                 $"'{other}' is an agent ExecutorDeclaration admits and this build has no "
               + "adapter for. The two lists have drifted; add the adapter here."),

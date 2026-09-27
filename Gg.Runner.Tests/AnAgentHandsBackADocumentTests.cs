@@ -73,7 +73,7 @@ public class AnAgentHandsBackADocumentTests
         // filled here now, because advice is filed under what it was learned against
         // and the document it lands on is the tenant's own.
         await Assert.That(proposal!.Role).IsEqualTo(Gg.Contracts.Roles.Root);
-        await Assert.That(proposal.Name).IsEqualTo(Gg.Contracts.EnvelopeNames.Root);
+        await Assert.That(proposal.Name).IsEqualTo(Gg.Contracts.AirspaceNames.Root);
         await Assert.That(proposal.Document).Contains("based-on:");
     }
 

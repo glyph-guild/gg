@@ -177,13 +177,18 @@ public class AdviceIsKeyedByWhatItWasLearnedAgainstTests
         // EnvelopeNames.Root and the runner had no way to say it, so the alternative
         // was a literal on one side agreeing with a constant on the other by
         // coincidence - which is the drift this exists to prevent.
-        await Assert.That(EnvelopeNames.Root).IsEqualTo("root");
+        //
+        // IT LIVES ON AirspaceNames, not on a class of its own. It WAS its own
+        // EnvelopeNames for one version, and that collided head-on with the control
+        // plane's long-standing class of the same name - 37 files, its own parse rule -
+        // because a new type in this contract is a name in a namespace both repos read.
+        await Assert.That(AirspaceNames.Root).IsEqualTo("root");
 
         // NOT ASSERTED EQUAL TO Roles.Root, though it is the same string today. They
         // are a document's name and a document's role, and a test pinning the
         // coincidence is a test that forbids ever fixing it - which is the shape of
         // guard that makes a rename impossible rather than visible.
-        await Assert.That(typeof(EnvelopeNames)).IsNotEqualTo(typeof(Roles))
+        await Assert.That(typeof(AirspaceNames)).IsNotEqualTo(typeof(Roles))
             .Because("two ideas, declared separately, so a runner naming the document it "
                    + "amends is not relying on a role's value.");
     }

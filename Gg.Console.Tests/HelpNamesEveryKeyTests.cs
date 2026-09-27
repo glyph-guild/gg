@@ -207,6 +207,20 @@ public class HelpNamesEveryKeyTests
         new(UiMode.GateDecision),
     ];
 
+    /// <summary>The console with the mark over it.</summary>
+    /// <remarks>
+    /// <b>Beside the cross, and for a stronger reason than the two above.</b>
+    /// Those are exclusive flags; this one OUTRANKS every other dimension -
+    /// while it is true <c>Bindings</c> returns one constant list whatever the
+    /// mode, the tab or any flag is. Crossing it would double a product already
+    /// measured in minutes to enumerate states that cannot differ from one
+    /// another.
+    /// </remarks>
+    private static IEnumerable<KeymapContext> UnderTheMark() =>
+    [
+        new(UiMode.Normal) { Screening = true },
+    ];
+
     private static IEnumerable<KeymapContext> OverAMachineSomebodyOwns() =>
         from ours in (bool[])[false, true]
         from standing in (KeymapContext[])
@@ -248,6 +262,7 @@ public class HelpNamesEveryKeyTests
 
         var missing = (from context in contexts.Concat(OverAMachineSomebodyOwns())
                                                .Concat(OverAGateThatAsksForSomething())
+                                               .Concat(UnderTheMark())
                        from binding in Keymap.Bindings(context)
                        select (context.Mode, binding.Key, binding.Command))
             .Distinct()
@@ -507,7 +522,7 @@ public class HelpNamesEveryKeyTests
         // one. Two flags rather than one because they are not the same
         // question - something to show, and something to page between - and
         // the second is false for most of the first's life.
-        await Assert.That(members.Count).IsEqualTo(31)
+        await Assert.That(members.Count).IsEqualTo(32)
             .Because("Everywhere() crosses every one of these, or OverAMachineSomebodyOwns() "
                    + "holds it beside the cross - and a member in neither would leave the "
                    + "completeness check above quietly incomplete, which is exactly how the "

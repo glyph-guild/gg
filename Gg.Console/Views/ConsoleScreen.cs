@@ -2249,7 +2249,7 @@ public sealed class ConsoleScreen : Window
         // than flickering, quick enough to say something is happening.
         _app.AddTimeout(TimeSpan.FromMilliseconds(50), () =>
         {
-            if (!LoadingArt.Waiting(State))
+            if (!LoadingArt.Waiting(State) && !Screensaver.Showing(State))
             {
                 return true;
             }
@@ -2320,7 +2320,11 @@ public sealed class ConsoleScreen : Window
             // is a countdown measured in seconds.
             _app.AddTimeout(TimeSpan.FromSeconds(1), () =>
             {
-                var advanced = _refresh.Advance(State);
+                // ON THIS TICK RATHER THAN ONE OF ITS OWN. Idleness is counted
+                // in seconds and this is the thing that already knows a second
+                // has passed; a second timer would wake the loop up for a
+                // number this one could carry.
+                var advanced = Reducer.Idled(_refresh.Advance(State));
 
                 if (ReferenceEquals(advanced, State) && advanced.Refresh == State.Refresh)
                 {
@@ -3885,6 +3889,8 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private void OnModalKeyDown(object? sender, Key key)
     {
+        State = Reducer.Touched(State);
+
         if (Keymap.Resolve(KeyTranslator.Translate(key), Context()) is not { } command)
         {
             return;
@@ -3907,6 +3913,26 @@ public sealed class ConsoleScreen : Window
     {
         ArgumentNullException.ThrowIfNull(mouse);
 
+        // A CLICK IS A PERSON, AND MOVEMENT IS NOT. gg asks the terminal for
+        // any-event tracking, so a mouse drifting across the window reports
+        // constantly - counting that as activity would mean the mark never came
+        // up on a desk where something nudges the trackpad.
+        if (mouse.IsPressed)
+        {
+            if (Screensaver.Showing(State))
+            {
+                // AND IT WAKES WITHOUT ACTING. The click that took the mark
+                // down must not also land on whatever was underneath it, for
+                // the reason the keys must not: the person was looking at a
+                // screen with nothing on it.
+                mouse.Handled = true;
+                Dispatch(Command.WakeScreen);
+                return;
+            }
+
+            State = Reducer.Touched(State);
+        }
+
         var overTheModal = _modal.Visible
                         && _modal.FrameToScreen().Contains(mouse.ScreenPosition);
 
@@ -3918,6 +3944,12 @@ public sealed class ConsoleScreen : Window
 
     private void OnScreenKeyDown(object? sender, Key key)
     {
+        // BEFORE RESOLVING, AND WHETHER OR NOT IT RESOLVES. A key the keymap
+        // declines is still somebody at the keyboard, and a console that only
+        // counted keys it understood would put the mark up over a person
+        // pressing the wrong one.
+        State = Reducer.Touched(State);
+
         var stroke = KeyTranslator.Translate(key);
         var command = Keymap.Resolve(stroke, Context());
 
@@ -4069,7 +4101,11 @@ public sealed class ConsoleScreen : Window
         // THE MARK, WHEN THIS TAB HAS NOTHING YET. Tabs.HasRead asked the other
         // way round - see LoadingArt.Waiting, which is deliberately the only
         // place that asks, so a pane cannot breathe over a table that arrived.
-        var waiting = LoadingArt.Waiting(State);
+        // EITHER REASON, ONE MARK. A tab with nothing in it yet and a console
+        // nobody has touched for five minutes want the same letters breathing
+        // in the same place; what differs is only how much they cover.
+        var screening = Screensaver.Showing(State);
+        var waiting = LoadingArt.Waiting(State) || screening;
 
         if (waiting)
         {
@@ -4093,7 +4129,20 @@ public sealed class ConsoleScreen : Window
 
         _hiddenBehindTheMark.Clear();
 
-        if (waiting
+        // THE WHOLE SCREEN, WHEN IT IS THE SCREENSAVER. The loading mark covers
+        // one tab's pane because the bar and the hints around it are still
+        // true; this covers those too, because a screensaver showing a tab bar
+        // is a console with a picture on it.
+        if (screening)
+        {
+            foreach (var covered in SubViews.Where(v => v.Visible && !ReferenceEquals(v, _waiting))
+                         .ToArray())
+            {
+                covered.Visible = false;
+                _hiddenBehindTheMark.Add(covered);
+            }
+        }
+        else if (waiting
             && _tabbed.FirstOrDefault(t => t.Tab == State.ActiveTab).Pane is { } filling)
         {
             // OVER A SNAPSHOT, for the reason the sibling walk below carries:

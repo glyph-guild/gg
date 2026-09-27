@@ -188,6 +188,15 @@ public readonly record struct KeymapContext(
     /// </remarks>
     public bool SignInStarted { get; init; }
 
+    /// <summary>Whether the mark is covering the screen.</summary>
+    /// <remarks>
+    /// <b>It outranks the mode.</b> While this is true every key means one
+    /// thing, whatever is underneath - which is what a person expects of a
+    /// screensaver, and what stops the key that woke it also doing whatever it
+    /// usually does.
+    /// </remarks>
+    public bool Screening { get; init; }
+
     /// <summary>
     /// Whether the flight on screen names a link and no ticket a reader here
     /// can read.
@@ -386,6 +395,11 @@ public readonly record struct KeymapContext(
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        return With(state) with { Screening = state.Screening };
+    }
+
+    private static KeymapContext With(AppState state)
+    {
         return new KeymapContext(
             state.Mode,
             state.ActiveTab,
@@ -758,7 +772,43 @@ public static class Keymap
             ]
             : [];
 
-    public static IReadOnlyList<KeyBinding> Bindings(KeymapContext context) => context.Mode switch
+    /// <summary>
+    /// What takes the mark down.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Three keys and the mouse, not every key - and the console's own
+    /// guards are why.</b> Binding all ninety-five printable keys to this was
+    /// written and backed out: it satisfies the rule that advertised keys are
+    /// the live ones, and then puts a hundred and twenty rows on the help page,
+    /// because the catalogue lists what is bound. A help page nobody can read
+    /// is a worse defect than a screensaver that wants the space bar.
+    /// </para>
+    /// <para>
+    /// <b>The mouse is the other half and is not here</b>, because the mouse is
+    /// not a key. A click anywhere wakes it, which is the gesture most people
+    /// make first.
+    /// </para>
+    /// </remarks>
+    private static IReadOnlyList<KeyBinding> Waking { get; } =
+    [
+        new(KeyStroke.Esc, Command.WakeScreen, "back to the console")
+            { When = "while the mark is up" },
+        new(KeyStroke.Char(' '), Command.WakeScreen, "back to the console")
+            { When = "while the mark is up" },
+        new(KeyStroke.EnterKey, Command.WakeScreen, "back to the console")
+            { When = "while the mark is up" },
+    ];
+
+    public static IReadOnlyList<KeyBinding> Bindings(KeymapContext context) =>
+        // THE MARK OUTRANKS THE MODE, AND ONLY COVERS THE PLAIN ONE. While it
+        // is up the keys underneath are unreachable - a key that both woke the
+        // console and grounded a flight is the worst possible reading of "press
+        // any key" - and it comes up over Normal alone, so there is one set of
+        // modes it can be over rather than all of them. That is a product
+        // decision the help page forced and is better for it: a dialog somebody
+        // left open is a question waiting for them, not a console at rest.
+        context.Screening && context.Mode == UiMode.Normal ? Waking : context.Mode switch
     {
         UiMode.Help =>
         [
@@ -1890,6 +1940,18 @@ public static class Keymap
 
             new(KeyStroke.Char('b'), Command.ToggleBrowse, Closes(context, TabId.Browse, "browse"))
                 { OffTheHintLine = true },
+
+            // THE MARK, ON PURPOSE AND ON AN OBSCURE KEY. Five minutes of
+            // idleness is the way in that matters; this is the way in that can
+            // be shown to somebody without waiting five minutes for it. ctrl+g
+            // because c, d, f, o, r and v are taken and g is the only letter
+            // that means anything here.
+            // OFF THE HINT LINE BUT NOT UNTAUGHT. Obscure means "not advertised
+            // where everything else is", never "findable only by reading the
+            // source" - so it is on the help page, which is where somebody
+            // looks for the key they half remember.
+            new(KeyStroke.Control('g'), Command.ShowScreensaver, "show the mark")
+                { OffTheHintLine = true },
             new(KeyStroke.Char('r'), Command.ToggleRepositories,
                 Closes(context, TabId.Repositories, "repositories")) { OffTheHintLine = true },
             // `p` for plan, which is the verb it calls.
@@ -2319,6 +2381,17 @@ public static class Keymap
         // `f` still appears twice, and should: it is two commands over one key,
         // and each says when it applies.
         var seen = new HashSet<(UiMode Mode, KeyStroke Key, Command Command)>();
+
+        // THE MARK FIRST, BECAUSE IT IS NOT A MODE. Screening outranks the mode
+        // switch, so no shape of any mode produces its keys - and a key that
+        // resolves and is in no catalogue entry cannot reach the help page,
+        // which is where somebody looks for the key they do not know. Filed
+        // under Normal because that is where a person is when it comes up.
+        foreach (var binding in Bindings(new KeymapContext(UiMode.Normal) { Screening = true }))
+        {
+            entries.Add(new KeyCatalogueEntry(UiMode.Normal, binding));
+            seen.Add((UiMode.Normal, binding.Key, binding.Command));
+        }
 
         foreach (var mode in Enum.GetValues<UiMode>())
         {

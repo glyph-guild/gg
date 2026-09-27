@@ -180,4 +180,36 @@ public class AScreensaverCoversAnIdleConsoleTests
         // screensaver and a console that has crashed showing a logo.
         await Assert.That(LoadingArt.Of(0)).IsNotEquivalentTo(LoadingArt.Of(LoadingArt.Breath / 2));
     }
+
+    [Test]
+    public async Task And_it_breathes_half_as_fast_as_a_tab_that_is_loading()
+    {
+        // TWICE AS SLOW, AND FOR A DIFFERENT JOB. A loading tab's mark answers
+        // "is this coming?" for a second or two and wants to look busy. This
+        // one is what a room looks at for an hour, and at the loading pace it
+        // is a thing pulsing at somebody rather than a thing at rest.
+        await Assert.That(Screensaver.Breath).IsEqualTo(LoadingArt.Breath * 2);
+
+        // THE SAME CURVE STRETCHED, not a second curve. One breath in, one
+        // breath out, over twice the ticks - so the loading mark's low point is
+        // this one's peak.
+        await Assert.That(LoadingArt.Glow(LoadingArt.Breath, Screensaver.Breath))
+            .IsGreaterThan(0.99)
+            .Because("half of a slow breath is the top of it.");
+
+        await Assert.That(LoadingArt.Glow(LoadingArt.Breath))
+            .IsLessThan(0.36)
+            .Because("a whole fast breath is back at the bottom, which is the pace this "
+                   + "is halving.");
+    }
+
+    [Test]
+    public async Task And_the_shimmer_slows_with_it()
+    {
+        // BOTH HALVES OR NEITHER. The letters settling as the mark brightens is
+        // tied to the same wave, so a glow that slowed while the ink kept its
+        // old pace would come apart - dim and still, or bright and churning.
+        await Assert.That(LoadingArt.Of(LoadingArt.Breath, Screensaver.Breath))
+            .IsNotEquivalentTo(LoadingArt.Of(LoadingArt.Breath));
+    }
 }

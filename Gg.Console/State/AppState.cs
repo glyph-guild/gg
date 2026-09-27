@@ -394,6 +394,36 @@ public enum UiMode
     /// pressing; this mode is entered on purpose, and esc gives the console back.
     /// </remarks>
     Notifications,
+
+    /// <summary>
+    /// What a runner is saying, right now, about the flight or the machine the
+    /// modal underneath this one is about.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A modal rather than a tab, and that is the whole change.</b> The live
+    /// view was a permanent seat on the bar that a person was SENT to: watching
+    /// closed the flight modal and switched tabs, so asking to see more of what
+    /// you were reading took away what you were reading. The console's own rule
+    /// calls the live view "a trust artifact meant to decay", and a tab that is
+    /// always there is the opposite of decaying - this is off unless somebody
+    /// asks, structurally rather than by a flag defaulting to false.
+    /// </para>
+    /// <para>
+    /// <b>The only mode with a parent.</b> Every other modal closes to
+    /// <see cref="Normal"/> because every other modal was opened from there.
+    /// This one is opened from the flight modal and from the runner modal, so
+    /// <see cref="AppState.ModeBeneath"/> records which, and escape goes back
+    /// rather than out.
+    /// </para>
+    /// <para>
+    /// <b>And it is the one modal that takes the whole screen.</b> A document
+    /// modal is 92 by 88, which is right for prose somebody reads once. This is
+    /// an unbounded tail of output, and drawn at the same size over a modal
+    /// already that size it reads as the same box redrawn.
+    /// </para>
+    /// </remarks>
+    Watching,
 }
 
 /// <summary>Which page of help a person is reading.</summary>
@@ -1053,6 +1083,32 @@ public sealed record LiveAttachFact
 public sealed record AppState
 {
     public UiMode Mode { get; init; } = UiMode.Normal;
+
+    /// <summary>The modal this one was opened over, and the one escape returns
+    /// to.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Normal for every mode but one.</b> Closing a modal has always meant
+    /// landing on <see cref="UiMode.Normal"/>, and for every modal that opens
+    /// from the main screen that is not an assumption, it is the truth.
+    /// <see cref="UiMode.Watching"/> is opened over the flight modal and over
+    /// the runner modal, and landing on Normal from there would close the thing
+    /// somebody was reading as the price of having looked at it.
+    /// </para>
+    /// <para>
+    /// <b>Recorded rather than derived</b>, because the two parents are
+    /// indistinguishable by the time the watch is open: both leave a flight
+    /// selected and a runner selected, and guessing from that would send a
+    /// person back to whichever the guess preferred.
+    /// </para>
+    /// <para>
+    /// <b>Not a stack.</b> One value, set when a watch opens and spent when it
+    /// closes. Modals in this console do not nest, and a second level would be
+    /// a second escape somebody has to press to get their terminal back - which
+    /// is the thing the one-escape-hatch rule exists to prevent.
+    /// </para>
+    /// </remarks>
+    public UiMode ModeBeneath { get; init; } = UiMode.Normal;
 
     /// <summary>
     /// Which view has the screen. The queue is what a person is here for.

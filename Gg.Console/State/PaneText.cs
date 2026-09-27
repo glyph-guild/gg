@@ -2750,9 +2750,29 @@ public static class PaneText
             UiMode.BoardDetail => BoardDetails.Title(state),
             UiMode.Runner => RunnerDetails.Title(state),
             UiMode.WorkItemDetail => WorkItemDetails.Title(state),
+
+            // WHICH ONE IS BEING WATCHED, by number. A full screen of output
+            // under a title saying only "watching" is a screen that could be
+            // about anything, and the modal underneath - the one naming the
+            // flight - is the thing this is covering up.
+            UiMode.Watching => Watching(state),
+
             _ => ModalTitle(state.Mode),
         };
     }
+
+    /// <summary>Which flight or machine the watch is drawing.</summary>
+    /// <remarks>
+    /// <b>By number, never by id.</b> Nothing a person reads in this product is
+    /// named by a guid, and the watch is opened from a modal that was already
+    /// naming the flight properly.
+    /// </remarks>
+    private static string Watching(AppState state) =>
+        state.WatchedRunnerId is { Length: > 0 }
+            ? $"watching {ControlText.Strip(RunnerDetails.Title(state))}"
+            : Detailed(state) is { } flight
+                ? $"watching {ControlText.Strip(flight.FlightNumber)}"
+                : ModalTitle(UiMode.Watching);
 
     /// <summary>How a launch path composed its intent, said out loud.</summary>
     /// <remarks>
@@ -2882,6 +2902,7 @@ public static class PaneText
         UiMode.FlightActions => "what can be done",
         UiMode.AirspaceActions => "what can be done to the airspace",
         UiMode.FlightDetail => "this flight",
+        UiMode.Watching => "watching",
         UiMode.HandFlight => "nothing was created",
         UiMode.Runner => "no runner",
         UiMode.ConfirmFlight => "this has flown before",
@@ -3062,7 +3083,33 @@ public static class PaneText
              // AND THE KINDS, now that each carries a sentence. A name per line
              // fitted a small box; a name and what it is for do not, and a
              // tenant may declare any number of them.
-             or UiMode.WorkKindChoice;
+             or UiMode.WorkKindChoice
+
+             // AND THE WATCH, which is a document in the sense this asks about
+             // - a body somebody reads and scrolls, not a question with
+             // answers. It is sized past a document by ModalIsFullScreen, and
+             // both are true of it.
+             or UiMode.Watching;
+
+    /// <summary>Whether a modal takes the terminal rather than a share of
+    /// it.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One mode, and the reason is what it is drawn over.</b> A document
+    /// modal is 92 by 88, which is nearly the screen already - so a second one
+    /// at the same size on top of the first does not read as having opened,
+    /// it reads as the first having been redrawn. The watch is the only modal
+    /// with a modal underneath it, so it is the only one that has to look
+    /// different from one.
+    /// </para>
+    /// <para>
+    /// <b>And it is the only body with no end.</b> Every other modal shows
+    /// something of a known size - a question, a flight's fields, a document
+    /// somebody wrote. This one shows a tail that is still being written, and
+    /// the last eight per cent of the screen is eight per cent more of it.
+    /// </para>
+    /// </remarks>
+    public static bool ModalIsFullScreen(UiMode mode) => mode is UiMode.Watching;
 
     /// <summary>How wide a question's words may run.</summary>
     /// <remarks>
@@ -3178,6 +3225,12 @@ public static class PaneText
             UiMode.ReadingSaid => string.Join('\n', SaidLines(state, 0)),
 
             UiMode.FlightDetail => FlightDetail(state),
+
+            // THE SAME PRODUCER THE PANE USED, unchanged. What moved is the box
+            // it is drawn in; every sentence about silence, every line the
+            // runner said and the breathing mark are the live view's own and
+            // stay its own.
+            UiMode.Watching => Live(state),
             UiMode.HandFlight => HandFlight(state),
             UiMode.Runner => Runner(state),
             UiMode.FlightActions => Actions(state),

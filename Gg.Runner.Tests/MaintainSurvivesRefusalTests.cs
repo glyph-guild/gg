@@ -54,6 +54,11 @@ public class MaintainSurvivesRefusalTests
     {
         public PoolCapabilities Capabilities { get; } = new() { Provider = "fake" };
 
+    /// <summary>Reclaiming: this fake records nothing about it.</summary>
+    public Task<PoolObservation> DestroyAsync(
+        string member, CancellationToken cancellationToken = default) =>
+        Task.FromResult(new PoolObservation { Outcome = PoolOutcomes.Verified });
+
         public Task<ScopeProbe> ProbeScopeAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new ScopeProbe { Held = true, ProbedAt = T0 });
 

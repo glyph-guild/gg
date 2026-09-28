@@ -54,6 +54,16 @@ public class APoolRollsOntoItsPinTests
 
         public PoolCapabilities Capabilities { get; } = new() { Provider = "fake" };
 
+    /// <summary>Which members were reclaimed - destroyed with nothing created.</summary>
+    public List<string> Destroyed { get; } = [];
+
+    public Task<PoolObservation> DestroyAsync(
+        string member, CancellationToken cancellationToken = default)
+    {
+        Destroyed.Add(member);
+        return Task.FromResult(new PoolObservation { Outcome = PoolOutcomes.Verified });
+    }
+
         public PoolObservation Resetting { get; set; } = new()
         {
             Outcome = PoolOutcomes.Verified,

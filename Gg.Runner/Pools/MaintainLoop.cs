@@ -567,21 +567,46 @@ public sealed class MaintainLoop(
         string pool, string image, CancellationToken cancellationToken)
     {
         var members = await _adapter.ListAsync(pool, cancellationToken);
+        // OFF THE PIN, WHICHEVER STATE IT IS IN - and what to do about it
+        // depends on the state, which is where this used to go wrong.
         var stale = members
-            // RUNNING MEMBERS ONLY. The listing asks for ?all=true, so a member
-            // whose twelve-hour credential ran out is in it, stopped - and a
-            // reset creates a RUNNING member, so resetting that one grows the
-            // pool. Measured on vmlinux001: the first roll that ran brought a
-            // spent gg-pool-ui-3 back to life and left a pool bounded at two
-            // with three. A stopped member is a slot, as NextSlotAsync says
-            // below, and filling a slot is refresh's - decided only inside the
-            // strategy's inventory, and converged onto the pin when it is.
-            .Where(m => m.Running)
             .Where(m => m.MadeFrom is { Length: > 0 } madeFrom
                      && !string.Equals(madeFrom, image, StringComparison.Ordinal))
             .ToList();
 
-        foreach (var member in stale)
+        // A SPENT ONE IS RECLAIMED: destroyed, and nothing created in its place.
+        //
+        // This used to be skipped entirely, and the reason was real - a reset
+        // creates a RUNNING member, so resetting a stopped one grows the pool,
+        // and "the first roll that ran brought a spent gg-pool-ui-3 back to life
+        // and left a pool bounded at two with three". Skipping fixed the growth
+        // and made the corpse immortal: at the ceiling nothing else can reach it,
+        // because WarmMembers counts live members, two running and one exited
+        // reads as two, and a refresh needs WarmMembers < PoolMax. Found live at
+        // thirty-three hours, its verify attesting failed every five seconds the
+        // whole time - an escalation that never closes.
+        //
+        // Destroying is the half that was missing. It takes nothing away: a
+        // stopped member is not in the live count, so no number a bound is
+        // written against moves, and the slot goes back to refresh.
+        foreach (var spent in stale.Where(m => !m.Running))
+        {
+            var reclaimed = await _adapter.DestroyAsync(spent.Name, cancellationToken);
+
+            if (!string.Equals(
+                    reclaimed.Outcome, PoolOutcomes.Verified, StringComparison.Ordinal))
+            {
+                return reclaimed with
+                {
+                    Diagnosis = $"'{spent.Name}' is spent and off {image}, and could not be "
+                              + "reclaimed: "
+                              + (reclaimed.Diagnosis ?? "the adapter did not say why."),
+                };
+            }
+        }
+
+        // AND A RUNNING ONE IS REPLACED, which is the case the act exists for.
+        foreach (var member in stale.Where(m => m.Running))
         {
             var observed = await _adapter.ResetAsync(
                 member.Name,

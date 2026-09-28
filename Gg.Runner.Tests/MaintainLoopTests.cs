@@ -38,6 +38,11 @@ public class MaintainLoopTests
 
         public PoolCapabilities Capabilities { get; } = new() { Provider = "fake" };
 
+    /// <summary>Reclaiming: this fake records nothing about it.</summary>
+    public Task<PoolObservation> DestroyAsync(
+        string member, CancellationToken cancellationToken = default) =>
+        Task.FromResult(new PoolObservation { Outcome = PoolOutcomes.Verified });
+
         /// <summary>Answers each probe as it is asked, when a test needs them to differ.</summary>
         public Func<ScopeProbe>? Probing { get; set; }
 

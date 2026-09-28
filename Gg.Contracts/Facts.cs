@@ -449,7 +449,28 @@ public static class FactVocabulary
     /// loop.digest.refusedMoves is empty for such a flight by construction: a
     /// refusal is a tool the envelope did not name, and this envelope named
     /// them all. NO KIND CHANGED.
-    public const string Version = "0.36.0";
+    ///
+    /// AND TO 0.37.0 - THREE MEMBERS ON flight.nomination, NO KIND CHANGED.
+    /// Slice fifty-three: a nomination may name its own SUBJECT, the VERSION
+    /// of that subject, and the ITINERARY it belongs to. All three optional,
+    /// and absent means what every nomination already shipped means - about
+    /// the flight it came from - so no fact in flight changes meaning and no
+    /// classifier has to be taught anything.
+    ///
+    /// WHY IT MOVES AT ALL, given nothing existing reads differently: the
+    /// fingerprint is over the fact SHAPE, and a reader pinned under this
+    /// version handed a nomination carrying a subject would drop the one
+    /// member that says which of three pieces of work it is about. Dropping it
+    /// silently is the failure - three legs would collapse onto one key and the
+    /// last would win, which is precisely the behaviour this slice exists to
+    /// end. Halting loudly is the bargain, and the row is the price.
+    ///
+    /// NominationEndings.Dropped is NOT what moved this. That vocabulary is
+    /// [VocabularyOf(Contract)] rather than Fact - an ending is decided
+    /// control-plane-side and travels outward, and no runner ships one inside a
+    /// fact - so the seventh ending moves the contract number and leaves this
+    /// one alone. Two ledgers, and the split is doing its job.
+    public const string Version = "0.37.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>

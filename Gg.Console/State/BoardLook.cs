@@ -82,11 +82,20 @@ public static class BoardLook
 
         // NOTHING CAME OF IT, and nothing was decided either. Withdrawn is the
         // subject ending, superseded is a newer version arriving, lapsed is a
-        // window closing - three ways of ceasing to apply, which should look
-        // like nothing rather than like a result.
+        // window closing, dropped is the plan that named it no longer naming it
+        // - four ways of ceasing to apply, which should look like nothing
+        // rather than like a result.
+        //
+        // DROPPED IS TAUGHT HERE THE DAY IT IS DECLARED, though the board's own
+        // read excludes the nominator that produces it. The fall-through below
+        // answers None for every word this console has not been taught, so a
+        // seventh ending arriving with no case reads as a row nobody has heard
+        // of rather than as a gap - and the Itineraries tab, which is where
+        // these rows are actually read, renders through this same map.
         NominationEndings.Withdrawn
             or NominationEndings.Superseded
-            or NominationEndings.Lapsed => BoardTint.Moot,
+            or NominationEndings.Lapsed
+            or NominationEndings.Dropped => BoardTint.Moot,
 
         // THE WATCH THAT CANNOT DO ITS JOB. The one red on this tab, and it is
         // the flights tab's `failed`: it wanted something and did not get it.

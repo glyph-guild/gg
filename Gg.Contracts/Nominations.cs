@@ -18,7 +18,7 @@ public static class NominationStates
 }
 
 /// <summary>
-/// The ways a nomination stops standing. Six, and each names who ended it.
+/// The ways a nomination stops standing. Seven, and each names who ended it.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -28,8 +28,8 @@ public static class NominationStates
 /// addition would spend.
 /// </para>
 /// <para>
-/// <b>Six rather than three, because who ended it is the part worth reading.</b>
-/// A person asking "why is there no flight for this?" is asking which of six
+/// <b>Seven rather than three, because who ended it is the part worth reading.</b>
+/// A person asking "why is there no flight for this?" is asking which of seven
 /// things happened, and a vocabulary that answered "it ended" would send them to
 /// the sentence to find out — which is a sentence they would then have to parse.
 /// This vault already holds the line one noun over: <c>grounded</c> is not
@@ -98,9 +98,41 @@ public static class NominationEndings
     /// </remarks>
     public const string Lapsed = "lapsed";
 
+    /// <summary>The plan that named it no longer does.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>OURS, NOT THE WORLD'S - which is the whole of the discriminator.</b>
+    /// A revised itinerary no longer names this leg, so the row stops standing
+    /// because the plan changed and not because anything about the subject did.
+    /// <see cref="Withdrawn"/> is the opposite reading of the same silence:
+    /// there the pull request merged or the item closed, and the question
+    /// ceased to apply on its own.
+    /// </para>
+    /// <para>
+    /// <b>Not <see cref="Superseded"/>, which requires a successor.</b>
+    /// Superseding is what happens to a leg whose CONTENT changed - a newer
+    /// version of the same subject arrived and the loser is visible beside the
+    /// winner. A dropped leg has no newer version, because the revision that
+    /// ended it stopped mentioning that subject at all, and recording it as
+    /// superseded would send a reader looking for a row that does not exist.
+    /// </para>
+    /// <para>
+    /// <b>Not <see cref="Declined"/> and not <see cref="Refused"/>.</b> Those
+    /// two are a person's answer and a rule's, kept apart from each other on
+    /// purpose; neither happened here. Nobody read this leg and said no, and
+    /// nothing forbade it - a later pass simply proposed a different shape.
+    /// </para>
+    /// <para>
+    /// <b>The seventh party, which is what the count above asks for.</b> The
+    /// board, the world, a person, the rules and the clock were the five. This
+    /// one is the PLANNER: the pass that proposed the leg, revising itself.
+    /// </para>
+    /// </remarks>
+    public const string Dropped = "dropped";
+
     /// <summary>Every ending, and the only words a recorded ending may carry.</summary>
     public static IReadOnlyList<string> All { get; } =
-        [Opened, Superseded, Withdrawn, Declined, Refused, Lapsed];
+        [Opened, Superseded, Withdrawn, Declined, Refused, Lapsed, Dropped];
 }
 
 /// <summary>
@@ -283,10 +315,10 @@ public sealed record NominationDecision
 /// The endings a person may cause.
 /// </summary>
 /// <remarks>
-/// <b>Two of the six, and the other four are nobody's to type.</b> Superseding
-/// is the board's, withdrawal is the world's, lapsing is the clock's and
-/// refusal is the rules'. A door that accepted one of those would let somebody
-/// record that the clock did what they did.
+/// <b>Two of the seven, and the other five are nobody's to type.</b> Superseding
+/// is the board's, withdrawal is the world's, lapsing is the clock's, refusal is
+/// the rules' and dropping is the planner's. A door that accepted one of those
+/// would let somebody record that the clock did what they did.
 /// </remarks>
 [VocabularyOf(VocabularyFingerprints.Contract)]
 public static class NominationDecisions

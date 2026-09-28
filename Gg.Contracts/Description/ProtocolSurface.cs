@@ -1906,7 +1906,8 @@ public static class ProtocolSurface
             [typeof(HumanAccount)] =
                 ["by", "statement", "confirmation", "confirmedAt", "wasProposed"],
             [typeof(FlightNomination)] =
-                ["workKind", "reason", "note", "environment", "repository"],
+                ["workKind", "reason", "note", "environment", "repository",
+                 "subject", "version", "itinerary"],
             [typeof(LoopQuestion)] = ["question"],
             [typeof(WorkItemProposal)] =
                 ["operation", "reason", "target", "score", "detail", "fields"],

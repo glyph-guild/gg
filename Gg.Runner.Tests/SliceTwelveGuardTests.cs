@@ -175,7 +175,15 @@ public class SliceTwelveGuardTests
     /// loudly rather than accepting-and-ignoring. That is the property being
     /// bought; the row is the price.
     /// </para>
-    private const string VocabularyAtSliceStart = "0.36.0";
+    /// <para>
+    /// <b>And to 0.37.0 — three MEMBERS, which is the cheap kind.</b> A
+    /// nomination may name its own subject, that subject's version and the
+    /// itinerary it belongs to (slice fifty-three). The count below is
+    /// unchanged: no kind crosses that did not, and this guard's criterion is
+    /// untouched — <c>flight.nomination</c> already belonged to a flight, and
+    /// still does.
+    /// </para>
+    private const string VocabularyAtSliceStart = "0.37.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number

@@ -39,6 +39,45 @@ public static class NominationTool
     /// </remarks>
     public const string Qualified = $"mcp__{Server}__{Name}";
 
+    /// <summary>The work kind the agent chose.</summary>
+    /// <remarks>
+    /// <b>Here for the reason the tool's own name is</b>, and it was not: the
+    /// server declared these as its own private constants while the extractor
+    /// looked for the same words written out again in
+    /// <c>TranscriptDigest</c>. Two spellings of one argument is how one of
+    /// them stops agreeing, silently - a call the agent made that nothing
+    /// reads back. The sweep's three have been named here since they were
+    /// written, and these are the same idea on the same tool.
+    /// </remarks>
+    public const string WorkKindArgument = "work_kind";
+
+    /// <summary>Why, in the agent's own words.</summary>
+    public const string ReasonArgument = "reason";
+
+    /// <summary>What the agent would tell whoever picks the work up.</summary>
+    public const string NoteArgument = "note";
+
+    /// <summary>Where the work should run, when the destination permits a choice.</summary>
+    public const string EnvironmentArgument = "environment";
+
+    /// <summary>Which repository, when the destination permits a choice.</summary>
+    public const string RepositoryArgument = "repository";
+
+    /// <summary>
+    /// What this nomination is about, when it is about something other than
+    /// the flight it came from.
+    /// </summary>
+    /// <remarks>
+    /// <b>ON BOTH TOOLS, because it is one member.</b> A sweep names the
+    /// subject from its watch's mapping and a pass names the piece of work it
+    /// is proposing; the board keys on it identically either way, so a second
+    /// spelling for the flight side would be two words for one column.
+    /// </remarks>
+    public const string Subject = "subject";
+
+    /// <summary>Which version of that subject was nominated.</summary>
+    public const string Version = "version";
+
     /// <summary>
     /// The arguments the tool takes when the server was started for a sweep.
     /// </summary>
@@ -53,10 +92,16 @@ public static class NominationTool
         public const string Flag = "--sweep";
 
         /// <summary>What names the item, from the watch's mapping.</summary>
-        public const string Subject = "subject";
+        /// <remarks>
+        /// <see cref="NominationTool.Subject"/> itself rather than the same
+        /// word written twice: the member is one member and the column is one
+        /// column, so the compiler holds the agreement that a second literal
+        /// would leave to whoever edits one of them.
+        /// </remarks>
+        public const string Subject = NominationTool.Subject;
 
         /// <summary>Which version of it, from the watch's mapping.</summary>
-        public const string Version = "version";
+        public const string Version = NominationTool.Version;
 
         /// <summary>What names it outside gg, from the watch's mapping.</summary>
         public const string IntentKey = "intent_key";

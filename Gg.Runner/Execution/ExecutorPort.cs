@@ -504,16 +504,27 @@ public sealed record ExecutorRun
     public SpentTokens? Spent { get; init; }
 
     /// <summary>
-    /// The work kind this loop nominated, or null where it nominated none.
+    /// The work kinds this loop nominated, in the order it nominated them.
+    /// Empty where it nominated none.
     /// </summary>
     /// <remarks>
-    /// <b>Extracted HERE, from the stream, while it is still on this
-    /// machine</b> - the same boundary the digest is taken at, and for the same
-    /// reason. Null is the ordinary state: only a classifying loop nominates,
-    /// and a classifier that could not decide nominates nothing, which is a
-    /// real answer rather than a missing one.
+    /// <para>
+    /// <b>MANY, AND IT WAS ONE.</b> A classifier names a single kind for the
+    /// one item it is about, and that is still nearly every run - but a pass
+    /// reading a piece of work proposes the several flights that should follow
+    /// it, and a single-valued member made the extractor throw all but the
+    /// last away without saying so.
+    /// </para>
+    /// <para>
+    /// <b><see cref="Proposals"/>' shape, beside it.</b> That member's own
+    /// remark says <i>"many where Nomination is one, because a classifier
+    /// names a single work kind and a triage reads a backlog"</i> - and the
+    /// half of that sentence about nominations has stopped being true. Empty
+    /// is the ordinary answer for every run that is not a pass, exactly as it
+    /// is there.
+    /// </para>
     /// </remarks>
-    public Gg.Contracts.FlightNomination? Nomination { get; init; }
+    public IReadOnlyList<Gg.Contracts.FlightNomination> Nominations { get; init; } = [];
 
     /// <summary>
     /// The airspace document this run handed back, when it handed one back.

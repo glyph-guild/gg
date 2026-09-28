@@ -1442,7 +1442,7 @@ public sealed class ClaudeCodeExecutor(
             // value the agent DECLARED rather than a measurement, so it gets
             // its own extractor - but it is read here, once, from the stream
             // this machine already has.
-            Nomination = TranscriptDigest.Nomination(transcript.ToString()),
+            Nominations = TranscriptDigest.Nominations(transcript.ToString()),
             // AND THE DOCUMENT, at the same boundary and from the same text. The
             // most consequential of the declared values: it asks that the
             // document governing later flights change, and it applies nothing.

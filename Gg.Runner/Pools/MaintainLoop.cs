@@ -355,15 +355,46 @@ public sealed class MaintainLoop(
         if (string.Equals(action.Action, PoolActions.Reset, StringComparison.Ordinal))
         {
             var members = await _adapter.ListAsync(pool, cancellationToken);
-            return members is [var first, ..]
+
+            // THE LOWEST RUNNING SLOT, AND THIS LOOP'S CHOICE RATHER THAN THE
+            // DAEMON'S. It used to be the first entry of /containers/json, which
+            // comes back newest-first - written down nowhere, promised by nobody,
+            // and accidentally right only while a pool had one member.
+            //
+            // A reset is what makes a reused environment trustworthy again after
+            // a flight, and the decider asks for one only when no lease stands on
+            // the label - so nothing here is mid-flight, every running member is
+            // one somebody will be handed next, and the lowest slot is the one
+            // handed out soonest. Picking by slot also puts the reason in the
+            // attestation instead of leaving it to container ages.
+            //
+            // AND NEVER A STOPPED ONE. wantsReset fires once per release and is
+            // suppressed again the moment a reset attests, so scrubbing a corpse
+            // would report the release handled while the member that actually ran
+            // the flight kept a customer's tree. Refusing says so instead.
+            var target = members
+                .Where(m => m.Running)
+                .OrderBy(m => PoolNaming.SlotOf(m.Name) ?? int.MaxValue)
+                .ThenBy(m => m.Name, StringComparer.Ordinal)
+                .FirstOrDefault();
+
+            return target is not null
                 ? await _adapter.ResetAsync(
-                    first.Name,
-                    await SpecFor(pool, first.Name, image, cancellationToken),
+                    target.Name,
+                    await SpecFor(pool, target.Name, image, cancellationToken),
                     cancellationToken)
                 : new PoolObservation
                 {
                     Outcome = PoolOutcomes.Failed,
-                    Diagnosis = $"a reset was decided for '{pool}' and the pool has no members.",
+
+                    // NAMES WHAT WAS MISSING, because the remedy is a different
+                    // decision from the one that failed: warming one is a
+                    // refresh, and a refresh is the act bounded by the ceiling.
+                    Diagnosis = members.Count == 0
+                        ? $"a reset was decided for '{pool}' and the pool has no members."
+                        : $"a reset was decided for '{pool}' and none of its {members.Count} "
+                        + "members is running. There is nothing here anybody will be handed, so "
+                        + "there is nothing to make trustworthy - warming one is a refresh.",
                 };
         }
 

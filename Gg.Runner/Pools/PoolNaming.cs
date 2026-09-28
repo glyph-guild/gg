@@ -31,6 +31,47 @@ public static class PoolNaming
     public const string ReservedPrefix = "gg-pool-";
 
     /// <summary>
+    /// The slot a member's name ends in, or null when the name does not end in
+    /// one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Here because this file owns the convention.</b> <c>MaintainLoop</c>
+    /// mints members as <c>{pool}-{slot}</c>; a reader that lived beside the
+    /// caller that needed it would be a second place the shape is known, and the
+    /// two would disagree the first time either moved.
+    /// </para>
+    /// <para>
+    /// <b>The trailing segment, because a pool name has dashes of its own.</b>
+    /// <c>gg-pool-ui-1</c> is pool <c>gg-pool-ui</c> and slot 1, so splitting on
+    /// the first dash finds nothing and splitting on all of them finds the wrong
+    /// number.
+    /// </para>
+    /// <para>
+    /// <b>Null rather than a throw.</b> A listing is filtered by prefix and not
+    /// by shape, so a container called <c>gg-pool-ui-something</c> can reach a
+    /// caller - and a caller ordering by slot wants it last, not an exception.
+    /// </para>
+    /// </remarks>
+    public static int? SlotOf(string? member)
+    {
+        if (string.IsNullOrWhiteSpace(member))
+        {
+            return null;
+        }
+
+        var dash = member.LastIndexOf('-');
+
+        return dash >= 0
+            && dash < member.Length - 1
+            && int.TryParse(
+                member[(dash + 1)..], System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out var slot)
+            ? slot
+            : null;
+    }
+
+    /// <summary>
     /// The pool name, or a refusal naming both it and the prefix.
     /// </summary>
     /// <remarks>

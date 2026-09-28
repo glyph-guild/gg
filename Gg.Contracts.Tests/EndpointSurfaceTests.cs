@@ -523,7 +523,12 @@ public class EndpointSurfaceTests
         // wrong was the order. Declaring a route the other repository has not
         // served refuses its whole pin, so the declaration cost every change
         // over there and bought nothing here, where no caller exists.
-            .IsEqualTo("349cd91fc172499e8df4e05c14f2dc0ebb6b5938a7a1c5922532e38c07107e94")
+        // AND 0.246.0 ADDS THE TWO ITINERARY READS: GET /v1/itineraries and GET
+        // /v1/itineraries/{ref}, with /v1/itineraries joining GovernedPrefixes.
+        // Declared in the version the control plane SERVES them in, which is
+        // the lesson 0.218.0 and 0.224.0 taught from opposite directions -
+        // late is unreachable for ever, early freezes the consumer's pin.
+            .IsEqualTo("ca744bae2b5c5b4563731c36c1e7e20dd1e1012448a8f7fad90b5f72ac2316e9")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

@@ -213,6 +213,7 @@ public static class PaneText
             TabId.Repositories => Repositories(state),
             TabId.Envelope => AirspaceAbsence(state),
             TabId.Allowances => FleetAllowances(state),
+            TabId.Itineraries => Itineraries(state),
             _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
         };
     }
@@ -440,6 +441,39 @@ public static class PaneText
         // The empty pane means neither, and the next step is not to wait.
         return "  nothing has been nominated, and no watch is in force. A watch is what goes "
              + "looking - `gg airspace apply` declares one.";
+    }
+
+    /// <summary>What the plans pane says when there is no table to draw.</summary>
+    /// <remarks>
+    /// <b>THE BOARD'S THREE CASES, and they are the same three.</b> Nobody has
+    /// asked yet; somebody asked and it failed; it answered and there is
+    /// nothing. The first two are one arm because the diagnosis is what tells
+    /// them apart, and a pane still saying "reading" while nothing is coming is
+    /// the staleness every sentence in this file exists to avoid.
+    /// </remarks>
+    public static string Itineraries(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Itineraries is null)
+        {
+            return state.Diagnosis is { Length: > 0 } why
+                ? "  " + why
+                : "  (reading the plans…)";
+        }
+
+        if (Rows.Itineraries(state).Count > 0)
+        {
+            // THE TABLE DRAWS THE ROWS, which is every list pane's shape here.
+            return string.Empty;
+        }
+
+        // AND THE NEXT STEP IS NOT TO WAIT. A tenant with no plans is the
+        // ordinary case rather than a fault - nothing proposes one until a
+        // `plan` flight runs - so this says how one comes to exist rather than
+        // suggesting something is wrong.
+        return "  no plans yet. A plan is what a `plan` flight proposes: several pieces of "
+             + "work a person approves in one answer, which then fly together.";
     }
 
     /// <summary>

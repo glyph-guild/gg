@@ -164,6 +164,8 @@ public sealed class ConsoleScreen : Window
     private readonly FrameView _flightsPane;
     private readonly Label _board;
     private readonly FrameView _boardPane;
+    private readonly Label _itineraries;
+    private readonly FrameView _itinerariesPane;
 
     /// <summary>
     /// The three views that are lists of one shape of thing.
@@ -177,6 +179,7 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private readonly TableView _flightsTable;
     private readonly TableView _boardTable;
+    private readonly TableView _itinerariesTable;
 
     // WHAT THE FLIGHT PANE LAST SAID, AND WHAT IT SAID IT ABOUT. Building that
     // pane walks every entry of the selected flight's story - measured at
@@ -962,6 +965,19 @@ public sealed class ConsoleScreen : Window
         _board = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
         _boardTable = CollectionViews.Table();
         _boardPane.Add(_board, _boardTable);
+
+        // THE PLANS, ON THE BOARD'S SHAPE. Its rows are the board's rows read
+        // the other way round, so the pane is too - a label for the three
+        // things an empty one means, and a table for when there is something.
+        _itinerariesPane = new FrameView
+        {
+            Title = "itineraries",
+            X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(1),
+            Visible = false,
+        };
+        _itineraries = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
+        _itinerariesTable = CollectionViews.Table();
+        _itinerariesPane.Add(_itineraries, _itinerariesTable);
         _browseTable = CollectionViews.Table();
         _browsePane.Add(_browseTable);
 
@@ -1012,6 +1028,12 @@ public sealed class ConsoleScreen : Window
 
         _flightsTable.ValueChanged += OnRowPointedAt;
         _boardTable.ValueChanged += OnRowPointedAt;
+        // SUBSCRIBED, OR THE ARROWS DO NOTHING. A table binds the arrows
+        // itself and marks them handled, so they never reach Keymap - this
+        // subscription IS the keyboard for this pane, and without it the
+        // widget's cursor moves, raises an event nothing hears, and the next
+        // render puts it back.
+        _itinerariesTable.ValueChanged += OnRowPointedAt;
         _browseTable.ValueChanged += OnRowPointedAt;
         _repositoriesTable.ValueChanged += OnRowPointedAt;
         _runnersTable.ValueChanged += OnRowPointedAt;
@@ -2073,6 +2095,12 @@ public sealed class ConsoleScreen : Window
             // all. It is in this list so the source order and Tabs.All agree;
             // whether it reaches the bar is the loop below.
             (TabId.Allowances, Tabbed(_allowancesPane)),
+
+            // LAST, WHERE IT IS DECLARED. Appended rather than put beside the
+            // board it shares a page type with, because the first three places
+            // are pinned and inserting anywhere would move a bar a person has
+            // learned.
+            (TabId.Itineraries, Tabbed(_itinerariesPane)),
         ];
 
         _bar = new Terminal.Gui.Views.Tabs
@@ -4298,6 +4326,25 @@ public sealed class ConsoleScreen : Window
                     r => [r.What, r.Subject, r.For, r.State, r.Kind, r.Since, r.Next, r.Cost]);
             }
 
+            // THE PLANS, MEASURED SEPARATELY for the board's reason: deriving
+            // the rows groups them by plan number, and filling the table is
+            // Terminal.Gui measuring cells. Two findings, two fixes.
+            IReadOnlyList<ItineraryRow> itineraryRows;
+
+            using (Gg.Local.Timings.Active.Measure("itineraries.rows"))
+            {
+                itineraryRows = Rows.Itineraries(State);
+            }
+
+            using (Gg.Local.Timings.Active.Measure(
+                       "itineraries.fill",
+                       reads: Gg.Local.Timings.Active.Asked ? itineraryRows.Count : null))
+            {
+                Fill(_itinerariesTable, _itineraries, itineraryRows, Rows.ItineraryColumns,
+                    State.ItinerariesSelected,
+                    r => [r.Plan, r.Kind, r.State, r.Flight, r.Since]);
+            }
+
             Fill(_browseTable, null, Rows.Browse(State), Rows.BrowseColumns,
                 State.BrowseSelected,
                 r => [r.Id, r.State, r.Where ?? "", r.Title]);
@@ -4416,6 +4463,7 @@ public sealed class ConsoleScreen : Window
 
         _flights.Text = PaneText.Flights(State);
         _board.Text = PaneText.Board(State);
+        _itineraries.Text = PaneText.Itineraries(State);
         _repositories.Text = PaneText.Repositories(State);
         _runners.Text = PaneText.Runners(State);
 
@@ -6200,6 +6248,11 @@ public sealed class ConsoleScreen : Window
             // a person drives - the flight beside it is what the cursor means.
             TabId.Queue => _queue,
 
+            // THE TABLE WHEN THERE IS ONE, the label when there is not. The
+            // board's arm does the same: landing on an empty table is landing
+            // on nothing, and the label is what is actually being read then.
+            TabId.Itineraries => _itinerariesTable.Visible ? _itinerariesTable : _itineraries,
+
             // REFUSES RATHER THAN ANSWERING. C# needs an arm for values the
             // enum does not name, so this cannot be deleted - and it must not
             // name a widget, or it is the default that hid this bug. Every
@@ -6263,6 +6316,7 @@ public sealed class ConsoleScreen : Window
             // be built without a subscription at all.
             _flightsTable.ValueChanged -= OnRowPointedAt;
             _boardTable.ValueChanged -= OnRowPointedAt;
+            _itinerariesTable.ValueChanged -= OnRowPointedAt;
             _browseTable.ValueChanged -= OnRowPointedAt;
             _repositoriesTable.ValueChanged -= OnRowPointedAt;
             _runnersTable.ValueChanged -= OnRowPointedAt;

@@ -445,6 +445,8 @@ public static class Reducer
             Command.ShowQueueTab => Arrived(state with { ActiveTab = TabId.Queue }),
             Command.ShowFlightsTab => Arrived(state with { ActiveTab = TabId.Flights }),
             Command.ShowBoardTab => Arrived(state with { ActiveTab = TabId.Board }),
+            Command.ShowItinerariesTab =>
+                Arrived(state with { ActiveTab = TabId.Itineraries }),
 
             // WHICHEVER LIST HAS THE SCREEN. j and k are one pair of keys over
             // two lists, and moving the queue underneath a person reading work
@@ -1493,6 +1495,7 @@ public static class Reducer
                 TabId.Browse => PickWork(state, state.BrowseSelected + by),
                 TabId.Flights => PickFlight(state, state.FlightSelected + by),
                 TabId.Board => PickBoardRow(state, state.BoardSelected + by),
+                TabId.Itineraries => PickLeg(state, state.ItinerariesSelected + by),
                 TabId.Runners => PickRunner(state, state.RunnerSelected + by),
                 TabId.Envelope => PickAirspaceRow(state, state.AirspaceSelected + by),
                 _ => Select(state, state.SelectedRow + by),
@@ -1708,6 +1711,7 @@ public static class Reducer
             TabId.Browse => PickWork(state, row),
             TabId.Flights => PickFlight(state, row),
             TabId.Board => PickBoardRow(state, row),
+            TabId.Itineraries => PickLeg(state, row),
             TabId.Runners => PickRunner(state, row),
             TabId.Envelope => PickAirspaceRow(state, row),
             _ => Select(state, row),
@@ -1753,6 +1757,20 @@ public static class Reducer
     {
         BoardSelected = Rows.Board(state) is { Count: > 0 } rows
             ? Math.Clamp(to, 0, rows.Count - 1)
+            : 0,
+    };
+
+    /// <summary>Move the cursor over a plan's legs.</summary>
+    /// <remarks>
+    /// <b>Over the ROWS rather than the page.</b> The rows are grouped by plan
+    /// and a page of nominations is flat, so clamping to the answer's length
+    /// would let the cursor leave the table a person is looking at - the
+    /// runner cursor's own lesson, one pane over.
+    /// </remarks>
+    private static AppState PickLeg(AppState state, int to) => state with
+    {
+        ItinerariesSelected = Rows.Itineraries(state) is { Count: > 0 } legs
+            ? Math.Clamp(to, 0, legs.Count - 1)
             : 0,
     };
 

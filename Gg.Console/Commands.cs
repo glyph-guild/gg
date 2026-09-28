@@ -973,6 +973,9 @@ public enum Command
     /// </remarks>
     ShowBoardTab,
 
+    /// <summary>Show the plans this tenant has, and the legs of each.</summary>
+    ShowItinerariesTab,
+
     /// <summary>Opens the question of how much of this allowance to keep.</summary>
     AskToKeepAShare,
 

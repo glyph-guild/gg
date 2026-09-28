@@ -1386,7 +1386,8 @@ public static class EnvelopeYaml
     private static Destination MapDestination((string Id, MapNode Body) entry)
     {
         Closed(entry.Body, "kind", "requires", "preserve-unadmitted", "opens", "opens-as",
-            "may-select", "may-perform", "may-write", "branch", "title", "description");
+            "cap-per-pass", "may-select", "may-perform", "may-write", "branch", "title",
+            "description");
 
         return new Destination
         {
@@ -1422,6 +1423,12 @@ public static class EnvelopeYaml
                 : null,
             Opens = entry.Body.Entries.TryGetValue("opens", out var opens)
                 ? Strings(opens, $"{entry.Body.Path}.opens")
+                : null,
+            // ABSENT STAYS ABSENT, on `opens-as`' terms one line down: reading
+            // a missing key back as a number would put a line into a tenant's
+            // file that nobody wrote.
+            CapPerPass = entry.Body.Entries.TryGetValue("cap-per-pass", out var cap)
+                ? WholeNumber(cap, $"{entry.Body.Path}.cap-per-pass")
                 : null,
             // ABSENT STAYS ABSENT, on its neighbours' terms. Reading a missing
             // key back as `auto` would mean the same thing to the engine and a

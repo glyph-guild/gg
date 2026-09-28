@@ -1541,6 +1541,45 @@ public sealed record Destination
     public string? OpensAs { get; init; }
 
     /// <summary>
+    /// The most flights one pass may open here, or null for as many as it
+    /// nominates.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A CAP, NOT A RATE</b> (slice fifty-three rule 15). What bounds a pass
+    /// is how many flights it may open, not how many in a window: a pass is one
+    /// act, already bounded by its own wall clock, so a window would be a second
+    /// ceiling on something that happens once. <see cref="WatchBounds.CapPerPass"/>
+    /// is the same member one nominator over and deliberately the same name - a
+    /// sweep's cap and a pass's cap are one idea, and two words for it would be
+    /// two things to explain.
+    /// </para>
+    /// <para>
+    /// <b>ABSENT IS UNBOUNDED, which is what every destination in force says.</b>
+    /// A default of one would silently cap every classifier that exists, and a
+    /// bound nobody wrote is a bound nobody can be asked about - <c>Opens</c>'
+    /// own rule about silence, applied to a number.
+    /// </para>
+    /// <para>
+    /// <b>Intersect, on <see cref="Opens"/>' precedent.</b> A layer may only
+    /// lower it, because a higher cap is more flights an agent can cause. The
+    /// composer takes destinations wholesale from the base document and never
+    /// merges this - the declaration is what puts the field inside the drift
+    /// guard's sweep, and <c>EnvelopeDirection</c> is what reads the direction.
+    /// Both are needed: <c>accepts:</c> sat in the operator table and never in
+    /// the comparison, and nothing noticed.
+    /// </para>
+    /// <para>
+    /// <b>On a flight destination or nowhere</b>, for <see cref="Opens"/>'
+    /// reason: only a flight destination opens anything, so on any other kind
+    /// the number bounds nothing and is a line somebody will read as doing
+    /// something.
+    /// </para>
+    /// </remarks>
+    [Composes(MergeOperators.Intersect)]
+    public int? CapPerPass { get; init; }
+
+    /// <summary>
     /// What a nomination admitted here may select, or null when it selects
     /// nothing.
     /// </summary>
@@ -3541,6 +3580,30 @@ public static class DestinationOpening
             return $"Destination '{destination.Id}' declares opens and is a "
                  + $"'{destination.Kind}'. Only a '{DestinationKinds.Flight}' opens "
                  + "anything, so on this kind the list bounds nothing.";
+        }
+
+        // THE CAP, ON THE SAME TERMS AS THE MENU IT BOUNDS. Both are about what
+        // this destination may open, so a kind that opens nothing may declare
+        // neither - and the number is refused where the author can still fix
+        // it rather than discovered by a pass that gets fewer flights than it
+        // asked for.
+        if (destination.CapPerPass is { } cap)
+        {
+            if (!opensAFlight)
+            {
+                return $"Destination '{destination.Id}' caps how many flights one pass may "
+                     + $"open and is a '{destination.Kind}'. Only a "
+                     + $"'{DestinationKinds.Flight}' opens anything, so on this kind the "
+                     + "number bounds nothing.";
+            }
+
+            if (cap < 1)
+            {
+                return $"Destination '{destination.Id}' caps one pass at {cap} flights, which "
+                     + "is a destination that opens nothing. Leave the cap out to let a pass "
+                     + "open what it nominates, or say how many - an empty `opens` is refused "
+                     + "here for the same reason.";
+            }
         }
 
         // THE SAME SENTENCE, ONE KNOB OVER. A mode for opening a flight

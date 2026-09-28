@@ -514,6 +514,27 @@ public static class EnvelopeDirection
                   + "obligations apply - that a nomination can newly reach.");
             }
 
+            // HOW MANY, BESIDE WHICH. The menu bounds which kinds a pass may
+            // name; this bounds how many flights naming them may cause. Raising
+            // it is more work one act can start, which is reach whoever wrote
+            // the prompt did not have before.
+            //
+            // ABSENT IS UNBOUNDED, so DELETING the cap is the largest widening
+            // this member can express - the omission arm WatchBounds holds one
+            // nominator over, and the one a comparison written only over two
+            // numbers would miss.
+            if (was.CapPerPass is { } capped
+                && (now.CapPerPass is null || now.CapPerPass > capped))
+            {
+                return Widen($"{at}.cap-per-pass",
+                    now.CapPerPass is { } raised
+                        ? $"one pass may now open {raised} flights here where it could open "
+                        + $"{capped}. More work one act can start is reach the agent did not "
+                        + "have."
+                        : $"one pass was capped at {capped} flights here and now is not, and "
+                        + "absent means as many as it nominates.");
+            }
+
             // AND THE THIRD MENU, which is the one that changes somebody else's
             // system. An operation gained here is a change an admitted flight
             // may newly make to a backlog nobody in this document owns - a

@@ -1,3 +1,5 @@
+using Gg.Contracts.Description;
+
 namespace Gg.Contracts;
 
 /// <summary>
@@ -143,6 +145,83 @@ public sealed record FlightNomination
     /// </remarks>
     public string? Repository { get; init; }
 
+    /// <summary>
+    /// What this nomination is about, when it is about something other than the
+    /// flight it came from.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>ABSENT MEANS WHAT IT HAS ALWAYS MEANT</b>, which is why this is
+    /// optional rather than required with a default. A nomination with no
+    /// subject is a flight saying <i>here is what should happen next</i>, and
+    /// the control plane keys it on the flight it came from - the arrangement
+    /// every nominator built so far runs on, and the one that is still correct
+    /// for all of them.
+    /// </para>
+    /// <para>
+    /// <b>Present is a pass saying <i>here are three pieces of work</i>.</b>
+    /// Those three collapse into one row unless each names what it is about,
+    /// because the board supersedes per <c>(nominator, subject)</c> and one
+    /// nominator with one subject is one row by construction. A watch already
+    /// stands many rows from one sweep for exactly this reason, and
+    /// <see cref="SweepNomination.Subject"/> is the member that lets it - this
+    /// is that member, on the fact an agent inside a flight ships.
+    /// </para>
+    /// <para>
+    /// <b>A piece of work, not a work item.</b> Some legs trace back to a
+    /// tracker and some do not; what goes here is whatever names the thing to
+    /// the nominator, and a plan whose legs are sentences is the case this has
+    /// to survive.
+    /// </para>
+    /// </remarks>
+    public string? Subject { get; init; }
+
+    /// <summary>
+    /// Which version of that subject was nominated, when there is one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>What makes a re-proposal converge instead of accumulating.</b> The
+    /// board supersedes an older version of the same subject and skips an
+    /// identical one, so a pass that runs twice over an unchanged plan writes
+    /// no second row and opens no second flight. <see cref="Subject"/> says
+    /// which row; this says whether it is the same one.
+    /// </para>
+    /// <para>
+    /// <b>Only alongside a subject.</b> A version with nothing to be a version
+    /// OF is a claim about something the nominator did not name, and refusing
+    /// it here is cheaper than a store deciding later what it was about.
+    /// </para>
+    /// </remarks>
+    public string? Version { get; init; }
+
+    /// <summary>
+    /// The itinerary this nomination belongs to, or null to have one minted.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Absent mints, present revises.</b> A pass that names none is
+    /// proposing a plan for the first time and gets an itinerary of its own; a
+    /// pass that names one is revising that plan, and its legs supersede,
+    /// replace or drop the legs already standing under it.
+    /// </para>
+    /// <para>
+    /// <b>Legal without a <see cref="Subject"/>, and that is not an
+    /// oversight.</b> An unplanned flight joins an itinerary by nominating
+    /// under it, and what it has to say is <i>what should happen next</i> -
+    /// the subjectless reading, keyed on the flight it came from, which is
+    /// distinct per flight and so collapses nothing.
+    /// </para>
+    /// <para>
+    /// <b>A reference, read by <see cref="ItineraryRef"/>.</b> Either form: an
+    /// agent that read <c>ITN-7</c> off a prompt names it the way it saw it,
+    /// and one holding the id names that. Refused here rather than accepted
+    /// and resolved to nothing, because a plan revising an itinerary that does
+    /// not parse is a plan that would silently have minted a second one.
+    /// </para>
+    /// </remarks>
+    public string? Itinerary { get; init; }
+
     /// <summary>The most a nominated name may be.</summary>
     /// <remarks>
     /// A work kind is a name in a topology, and an unbounded one is a string
@@ -159,6 +238,18 @@ public sealed record FlightNomination
     /// sentence a person reads while deciding something is the wrong shape.
     /// </remarks>
     public const int MaxReason = 2000;
+
+    /// <summary>The most a subject may be.</summary>
+    /// <remarks>
+    /// <see cref="SweepNomination.MaxSubject"/> itself rather than the same
+    /// number written twice. The two members are the same member on two tools,
+    /// and a bound that could drift between them would let a subject be sayable
+    /// by a sweep and refused from a flight.
+    /// </remarks>
+    public const int MaxSubject = SweepNomination.MaxSubject;
+
+    /// <summary>The most a version may be.</summary>
+    public const int MaxVersion = SweepNomination.MaxVersion;
 
     /// <summary>The most a note may be.</summary>
     /// <remarks>
@@ -192,6 +283,62 @@ public sealed record FlightNomination
         {
             return "A nomination says why. One with no reason is a decision with no record of "
                  + "what it rested on, which is the half that makes it reviewable.";
+        }
+
+        // AN IDENTITY, NEVER TEXT. Past these a subject is a sentence, and a
+        // sentence here is a work item's prose arriving in a store under an
+        // identity's name - SweepNomination.Invalid's rule, on the same two
+        // members.
+        if (nomination.Subject is { } subject)
+        {
+            if (string.IsNullOrWhiteSpace(subject))
+            {
+                return "A nomination's subject is blank. Leave it out rather than sending an "
+                     + "empty one: null says this is about the flight it came from, and an "
+                     + "empty string says it is about something that was not named.";
+            }
+
+            if (subject.Length > MaxSubject)
+            {
+                return $"A nomination's subject is at most {MaxSubject} characters and this one "
+                     + $"is {subject.Length}. It is what names the thing, not a description of "
+                     + "it.";
+            }
+        }
+
+        if (nomination.Version is { } version)
+        {
+            if (nomination.Subject is null)
+            {
+                return "A nomination names a version and no subject, so it is a version of "
+                     + "something it did not name. A subjectless nomination is about the flight "
+                     + "it came from, and that flight's version is not the nominator's to state.";
+            }
+
+            if (string.IsNullOrWhiteSpace(version))
+            {
+                return "A nomination's version is blank. Leave it out rather than sending an "
+                     + "empty one: null says the subject has no version worth comparing, and an "
+                     + "empty string is one that compares equal to nothing.";
+            }
+
+            if (version.Length > MaxVersion)
+            {
+                return $"A nomination's version is at most {MaxVersion} characters and this one "
+                     + $"is {version.Length}. It is compared for equality, not read.";
+            }
+        }
+
+        // READ HERE RATHER THAN DECLARED, unlike the work kind: an itinerary
+        // reference has a rule, the rule lives in the contract, and a plan that
+        // named an unparseable one would quietly have minted a second itinerary
+        // instead of revising the one it meant.
+        if (nomination.Itinerary is { } itinerary
+            && !ItineraryRef.TryParse(itinerary, out _))
+        {
+            return $"'{itinerary}' is not an itinerary reference. It is the number a person was "
+                 + $"shown - {ItineraryRef.Format(7)} - or the id underneath it, and a pass that "
+                 + "names neither is revising nothing.";
         }
 
         // A NAME, NEVER PROSE, and blank refused rather than carried - the rule

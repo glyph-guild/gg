@@ -191,8 +191,12 @@ public class TheRunnersCursorStaysTests
         var wired = screen.Split("ValueChanged += OnRowPointedAt").Length - 1;
         var released = screen.Split("ValueChanged -= OnRowPointedAt").Length - 1;
 
-        await Assert.That(built).IsEqualTo(16)
-            .Because("nine calls, and the count is here so a tenth has to come past this. "
+        await Assert.That(built).IsEqualTo(17)
+            .Because("TEN calls now - the tenth is the Itineraries pane's, and it came past "
+                   + "this ratchet with its subscription rather than without one, which is "
+                   + "what the count is for. "
+                   + "Nine before that, and the count is here so an eleventh has to come "
+                   + "past this too. "
                    + "The sixth is the airspace tree, which replaced a Label that rendered "
                    + "a hand-counted role column. The seventh and eighth are the RUNNER "
                    + "MODAL's - what a runner runs, and what runs beside it - and they are "
@@ -228,7 +232,7 @@ public class TheRunnersCursorStaysTests
         // The reason they cannot share OnRowPointedAt is real: it routes by
         // ACTIVE TAB, and the tab behind that modal is Runners. The conclusion
         // drawn from it was not.
-        await Assert.That(wired).IsEqualTo(6)
+        await Assert.That(wired).IsEqualTo(7)
             .Because($"a tab's table that nobody subscribed is a table whose cursor the model "
                    + $"never learns about. Built {built}, wired {wired}.");
         await Assert.That(released).IsEqualTo(wired)

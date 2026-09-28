@@ -89,6 +89,16 @@ public static class ConsoleRefresh
                     cancellationToken),
                 TabId.Repositories => Apply(await data.RepositoriesAsync(cancellationToken)),
                 TabId.Envelope => Apply(await data.EnvelopeAsync(cancellationToken)),
+                // SOMETHING MUST ASK, and this is it. Without this arm the
+                // fall-through below answers Nothing, the state member stays
+                // null, HasRead stays false, and the pane says "reading the
+                // plans" for ever - with no test failing anywhere. That is the
+                // dead-tab failure, and it is why this arm has a test of its
+                // own rather than only a pane.
+                TabId.Itineraries => Apply(
+                    await data.ItinerariesAsync(
+                        cancellationToken,
+                        AsManyAsAreShown(on.Itineraries?.Nominations.Count ?? 0))),
 
                 _ => Nothing,
             };

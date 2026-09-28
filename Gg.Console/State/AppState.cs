@@ -800,6 +800,18 @@ public enum TabId
     /// a pane for that answer. See <see cref="Tabs.Offered"/>.
     /// </remarks>
     Allowances,
+
+    /// <summary>
+    /// The plans this tenant has, and the legs each one is made of.
+    /// </summary>
+    /// <remarks>
+    /// <b>APPENDED, NEVER INSERTED.</b> Queue, board and flights hold the
+    /// first three places and nothing displaces them - what needs somebody,
+    /// what was nominated, what has run. A plan is read after those, and the
+    /// bar is drawn in this order, so putting one in front would move every
+    /// tab a person has learned.
+    /// </remarks>
+    Itineraries,
 }
 
 /// <summary>
@@ -1255,6 +1267,25 @@ public sealed record AppState
     /// back, look identical in a list and mean opposite things.
     /// </remarks>
     public BoardPage? Board { get; init; }
+
+    /// <summary>
+    /// Every leg of every plan this tenant has, or null before the read.
+    /// </summary>
+    /// <remarks>
+    /// <b>The board's page, because an itinerary's legs ARE nominations.</b>
+    /// The same rows read the other way round - so the tab that shows a plan
+    /// and the queue that shows what needs answering cannot disagree about
+    /// what one row says.
+    /// </remarks>
+    public BoardPage? Itineraries { get; init; }
+
+    /// <summary>Which leg the cursor is on.</summary>
+    /// <remarks>
+    /// An <c>int</c> rather than an <c>int?</c>, on <see cref="BoardSelected"/>'s
+    /// shape: a table's cursor is a row index and zero is a real row, so the
+    /// absence a nullable would express is already the empty list.
+    /// </remarks>
+    public int ItinerariesSelected { get; init; }
 
     /// <summary>
     /// How every watch in force is doing, exactly as `gg watches` returned it.

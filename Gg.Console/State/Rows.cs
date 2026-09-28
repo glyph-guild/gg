@@ -372,6 +372,17 @@ public static class Rows
     public static IReadOnlyList<string> BoardColumns { get; } =
         ["", "subject", "for", "state", "kind", "since", "next", "cost"];
 
+    /// <summary>What the plans pane shows, left to right.</summary>
+    /// <remarks>
+    /// <b>THE PLAN FIRST, because that is what a person came for.</b> They
+    /// approved <c>ITN-7</c> and want to know how it is going, so the number
+    /// leads and the legs sort under it. The subject is a digest - a leg's
+    /// identity, not its description - so what a reader actually reads is the
+    /// KIND and the state, which is why those come next.
+    /// </remarks>
+    public static IReadOnlyList<string> ItineraryColumns { get; } =
+        ["plan", "kind", "state", "flight", "since"];
+
     public static IReadOnlyList<string> RunnerColumns { get; } =
         ["", "runner", "whose", "profile", "state", "working on", "cpu", "memory",
          "lacks", "advertises", "last heard"];
@@ -598,6 +609,54 @@ public static class Rows
     /// out is how a board comes to look healthy while nothing is sweeping.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Every leg of every plan, newest plan first and its legs beneath it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>GROUPED BY THE NUMBER, because the plan is the thing.</b> The rows
+    /// arrive flat - they are nominations, read by nominator - and a person
+    /// reading them wants ITN-7's three legs together rather than interleaved
+    /// with ITN-8's. Nothing on the wire orders them, so the grouping is here.
+    /// </para>
+    /// <para>
+    /// <b>A row whose plan number is absent is not a leg</b> and cannot appear
+    /// here: this surface reads only <c>itinerary:</c> nominators, and every
+    /// one of those carries a number because an itinerary is minted with its
+    /// number in one statement. An absence would be a bug over there rather
+    /// than a case to render, so it is dropped rather than drawn as blank.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<ItineraryRow> Itineraries(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return
+        [
+            .. (state.Itineraries?.Nominations ?? [])
+                .Where(n => n.ItineraryNumber is { Length: > 0 })
+                .GroupBy(n => n.ItineraryNumber!, StringComparer.Ordinal)
+                .OrderByDescending(plan => plan.Max(n => n.MadeAt))
+                .SelectMany(plan => plan
+                    .OrderByDescending(n => n.MadeAt)
+                    .Select(leg => new ItineraryRow(
+                        leg.NominationId.ToString(),
+                        plan.Key,
+                        leg.WorkKind,
+                        // WHAT BECAME OF IT: the ending if it has one, the
+                        // mode while it stands. `dropped` reads here and
+                        // nowhere else, because the board excludes these rows.
+                        leg.Ending is { Length: > 0 } ended ? ended : leg.Mode,
+                        // THE FLIGHT IT OPENED, which is what a person follows
+                        // to see the work. Blank while it stands, and blank on
+                        // a leg that was refused or dropped - neither opened
+                        // one, and a dash would be a claim about a flight that
+                        // does not exist.
+                        leg.FlightNumber ?? "",
+                        PaneText.AgeOf(leg.MadeAt)))),
+        ];
+    }
+
     public static IReadOnlyList<BoardRow> Board(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -1409,6 +1468,17 @@ public static class Rows
 /// screen, which this console has already met once and wrote down: a pane and
 /// its title answering one question from different places.
 /// </remarks>
+/// <summary>One leg of one plan, as the Itineraries pane draws it.</summary>
+/// <remarks>
+/// <b>Its own row type rather than a <see cref="BoardRow"/> with a column
+/// spare.</b> A board row is something a person answers and carries what they
+/// answer with; a leg is something they already approved, and what they want
+/// from it is which plan it belongs to and whether it flew. Sharing the record
+/// would put five empty cells on every row of both panes.
+/// </remarks>
+public sealed record ItineraryRow(
+    string Key, string Plan, string Kind, string State, string Flight, string Since);
+
 public sealed record BoardRow(
     string Key, string What, string Subject, string State, string Kind, string Since,
     string Next, string Cost, string For = "")

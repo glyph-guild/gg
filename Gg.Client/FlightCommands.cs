@@ -344,6 +344,22 @@ public sealed class FlightCommands(
                 Session(), ended, cancellationToken,
                 limit ?? Gg.Contracts.Paging.DefaultLimit, after));
 
+    /// <summary>Every leg of every plan this tenant has.</summary>
+    /// <remarks>
+    /// <b>No <c>ended</c>, which is the difference from the board.</b> A board
+    /// row a person has not answered is what they came to read; a plan is read
+    /// to see how it is going, and a leg that has flown is most of what there
+    /// is to see.
+    /// </remarks>
+    public async Task<VerbResult> ItinerariesAsync(
+        CancellationToken cancellationToken = default,
+        int? limit = null,
+        string? after = null) =>
+        new VerbResult.Itineraries(
+            await _client.GetItinerariesAsync(
+                Session(), cancellationToken,
+                limit ?? Gg.Contracts.Paging.DefaultLimit, after));
+
     /// <summary>
     /// Answers a nomination, then reads the board to see what came of it.
     /// </summary>

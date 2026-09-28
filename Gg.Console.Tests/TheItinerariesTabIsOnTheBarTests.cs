@@ -49,7 +49,8 @@ public class TheItinerariesTabIsOnTheBarTests
         // displace them - what needs somebody, what was nominated, what has
         // run. A plan is read after those, so this is appended rather than
         // inserted.
-        await Assert.That(Tabs.All.IndexOf(TabId.Itineraries)).IsGreaterThanOrEqualTo(3);
+        await Assert.That(Tabs.All.ToList().IndexOf(TabId.Itineraries))
+            .IsGreaterThanOrEqualTo(3);
     }
 
     [Test]
@@ -60,12 +61,12 @@ public class TheItinerariesTabIsOnTheBarTests
         await Assert.That(key).IsNotNull()
             .Because("every tab says how to get to it.");
 
-        await Assert.That(Keymap.Resolve(key!, KeymapContext.For(Bare())))
+        await Assert.That(Keymap.Resolve(key!.Value, KeymapContext.For(Bare())))
             .IsEqualTo(Tabs.CommandFor(TabId.Itineraries))
             .Because("selecting the tab and pressing its key are the same act, and a tab "
                    + "advertising a key that resolves to nothing is a dead one.");
 
-        await Assert.That(Tabs.Title(Bare(), TabId.Itineraries)).Contains(key!.Name)
+        await Assert.That(Tabs.Title(Bare(), TabId.Itineraries)).Contains(key.Value.Name)
             .Because("the key is on the tab, which is why it is kept off the hint line.");
     }
 
@@ -74,7 +75,7 @@ public class TheItinerariesTabIsOnTheBarTests
     {
         // A KEY THE SESSION HANDLES IN ONE MODE AND NOT ANOTHER IS ONE A
         // PERSON CANNOT LEARN. The tab keys are Normal's alone.
-        var key = Tabs.KeyFor(TabId.Itineraries)!;
+        var key = Tabs.KeyFor(TabId.Itineraries)!.Value;
 
         foreach (var mode in Enum.GetValues<UiMode>().Where(m => m != UiMode.Normal))
         {

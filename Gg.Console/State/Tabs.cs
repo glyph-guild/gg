@@ -93,6 +93,10 @@ public static class Tabs
             // boot and the runners refresh both fetch it, so this usually has
             // an answer before anybody presses the key.
             TabId.Allowances => state.Allowances is not null,
+            // WHETHER THE PLANS HAVE ARRIVED. Nothing fetches them at boot -
+            // the read is asked for on arrival, like the board's - so this is
+            // false until somebody has been here once.
+            TabId.Itineraries => state.Itineraries is not null,
             _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
         };
     }
@@ -148,6 +152,11 @@ public static class Tabs
         // apply. Of what is left, `v` reads as "view" and `z` reads as
         // nothing - the same argument ComposeChoice made about its two keys.
         TabId.Allowances => KeyStroke.Char('v'),
+
+        // THE FOURTH OF THE PUNCTUATION FAMILY, under the same hand as the
+        // three it joins: `,` `.` `;` and now `'`. Normal holds every letter
+        // but `z`, and `z` says nothing about a plan.
+        TabId.Itineraries => KeyStroke.Char('\''),
         _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
     };
 
@@ -179,6 +188,7 @@ public static class Tabs
         // the first thing that asks for them.
         TabId.Board => Command.ShowBoardTab,
         TabId.Allowances => Command.ToggleAllowances,
+        TabId.Itineraries => Command.ShowItinerariesTab,
         _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
     };
 
@@ -271,6 +281,7 @@ public static class Tabs
         TabId.Envelope => "airspace",
         TabId.Allowances => "allowances",
         TabId.Board => "board",
+        TabId.Itineraries => "itineraries",
         _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
     };
 }

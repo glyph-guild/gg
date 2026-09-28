@@ -1937,6 +1937,11 @@ public static class Keymap
             // nominated. `;` is free in every mode, so it means one thing.
             new(KeyStroke.Char(';'), Command.ShowBoardTab, "board")
                 { OffTheHintLine = true },
+            // THE FOURTH OF THE FAMILY, and the last one under that hand:
+            // what needs somebody, what has run, what was nominated, and what
+            // was PLANNED. `'` is free in every mode, so it means one thing.
+            new(KeyStroke.Char('\''), Command.ShowItinerariesTab, "itineraries")
+                { OffTheHintLine = true },
 
             new(KeyStroke.Char('b'), Command.ToggleBrowse, Closes(context, TabId.Browse, "browse"))
                 { OffTheHintLine = true },

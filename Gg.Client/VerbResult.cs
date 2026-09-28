@@ -456,6 +456,18 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.Board;
     }
 
+    /// <summary>Every leg of every plan this tenant has.</summary>
+    /// <remarks>
+    /// <b>The board's page, because an itinerary's legs ARE nominations.</b>
+    /// Its own KIND rather than its own shape: what a reader asked for differs,
+    /// and a caller that could not tell a plans page from a board page would
+    /// project one onto the other's pane.
+    /// </remarks>
+    public sealed record Itineraries(BoardPage Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.Itineraries;
+    }
+
     /// <summary>
     /// What a nomination came to after somebody answered it.
     /// </summary>
@@ -568,6 +580,9 @@ public static class VerbResultKinds
 
     /// <summary>What has been nominated and needs somebody.</summary>
     public const string Board = "board";
+
+    /// <summary>Every leg of every plan this tenant has.</summary>
+    public const string Itineraries = "itineraries";
 
     /// <summary>What one nomination came to once a person answered it.</summary>
     /// <remarks>

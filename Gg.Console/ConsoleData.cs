@@ -224,6 +224,13 @@ public sealed class ConsoleData(
         string? after = null) =>
         _commands.BoardAsync(ended, cancellationToken, limit: limit, after: after);
 
+    /// <summary>Every leg of every plan this tenant has.</summary>
+    public Task<VerbResult> ItinerariesAsync(
+        CancellationToken cancellationToken = default,
+        int? limit = null,
+        string? after = null) =>
+        _commands.ItinerariesAsync(cancellationToken, limit: limit, after: after);
+
     /// <summary>
     /// `gg watches` - how every watch in force is doing.
     /// </summary>
@@ -697,6 +704,8 @@ public static class ConsoleProjection
             // are kept apart: joining is a projection, and a projection
             // belongs where it can be tested without a terminal.
             VerbResult.Board board => state with { Board = board.Value, Diagnosis = null },
+            VerbResult.Itineraries plans =>
+                state with { Itineraries = plans.Value, Diagnosis = null },
             VerbResult.Watches watches =>
                 state with { Watches = watches.Value, Diagnosis = null },
 

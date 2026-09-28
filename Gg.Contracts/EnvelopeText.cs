@@ -825,6 +825,14 @@ public static class EnvelopeText
         text.Append($"pull-point: {Scalar(strategy.PullPoint)}\n");
         text.Append($"image: {Scalar(strategy.Image)}\n");
 
+        // ABSENT IS NOT RENDERED, for `build`'s reason one paragraph down: every
+        // strategy in force names none, and a line grown onto them would make the
+        // first pull after this report a change nobody made.
+        if (strategy.AgentLocator is { } agentLocator)
+        {
+            text.Append($"agent-locator: {Scalar(agentLocator)}\n");
+        }
+
         // ABSENT IS NOT RENDERED, for `warm`'s reason: every strategy in force
         // names no recipe, and a line grown onto it would make the first pull
         // after slice forty-one report a change nobody made.

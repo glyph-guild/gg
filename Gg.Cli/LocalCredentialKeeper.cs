@@ -91,11 +91,33 @@ public sealed class LocalCredentialKeeper(ICredentialStore store)
     /// member's own file - neither has a variable and neither can be offered.
     /// </para>
     /// </remarks>
-    public static Gg.Local.Configuration Opened(Gg.Local.Configuration? existing) =>
+    /// <param name="agentLocator">
+    /// Where this machine reads its agent credential, as its credential said - or
+    /// null for the local file it derives itself.
+    /// </param>
+    /// <remarks>
+    /// <b>Written here for the reason the two keys are.</b> The settings system
+    /// resolves the environment and then this file, and a member is created warm
+    /// and replaced rather than restarted - so first start is the only start, and
+    /// a locator not written here is one no later read finds. It also puts the
+    /// answer on `gg config show` inside the container, which is the only way to
+    /// ask a machine nobody can open a shell on where it is looking.
+    /// <para>
+    /// A place and never a value, so this file gains no ability to hold a secret.
+    /// </para>
+    /// </remarks>
+    public static Gg.Local.Configuration Opened(
+        Gg.Local.Configuration? existing, string? agentLocator = null) =>
         (existing ?? new Gg.Local.Configuration()) with
         {
             AcceptConfigured = true,
             AcceptAgentLogin = true,
+
+            // ABSENT LEAVES IT ALONE rather than writing null over it: a pool that
+            // declares none means the local file, and a member re-reading its own
+            // file must not find this side's answer to a question its tenant
+            // never asked.
+            AgentLocator = agentLocator ?? existing?.AgentLocator,
         };
 
     /// <summary>

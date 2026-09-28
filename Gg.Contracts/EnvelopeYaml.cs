@@ -831,7 +831,7 @@ public static class EnvelopeYaml
         var root = RequireMap(document, "");
         Closed(
             root, BasedOnKey, "kind", "environment", "inventory", "pull-point", "image", "bounds",
-            "build", "built-from");
+            "build", "built-from", "agent-locator");
 
         if (!root.Entries.ContainsKey("pull-point"))
         {
@@ -888,6 +888,13 @@ public static class EnvelopeYaml
             Build = root.Entries.TryGetValue("build", out var build) ? RecipeOf(build) : null,
             BuiltFrom = root.Entries.TryGetValue("built-from", out var builtFrom)
                 ? ProvenanceOf(builtFrom)
+                : null,
+
+            // WHERE THIS POOL'S MEMBERS READ THEIR AGENT CREDENTIAL. A place and
+            // never a value; EnvironmentStrategy.Validate refuses anything else,
+            // and refuses it without repeating what it was given.
+            AgentLocator = root.Entries.TryGetValue("agent-locator", out var agentLocator)
+                ? RequireScalar(agentLocator, "agent-locator")
                 : null,
         };
     }

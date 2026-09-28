@@ -3273,9 +3273,14 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
                 // container answers the question. A permission nobody can see
                 // is a permission somebody forgot they granted, and a member is
                 // the machine nobody can look inside.
+                // AND WHERE ITS AGENT CREDENTIAL IS, from the credential it just
+                // redeemed. This is the only channel that reaches a member -
+                // nothing can hand it a secret - so the strategy's answer arrives
+                // beside the labels and is written where every later read looks.
                 Gg.Local.ConfigurationFile.Write(
                     LocalCredentialKeeper.Opened(
-                        Gg.Local.ConfigurationFile.Read().Configuration));
+                        Gg.Local.ConfigurationFile.Read().Configuration,
+                        issued.AgentLocator));
 
                 // AND READ BACK, because this process asked InForce before
                 // it got here - the control plane's address comes from the

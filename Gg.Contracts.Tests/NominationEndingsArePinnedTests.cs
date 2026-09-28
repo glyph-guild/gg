@@ -3,25 +3,26 @@ using Gg.Contracts;
 namespace Gg.Contracts.Tests;
 
 /// <summary>
-/// The ways a nomination stops standing, and why there are six rather than three.
+/// The ways a nomination stops standing, and why there are seven rather than three.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>ADR-0022 § 2's vocabulary, closed for <c>FlightStates</c>' reason.</b> A
-/// seventh ending is a version event rather than a value quietly appearing, and
+/// eighth ending is a version event rather than a value quietly appearing, and
 /// the only safe response to one a reader does not know is to refuse it. This is
 /// the same ruling one noun earlier in a flight's life: a nomination ends once,
 /// and the word it ends with is what a person reads to find out why.
 /// </para>
 /// <para>
-/// <b>Six, because who ended it is the part worth knowing.</b> The board ends a
+/// <b>Seven, because who ended it is the part worth knowing.</b> The board ends a
 /// row two ways — it <c>opened</c> a flight, or a newer version of the same
 /// subject <c>superseded</c> it. The world ends one: the subject stopped
 /// mattering, which is <c>withdrawn</c>. A person <c>declined</c> it. The rules
 /// <c>refused</c> it, with the sentence the menu or the budget wrote. The clock
-/// <c>lapsed</c> it. Collapsing any pair would put two answers under one word,
-/// and this vault's own discipline is that <c>grounded</c> is not
-/// <c>withdrawn</c>.
+/// <c>lapsed</c> it. The planner <c>dropped</c> it, which is slice fifty-three's
+/// and is argued in <c>ASeventhEndingIsDeclaredTests</c>. Collapsing any pair
+/// would put two answers under one word, and this vault's own discipline is that
+/// <c>grounded</c> is not <c>withdrawn</c>.
 /// </para>
 /// <para>
 /// <b>Standing is not an ending, and that is the distinction the store depends
@@ -33,13 +34,19 @@ namespace Gg.Contracts.Tests;
 public class NominationEndingsArePinnedTests
 {
     [Test]
-    public async Task The_endings_are_six_and_there_is_no_seventh()
+    public async Task The_endings_are_seven_and_there_is_no_eighth()
     {
+        // WAS SIX, AND THE SEVENTH ARRIVED AS A VERSION EVENT - slice
+        // fifty-three, contract 0.245.0. This list moving is the whole of what
+        // that costs, and it moved because a leg a revision no longer names
+        // fits none of the six: see ASeventhEndingIsDeclaredTests, which holds
+        // the argument rather than repeating the count.
         await Assert.That(NominationEndings.All).IsEquivalentTo((string[])
             [NominationEndings.Opened, NominationEndings.Superseded,
              NominationEndings.Withdrawn, NominationEndings.Declined,
-             NominationEndings.Refused, NominationEndings.Lapsed])
-            .Because("a seventh ending is a design decision rather than an addition to a list: "
+             NominationEndings.Refused, NominationEndings.Lapsed,
+             NominationEndings.Dropped])
+            .Because("an eighth ending is a design decision rather than an addition to a list: "
                    + "every reader refuses a word it does not know, which is what closing the "
                    + "vocabulary buys and what a quiet addition would spend.");
     }
@@ -61,9 +68,10 @@ public class NominationEndingsArePinnedTests
     {
         // ADR-0022 § 2 asserted rather than trusted to prose. Two are the
         // board's, one the world's, one a person's, one the rules', one the
-        // clock's - and a seventh would have to name a sixth party, which is
-        // the question this test puts in front of whoever adds one.
-        await Assert.That(NominationEndings.All.Count).IsEqualTo(6)
+        // clock's, one the planner's - and an eighth would have to name a
+        // seventh party, which is the question this test puts in front of
+        // whoever adds one.
+        await Assert.That(NominationEndings.All.Count).IsEqualTo(7)
             .Because("each ending names the party that ended it, and a word without one is a "
                    + "row a person cannot ask anybody about.");
     }

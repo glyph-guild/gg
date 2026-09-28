@@ -37,6 +37,7 @@ public class EnvelopeModelRoundTripTests
         Accepts = [SubjectKinds.Repository],
         Produces = [FactKinds.ChangeManifest],
         Targeting = AllowanceTargeting.LeastSpent,
+        Hosts = ["ui"],
         Offers =
         [
             new OfferedSetting
@@ -304,7 +305,7 @@ public class EnvelopeModelRoundTripTests
             nameof(Envelope.Environment), nameof(Envelope.Repository),
             nameof(Envelope.Accepts), nameof(Envelope.Produces),
         nameof(Envelope.Variables),
-            nameof(Envelope.Targeting), nameof(Envelope.Offers),
+            nameof(Envelope.Targeting), nameof(Envelope.Hosts), nameof(Envelope.Offers),
             nameof(OfferedSetting.Key), nameof(OfferedSetting.Value),
             nameof(Envelope.Obligations), nameof(Envelope.Loops), nameof(Envelope.Destinations),
             nameof(Envelope.Instructions),

@@ -1843,6 +1843,59 @@ public sealed record Envelope
     [Composes(MergeOperators.WorkKindOnly)]
     public string? Targeting { get; init; }
 
+    /// <summary>
+    /// Where this kind's STACK runs, as opposed to where its loop runs.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b><c>ui-preview</c> has never once produced the fact it exists to
+    /// produce.</b> GG-309 asked for <c>environment=dev</c>, got a dev worker
+    /// with no browser and no toolchain, and shipped no <c>preview.url</c>. The
+    /// kind could not say what it needed, because an envelope could say what a
+    /// flight accepts, produces and may land, and never where the thing it is
+    /// previewing is supposed to be running.
+    /// </para>
+    /// <para>
+    /// <b>NOT <see cref="Environments"/>, which is a different thing in a
+    /// different direction.</b> That member is
+    /// <c>[Composes(MergeOperators.RootOnly)]</c> — a BOUND, the set a tenant
+    /// charts — and the singular <c>environment:</c> beside it is a legacy wire
+    /// spelling with no operator at all. A flight's environment is what
+    /// <c>gg fly --environment</c> names, or the bound's only member when it
+    /// holds one. This member is the first thing a WORK KIND says about an
+    /// environment, and it says it about the stack rather than the loop.
+    /// </para>
+    /// <para>
+    /// <b>WORK-KIND-ONLY, for <see cref="Brief"/>'s reason.</b> Root is not any
+    /// one job and a narrowing narrows a job already named, so a <c>hosts:</c>
+    /// that composed would either give every kind the floor's stack or let a
+    /// narrowing move a kind's out from under it.
+    /// </para>
+    /// <para>
+    /// <b>A list, written as a scalar when it holds one.</b> <c>hosts: ui</c> is
+    /// what a person writes and a flight is granted exactly one environment, so
+    /// the scalar spelling is the one that must round-trip. It is typed as a
+    /// list because <c>BoundOf</c> and <c>EnvelopeText.Bound</c> already read and
+    /// write that shape on both sides, and because naming a second host should
+    /// be a change to a document rather than a change to the wire.
+    /// </para>
+    /// <para>
+    /// <b>Membership is not checked here.</b> A <c>hosts:</c> naming something
+    /// root does not permit is refused by the control plane, which holds the
+    /// chart; this package holds the shape. That is the split
+    /// <c>EnvelopeSelectionTests</c> states, and no member in this assembly is
+    /// validated against another.
+    /// </para>
+    /// <para>
+    /// <b>Nullable, never absorbing.</b> Absence means this kind's stack runs
+    /// wherever its loop does, which is every envelope that exists today. An
+    /// accessor returning <c>?? []</c> would put the member on the wire for ever
+    /// and make "said nothing" and "said none" the same byte.
+    /// </para>
+    /// </remarks>
+    [Composes(MergeOperators.WorkKindOnly)]
+    public IReadOnlyList<string>? Hosts { get; init; }
+
     [Composes(MergeOperators.WorkKindOnly)]
     public required IReadOnlyList<Loop> Loops { get; init; }
 
@@ -2334,6 +2387,16 @@ public sealed record Envelope
         if (Bound(envelope.Repositories, "repositories") is { } repository)
         {
             return repository;
+        }
+
+        // THE SAME SHAPE CHECK AS THE BOUNDS ABOVE, on a member that is not one.
+        // `hosts:` is a work kind's selection rather than a tenant's chart, but
+        // an empty, blank or multiline value is wrong for exactly the reasons it
+        // is wrong there, and a laxer rule here would be a difference nobody
+        // decided.
+        if (Bound(envelope.Hosts, "hosts") is { } hosts)
+        {
+            return hosts;
         }
 
         var obligationIds = envelope.Obligations.Select(o => o.Id).ToList();

@@ -403,6 +403,15 @@ public class DirectionCoverageTests
         // lets whichever machine asks first take the work. Going the second
         // way removes a protection over somebody's own allowance, and a person
         // who set a floor should see it coming.
+        // WHERE THE STACK RUNS WIDENS BY GAINING A NAME, which is the bounds'
+        // direction and not `accepts:`'s. A kind that named `ui` and now names
+        // `ui` and `production` may stand a stack up somewhere it could not
+        // before; dropping one takes a place away and gates nothing.
+        new("Envelope.Hosts", "hosts",
+            Doc() with { Hosts = ["ui"] },
+            Doc() with { Hosts = ["ui", "production"] },
+            ReverseAlsoWidens: false),
+
         new("Envelope.Targeting", "targeting",
             Doc() with { Targeting = AllowanceTargeting.LeastSpent },
             Doc() with { Targeting = AllowanceTargeting.Any },

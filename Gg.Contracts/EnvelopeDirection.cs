@@ -149,6 +149,17 @@ public static class EnvelopeDirection
             return repository;
         }
 
+        // WHERE THE STACK RUNS, GROWING. A kind naming a second host may run its
+        // stack somewhere it could not before, which is the same direction as the
+        // bounds above and the opposite of `accepts:` below — this one widens by
+        // GAINING a name, because the name is a permission rather than a
+        // declaration that gates. Written as its own arm for the reason the
+        // comment above gives: an operator in the table is not a direction rule.
+        if (Grew("hosts", applied.Hosts, proposed.Hosts) is { } hosts)
+        {
+            return hosts;
+        }
+
         // WHAT THE KIND TAKES AND WHAT IT YIELDS. Both are work-kind-only sets
         // whose REDUCTION removes obligations, so both compare by containment
         // rather than by equality: keeping a subject kind or a fact family is

@@ -60,8 +60,6 @@ public class AWorkKindSaysWhereItsStackRunsTests
     {
         Context = new ContextBinding { Scope = "src/**", Constitution = "1.0.0" },
         Hosts = hosts,
-        Accepts = [],
-        Produces = [],
         Obligations =
         [
             new Obligation

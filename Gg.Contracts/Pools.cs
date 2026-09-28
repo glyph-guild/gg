@@ -493,6 +493,34 @@ public sealed record MemberCredentialIssued
     /// </remarks>
     public required IReadOnlyList<string> Labels { get; init; }
 
+    /// <summary>
+    /// Where this member reads its agent credential, or null for the local file
+    /// it derives itself.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Beside the labels, for the labels' reason.</b> Both are decided at mint
+    /// from the strategy in force, so redeeming decides nothing — and this is the
+    /// only channel that reaches a member at all. Nothing can hand it a secret:
+    /// the create body is three environment variables asserted byte for byte, the
+    /// spec has no field one could sit in, and the one door that could demands a
+    /// developer session a machine cannot hold.
+    /// </para>
+    /// <para>
+    /// <b>A PLACE, AND THE TYPE COULD NOT CARRY A VALUE.</b> What travels is a
+    /// locator — a <c>keyvault://</c> reference the member reads with the identity
+    /// it inherits from its host, or a <c>local:agent/…</c> path. The boundary is
+    /// asserted over this shape rather than intended, exactly as it is for the
+    /// slot's credential reference beside it, and it is what lets an agent login
+    /// survive a reset: nothing was written into the container, so there is
+    /// nothing for the next container to be missing.
+    /// </para>
+    /// <para>
+    /// <b>Nullable, because absence is every member minted before this.</b>
+    /// </para>
+    /// </remarks>
+    public string? AgentLocator { get; init; }
+
     public required DateTimeOffset ExpiresAt { get; init; }
 }
 

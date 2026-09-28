@@ -247,6 +247,42 @@ public sealed record EnvironmentStrategy
     public StrategyProvenance? BuiltFrom { get; init; }
 
     /// <summary>
+    /// Where this pool's members read their agent credential, or null for the
+    /// local file every machine derives.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Because nothing can hand a member one.</b> A member's credential store
+    /// starts empty, both doors that fill it write into the container, its token
+    /// is not renewable, and the replacement has a different runner id — so a
+    /// login placed by hand is a ceremony every twelve hours. A
+    /// <c>keyvault://</c> reference is READ, by the managed identity the member
+    /// inherits from its host, and survives every reset because nothing was
+    /// written.
+    /// </para>
+    /// <para>
+    /// <b>On the strategy, because it is a fact about the POOL.</b> Which agent a
+    /// pool's members run, and whose subscription pays for it, is the same kind of
+    /// fact as which image they are made from; two pools can reasonably differ,
+    /// and a fleet-wide setting could not say so. It reaches a member through
+    /// <see cref="MemberCredentialIssued"/>, beside the labels that are already
+    /// decided here at mint.
+    /// </para>
+    /// <para>
+    /// <b>A REFERENCE, NEVER A VALUE.</b> This document is stored, versioned,
+    /// rendered by <c>gg airspace pull</c> and read at a gate, so a secret in it
+    /// would be copied to all four. <see cref="Validate"/> refuses anything that
+    /// is not a locator — and refuses it without repeating what it was given,
+    /// which is the slot credential's ordering for the slot credential's reason.
+    /// </para>
+    /// <para>
+    /// <b>Nullable, never absorbing and never required.</b> Every strategy written
+    /// before this names none and must go on meaning the local file.
+    /// </para>
+    /// </remarks>
+    public string? AgentLocator { get; init; }
+
+    /// <summary>
     /// The schema's own rule, shared so gg and the control plane cannot
     /// disagree about what a valid strategy is. Null means valid; anything
     /// else is the refusal, Article XI-shaped.
@@ -296,6 +332,17 @@ public sealed record EnvironmentStrategy
         {
             return "This strategy names no pull point, and a powered-off pool cannot pull. "
                  + "Declare pull-point: " + PullPoints.ResidentRunner + ".";
+        }
+
+        // A PLACE, NEVER A VALUE, and the refusal never repeats what it was
+        // given: this is exactly the moment somebody pasted a token where a name
+        // belongs, and a diagnosis quoting it would print the secret into the
+        // console that showed the refusal and the log that kept it. gg#701's
+        // ordering, for gg#701's reason.
+        if (strategy.AgentLocator is { Length: > 0 } locator
+            && CredentialLocator.ValidateAgentReference(locator) is { } refusedLocator)
+        {
+            return $"agent-locator {refusedLocator}";
         }
 
         if (!PullPoints.All.Contains(strategy.PullPoint, StringComparer.Ordinal))

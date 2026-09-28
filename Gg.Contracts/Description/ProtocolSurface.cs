@@ -1872,7 +1872,7 @@ public static class ProtocolSurface
             [typeof(MemberCredentialMinted)] = ["nonce", "expiresAt"],
             [typeof(MemberCredentialRedemption)] = ["nonce"],
             [typeof(MemberCredentialIssued)] =
-                ["runnerId", "runnerToken", "labels", "expiresAt"],
+                ["runnerId", "runnerToken", "labels", "agentLocator", "expiresAt"],
             [typeof(DecisionObservations)] =
                 ["interactive", "evidenceRendered", "secondsToDecide"],
             [typeof(DecisionRequest)] =
@@ -2161,7 +2161,7 @@ public static class ProtocolSurface
             [typeof(WatchStandingList)] = ["standings"],
             [typeof(EnvironmentStrategy)] =
                 ["kind", "environment", "inventory", "pullPoint", "image", "bounds", "build",
-                 "builtFrom"],
+                 "builtFrom", "agentLocator"],
             [typeof(StrategyBuild)] = ["repository", "path", "ref", "dockerfile"],
             [typeof(StrategyProvenance)] = ["repository", "path", "commit"],
             [typeof(EnvironmentStrategyState)] = ["name", "version", "appliedAt", "strategy"],

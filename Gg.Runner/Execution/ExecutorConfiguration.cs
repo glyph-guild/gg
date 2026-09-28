@@ -207,48 +207,36 @@ public static class ExecutorConfiguration
 
         var declared = declaredLocator.Trim();
 
-        if (KeyVaultReference.Names(declared))
+        // THE CONTRACT'S RULE, NOT A SECOND COPY OF IT. A strategy declares one of
+        // these for a pool's members and this setting declares one for a machine;
+        // the two are read by the same store, so a rule written twice is a
+        // document a person can apply and a runner then refuses.
+        if (CredentialLocator.ValidateAgentReference(declared) is { } refused)
         {
-            try
-            {
-                // PARSED HERE RATHER THAN AT THE FIRST PROBE. A reference that
-                // cannot be read leaves a machine holding for ever with a
-                // diagnosis about a vault, when what is wrong is the line
-                // somebody typed.
-                _ = KeyVaultReference.Parse(declared);
-            }
-            catch (Exception malformed) when (malformed is FormatException or ArgumentException)
-            {
-                throw Refused(
-                    $"names a {KeyVaultReference.Scheme} reference that cannot be read: "
-                  + malformed.Message);
-            }
+            throw Refused(refused);
+        }
 
+        if (!KeyVaultReference.Names(declared))
+        {
             return declared;
         }
 
-        if (declared.StartsWith(CredentialLocator.LocalPrefix, StringComparison.Ordinal))
+        try
         {
-            if (CredentialLocator.Validate(declared) is { } refused)
-            {
-                throw Refused($"names a local locator that is not well formed: {refused}");
-            }
-
-            var agents = $"{CredentialLocator.LocalPrefix}{CredentialLocator.AgentSegment}/";
-            return declared.StartsWith(agents, StringComparison.Ordinal)
-                ? declared
-                : throw Refused(
-                    $"names a local locator outside '{agents}', which is where an agent's own "
-                  + "credential lives. A repository's locator reduces through the same character "
-                  + "set, so reading one here would read the credential a tracker owns.");
+            // PARSED AS WELL AS SHAPED. The contract checks what a document can
+            // check; this is the type that will actually do the reading, and a
+            // reference it cannot take should fail here rather than as a vault
+            // diagnosis at the first probe.
+            _ = KeyVaultReference.Parse(declared);
+        }
+        catch (Exception malformed) when (malformed is FormatException or ArgumentException)
+        {
+            throw Refused(
+                $"names a {KeyVaultReference.Scheme} reference that cannot be read: "
+              + malformed.Message);
         }
 
-        // NOT QUOTED, and this is the arm that matters: a value rather than a
-        // name is what a paste looks like.
-        throw Refused(
-            $"is neither a {KeyVaultReference.Scheme} reference nor a "
-          + $"'{CredentialLocator.LocalPrefix}' locator. It says WHERE the credential is, never "
-          + "what it is - put the secret in a vault, or run `gg credential add`, and name it here.");
+        return declared;
     }
 
     private static InvalidOperationException Refused(string what) =>

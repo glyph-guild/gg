@@ -164,6 +164,80 @@ public static class CredentialLocator
         return locator;
     }
 
+    /// <summary>The scheme a reference this machine READS carries.</summary>
+    /// <remarks>
+    /// <b>Named once, because this file's own rule says so.</b> The locator format
+    /// is declared here <i>"so the rule lives in one place: two derivations that
+    /// agree today is how a runner ends up looking for a file the CLI never
+    /// wrote"</i> — and the vault scheme was spelled inline in two other files in
+    /// this assembly before anything needed a third.
+    /// </remarks>
+    public const string VaultScheme = "keyvault://";
+
+    /// <summary>
+    /// The rule for a place an AGENT's credential may be named: a vault reference
+    /// this machine reads, or the local file in the agent namespace. Null means
+    /// well formed; anything else is the reason, with a subject for the caller to
+    /// put in front of it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Shared, because three places now say it.</b> A strategy declares one for
+    /// a pool's members, a machine declares one for itself, and both are read by
+    /// the same store — so a rule written twice is a document a person can apply
+    /// and a runner then refuses.
+    /// </para>
+    /// <para>
+    /// <b>THE REASON NEVER REPEATS THE INPUT.</b> A refusal here is exactly the
+    /// moment somebody pasted a token where a name belongs, so quoting it would
+    /// print the secret into whatever showed the refusal — a console, a gate, a
+    /// flight log. The subject the caller adds is a setting's name or a document
+    /// key, and those are the only parts safe to say.
+    /// </para>
+    /// </remarks>
+    public static string? ValidateAgentReference(string? reference)
+    {
+        if (string.IsNullOrWhiteSpace(reference))
+        {
+            return "is blank. It says WHERE an agent's credential is, and nowhere is not a "
+                 + "place - leave it out for the local file every machine derives.";
+        }
+
+        var named = reference.Trim();
+
+        if (named.StartsWith(VaultScheme, StringComparison.Ordinal))
+        {
+            var rest = named[VaultScheme.Length..];
+            var slash = rest.IndexOf('/', StringComparison.Ordinal);
+
+            return slash > 0 && slash < rest.Length - 1 && !rest.Any(char.IsWhiteSpace)
+                ? null
+                : $"names a {VaultScheme} reference that is not a vault and a secret. The shape "
+                + "is the vault's host, a slash, and the secret's name.";
+        }
+
+        if (named.StartsWith(LocalPrefix, StringComparison.Ordinal))
+        {
+            if (Validate(named) is { } refused)
+            {
+                return $"names a '{LocalPrefix}' locator that is not well formed: {refused}";
+            }
+
+            // ForRepo reduces a repository slug through this same character set,
+            // so the two derivations are disjoint only while one refuses the
+            // other's namespace. A repository's locator named for an agent would
+            // read the credential a tracker owns.
+            return named.StartsWith($"{LocalPrefix}{AgentSegment}/", StringComparison.Ordinal)
+                ? null
+                : $"names a local locator outside '{LocalPrefix}{AgentSegment}/', which is where "
+                + "an agent's own credential lives.";
+        }
+
+        return $"is neither a {VaultScheme} reference nor a '{LocalPrefix}' locator. It says "
+             + "WHERE the credential is and never what it is - put the secret in a vault, or "
+             + "run `gg credential add`, and name it here.";
+    }
+
     public static string? Validate(string? locator)
     {
         if (string.IsNullOrEmpty(locator))

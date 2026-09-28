@@ -1939,6 +1939,12 @@ public static class PlatformToolServer
             "  built-from:       written by a build, not by you: the repository, path and "
           + "commit the image in force was made from. One written by hand is refused.");
         said.AppendLine("    commit:         the commit the ref resolved to when it was built.");
+        said.AppendLine(
+            "  agent-locator:    where this pool's members READ their agent credential: a "
+          + "keyvault:// reference a member reads with the identity it inherits from its host, "
+          + "or local:agent/<name> for a file on that host. A place, never a value - a secret "
+          + "here is refused. Leave it out and a member derives the local file, which somebody "
+          + "has to place again every time the pool replaces it.");
         said.AppendLine();
 
         said.AppendLine(

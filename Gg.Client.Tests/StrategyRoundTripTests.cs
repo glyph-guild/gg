@@ -196,6 +196,14 @@ public class StrategyRoundTripTests
             nameof(StrategyBuild.Ref),
             nameof(StrategyBuild.Dockerfile),
             nameof(StrategyProvenance.Commit),
+
+            // AND THE AGENT LOCATOR, covered by AStrategyNamesWhereItsAgentTokenIsTests
+            // for slice forty-one's two reasons: Full() is shared by suites that
+            // render it, and a locator on it would change every one of their
+            // outputs. The round trip, the absent case and the refusals live beside
+            // the rule that needs them; this line is where the decision to cover
+            // them there is written down.
+            nameof(EnvironmentStrategy.AgentLocator),
         ];
 
         var members = new[]

@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 namespace Gg.Runner.Tests;
 
 /// <summary>
@@ -48,6 +49,53 @@ public class PoolHostTests
                    + "the thing that provides it.");
     }
 
+    /// <summary>
+    /// The HOST's Docker socket, in either of its two spellings.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Narrowed from <c>Contains("docker.sock")</c>, deliberately, and the
+    /// narrowing is tested below rather than asserted here.</b> The rule is
+    /// about the socket that is <i>host root</i> — the README's own words,
+    /// <i>"anything that reaches it can start a privileged container and own the
+    /// machine"</i>. A substring match also caught
+    /// <c>/run/user/&lt;uid&gt;/docker.sock</c>, which is a ROOTLESS per-user
+    /// socket and grants that user's own daemon and nothing else. Those are not
+    /// the same object and the control was never about the second one.
+    /// </para>
+    /// <para>
+    /// <b><c>/var/run</c> is a symlink to <c>/run</c>, so both spellings name the
+    /// same socket</b> and both must match. A rootless path excludes itself
+    /// without any special handling — <c>/run/user/1001/docker.sock</c> does not
+    /// contain <c>/run/docker.sock</c> — so this pattern is an anchoring rather
+    /// than an exception list, which is why the test below asserts both
+    /// directions instead of trusting it.
+    /// </para>
+    /// </remarks>
+    private static readonly Regex HostSocket = new(@"(?:/var)?/run/docker\.sock");
+
+    [Test]
+    public async Task The_host_socket_pattern_matches_the_socket_and_not_a_rootless_one()
+    {
+        // THE NARROWING, TESTED. A guard that was made more specific without a
+        // test of the specificity is a guard nobody will notice has stopped
+        // catching anything.
+        foreach (var named in (string[])
+                 ["/var/run/docker.sock:/var/run/docker.sock", "- /run/docker.sock", "unix:///var/run/docker.sock"])
+        {
+            await Assert.That(HostSocket.IsMatch(named)).IsTrue()
+                .Because($"'{named}' is the host's socket and must still be caught.");
+        }
+
+        foreach (var rootless in (string[])
+                 ["unix:///run/user/1001/docker.sock", "DOCKER_HOST=unix:///run/user/$U/docker.sock"])
+        {
+            await Assert.That(HostSocket.IsMatch(rootless)).IsFalse()
+                .Because($"'{rootless}' is a per-user rootless socket - it grants that user's own "
+                       + "daemon, not root, and this control was never about it.");
+        }
+    }
+
     [Test]
     public async Task Only_the_proxy_is_given_the_socket()
     {
@@ -56,7 +104,7 @@ public class PoolHostTests
         // control rather than weakening it, and every test about the control
         // keeps passing.
         var mounting = Artefacts()
-            .Where(f => File.ReadAllText(Host(f)).Contains("docker.sock", StringComparison.Ordinal))
+            .Where(f => HostSocket.IsMatch(File.ReadAllText(Host(f))))
             .ToList();
 
         await Assert.That(mounting).IsEquivalentTo((string[])["compose.yaml"])

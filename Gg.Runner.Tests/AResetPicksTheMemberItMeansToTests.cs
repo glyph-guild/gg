@@ -105,6 +105,11 @@ public class AResetPicksTheMemberItMeansToTests
     {
         public PoolCapabilities Capabilities { get; } = new() { Provider = "fake" };
 
+    /// <summary>Reclaiming: this fake records nothing about it.</summary>
+    public Task<PoolObservation> DestroyAsync(
+        string member, CancellationToken cancellationToken = default) =>
+        Task.FromResult(new PoolObservation { Outcome = PoolOutcomes.Verified });
+
         public string? Reset { get; private set; }
 
         public Task<ScopeProbe> ProbeScopeAsync(CancellationToken cancellationToken = default) =>

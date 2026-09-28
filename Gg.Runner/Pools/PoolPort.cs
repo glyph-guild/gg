@@ -173,6 +173,30 @@ public interface IPoolAdapter
     /// Reach for a container OUTSIDE the pool prefix and report whether
     /// something that is not us refused it.
     /// </summary>
+    /// <summary>
+    /// Destroys one member and creates nothing in its place.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Apart from <see cref="ResetAsync"/>, because recreating is the half
+    /// that cannot always be wanted.</b> A reset makes a reused environment
+    /// trustworthy and leaves a RUNNING member behind, so it grows a pool by one
+    /// whenever what it replaced was stopped. That is how a pool bounded at two
+    /// came to run three, and why the roll that found it skipped stopped members
+    /// and left them immortal instead.
+    /// </para>
+    /// <para>
+    /// <b>Reclaiming takes nothing away.</b> A stopped member is not in the live
+    /// count, so destroying it moves no number a bound is written against - it
+    /// returns a slot the next refresh can fill from the pin in force.
+    /// </para>
+    /// <para>
+    /// <b>Tolerates absence, for <see cref="ResetAsync"/>'s reason:</b> a member
+    /// that is already gone is the state the caller asked for.
+    /// </para>
+    /// </remarks>
+    Task<PoolObservation> DestroyAsync(string member, CancellationToken cancellationToken = default);
+
     Task<ScopeProbe> ProbeScopeAsync(CancellationToken cancellationToken = default);
 }
 

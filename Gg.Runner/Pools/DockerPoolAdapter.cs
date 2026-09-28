@@ -215,6 +215,20 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter, IIm
         };
     }
 
+    public async Task<PoolObservation> DestroyAsync(
+        string member, CancellationToken cancellationToken = default)
+    {
+        // THE SAME STOP-AND-REMOVE A RESET BEGINS WITH, and nothing after it.
+        // Both tolerate absence: a member already gone is the state the caller
+        // asked for, and the proxy allows DELETE on this prefix and no other.
+        using var stopped = await _httpClient.PostAsync(
+            $"/containers/{member}/stop", content: null, cancellationToken);
+        using var removed = await _httpClient.DeleteAsync(
+            $"/containers/{member}", cancellationToken);
+
+        return new PoolObservation { Outcome = PoolOutcomes.Verified };
+    }
+
     public async Task<PoolObservation> ResetAsync(
         string member, MemberSpec spec, CancellationToken cancellationToken = default)
     {

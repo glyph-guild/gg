@@ -89,6 +89,11 @@ public class TheMaintainerSaysWhatItDidTests
 
         public PoolCapabilities Capabilities { get; } = new() { Provider = "fake" };
 
+    /// <summary>Reclaiming: this fake records nothing about it.</summary>
+    public Task<PoolObservation> DestroyAsync(
+        string member, CancellationToken cancellationToken = default) =>
+        Task.FromResult(new PoolObservation { Outcome = PoolOutcomes.Verified });
+
         public string? Acted { get; private set; }
 
         public Task<ScopeProbe> ProbeScopeAsync(CancellationToken cancellationToken = default) =>

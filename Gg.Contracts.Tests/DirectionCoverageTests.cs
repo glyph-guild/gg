@@ -109,6 +109,21 @@ public class DirectionCoverageTests
         ],
     };
 
+    private static Envelope Capped(int? cap) => Opening(["research"]) with
+    {
+        Destinations =
+        [
+            new Destination
+            {
+                Id = "open-the-flight",
+                Kind = DestinationKinds.Flight,
+                Requires = ["in-scope"],
+                Opens = ["research"],
+                CapPerPass = cap,
+            },
+        ],
+    };
+
     private static Envelope Opening(IReadOnlyList<string> opens) => Doc() with
     {
         Context = new ContextBinding { Scope = EnvelopeScopes.None, Constitution = "1.0.0" },
@@ -343,6 +358,16 @@ public class DirectionCoverageTests
         // reach and is not shown.
         new("Destination.OpensAs", "opens-as",
             OpeningAs(DestinationOpening.Gated), OpeningAs(DestinationOpening.Auto),
+            ReverseAlsoWidens: false),
+
+        // HOW MANY, BESIDE WHICH. The menu bounds which kinds a pass may name;
+        // this bounds how many flights naming them may cause, and raising it is
+        // more work one act can start. The move written here is 3 -> absent,
+        // because ABSENT IS UNBOUNDED and deleting the cap is the largest
+        // widening this member can express - the omission arm a pair of two
+        // numbers would never exercise.
+        new("Destination.CapPerPass", "cap-per-pass",
+            Capped(3), Capped(null),
             ReverseAlsoWidens: false),
 
         // A MENU THAT GROWS IS A WIDENING, the way opens is. A destination that

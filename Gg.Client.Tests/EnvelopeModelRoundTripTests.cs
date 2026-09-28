@@ -205,6 +205,12 @@ public class EnvelopeModelRoundTripTests
                     // TWO ENTRIES. The renderer sorts sequences, so a
                     // single-entry list would pass whatever the ordering did.
                     Opens = ["implement", "research"],
+                    // AND HOW MANY OF THEM ONE PASS MAY OPEN. In the fixture
+                    // rather than on the covered list alone: a member named as
+                    // covered and never written down is the claim without the
+                    // code behind it, which is the shape this repository keeps
+                    // finding.
+                    CapPerPass = 2,
                     // TWO IN EACH SET, for the reason the list above has two:
                     // the renderer sorts, so a single entry passes whatever the
                     // ordering does.
@@ -312,6 +318,11 @@ public class EnvelopeModelRoundTripTests
             nameof(Destination.PreserveUnadmitted), nameof(Destination.Branch),
             nameof(Destination.Title), nameof(Destination.Description),
             nameof(Destination.Opens), nameof(Destination.OpensAs),
+            // HOW MANY A PASS MAY OPEN, beside which kinds it may name. Covered
+            // by the fixture rather than exempted: a member parsed and never
+            // rendered has shipped twice here, and a cap that vanished on the
+            // next `envelope apply` would quietly unbound every pass.
+            nameof(Destination.CapPerPass),
             nameof(Destination.MaySelect), nameof(Destination.MayPerform),
             nameof(Destination.MayWrite),
             nameof(DestinationSelection.Environments), nameof(DestinationSelection.Repositories),

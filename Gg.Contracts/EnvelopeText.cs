@@ -426,6 +426,15 @@ public static class EnvelopeText
             text.Append($"{Indent}{Indent}opens-as: {Scalar(opensAs)}\n");
         }
 
+        // SAME RULE, FOURTH KNOB. Absent is unbounded, so a rendered default
+        // would cap every pass in every tenant's document with a number nobody
+        // chose - which is the one change a reader would have no way to spot
+        // as ours rather than theirs.
+        if (destination.CapPerPass is { } cap)
+        {
+            text.Append($"{Indent}{Indent}cap-per-pass: {cap}\n");
+        }
+
         // SAME RULE, THIRD KNOB. Only a tracker may carry this, so emitting
         // it for the five kinds that may not would put a refused key into
         // every document anybody has written.

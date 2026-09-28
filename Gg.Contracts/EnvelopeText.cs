@@ -663,6 +663,33 @@ public static class EnvelopeText
         Offer(text, "environments", opening.SelectMany(d => d.MaySelect?.Environments ?? []));
         Offer(text, "repositories", opening.SelectMany(d => d.MaySelect?.Repositories ?? []));
 
+        // HOW MANY, WHEN SOMEBODY SAID. Told rather than discovered: an agent
+        // that is not given the number learns it by having work thrown away,
+        // and the refusal would arrive after it had done the thinking.
+        //
+        // THE LOWEST OF THEM, because a pass admitted here is admitted by ONE
+        // destination and the agent cannot know which. Naming the largest
+        // would promise a number some of them refuse; naming the lowest is the
+        // one every destination on this list permits.
+        //
+        // AND NOTHING AT ALL WHEN NONE OF THEM CAPS, which is every
+        // destination in force today. Absent is unbounded, so there is no
+        // number to give - and a sentence about it would tell an agent about a
+        // bound nobody wrote.
+        var capped = opening.Select(d => d.CapPerPass).OfType<int>().ToList();
+
+        if (capped.Count == opening.Count && capped.Count > 0)
+        {
+            var cap = capped.Min();
+
+            text.Append(
+                cap == 1
+                    ? "\n\nNominate at most ONE flight here: this destination opens a single "
+                    + "flight per pass, and a second nomination is refused rather than queued."
+                    : $"\n\nNominate at most {cap} flights here. Past that they are refused "
+                    + "rather than queued, so choose the ones worth flying.");
+        }
+
         return text.ToString();
     }
 

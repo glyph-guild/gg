@@ -573,7 +573,31 @@ public static class TranscriptDigest
     private static string? Named(JsonElement block) =>
         block.TryGetProperty("name", out var name) ? name.GetString() : null;
 
-    public static Gg.Contracts.FlightNomination? Nomination(string transcript)
+    /// <summary>
+    /// Every nomination the agent made and the server answered, in the order
+    /// it made them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>WAS ONE, AND THE OTHERS WERE DROPPED WITHOUT A WORD.</b> This
+    /// returned the LAST answered call and discarded every earlier one - right
+    /// while a nomination was one per flight, and silent loss the moment a
+    /// pass proposes three pieces of work. The agent's calls were all recorded
+    /// in the list below; only the return threw them away.
+    /// </para>
+    /// <para>
+    /// <b><c>SweepNominations</c>' shape, which has been plural since it was
+    /// written</b> and for the same reason: an executor that reads a backlog
+    /// nominates each item worth a flight. A pass reading a piece of work is
+    /// the same act one nominator over.
+    /// </para>
+    /// <para>
+    /// <b>Answered only, unchanged.</b> A call the server refused recorded
+    /// nothing, so carrying it would ship a fact for work the agent was told
+    /// it could not ask for.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<Gg.Contracts.FlightNomination> Nominations(string transcript)
     {
         ArgumentNullException.ThrowIfNull(transcript);
 
@@ -637,15 +661,11 @@ public static class TranscriptDigest
             }
         }
 
-        for (var i = asked.Count - 1; i >= 0; i--)
-        {
-            if (answered.Contains(asked[i].Id))
-            {
-                return asked[i].Nomination;
-            }
-        }
-
-        return null;
+        // IN THE ORDER THEY WERE MADE, because a plan read back out of order
+        // is a plan a person reads in an order nobody chose. Nothing downstream
+        // depends on it - the legs open in one pass and none waits on another -
+        // so this is about what a reader sees rather than about behaviour.
+        return [.. asked.Where(a => answered.Contains(a.Id)).Select(a => a.Nomination)];
     }
 
     /// <summary>
@@ -1353,6 +1373,8 @@ public static class TranscriptDigest
             return;
         }
 
+        var subject = Argument(input, NominationTool.Subject);
+
         asked.Add((callId, new Gg.Contracts.FlightNomination
         {
             WorkKind = Bound(workKind, Gg.Contracts.FlightNomination.MaxWorkKind, prose: false),
@@ -1375,6 +1397,20 @@ public static class TranscriptDigest
             Repository = Argument(input, "repository") is { } repository
                 ? Bound(repository, Gg.Contracts.FlightNomination.MaxWorkKind, prose: false)
                 : null,
+            // WHICH PIECE OF WORK THIS CALL IS ABOUT. Bounded rather than
+            // dropped, the note's rule on a new member: a value cut short is
+            // still one the control plane can refuse, and one dropped
+            // silently is a leg that collapses onto another.
+            Subject = subject is null
+                ? null
+                : Bound(subject, Gg.Contracts.FlightNomination.MaxSubject, prose: false),
+            // ONLY BESIDE A SUBJECT. The contract refuses a version with none
+            // and so does the server, and this extractor may not invent the
+            // subject it would be a version OF - so it carries neither rather
+            // than half a claim.
+            Version = subject is null || Argument(input, NominationTool.Version) is not { } version
+                ? null
+                : Bound(version, Gg.Contracts.FlightNomination.MaxVersion, prose: false),
         }));
     }
 

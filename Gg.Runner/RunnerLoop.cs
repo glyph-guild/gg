@@ -2467,7 +2467,12 @@ public sealed class RunnerLoop(
                 payloads.Add(new FactPayload.Question(question));
             }
 
-            if (run.Nomination is { } nomination)
+            // ONE PAYLOAD PER NOMINATION, the way the proposals below already
+            // are. Each becomes its own fact and each fact is keyed on a
+            // digest of its own content, so three legs are three facts and two
+            // identical calls are one - which is the convergence the board
+            // then relies on rather than a second rule.
+            foreach (var nomination in run.Nominations)
             {
                 payloads.Add(new FactPayload.Nomination(nomination));
             }

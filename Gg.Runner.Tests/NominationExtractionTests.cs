@@ -34,6 +34,22 @@ namespace Gg.Runner.Tests;
 /// </remarks>
 public class NominationExtractionTests
 {
+    /// <summary>The one nomination a transcript carries, for a test about one.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Single rather than First, deliberately.</b> Most of these fixtures
+    /// are one call, and a test that took the first would keep passing if the
+    /// extractor started producing two - which is the failure the plural
+    /// return exists to make visible rather than to hide again.
+    /// </para>
+    /// <para>
+    /// Not NAMED <c>Single</c>: that is <c>System.Single</c>, and a method
+    /// with the name shadows the type wherever a test spells <c>float</c>.
+    /// </para>
+    /// </remarks>
+    private static Gg.Contracts.FlightNomination TheOne(string transcript) =>
+        TranscriptDigest.Nominations(transcript).Single();
+
     private static string Fixture(string name)
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
@@ -75,7 +91,7 @@ public class NominationExtractionTests
     [Test]
     public async Task A_real_session_yields_the_kind_and_the_reason_the_agent_gave()
     {
-        var nomination = TranscriptDigest.Nomination(Fixture("agent-nominated-a-kind.ndjson"));
+        var nomination = TheOne(Fixture("agent-nominated-a-kind.ndjson"));
 
         await Assert.That(nomination).IsNotNull()
             .Because("this is a genuine session against the real server, so a null here means "
@@ -137,22 +153,39 @@ public class NominationExtractionTests
         // tool, so there is nothing to extract - and nothing is the answer,
         // never an empty nomination that ingress would refuse or, worse,
         // accept.
-        await Assert.That(TranscriptDigest.Nomination(
-            Fixture("agent-considered.ndjson"))).IsNull();
-        await Assert.That(TranscriptDigest.Nomination("")).IsNull();
+        await Assert.That(TranscriptDigest.Nominations(
+            Fixture("agent-considered.ndjson"))).IsEmpty();
+        await Assert.That(TranscriptDigest.Nominations("")).IsEmpty();
     }
 
     [Test]
-    public async Task The_last_successful_call_wins()
+    public async Task Both_calls_cross_and_the_BOARD_decides_which_wins()
     {
-        // THE RULE THE SEED COMPOSER ALREADY FOLLOWS, and for its reason: an
-        // agent that nominated twice changed its mind, and the newest answer is
-        // the one. Taking the first would act on something it had withdrawn.
-        var nomination = TranscriptDigest.Nomination(
+        // THIS USED TO SAY "the last successful call wins", AND THE EXTRACTOR
+        // ENFORCED IT BY DELETION. It returned the newest answered call and
+        // dropped every earlier one before anything saw it.
+        //
+        // The rule is unchanged and it was never this layer's. The board holds
+        // it, in NominationBoardReceptor's own words: "THE LAST NOMINATION
+        // WINS, AND THE LOSER GETS A ROW. Unchanged as a rule; what changed is
+        // that the answer which was withdrawn is readable rather than
+        // skipped." Two nominations with no subject share a subject - the
+        // flight they came from - so SupersedeOthersAsync ends the first and a
+        // person can read what it said.
+        //
+        // Enforcing it here as well was the SILENT half of that: the withdrawn
+        // answer never reached a row at all, and a pass proposing three pieces
+        // of work lost two of them the same way.
+        var nominations = TranscriptDigest.Nominations(
             Called("a", "research", "no diagnosis yet") + "\n"
           + Called("b", "implement", "the item names the fix"));
 
-        await Assert.That(nomination!.WorkKind).IsEqualTo("implement");
+        await Assert.That(nominations.Select(n => n.WorkKind)).IsEquivalentTo((string[])
+            ["research", "implement"]);
+
+        await Assert.That(nominations[^1].WorkKind).IsEqualTo("implement")
+            .Because("in the order the agent made them, so the one that wins on the board is "
+                   + "the last of these rather than whichever the reader happens to take.");
     }
 
     [Test]
@@ -162,8 +195,8 @@ public class NominationExtractionTests
         // so nobody knows whether the tool recorded it - and a value taken from
         // a call that may never have completed is a value the runner invented
         // the completion of.
-        await Assert.That(TranscriptDigest.Nomination(
-            Called("a", "research", "no diagnosis yet", paired: false))).IsNull();
+        await Assert.That(TranscriptDigest.Nominations(
+            Called("a", "research", "no diagnosis yet", paired: false))).IsEmpty();
     }
 
     [Test]
@@ -172,21 +205,23 @@ public class NominationExtractionTests
         // THE TOOL REFUSED IT - a missing argument, most likely. The agent can
         // read that and try again; what must not happen is the runner shipping
         // a fact for a call the tool rejected.
-        await Assert.That(TranscriptDigest.Nomination(
-            Called("a", "research", "no diagnosis yet", failed: true))).IsNull();
+        await Assert.That(TranscriptDigest.Nominations(
+            Called("a", "research", "no diagnosis yet", failed: true))).IsEmpty();
     }
 
     [Test]
     public async Task An_earlier_success_survives_a_later_failure()
     {
-        // THE PAIR OF THE RULE ABOVE, so "last one wins" does not become "last
-        // one attempted wins": a refused second call leaves the first standing,
-        // because the agent's last SUCCESSFUL answer is still what it said.
-        var nomination = TranscriptDigest.Nomination(
+        // THE PAIR OF THE RULE ABOVE, and it still holds: a refused second
+        // call leaves the first standing, because the tool recorded nothing
+        // for it. What changed is only that the surviving one is the whole
+        // list rather than the one this method chose.
+        var nominations = TranscriptDigest.Nominations(
             Called("a", "research", "no diagnosis yet") + "\n"
           + Called("b", "", "nothing named", failed: true));
 
-        await Assert.That(nomination!.WorkKind).IsEqualTo("research");
+        await Assert.That(nominations.Select(n => n.WorkKind)).IsEquivalentTo((string[])
+            ["research"]);
     }
 
     [Test]
@@ -202,7 +237,7 @@ public class NominationExtractionTests
           + "{\"type\":\"user\",\"message\":{\"content\":[{\"type\":\"tool_result\","
           + "\"tool_use_id\":\"a\",\"content\":[]}]}}";
 
-        await Assert.That(TranscriptDigest.Nomination(noKind)).IsNull();
+        await Assert.That(TranscriptDigest.Nominations(noKind)).IsEmpty();
     }
 
     [Test]
@@ -220,7 +255,7 @@ public class NominationExtractionTests
           + "{\"type\":\"user\",\"message\":{\"content\":[{\"type\":\"tool_result\","
           + "\"tool_use_id\":\"a\",\"content\":[]}]}}";
 
-        await Assert.That(TranscriptDigest.Nomination(theirs)).IsNull();
+        await Assert.That(TranscriptDigest.Nominations(theirs)).IsEmpty();
     }
 
     [Test]
@@ -229,7 +264,7 @@ public class NominationExtractionTests
         // The digest's own rule beside it: a half-written last line is ordinary
         // while a file is still being appended to, and throwing would lose
         // every signal before it.
-        var nomination = TranscriptDigest.Nomination(
+        var nomination = TheOne(
             "{not json\n" + Called("a", "research", "no diagnosis yet"));
 
         await Assert.That(nomination!.WorkKind).IsEqualTo("research");
@@ -241,7 +276,7 @@ public class NominationExtractionTests
         // The reason is prose an agent wrote, and an agent asked for a reason
         // can write a document. Bounded here, on this machine, before it
         // crosses - the same place every other extracted value is bounded.
-        var nomination = TranscriptDigest.Nomination(
+        var nomination = TheOne(
             Called("a", "research", new string('x', FlightNomination.MaxReason * 2)));
 
         await Assert.That(nomination).IsNotNull();
@@ -258,7 +293,7 @@ public class NominationExtractionTests
         // arrived - and the pipeline's own switch throws on an unhandled
         // payload, so this is what proves the arm exists rather than that
         // nothing reached it.
-        var nomination = TranscriptDigest.Nomination(Fixture("agent-nominated-a-kind.ndjson"))!;
+        var nomination = TheOne(Fixture("agent-nominated-a-kind.ndjson"))!;
 
         var digested = Gg.Runner.Facts.FactPipeline.Digest(
             new Gg.Runner.Facts.CleanFacts([new Gg.Runner.Facts.FactPayload.Nomination(nomination)]),
@@ -283,21 +318,17 @@ public class NominationExtractionTests
         // there - and the two required arguments still decide whether there is a
         // nomination at all.
         var note = "Don't start coding. The described defect is not in the tree.";
-        var extracted = TranscriptDigest.Nomination(
-            Called("a", "implement", "the item names the file", note: note));
+        var extracted = TheOne(Called("a", "implement", "the item names the file", note: note));
 
-        await Assert.That(extracted).IsNotNull();
-        await Assert.That(extracted!.Note).IsEqualTo(note);
+        await Assert.That(extracted.Note).IsEqualTo(note);
     }
 
     [Test]
     public async Task A_nomination_with_no_note_carries_none_rather_than_an_empty_one()
     {
-        var extracted = TranscriptDigest.Nomination(
-            Called("a", "implement", "the item names the file"));
+        var extracted = TheOne(Called("a", "implement", "the item names the file"));
 
-        await Assert.That(extracted).IsNotNull();
-        await Assert.That(extracted!.Note).IsNull()
+        await Assert.That(extracted.Note).IsNull()
             .Because("null is how a nomination says it had nothing to add; an empty string "
                    + "would render a fenced block attributing silence to an agent.");
     }
@@ -315,7 +346,7 @@ public class NominationExtractionTests
           + "{\"type\":\"user\",\"message\":{\"content\":[{\"type\":\"tool_result\","
           + "\"tool_use_id\":\"a\",\"content\":[]}]}}";
 
-        await Assert.That(TranscriptDigest.Nomination(noKind)).IsNull();
+        await Assert.That(TranscriptDigest.Nominations(noKind)).IsEmpty();
     }
 
     [Test]
@@ -325,11 +356,10 @@ public class NominationExtractionTests
         // that wrote an analysis, and the flight still nominated a kind - losing
         // the whole nomination over the tail of a handover would throw away the
         // part that decides something.
-        var extracted = TranscriptDigest.Nomination(
+        var extracted = TheOne(
             Called("a", "implement", "a reason", note: new string('n', 4000)));
 
-        await Assert.That(extracted).IsNotNull();
-        await Assert.That(extracted!.Note!.Length)
+        await Assert.That(extracted.Note!.Length)
             .IsLessThanOrEqualTo(Gg.Contracts.FlightNomination.MaxNote);
     }
 }

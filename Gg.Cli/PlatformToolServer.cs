@@ -70,8 +70,11 @@ public static class PlatformToolServer
     /// <summary>What the agent needs decided. One argument, and it is required.</summary>
     private const string QuestionArgument = "question";
 
-    private const string WorkKindArgument = "work_kind";
-    private const string ReasonArgument = "reason";
+    // NAMED IN NominationTool, WHICH IS WHERE THE TOOL'S OTHER SPELLINGS ARE.
+    // The server declares them, the extractor reads them back out of the
+    // transcript, and two spellings is how one of them stops agreeing.
+    private const string WorkKindArgument = NominationTool.WorkKindArgument;
+    private const string ReasonArgument = NominationTool.ReasonArgument;
 
     /// <summary>
     /// What the agent would tell whoever picks the work up. Optional, and the
@@ -83,13 +86,13 @@ public static class PlatformToolServer
     /// the schema never mentions it - an argument an agent is not offered is one
     /// nothing will ever produce.
     /// </remarks>
-    private const string NoteArgument = "note";
+    private const string NoteArgument = NominationTool.NoteArgument;
 
     /// <summary>Where the work should run, when the destination permits a choice.</summary>
-    private const string EnvironmentArgument = "environment";
+    private const string EnvironmentArgument = NominationTool.EnvironmentArgument;
 
     /// <summary>Which repository, when the destination permits a choice.</summary>
-    private const string RepositoryArgument = "repository";
+    private const string RepositoryArgument = NominationTool.RepositoryArgument;
 
     /// <summary>What a proposal asks be done: one of <see cref="Gg.Contracts.WorkItemOperations"/>.</summary>
     private const string OperationArgument = "operation";
@@ -553,13 +556,27 @@ public static class PlatformToolServer
         // because an agent that thinks it has opened a flight stops
         // waiting for one, and an agent that thinks it must choose will
         // choose from an item that does not say.
+        // CALL IT ONCE FOR EACH PIECE OF WORK, which is the sentence that
+        // changed. It said "call it once", and a pass proposing three things
+        // read that and proposed one - the schema having a subject argument
+        // changes nothing an agent does if the prose tells it to stop after
+        // the first call.
+        //
+        // AND THE ONE-PIECE CASE IS STILL THE FIRST SENTENCE, because nearly
+        // every flight that nominates is a classifier deciding one kind for
+        // the one item it is about. Three measured triage runs behaved the way
+        // this text asked; leading with plans would change what all of them
+        // read for a case they are not in.
         writer.WriteString("description",
-            "Nominate the kind of work this item needs. Call it once with the kind you "
-          + "choose and the reason, then stop and say what you nominated and why. "
-          + "Nominating grants nothing and opens nothing: a person decides whether the "
-          + "kind you name is one this work may become. If the item does not say enough "
-          + "to choose, do NOT call this - say which question you could not answer and "
-          + "stop. Declining is a real answer and it is not a failure.");
+            "Nominate the kind of work this needs. Call it once for each piece of work you "
+          + "are proposing - once for one, and once each for several - then stop and say "
+          + $"what you nominated and why. If you name more than one, give '{NominationTool.Subject}' "
+          + "on every call so they are told apart; leaving it out means you are talking "
+          + "about the work you are doing now. Nominating grants nothing and opens "
+          + "nothing: a person decides whether the kinds you name are ones this work may "
+          + "become. If you cannot tell what is needed, do NOT call this - say which "
+          + "question you could not answer and stop. Declining is a real answer and it is "
+          + "not a failure.");
 
         writer.WriteStartObject("inputSchema");
         writer.WriteString("type", "object");
@@ -602,6 +619,26 @@ public static class PlatformToolServer
           + "the item does not say, and what to check before starting. It is shown to "
           + "them as your words and grants nothing; leave it out if you have nothing to "
           + "add.");
+        writer.WriteEndObject();
+        // WHICH PIECE OF WORK THIS CALL IS ABOUT. Optional, because every
+        // classifier that exists omits it and absent has to keep meaning what
+        // it always meant - this nomination is about the flight it came from.
+        // Required would refuse every agent running today.
+        writer.WriteStartObject(NominationTool.Subject);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "Optional, and only when you are proposing more than one piece of work: what "
+          + "THIS call is about, in a few words or as whatever names it - a ticket "
+          + "reference, a url, a file. Two calls that give the same one are taken as the "
+          + "same piece of work. Leave it out when you are nominating for the work you "
+          + "are doing now.");
+        writer.WriteEndObject();
+        writer.WriteStartObject(NominationTool.Version);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "Optional, and only alongside a subject: which version of it you are "
+          + "nominating, if it has one. Leave it out and re-proposing the same piece of "
+          + "work unchanged is recognised as the same proposal rather than a new one.");
         writer.WriteEndObject();
         writer.WriteEndObject();
 
@@ -1140,12 +1177,47 @@ public static class PlatformToolServer
               + "again, or leave it out.");
         }
 
+        // A SUBJECT IS AN IDENTITY, NEVER A SENTENCE, and it is refused rather
+        // than trimmed for the note's reason: the agent can read this and fix
+        // it, and a subject cut in half names a different piece of work.
+        var subject = Text(arguments, NominationTool.Subject);
+        if (subject is not null && subject.Length > Gg.Contracts.FlightNomination.MaxSubject)
+        {
+            return Content(id, isError: true,
+                $"Refused: a subject is at most {Gg.Contracts.FlightNomination.MaxSubject} "
+              + $"characters and this one is {subject.Length}. It is what NAMES the piece of "
+              + "work, not a description of it. Nothing was recorded.");
+        }
+
+        var version = Text(arguments, NominationTool.Version);
+        if (version is not null && subject is null)
+        {
+            return Content(id, isError: true,
+                $"Refused: '{NominationTool.Version}' says which version of a subject this "
+              + $"is, and no '{NominationTool.Subject}' was given. Nothing was recorded.");
+        }
+
+        if (version is not null && version.Length > Gg.Contracts.FlightNomination.MaxVersion)
+        {
+            return Content(id, isError: true,
+                $"Refused: a version is at most {Gg.Contracts.FlightNomination.MaxVersion} "
+              + $"characters and this one is {version.Length}. It is compared for equality, "
+              + "not read. Nothing was recorded.");
+        }
+
         // ECHOED BACK IN CANONICAL FORM, so an agent can see what was taken
         // rather than assume its own spelling survived.
+        //
+        // AND IT NO LONGER TELLS A PASS TO STOP. "Your part is done" was right
+        // while a nomination was one per flight and is the sentence that would
+        // end a plan after its first leg.
         return Content(id, isError: false,
-            $"Recorded: work kind '{workKind}'. This grants nothing and opens nothing - a "
-          + "person decides whether a flight of that kind is opened. Your part is done: stop "
-          + "now and say what you nominated and why.");
+            subject is null
+                ? $"Recorded: work kind '{workKind}'. This grants nothing and opens nothing - "
+                + "a person decides whether a flight of that kind is opened."
+                : $"Recorded: work kind '{workKind}' for '{subject}'. This grants nothing and "
+                + "opens nothing - a person decides whether these are opened. Call again for "
+                + "the next piece of work, or stop and say what you nominated and why.");
     }
 
     /// <summary>

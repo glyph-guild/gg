@@ -32,7 +32,7 @@ namespace Gg.Contracts.Tests;
 public class FlightNominationSurfaceTests
 {
     [Test]
-    public async Task It_names_a_kind_a_reason_a_note_a_where_and_nothing_else()
+    public async Task It_names_a_kind_a_reason_a_note_a_where_a_what_and_nothing_else()
     {
         var members = typeof(FlightNomination)
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
@@ -46,6 +46,15 @@ public class FlightNominationSurfaceTests
             nameof(FlightNomination.Note),
             nameof(FlightNomination.Environment),
             nameof(FlightNomination.Repository),
+            // WHAT IT IS ABOUT, WHICH VERSION, AND WHOSE PLAN - slice
+            // fifty-three. None of the three is a piece of the regime: a
+            // subject is an identity, a version is a comparison, and an
+            // itinerary is which group of nominations this joins. An agent
+            // naming all three still cannot say what governs the flight it
+            // asks for, which is the line this list exists to hold.
+            nameof(FlightNomination.Subject),
+            nameof(FlightNomination.Version),
+            nameof(FlightNomination.Itinerary),
         });
     }
 

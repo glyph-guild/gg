@@ -184,7 +184,16 @@ public static class ProtocolSurface
          // do. An undeclared route under it would be an unaudited way to hand
          // somebody authority - the argument /v1/invitations came in on,
          // applied to privilege rather than to membership.
-         "/v1/principals"];
+         "/v1/principals",
+         // THE PLANS, AND THE ARGUMENT IS THE BOARD'S. An itinerary is a group
+         // of nominations, so a route under here reads the rows /v1/board
+         // reads and is governed for the same reason: every nomination a
+         // tenant's agents have made, including the ones nobody has decided
+         // about yet. It is its own prefix rather than a path under /v1/board
+         // because an itinerary's legs are deliberately NOT on the board -
+         // nothing will ever answer one - and a read that hung off the board's
+         // prefix would read as the thing it is defined not to be.
+         "/v1/itineraries"];
 
     /// <summary>Refusal for a caller below the protocol floor.</summary>
     public const int ProtocolTooOld = 426;
@@ -792,6 +801,50 @@ public static class ProtocolSurface
             // 200: the board is a store rather than a perspective, so a read
             // sees what the last write left. Nothing here is asynchronous.
             Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+
+        // THE PLANS. An itinerary's legs are nominations and nothing else, so
+        // these two answer with the board's own page rather than a second shape
+        // that would have to be kept agreeing with it. What makes them separate
+        // routes is the question being asked: the board is what a person must
+        // ANSWER, and an itinerary is what a person already approved and now
+        // wants to watch.
+        //
+        // DECLARED IN THE VERSION THE CONTROL PLANE SERVES THEM IN, which is
+        // narrower than "declared before served" and is what this repository
+        // has twice paid to learn. Late is unreachable for ever: the endpoint
+        // surface is not in the contract digest and the publish skips a shipped
+        // version. Early freezes the consumer's pin: it refuses a declared
+        // route nobody serves, for every change by anybody, until somebody
+        // does. One round, both halves.
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/itineraries",
+            Audience = Audience.Developer,
+            Request = null,
+            Response = typeof(BoardPage),
+            // 200 and the board's reasons: a store rather than a perspective,
+            // read where the last write left it. NO 404 - a tenant with no
+            // plans has an empty page, and answering 404 would make "none" and
+            // "no such surface" the same reply.
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/itineraries/{ref}",
+            Audience = Audience.Developer,
+            Request = null,
+            Response = typeof(BoardPage),
+            // {ref} is a uuid OR an itinerary number, both read by the one
+            // parser in ItineraryRef. A 404 rather than a 400 for a reference
+            // in neither form, for /v1/flights/{ref}'s reason: it names no
+            // itinerary in exactly the way a well-formed id for somebody
+            // else's does.
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
 

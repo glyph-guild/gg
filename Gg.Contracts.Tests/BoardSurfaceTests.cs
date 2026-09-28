@@ -75,6 +75,11 @@ public class BoardSurfaceTests
             nameof(NominationSummary.Because),
             nameof(NominationSummary.FlightId),
             nameof(NominationSummary.FlightNumber),
+            // WHICH PLAN THIS ROW IS A LEG OF, rendered. Beside the flight
+            // number and for its reason: the nominator carries the itinerary's
+            // ID, and a surface holding a uuid cannot show a person the ITN-
+            // number they approved.
+            nameof(NominationSummary.ItineraryNumber),
             nameof(NominationSummary.MadeAt),
             nameof(NominationSummary.EndedAt),
             nameof(NominationSummary.IntentKey),

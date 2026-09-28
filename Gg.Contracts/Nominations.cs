@@ -191,6 +191,40 @@ public sealed record NominationSummary
     /// <summary>Rendered, e.g. GG-42. Null wherever <see cref="FlightId"/> is.</summary>
     public string? FlightNumber { get; init; }
 
+    /// <summary>
+    /// The plan this row is a leg of, rendered - e.g. ITN-7. Null on every row
+    /// that is not a leg.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>BECAUSE THE NOMINATOR CARRIES ONLY THE ID.</b> A leg's nominator is
+    /// <c>itinerary:{id}</c>, and rightly: one carrying the number would be a
+    /// key that moves if the allocator is ever rebuilt, and would read as a
+    /// different plan in a different tenant. But what a person typed is
+    /// <c>ITN-7</c>, and a surface holding the uuid alone can only show them a
+    /// uuid.
+    /// </para>
+    /// <para>
+    /// <b><see cref="FlightNumber"/>'s shape and its reason.</b> Already
+    /// rendered, by the side that read the row, because a second place
+    /// deciding the format would drift from the first - and one place renders
+    /// an itinerary number, which a scan over the whole repository holds.
+    /// </para>
+    /// <para>
+    /// <b>Absent means NOT A LEG</b>, never a leg whose plan has no number:
+    /// an itinerary is minted with its number in one statement, so the second
+    /// state cannot exist. That is a stronger absence than
+    /// <see cref="FlightNumber"/>'s, which genuinely answers null for a flight
+    /// dispatched moments ago.
+    /// </para>
+    /// <para>
+    /// <b>And no id beside it.</b> The nominator already says which plan, and
+    /// a second copy is a second thing to disagree with the first - the rule
+    /// this record holds about not being mostly provenance.
+    /// </para>
+    /// </remarks>
+    public string? ItineraryNumber { get; init; }
+
     public required DateTimeOffset MadeAt { get; init; }
 
     public DateTimeOffset? EndedAt { get; init; }

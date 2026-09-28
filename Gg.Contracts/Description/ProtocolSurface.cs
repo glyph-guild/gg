@@ -2180,7 +2180,8 @@ public static class ProtocolSurface
             [typeof(NominationSummary)] =
                 ["nominationId", "nominator", "subject", "version", "workKind", "mode",
                  "state", "ending", "because", "flightId", "flightNumber", "madeAt", "endedAt",
-                 "intentKey", "gatedBecause", "for", "forDisplay"],
+                 "intentKey", "gatedBecause", "for", "forDisplay",
+                 "itineraryNumber"],
             [typeof(BoardPage)] = ["nominations", "includedEnded", "next"],
             [typeof(NominationDecision)] = ["outcome", "because"],
             [typeof(RunnerSummary)] =

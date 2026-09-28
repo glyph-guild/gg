@@ -110,6 +110,10 @@ public static class EnvelopeText
         Bound(text, "environments", envelope.Environments);
         Bound(text, "repositories", envelope.Repositories);
 
+        // AND WHERE THE STACK RUNS, by the same rule: one name is a scalar, so
+        // `hosts: ui` is what a person wrote and what they get back.
+        Bound(text, "hosts", envelope.Hosts);
+
         // WRITTEN WHEN DECLARED, INCLUDING WHEN EMPTY - and those are not the
         // same condition, which is the whole reason this line is not folded in
         // with the selections above. `accepts: []` is a work kind saying it

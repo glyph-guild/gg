@@ -2026,7 +2026,7 @@ public static class ProtocolSurface
             [typeof(Envelope)] =
                 ["description", "brief", "context", "obligations", "instructions", "loops",
                  "destinations", "environments", "repositories", "environment", "repository",
-                 "accepts", "produces", "learned", "targeting", "variables", "offers"],
+                 "accepts", "produces", "learned", "targeting", "hosts", "variables", "offers"],
             [typeof(EnvelopeInstruction)] = ["text", "provenance"],
             [typeof(EnvelopeState)] = ["version", "envelope", "updatedAt", "updatedBy"],
             [typeof(EnvelopeApplied)] = ["version", "appliedAt", "changed", "widens", "flight", "awaiting"],

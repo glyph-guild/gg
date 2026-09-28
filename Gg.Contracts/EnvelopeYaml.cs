@@ -1062,7 +1062,7 @@ public static class EnvelopeYaml
     {
         var root = RequireMap(document, "");
         Closed(root, BasedOnKey, "description", "brief", "context", "environment", "environments",
-               "repository", "repositories", "accepts", "produces", "learned", "variables", "targeting", "instructions",
+               "repository", "repositories", "accepts", "produces", "learned", "variables", "targeting", "hosts", "instructions",
                "obligations", "loops", "destinations", "offers");
 
         var context = RequireMap(Require(root, "context"), "context");
@@ -1116,6 +1116,11 @@ public static class EnvelopeYaml
             Offers = offers,
             Environments = BoundOf(root, "environments", "environment"),
             Repositories = BoundOf(root, "repositories", "repository"),
+            // READ THE SAME WAY, so `hosts: ui` and a sequence of two are one
+            // member. There is no singular spelling to accept, because this key
+            // has never shipped and so has no legacy form to be bug-compatible
+            // with.
+            Hosts = BoundOf(root, "hosts"),
             // AND THE ONE WHOSE EMPTY VALUE MEANS SOMETHING. `accepts: []` is
             // a work kind saying it takes no subject; a missing key is a
             // document that is not a work kind. So absence maps to null and an
@@ -1496,6 +1501,19 @@ public static class EnvelopeYaml
 
         return hasSingular ? [RequireScalar(one!, singular)] : null;
     }
+
+    /// <summary>The same shape, for a key that has no older spelling.</summary>
+    /// <remarks>
+    /// <b>Not <c>BoundOf(root, key, key)</c>.</b> That reads the one key twice,
+    /// finds it under both names and refuses the document as declaring two
+    /// spellings of itself — with a diagnosis naming the same word twice, which
+    /// is unanswerable. A key that has never shipped has no legacy form to be
+    /// compatible with, and saying so once is cheaper than a sentinel.
+    /// </remarks>
+    private static IReadOnlyList<string>? BoundOf(MapNode root, string key) =>
+        root.Entries.TryGetValue(key, out var value)
+            ? value is ScalarNode ? [RequireScalar(value!, key)] : Strings(value!, key)
+            : null;
 
     /// <summary>The sets a destination permits a nomination to select from.</summary>
     /// <remarks>

@@ -1889,6 +1889,13 @@ public static class PlatformToolServer
           + "only asks when it is free and waiting for the least-spent one would starve "
           + "the flight.");
         said.AppendLine(
+            "  hosts:              for a work kind, where its STACK runs - which is not "
+          + "where its loop runs. A list, or one name. Omitting it means the stack runs "
+          + "wherever the loop does, which is every kind today. This is the only key that "
+          + "names an environment and belongs to the KIND: `environments:` above is the "
+          + "tenant's bound on what exists, and which one a flight gets is chosen when it "
+          + "is flown. A name the floor does not permit is refused.");
+        said.AppendLine(
             "  obligations:        what must hold. Keyed by name; the name is how a loop "
           + "or a destination refers to it.");
         said.AppendLine(

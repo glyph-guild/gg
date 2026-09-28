@@ -556,6 +556,88 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     }
 
     /// <summary>
+    /// Every plan this tenant has, as the legs that make them up.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The board's page, because an itinerary's legs ARE nominations.</b>
+    /// There is nothing else they could be, so a shape of their own would be a
+    /// second thing to keep agreeing with the first.
+    /// </para>
+    /// <para>
+    /// <b>No <c>includeEnded</c>, and that is the difference from the board.</b>
+    /// A board row a person has not answered is the thing they came to read, so
+    /// ended rows are the exception there. A plan is read to see how it is
+    /// going, and a leg that has flown is most of what there is to see - so
+    /// every leg comes back and the reader sorts them.
+    /// </para>
+    /// </remarks>
+    public async Task<BoardPage> GetItinerariesAsync(
+        string sessionToken,
+        CancellationToken cancellationToken = default,
+        int? limit = null,
+        string? after = null)
+    {
+        var query = new List<string>();
+
+        if (limit is { } rows)
+        {
+            query.Add("limit=" + rows.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        if (after is { Length: > 0 })
+        {
+            query.Add("after=" + Uri.EscapeDataString(after));
+        }
+
+        using var request = Request(
+            HttpMethod.Get,
+            query.Count == 0 ? "/v1/itineraries" : "/v1/itineraries?" + string.Join('&', query),
+            sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+                   ProtocolJsonContext.Default.BoardPage, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane returned no itineraries.");
+    }
+
+    /// <summary>
+    /// One plan, by the number a person typed or the id a machine holds.
+    /// </summary>
+    /// <remarks>
+    /// <b>The reference travels as the caller spelled it.</b> Both forms
+    /// resolve, and the rule for reading one is <see cref="ItineraryRef"/>'s -
+    /// in the contract, so this side and the control plane cannot disagree
+    /// about what <c>ITN-7</c> means. Null where the tenant has no such plan:
+    /// a reference in neither form names no itinerary in exactly the way a
+    /// well-formed id for somebody else's does.
+    /// </remarks>
+    public async Task<BoardPage?> GetItineraryAsync(
+        string sessionToken,
+        string reference,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Get,
+            $"/v1/itineraries/{Uri.EscapeDataString(reference)}",
+            sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.BoardPage, cancellationToken);
+    }
+
+    /// <summary>
     /// Answers a nomination that is waiting for somebody.
     /// </summary>
     /// <param name="outcome">

@@ -62,7 +62,7 @@ public abstract record CliAction
     /// lifetime.
     /// </remarks>
     /// <param name="Sweep">Whether the server answers a sweep's nominations rather than a flight's.</param>
-    public sealed record RunnerTools(bool Sweep = false) : CliAction;
+    public sealed record RunnerTools(bool Sweep = false, bool Several = false) : CliAction;
 
     /// <summary>
     /// The tracker reader this binary serves, for one provider at one host.
@@ -1218,6 +1218,11 @@ public static class CliArgs
             ["runner", "serve"] => new CliAction.RunnerServe(),
             ["runner", "tools"] => new CliAction.RunnerTools(),
             ["runner", "tools", Gg.Local.NominationTool.Sweep.Flag] => new CliAction.RunnerTools(Sweep: true),
+            // A DESTINATION THAT EXPECTS SEVERAL. The runner starts the server
+            // under this verb when the lease says so, and the difference is one
+            // required argument - the thing that tells several nominations
+            // apart, which asking for has failed three times.
+            ["runner", "tools", Gg.Local.NominationTool.SeveralFlag] => new CliAction.RunnerTools(Several: true),
             ["runner", "read", .. var read] => ReadArguments(read),
             ["runner", "maintain", var pool] => new CliAction.RunnerMaintain(pool),
             // ONE WATCH, NAMED. A sweeping runner that found its own watches

@@ -692,6 +692,23 @@ public static class EnvelopeText
                     + "flight per pass, and a second nomination is refused rather than queued."
                     : $"\n\nNominate at most {cap} flights here. Past that they are refused "
                     + "rather than queued, so choose the ones worth flying.");
+
+            // AND THE FIELD THAT DECIDES WHETHER THEY SURVIVE, said HERE
+            // because this is the one place an agent is guaranteed to read.
+            // The tool's description has asked for `subject` since it was
+            // written and the work kind's instructions ask again; three
+            // measured passes set it anyway - GG-380 wrote "Subject: ..." into
+            // the REASON, and GG-407 omitted it. Every one of them collapsed
+            // into a single row and no itinerary has ever been minted, because
+            // an itinerary is what a subject creates.
+            if (cap != 1)
+            {
+                text.Append(
+                    "\n\nGIVE EACH ONE A `subject`. It is a separate argument, not a line of "
+                  + "prose in the reason: nominations that do not differ in the `subject` "
+                  + "ARGUMENT are taken as the same piece of work and become one, keeping the "
+                  + "last. Say what each piece IS - a ticket reference, a path, a few words.");
+            }
         }
 
         return text.ToString();

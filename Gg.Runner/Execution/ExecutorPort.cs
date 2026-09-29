@@ -403,6 +403,17 @@ public sealed record ExecutorRequest
     /// </remarks>
     public string? Menu { get; init; }
 
+    /// <summary>
+    /// Whether this flight's destination expects several nominations, so the
+    /// tool that makes them must require what tells them apart.
+    /// </summary>
+    /// <remarks>
+    /// Read off the lease rather than derived here: the menu reaches this
+    /// process as rendered TEXT, and reading a number back out of prose to
+    /// decide a tool's schema is the shape this repository keeps paying for.
+    /// </remarks>
+    public bool NominatesSeveral { get; init; }
+
     /// <summary>What the envelope permits. Passed through, and not enforced.</summary>
     public required IReadOnlyList<string> Moves { get; init; }
 

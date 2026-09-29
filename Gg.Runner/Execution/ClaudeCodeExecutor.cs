@@ -588,7 +588,27 @@ public sealed class ClaudeCodeExecutor(
     private string[] ServerArguments(ExecutorRequest request, string? secret)
     {
         var reader = ReaderFor(request);
-        var ours = Serves(request) ? _self : null;
+        // AND UNDER WHICH VERB, which is decided per flight even though the
+        // invocation itself is a process fact. `SelfInvocation.Current` is
+        // resolved once and cannot differ between flights - but `Under` exists
+        // precisely so a second server can be started under a second verb, and
+        // SweepLauncher has used it that way since it was written.
+        //
+        // A DESTINATION THAT EXPECTS SEVERAL gets a tool that REQUIRES what
+        // tells them apart. Asking has failed three times: the tool's own
+        // description asks, the work kind's instructions ask, and the menu now
+        // asks - and GG-380 wrote the subject into the reason while GG-389 and
+        // GG-407 omitted it. Each collapsed into one row, and no itinerary has
+        // ever been minted because an itinerary is what a subject creates.
+        var ours = Serves(request)
+            ? request.NominatesSeveral && _self is { } several
+                ? several with
+                {
+                    Arguments = several.Under(
+                        "runner", "tools", Gg.Local.NominationTool.SeveralFlag),
+                }
+                : _self
+            : null;
 
         // ONE FLAG, ALWAYS. `--mcp-config` is variadic and documented
         // space-separated; whether a SECOND occurrence appends or replaces is a

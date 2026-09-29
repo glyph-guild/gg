@@ -631,30 +631,66 @@ public static class Rows
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        // GROUPED ON THE NOMINATOR, NOT THE ITINERARY NUMBER. Requiring a
+        // number showed a tenant nothing it had ever done: thirty nominations
+        // on the live tenant and not one carries an itinerary, because one is
+        // minted only when a nomination names a `subject` and no agent sets
+        // one. The relationship a person is looking for - what proposed this,
+        // and what flew from it - is already carried by the nominator.
+        //
+        // AND IT UPGRADES RATHER THAN NEEDING REPLACING. When an itinerary IS
+        // minted its legs carry `itinerary:{id}` as their nominator, so the
+        // same grouping draws plans instead of passes with nothing changed
+        // here. The number, when there is one, is what the header shows.
         return
         [
             .. (state.Itineraries?.Nominations ?? [])
-                .Where(n => n.ItineraryNumber is { Length: > 0 })
-                .GroupBy(n => n.ItineraryNumber!, StringComparer.Ordinal)
-                .OrderByDescending(plan => plan.Max(n => n.MadeAt))
-                .SelectMany(plan => plan
-                    .OrderByDescending(n => n.MadeAt)
-                    .Select(leg => new ItineraryRow(
-                        leg.NominationId.ToString(),
-                        plan.Key,
-                        leg.WorkKind,
-                        // WHAT BECAME OF IT: the ending if it has one, the
-                        // mode while it stands. `dropped` reads here and
-                        // nowhere else, because the board excludes these rows.
-                        leg.Ending is { Length: > 0 } ended ? ended : leg.Mode,
-                        // THE FLIGHT IT OPENED, which is what a person follows
-                        // to see the work. Blank while it stands, and blank on
-                        // a leg that was refused or dropped - neither opened
-                        // one, and a dash would be a claim about a flight that
-                        // does not exist.
-                        leg.FlightNumber ?? "",
-                        PaneText.AgeOf(leg.MadeAt)))),
+                .GroupBy(n => n.Nominator, StringComparer.Ordinal)
+                .OrderByDescending(group => group.Max(n => n.MadeAt))
+                .SelectMany(group => Group(group)),
         ];
+    }
+
+    /// <summary>One nominator's header, then the work it proposed, indented.</summary>
+    /// <remarks>
+    /// <b>A header rather than the group repeated on every row.</b> Repeating it
+    /// reads as a table of legs; a header with its work under it reads as the
+    /// thing a person came to see - this proposed that, and this is what flew.
+    /// The header carries no kind, because the pass is not itself a piece of
+    /// work, and the child rows carry no nominator, because it is the line above.
+    /// </remarks>
+    private static IEnumerable<ItineraryRow> Group(IGrouping<string, NominationSummary> group)
+    {
+        var first = group.OrderByDescending(n => n.MadeAt).First();
+
+        // THE NUMBER WHEN THERE IS ONE, and what proposed it otherwise. An
+        // itinerary is what this tab is named for and is still the better
+        // label; until one exists, the pass is the truthful answer rather than
+        // a blank.
+        var heading = first.ItineraryNumber is { Length: > 0 } plan
+            ? plan
+            : ControlText.Strip(group.Key);
+
+        yield return new ItineraryRow(
+            "group:" + group.Key, heading, "", "", "", PaneText.AgeOf(group.Max(n => n.MadeAt)));
+
+        foreach (var leg in group.OrderByDescending(n => n.MadeAt))
+        {
+            yield return new ItineraryRow(
+                leg.NominationId.ToString(),
+                "",
+                "  " + leg.WorkKind,
+                // WHAT BECAME OF IT: the ending if it has one, the mode while
+                // it stands. `dropped` reads here and nowhere else, because the
+                // board excludes these rows.
+                leg.Ending is { Length: > 0 } ended ? ended : leg.Mode,
+                // THE FLIGHT IT OPENED, which is what a person follows to see
+                // the work. Blank while it stands, and blank on one refused or
+                // dropped - neither opened one, and a dash would be a claim
+                // about a flight that does not exist.
+                leg.FlightNumber ?? "",
+                PaneText.AgeOf(leg.MadeAt));
+        }
     }
 
     public static IReadOnlyList<BoardRow> Board(AppState state)

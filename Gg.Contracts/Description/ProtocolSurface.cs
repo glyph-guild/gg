@@ -2146,7 +2146,13 @@ public static class ProtocolSurface
                 ["leaseId", "generation", "flightId", "flightNumber", "repos", "credentials",
                  "unresolvedRepos", "classificationCeiling", "classificationRules", "expiresAt",
                  "renewWithinSeconds", "intentUri", "intentProvider", "intentId", "intentText",
-                 "nominationNote", "menu", "loop", "feedback", "attended"],
+                 "nominationNote", "menu", "loop", "feedback", "attended",
+                 // AND WHETHER THIS DESTINATION EXPECTS SEVERAL. Declared here
+                 // rather than derived, which is the point of this table: the
+                 // runner starts its tool server under a different verb for a
+                 // flight carrying it, and a member that serialized under a
+                 // second spelling would simply never arrive.
+                 "nominatesSeveral"],
             [typeof(LeaseRenewalRequest)] = ["generation"],
             [typeof(LeaseRenewed)] = ["expiresAt", "generation"],
             [typeof(LeaseReleaseRequest)] = ["generation", "disposition", "detail", "credentialFailure"],

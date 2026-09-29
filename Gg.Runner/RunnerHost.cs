@@ -304,6 +304,14 @@ public static class RunnerHost
         // would be a second answer to which files get read.
         MachineReporter? machine = null,
 
+        // AND WHICH ENVIRONMENT INSTANCES THIS HOST HAS, or null for a machine
+        // that hosts none - which is every developer's Mac and every member
+        // container. Handed in for the meter's reason one parameter up: what a
+        // machine reads about its own disk is the root's to decide, and a host
+        // that made its own scan would be a second answer to which directories
+        // get walked.
+        EnvironmentReporter? environments = null,
+
         // THIS MACHINE'S ANSWER FOR ONE LOCATOR, handed in because Gg.Runner
         // cannot see a credential store and must not learn to. A slot's
         // credential is named by a TENANT DOCUMENT rather than registered, so
@@ -523,6 +531,7 @@ public static class RunnerHost
             credentialRenewed: credentialRenewed,
             measureReadiness: readiness?.Invoke(protocol),
             machine: machine is null ? null : machine.Read,
+            environments: environments is null ? null : environments.Read,
             // HOW A SLOT'S CREDENTIAL IS FOUND ON THIS MACHINE. Passed straight
             // through: the root routes by scheme, and the loop only asks.
             secretFor: secretFor)

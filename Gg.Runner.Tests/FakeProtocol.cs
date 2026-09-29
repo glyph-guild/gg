@@ -239,6 +239,24 @@ internal sealed class FakeProtocol : IRunnerProtocol
         return Task.CompletedTask;
     }
 
+    /// <summary>Every environment reading this fake was handed.</summary>
+    internal List<EnvironmentInstanceReading> Environments { get; } = [];
+
+    /// <summary>Failures to raise from the environment route, in order.</summary>
+    internal Queue<Exception> EnvironmentThrows { get; } = new();
+
+    public Task ReportEnvironmentsAsync(
+        EnvironmentInstanceReading reading, CancellationToken cancellationToken = default)
+    {
+        Calls.Add("environments");
+
+        if (EnvironmentThrows.Count > 0) { throw EnvironmentThrows.Dequeue(); }
+
+        Environments.Add(reading);
+
+        return Task.CompletedTask;
+    }
+
     public Task ReportAllowanceAsync(
         string runnerId, AllowanceReading reading, CancellationToken cancellationToken = default)
     {

@@ -516,6 +516,14 @@ public class EndpointSurfaceTests
         // DECLARED BEFORE THEY ARE SERVED, which is safe for one reason and only
         // one: the client reads a 404 on the list as "none", so a pull against a
         // control plane pinned below this keeps working and finds no exposures.
+        // AND 0.253.0 ADDS POST /v1/runner/environment/instances, which
+        // environment instances a host has. The machine reading's shape exactly
+        // - runner audience, no id in the path, 202 and nothing back - and not
+        // a field on the beat for that route's reason, which binds harder here:
+        // a stale list still naming an instance does not merely mislead a
+        // reader, it has the claim hand a flight to a daemon that is gone.
+        // Declared in the version the control plane SERVES it in, which is the
+        // rule 0.218.0 and 0.224.0 taught from opposite directions.
         await Assert.That(Fingerprint())
         // AND 0.224.0 REMOVES ONE: POST /v1/runner/members/{id}/introduction,
         // undeclared until somebody serves it. The comment at 0.216.0 above
@@ -528,7 +536,7 @@ public class EndpointSurfaceTests
         // Declared in the version the control plane SERVES them in, which is
         // the lesson 0.218.0 and 0.224.0 taught from opposite directions -
         // late is unreachable for ever, early freezes the consumer's pin.
-            .IsEqualTo("ca744bae2b5c5b4563731c36c1e7e20dd1e1012448a8f7fad90b5f72ac2316e9")
+            .IsEqualTo("3547b6338468220a389345aafcb989721e2f55960049650e5134770357e37524")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

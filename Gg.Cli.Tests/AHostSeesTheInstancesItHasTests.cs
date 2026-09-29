@@ -1,6 +1,6 @@
 using Gg.Local;
 
-namespace Gg.Local.Tests;
+namespace Gg.Cli.Tests;
 
 /// <summary>
 /// A host reads which environment instances it has off the disk they live on.
@@ -126,7 +126,7 @@ public class AHostSeesTheInstancesItHasTests
         await Assert.That(seen).IsNotNull()
             .Because("null is 'not my business' and empty is 'I have none', and only the "
                    + "second one can ever take a dead instance out of the pool.");
-        await Assert.That(seen!).IsEmpty();
+        await Assert.That(seen).IsEmpty();
 
         Directory.Delete(root, recursive: true);
     }

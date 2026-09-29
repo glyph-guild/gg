@@ -306,6 +306,19 @@ public interface IRunnerProtocol
         MachineReading reading, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Says which environment instances this host has.
+    /// </summary>
+    /// <remarks>
+    /// The machine reading's shape and its reason, one call up - a measurement
+    /// on its own route with its own <c>MeasuredAt</c>, 202 and nothing back,
+    /// never a field on the beat. The WHOLE list every time: a slot removed
+    /// from a host emits nothing, so the far side reconciles against what it is
+    /// sent, and an empty reading is a host retiring what it used to have.
+    /// </remarks>
+    Task ReportEnvironmentsAsync(
+        EnvironmentInstanceReading reading, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Says whether this runner's agent can start.
     /// </summary>
     /// <remarks>

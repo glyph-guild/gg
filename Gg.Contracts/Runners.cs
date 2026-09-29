@@ -476,3 +476,114 @@ public sealed record MachineReading
         return null;
     }
 }
+
+/// <summary>One environment instance a host has, as the host sees it.</summary>
+/// <remarks>
+/// <b>Both names, because neither answers alone.</b> A grant is made against an
+/// ENVIRONMENT — that is what a work kind's <c>hosts:</c> selects and what the
+/// tenant charts — and the daemon a runner talks to is named after the
+/// INSTANCE. An environment has many instances; that is the whole reason a
+/// grant exists.
+/// </remarks>
+[PinnedId("e78066aa-3097-4020-aaf7-10d12ba874ac")]
+public sealed record EnvironmentInstanceSeen
+{
+    /// <summary>The charted environment this instance serves.</summary>
+    public required string Environment { get; init; }
+
+    /// <summary>The instance's name, which is a UNIX user on the reporting host.</summary>
+    public required string Instance { get; init; }
+}
+
+/// <summary>
+/// Every environment instance one host has, at the moment it looked.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The host attests what it has</b> — good-grief#617, owner 2026-09-29. An
+/// instance is a UNIX user with its own rootless daemon, made when the host is
+/// built (ADR-0034, and <c>deploy/pool-host/environments.md</c>). Nothing else
+/// can see one: a document that listed them would drift, and a pool attestation
+/// is about a container it reset rather than a user it did not make.
+/// </para>
+/// <para>
+/// <b>Its own route, never a field on the beat.</b> The reasoning is already
+/// written against <c>POST /v1/runner/machine/reading</c> — the heartbeat is
+/// liveness only, and a machine that could report its load there could report it
+/// while dead. It binds harder here: a stale list still naming an instance does
+/// not merely mislead a reader, it has the claim hand a flight to a daemon that
+/// is gone.
+/// </para>
+/// <para>
+/// <b>The WHOLE list, and the far side reconciles.</b> Per-instance news can say
+/// a thing appeared and can never say one went — a slot removed from a host
+/// emits nothing, by construction. So this is "these are the instances I have",
+/// which is also why an empty list is legal: a host that has the environment
+/// root and nothing in it is retiring whatever it used to have, and that is the
+/// only thing in the system that can.
+/// </para>
+/// <para>
+/// <b>Whose host, from the credential.</b> A reading names no runner and no
+/// tenant. Which machine is reporting is the identity it presented, as
+/// everywhere else on this audience: a machine that could name the reporter
+/// could retire another host's instances.
+/// </para>
+/// </remarks>
+[PinnedId("ee97385c-29b3-4763-91f3-c60ca61cf266")]
+public sealed record EnvironmentInstanceReading
+{
+    /// <summary>When this host looked.</summary>
+    /// <remarks>
+    /// A list with no clock cannot be judged stale, and this route exists
+    /// because a stale list is dangerous. Stamped by the host rather than on
+    /// arrival, so the far side can see how old a reading is instead of
+    /// believing it — <see cref="MachineReading.MeasuredAt"/>'s reason.
+    /// </remarks>
+    public required DateTimeOffset MeasuredAt { get; init; }
+
+    /// <summary>Everything this host has right now. Empty is a statement.</summary>
+    public required IReadOnlyList<EnvironmentInstanceSeen> Instances { get; init; }
+
+    /// <summary>
+    /// What no host can usefully mean, and what to refuse.
+    /// </summary>
+    /// <remarks>
+    /// <b>Empty is never refused</b>, which is the whole point of the type — see
+    /// the note above. What is refused is an entry nobody could act on: a name
+    /// that is blank on either side, or one instance reported twice. An instance
+    /// is a UNIX user and a host has one of each name, so two entries for it are
+    /// two answers to a question with one, and the far side would reconcile
+    /// against whichever it read last.
+    /// </remarks>
+    public static string? Validate(EnvironmentInstanceReading reading)
+    {
+        ArgumentNullException.ThrowIfNull(reading);
+
+        var named = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var seen in reading.Instances)
+        {
+            if (string.IsNullOrWhiteSpace(seen.Instance))
+            {
+                return "an instance with no name resolves to the environment root itself, "
+                     + "which is not a place a flight can stand a stack up.";
+            }
+
+            if (string.IsNullOrWhiteSpace(seen.Environment))
+            {
+                return $"instance '{seen.Instance}' names no environment, and an environment "
+                     + "is what a grant is made against. A slot nobody has said the purpose "
+                     + "of is one to leave out of the reading.";
+            }
+
+            if (!named.Add(seen.Instance))
+            {
+                return $"instance '{seen.Instance}' is reported twice. A host has one UNIX "
+                     + "user of each name, so two entries for it are two answers to a "
+                     + "question with one.";
+            }
+        }
+
+        return null;
+    }
+}

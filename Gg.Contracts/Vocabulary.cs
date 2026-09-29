@@ -30,6 +30,8 @@ public static class Vocabulary
         typeof(ReadinessItem),
         typeof(ReadinessReading),
         typeof(MachineReading),
+        typeof(EnvironmentInstanceSeen),
+        typeof(EnvironmentInstanceReading),
         typeof(EnrollmentTokenRequest),
         typeof(EnrollmentTokenMinted),
         typeof(EnrollmentTokenSummary),

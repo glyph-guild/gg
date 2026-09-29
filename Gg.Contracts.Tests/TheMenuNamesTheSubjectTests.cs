@@ -83,4 +83,38 @@ public class TheMenuNamesTheSubjectTests
             .Because("a destination that opens a single flight per pass has nothing to keep "
                    + "apart, and three measured triage runs read this menu.");
     }
+
+    [Test]
+    public async Task The_predicate_and_the_menu_are_one_decision()
+    {
+        // THE POINT OF EXPOSING IT AT ALL. The control plane must set
+        // LeaseGranted.NominatesSeveral, and the one thing it must never do is
+        // decide it a second time: a schema that REQUIRES what the menu did not
+        // explain refuses an agent for a rule it was never given, and a menu
+        // that asks where the schema does not is the fourth way of asking
+        // politely. So the menu reads this predicate, and this test is what
+        // keeps them one decision rather than two that currently agree.
+        foreach (var cap in (int?[])[null, 1, 2, 7])
+        {
+            var envelope = Opening(cap);
+            var menu = EnvelopeText.RenderMenu(envelope);
+            var asks = menu is not null && menu.Contains("GIVE EACH ONE", StringComparison.Ordinal);
+
+            await Assert.That(EnvelopeText.NominatesSeveral(envelope)).IsEqualTo(asks)
+                .Because($"cap {cap?.ToString() ?? "absent"}: what the runner is told to "
+                       + "require is exactly what the agent was told to give.");
+        }
+    }
+
+    [Test]
+    public async Task An_envelope_that_opens_no_flight_expects_nothing()
+    {
+        // The degenerate case, which RenderMenu answers with null rather than
+        // an empty heading. A predicate that threw here, or said true, would
+        // put `subject` in the schema of a flight with no menu at all.
+        var envelope = Opening(3) with { Destinations = [] };
+
+        await Assert.That(EnvelopeText.RenderMenu(envelope)).IsNull();
+        await Assert.That(EnvelopeText.NominatesSeveral(envelope)).IsFalse();
+    }
 }

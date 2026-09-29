@@ -640,10 +640,7 @@ public static class EnvelopeText
     {
         ArgumentNullException.ThrowIfNull(envelope);
 
-        var opening = envelope.Destinations
-            .Where(d => string.Equals(d.Kind, DestinationKinds.Flight, StringComparison.Ordinal))
-            .Where(d => d.Opens is { Count: > 0 })
-            .ToList();
+        var opening = Opening(envelope);
 
         if (opening.Count == 0)
         {
@@ -701,7 +698,7 @@ public static class EnvelopeText
             // the REASON, and GG-407 omitted it. Every one of them collapsed
             // into a single row and no itinerary has ever been minted, because
             // an itinerary is what a subject creates.
-            if (cap != 1)
+            if (SeveralExpected(cap))
             {
                 text.Append(
                     "\n\nGIVE EACH ONE A `subject`. It is a separate argument, not a line of "
@@ -713,6 +710,70 @@ public static class EnvelopeText
 
         return text.ToString();
     }
+
+    /// <summary>
+    /// Whether a pass against this envelope is expected to nominate SEVERAL
+    /// pieces of work, and must therefore say which piece each one is about.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Exposed so that it is decided once.</b> The control plane sets
+    /// <c>LeaseGranted.NominatesSeveral</c> from it, the runner starts its tool
+    /// server under a verb chosen by it, and that server's nomination tool puts
+    /// <c>subject</c> in <c>required</c> because of it - while the menu THIS
+    /// class renders is what tells the agent to supply one. A second
+    /// implementation of the rule would eventually disagree with this one, and
+    /// both halves of that disagreement are bad: a schema requiring what the
+    /// menu never explained refuses an agent for a rule it was never given, and
+    /// a menu asking where the schema does not is a fourth polite request.
+    /// </para>
+    /// <para>
+    /// <b>False when nothing caps, which is every destination in force today.</b>
+    /// Absent is unbounded, and reading "unbounded" as "several" would require a
+    /// subject from every classifier deciding one kind for the one item it is
+    /// about - the reading three measured triage runs depend on. The narrow
+    /// true case is a destination that named a number, and named one above one.
+    /// </para>
+    /// </remarks>
+    /// <param name="envelope">The pinned envelope governing the flight.</param>
+    public static bool NominatesSeveral(Envelope envelope)
+    {
+        ArgumentNullException.ThrowIfNull(envelope);
+
+        return SeveralExpected(CapPerPass(envelope));
+    }
+
+    /// <summary>
+    /// The number of flights one pass may open, or null where none is declared.
+    /// </summary>
+    /// <remarks>
+    /// THE LOWEST OF THEM, and only when every opening destination names one -
+    /// see <see cref="RenderMenu"/>, whose sentence this same value writes. A
+    /// pass is admitted by ONE destination and cannot know which, so the number
+    /// every one of them permits is the only honest one to give.
+    /// </remarks>
+    private static int? CapPerPass(Envelope envelope)
+    {
+        var opening = Opening(envelope);
+
+        if (opening.Count == 0)
+        {
+            return null;
+        }
+
+        var capped = opening.Select(d => d.CapPerPass).OfType<int>().ToList();
+
+        return capped.Count == opening.Count && capped.Count > 0 ? capped.Min() : null;
+    }
+
+    /// <summary>Whether a declared cap means more than one piece of work.</summary>
+    private static bool SeveralExpected(int? cap) => cap is not null and not 1;
+
+    /// <summary>The destinations that open a flight and name what they admit.</summary>
+    private static List<Destination> Opening(Envelope envelope) =>
+        [.. envelope.Destinations
+            .Where(d => string.Equals(d.Kind, DestinationKinds.Flight, StringComparison.Ordinal))
+            .Where(d => d.Opens is { Count: > 0 })];
 
     /// <summary>One permitted set, or nothing at all when it permits nothing.</summary>
     private static void Offer(StringBuilder text, string heading, IEnumerable<string> values)

@@ -197,6 +197,43 @@ public class NominateToolLaunchTests
     }
 
     [Test]
+    public async Task A_flight_expecting_several_starts_the_server_under_the_several_verb()
+    {
+        // THE MIDDLE OF THE CHAIN, and the part that has no other witness. The
+        // schema half is asserted in Gg.Cli.Tests and the lease member in
+        // Gg.Contracts.Tests; if nothing asserts THIS, the two ends agree and
+        // the flag never reaches the process - which is precisely the shape of
+        // a port nothing calls.
+        var config = ConfigIn(ClaudeCodeExecutor.ArgumentsFor(
+            Request([LoopMoves.Read, LoopMoves.Propose]) with { NominatesSeveral = true },
+            [],
+            self: SelfInvocation.For("/bin/gg", null)));
+
+        await Assert.That(config).Contains(NominationTool.SeveralFlag)
+            .Because("the server holds no client and no session, so what it may not fetch it "
+                   + "is handed. A flag that stops here leaves the tool declaring exactly "
+                   + "what it declared before.");
+    }
+
+    [Test]
+    public async Task Every_other_flight_starts_the_server_under_the_plain_verb()
+    {
+        // THE BOUND, and it is nearly every flight in the air. A classifier
+        // deciding one kind for one item reads a schema that has never
+        // required a subject, and a server started one verb over would refuse
+        // every one of them.
+        var config = ConfigIn(ClaudeCodeExecutor.ArgumentsFor(
+            Request([LoopMoves.Read, LoopMoves.Propose]),
+            [],
+            self: SelfInvocation.For("/bin/gg", null)));
+
+        await Assert.That(config).Contains("tools");
+        await Assert.That(config).DoesNotContain(NominationTool.SeveralFlag)
+            .Because("absent means what it has always meant, and three measured triage runs "
+                   + "depend on the reading.");
+    }
+
+    [Test]
     public async Task A_runner_that_cannot_find_itself_serves_no_tool()
     {
         // NOT A SILENT ABSENCE. The refusal belongs before anything is spent -

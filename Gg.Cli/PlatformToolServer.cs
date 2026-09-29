@@ -653,7 +653,15 @@ public static class PlatformToolServer
         writer.WriteStringValue(WorkKindArgument);
         writer.WriteStringValue(ReasonArgument);
 
-        _ = several;
+        // AND THE SUBJECT, WHERE SEVERAL ARE EXPECTED. Not unconditionally:
+        // nearly every flight that nominates is a classifier deciding one kind
+        // for the one item it is about, absent means "the work I am doing now",
+        // and three measured triage runs rely on that reading. This is the
+        // narrow case the whole itinerary feature waits on.
+        if (several)
+        {
+            writer.WriteStringValue(NominationTool.Subject);
+        }
 
         writer.WriteEndArray();
 

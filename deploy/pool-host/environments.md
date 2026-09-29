@@ -115,7 +115,59 @@ sudo -u "$SLOT" env XDG_RUNTIME_DIR=/run/user/$U dockerd-rootless-setuptool.sh i
 does not exist, the user manager is not running, and the setuptool fails in a way
 that reads like a permissions problem.
 
-## 4. Verify, in a way that cannot lie
+## 4. Let the runner reach it, without letting it become anybody
+
+The runner is `gg`. It has no `sudo`, and it does not need any: the slot's daemon
+is already running, started at boot by `enable-linger`. What it needs is to
+*talk* to one.
+
+**The default socket cannot be that one.** Measured: `/run/user/<uid>` is
+`drwx------` owned by the slot, on a tmpfs mounted `mode=700` and recreated every
+boot — so `gg` is refused, and an ACL placed there would not survive a restart.
+
+Give the daemon a second listener on a durable path instead.
+`dockerd-rootless.sh` ends in `exec "$dockerd" "$@"`, so its arguments reach
+`dockerd`:
+
+```sh
+SLOT=gg-env-1; U=$(id -u "$SLOT")
+sudo groupadd -f gg-env && sudo usermod -aG gg-env gg
+
+sudo -u "$SLOT" mkdir -p "/srv/env/$SLOT/run"
+sudo chgrp gg-env "/srv/env/$SLOT" "/srv/env/$SLOT/run"
+sudo chmod 750 "/srv/env/$SLOT" "/srv/env/$SLOT/run"
+
+sudo -u "$SLOT" mkdir -p "/srv/env/$SLOT/.config/systemd/user/docker.service.d"
+sudo -u "$SLOT" tee "/srv/env/$SLOT/.config/systemd/user/docker.service.d/reachable.conf" >/dev/null <<EOF
+[Service]
+ExecStart=
+ExecStart=/usr/bin/dockerd-rootless.sh -H unix:///run/user/$U/docker.sock -H unix:///srv/env/$SLOT/run/docker.sock
+EOF
+
+sudo -u "$SLOT" env XDG_RUNTIME_DIR=/run/user/$U systemctl --user daemon-reload
+sudo -u "$SLOT" env XDG_RUNTIME_DIR=/run/user/$U systemctl --user restart docker
+```
+
+**The empty `ExecStart=` before the real one is required**, not tidiness: without
+it systemd appends a second command rather than replacing the first, and the unit
+fails to start. **Both `-H` flags are required too** — naming one replaces the
+default rather than adding to it, and the slot's own tooling still expects the
+runtime-dir socket.
+
+`gg` must re-login for its new group to take effect; `sg gg-env -c …` or a
+restart of the runner service is the short way. Then:
+
+```sh
+sudo -u gg env DOCKER_HOST=unix:///srv/env/gg-env-1/run/docker.sock docker version --format '{{.Server.Version}}'
+```
+
+**This grants the runner that slot's daemon and nothing else.** It is a file
+permission, not a privilege: `gg` still cannot become the slot, cannot reach the
+host's daemon, and cannot touch another slot it has not been added to.
+`TheRunnerReachesAnInstanceWithoutBecomingAnybodyTests` holds the other half —
+that nothing in `Gg.Runner` ever tries.
+
+## 5. Verify, in a way that cannot lie
 
 ```sh
 U=$(id -u gg-env-1); for u in "gg-env-1:$U"; do n=${u%%:*}; i=${u##*:}; printf "%-9s root=%s\n" "$n" "$(sudo -u $n env XDG_RUNTIME_DIR=/run/user/$i DOCKER_HOST=unix:///run/user/$i/docker.sock docker info --format '{{.DockerRootDir}}')"; done
@@ -139,7 +191,7 @@ reads exactly like shared state and is usually a re-run; identical
 Ports are ordinary — measured, `-p 127.0.0.1:8099:80` publishes onto the host's
 loopback and the numbers may differ. There is no range to reserve.
 
-## 5. Removing a slot
+## 6. Removing a slot
 
 ```sh
 SLOT=gg-env-1; U=$(id -u "$SLOT")

@@ -65,14 +65,19 @@ public class PoolHostTests
     /// </para>
     /// <para>
     /// <b><c>/var/run</c> is a symlink to <c>/run</c>, so both spellings name the
-    /// same socket</b> and both must match. A rootless path excludes itself
-    /// without any special handling — <c>/run/user/1001/docker.sock</c> does not
-    /// contain <c>/run/docker.sock</c> — so this pattern is an anchoring rather
-    /// than an exception list, which is why the test below asserts both
-    /// directions instead of trusting it.
+    /// same socket</b> and both must match.
+    ///
+    /// <para>
+    /// <b>The lookbehind is load-bearing and was added after a false positive.</b>
+    /// A per-slot daemon listens at <c>/srv/env/&lt;slot&gt;/run/docker.sock</c>,
+    /// which ENDS with <c>/run/docker.sock</c> and is not the host's — the host's
+    /// is rooted at the filesystem root, so the character before <c>/run</c> is
+    /// never part of a path segment. <c>/run/user/1001/docker.sock</c> needs no
+    /// help; it does not contain the sequence at all.
+    /// </para>
     /// </para>
     /// </remarks>
-    private static readonly Regex HostSocket = new(@"(?:/var)?/run/docker\.sock");
+    private static readonly Regex HostSocket = new(@"(?<![\w.-])(?:/var)?/run/docker\.sock");
 
     [Test]
     public async Task The_host_socket_pattern_matches_the_socket_and_not_a_rootless_one()
@@ -88,7 +93,15 @@ public class PoolHostTests
         }
 
         foreach (var rootless in (string[])
-                 ["unix:///run/user/1001/docker.sock", "DOCKER_HOST=unix:///run/user/$U/docker.sock"])
+                 [
+                     "unix:///run/user/1001/docker.sock",
+                     "DOCKER_HOST=unix:///run/user/$U/docker.sock",
+                     // ENDS with /run/docker.sock and is not the host's. This one
+                     // slipped through a first anchoring and is why the sample
+                     // list exists.
+                     "unix:///srv/env/gg-env-1/run/docker.sock",
+                     "-H unix:///srv/env/$SLOT/run/docker.sock",
+                 ])
         {
             await Assert.That(HostSocket.IsMatch(rootless)).IsFalse()
                 .Because($"'{rootless}' is a per-user rootless socket - it grants that user's own "

@@ -379,6 +379,33 @@ public sealed record LeaseLoop
     /// <summary>Which loop, by its id in the envelope.</summary>
     public required string LoopId { get; init; }
 
+    /// <summary>
+    /// The environment instance hosting this loop's stack, or null when it is
+    /// hosted nowhere.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A name, never an address.</b> An instance is a UNIX user on a pool
+    /// host and its daemon's socket path is deployment knowledge; the control
+    /// plane holds references rather than values, so what crosses is
+    /// <c>gg-env-1</c> and the runner derives the rest through
+    /// <c>EnvironmentNaming</c>.
+    /// </para>
+    /// <para>
+    /// <b>Null is hosted nowhere, which is every flight today.</b> Not an empty
+    /// string: a blank name builds a path that normalises to a directory which
+    /// exists, so the failure would be an AppHost pointed at the wrong daemon
+    /// rather than a refusal.
+    /// </para>
+    /// <para>
+    /// <b>It rides the lease rather than a route.</b> The grant is decided
+    /// control-plane-side when the flight is claimed, and the loop is the only
+    /// thing that needs it - so a second call would be a route nobody else ever
+    /// has a reason to make.
+    /// </para>
+    /// </remarks>
+    public string? Instance { get; init; }
+
     /// <summary>Which rung runs it.</summary>
     public required string Executor { get; init; }
 

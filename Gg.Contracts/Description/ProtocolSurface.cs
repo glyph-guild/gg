@@ -1984,8 +1984,9 @@ public static class ProtocolSurface
             [typeof(DestinationAdmission)] =
                 ["destinationId", "branch", "baseRef", "slug", "reason"],
             [typeof(LeaseLoop)] =
-                ["loopId", "executor", "moves", "wallClockSeconds", "onExhaustion", "resumesFrom",
-                 "instructions", "brief", "landing", "variables", "produces", "learned"],
+                ["loopId", "instance", "executor", "moves", "wallClockSeconds", "onExhaustion",
+                 "resumesFrom", "instructions", "brief", "landing", "variables", "produces",
+                 "learned"],
             [typeof(LoopOutcome)] =
                 ["loopId", "outcome", "reason", "executor", "attempts", "durationMs", "movesUsed",
                  "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],

@@ -34,10 +34,11 @@ public class APassNominatesEachPieceOfWorkTests
 {
     private const string List = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}";
 
-    private static async Task<JsonElement> NominateToolAsync()
+    private static async Task<JsonElement> NominateToolAsync(bool several = false)
     {
         var output = new StringWriter();
-        await PlatformToolServer.RunAsync(new StringReader(List), output, sweep: false);
+        await PlatformToolServer.RunAsync(
+            new StringReader(List), output, sweep: false, several: several);
 
         using var listed = JsonDocument.Parse(output.ToString().Trim());
 
@@ -113,6 +114,41 @@ public class APassNominatesEachPieceOfWorkTests
             .IsFalse()
             .Because("absent is unbounded, so there is no number to give - and inventing a "
                    + "sentence about it would tell an agent about a bound nobody wrote.");
+    }
+
+    [Test]
+    public async Task A_destination_expecting_several_requires_the_subject()
+    {
+        // THE ONE PLACE ASKING HAS NOT FAILED. The tool's description asks for a
+        // subject, the work kind's instructions ask, and the menu asks - and
+        // GG-380 wrote it into the reason's prose while GG-389 and GG-407 left
+        // it out. All three collapsed onto one row, because the board keys on
+        // (nominator, subject, version) and an absent subject is the flight
+        // itself. A schema is the only ask an agent cannot answer around.
+        var tool = await NominateToolAsync(several: true);
+
+        var required = tool.GetProperty("inputSchema").GetProperty("required")
+            .EnumerateArray().Select(r => r.GetString()).ToList();
+
+        await Assert.That(required).Contains(NominationTool.Subject)
+            .Because("three passes asked for three pieces of work and minted one nomination "
+                   + "each time. No itinerary has ever been minted, and an itinerary is what "
+                   + "a second distinct subject creates.");
+    }
+
+    [Test]
+    public async Task The_version_stays_optional_where_several_are_expected()
+    {
+        // The bound on the change above. A version tells a revision from a
+        // repeat; a pass proposing three NEW pieces of work has no revision to
+        // name, and requiring one would make it invent a number.
+        var tool = await NominateToolAsync(several: true);
+
+        var required = tool.GetProperty("inputSchema").GetProperty("required")
+            .EnumerateArray().Select(r => r.GetString()).ToList();
+
+        await Assert.That(required).DoesNotContain(NominationTool.Version)
+            .Because("absent version already means what a first nomination needs it to mean.");
     }
 
     private static Envelope Capped(int? cap) => new()

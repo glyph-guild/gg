@@ -79,6 +79,19 @@ public static class NominationTool
     public const string Version = "version";
 
     /// <summary>
+    /// The flag <c>gg runner tools</c> is started with when this flight's
+    /// destination expects SEVERAL nominations, so the one thing that tells
+    /// them apart is required rather than suggested.
+    /// </summary>
+    /// <remarks>
+    /// <b>A flag rather than a read.</b> The server holds no client and no
+    /// session — which is what makes it safe to run as a child of a process the
+    /// threat model treats as compromised — so what it may not fetch, it is
+    /// handed. The sweep's own server is started the same way, one flag over.
+    /// </remarks>
+    public const string SeveralFlag = "--several";
+
+    /// <summary>
     /// The arguments the tool takes when the server was started for a sweep.
     /// </summary>
     /// <remarks>

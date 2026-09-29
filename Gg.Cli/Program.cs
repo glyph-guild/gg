@@ -51,7 +51,8 @@ return await ByName(CliArgs.Parse(args)) switch
         // explains it was never wired.
         pull: AirspacePullChild.Run,
         inForce: Environment.GetEnvironmentVariable(AirspaceContextTool.EnvelopeVariable),
-        sweep: tools.Sweep),
+        sweep: tools.Sweep,
+        several: tools.Several),
     // THE SAME CONTRACT, one server over. Stdout is the protocol here too, so
     // nothing on this path may print - including the credential resolution,
     // which fails as a tool error the agent can read rather than as a line.

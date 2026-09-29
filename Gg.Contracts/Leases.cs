@@ -764,6 +764,32 @@ public sealed record LeaseGranted
     public string? Menu { get; init; }
 
     /// <summary>
+    /// Whether this flight's destination expects SEVERAL nominations, so the
+    /// tool that makes them must require what tells them apart.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Carried because nothing on the runner could work it out.</b> The
+    /// runner is handed the menu as rendered TEXT, and reading a number back
+    /// out of prose to decide a tool's schema is the shape this repository
+    /// keeps paying for. The control plane composes the envelope and knows what
+    /// the destination declares, so it says so here.
+    /// </para>
+    /// <para>
+    /// <b>A declared cap above one, and nothing else.</b> An absent
+    /// <c>cap-per-pass</c> means unbounded rather than one, so it cannot be the
+    /// discriminator - every classifier in the field declares none and
+    /// nominates once. Saying it explicitly costs a document one line and keeps
+    /// three measured triage runs exactly as they are.
+    /// </para>
+    /// <para>
+    /// <b>False on every flight that is not a plan</b>, which is nearly all of
+    /// them, and false for every envelope written before this member.
+    /// </para>
+    /// </remarks>
+    public bool NominatesSeveral { get; init; }
+
+    /// <summary>
     /// The loop this flight runs, when its envelope declares one.
     /// </summary>
     /// <remarks>

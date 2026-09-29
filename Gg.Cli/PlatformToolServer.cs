@@ -154,6 +154,13 @@ public static class PlatformToolServer
         // nominates many items, each by subject and version, and never tells
         // the agent to stop after the first.
         bool sweep = false,
+        // A DESTINATION THAT EXPECTS SEVERAL NOMINATIONS. Its tool REQUIRES the
+        // subject, because asking for it has failed three times: the tool's own
+        // description asks, the work kind's instructions ask, and the menu asks
+        // - and GG-380 wrote it into the reason while GG-389 and GG-407 omitted
+        // it. Each collapsed into one row, and no itinerary has ever been minted
+        // because an itinerary is what a subject creates.
+        bool several = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
@@ -181,7 +188,7 @@ public static class PlatformToolServer
 
             using (message)
             {
-                if (Answer(message.RootElement, intentPath, documentRoot, pull, inForce, sweep)
+                if (Answer(message.RootElement, intentPath, documentRoot, pull, inForce, sweep, several)
                         is { } answer)
                 {
                     await output.WriteLineAsync(answer);
@@ -198,7 +205,7 @@ public static class PlatformToolServer
     /// </summary>
     private static string? Answer(
         JsonElement message, string? intentPath, string? documentRoot, RunPull? pull,
-        string? inForce, bool sweep)
+        string? inForce, bool sweep, bool several)
     {
         var method = message.TryGetProperty("method", out var named) ? named.GetString() : null;
 
@@ -212,7 +219,7 @@ public static class PlatformToolServer
         return method switch
         {
             "initialize" => Initialized(id, message),
-            "tools/list" => Listed(id, intentPath, documentRoot, sweep),
+            "tools/list" => Listed(id, intentPath, documentRoot, sweep, several),
             "prompts/list" => Offered(id),
             "prompts/get" => Given(id, message),
             "tools/call" => Called(id, message, intentPath, documentRoot, pull, inForce, sweep),
@@ -360,7 +367,7 @@ public static class PlatformToolServer
     /// </para>
     /// </remarks>
     private static string Listed(
-        JsonElement id, string? intentPath, string? documentRoot, bool sweep) =>
+        JsonElement id, string? intentPath, string? documentRoot, bool sweep, bool several) =>
         Write(writer =>
         {
             Envelope(writer, id);
@@ -395,7 +402,7 @@ public static class PlatformToolServer
                 // A FLEET FLIGHT. The envelope decides which of these a loop
                 // is granted; this server's job is not to offer it two more
                 // that belong to the console.
-                Nomination(writer);
+                Nomination(writer, several);
                 Decision(writer);
                 Proposal(writer);
 
@@ -545,7 +552,7 @@ public static class PlatformToolServer
     }
 
     /// <summary>Declares <c>NominationTool</c>.</summary>
-    private static void Nomination(Utf8JsonWriter writer)
+    private static void Nomination(Utf8JsonWriter writer, bool several)
     {
         writer.WriteStartObject();
 
@@ -645,6 +652,9 @@ public static class PlatformToolServer
         writer.WriteStartArray("required");
         writer.WriteStringValue(WorkKindArgument);
         writer.WriteStringValue(ReasonArgument);
+
+        _ = several;
+
         writer.WriteEndArray();
 
         writer.WriteEndObject();

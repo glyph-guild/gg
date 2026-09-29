@@ -2209,6 +2209,7 @@ public sealed class RunnerLoop(
             // destination that bounds admission. Carried rather than built:
             // a runner with its own list would offer what admission refuses.
             Menu = lease.Menu,
+            NominatesSeveral = lease.NominatesSeveral,
             // THE SAME DISPOSITION. Already rendered by the contract; the runner
             // hands it over and the prompt says whose words it holds.
             ResumesFrom = loop.ResumesFrom,

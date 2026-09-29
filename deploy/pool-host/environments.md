@@ -115,6 +115,30 @@ sudo -u "$SLOT" env XDG_RUNTIME_DIR=/run/user/$U dockerd-rootless-setuptool.sh i
 does not exist, the user manager is not running, and the setuptool fails in a way
 that reads like a permissions problem.
 
+## 3b. Say what the slot is for
+
+```sh
+echo ui | sudo -u "$SLOT" tee "/srv/env/$SLOT/environment" >/dev/null
+```
+
+**Nothing else on this host knows.** The slot is called `gg-env-1`, and that
+name says nothing about `ui` or `api` — so the runner reads this file, and a
+slot without one is not reported at all. That is deliberate: guessing the
+purpose from the name would be the runner deciding what you meant.
+
+The name must be an environment this tenant has **charted** (`gg airspace show`).
+An uncharted name is refused where every uncharted name is — at the document, by
+the control plane — and the slot simply never becomes grantable.
+
+One host may serve two environments: give its slots different files. Nothing
+here assumes a host is single-purpose.
+
+**This is what makes the slot appear.** `gg` reports what it finds under
+`/srv/env` on a cadence, and the control plane's record of which instances exist
+is built from those reports and nothing else (good-grief#617) — no document
+lists them, and no person keeps them in sync. Remove the slot and the next
+report retires it.
+
 ## 4. Let the runner reach it, without letting it become anybody
 
 The runner is `gg`. It has no `sudo`, and it does not need any: the slot's daemon
@@ -202,6 +226,12 @@ sudo userdel -r "$SLOT"                        # -r takes the home, and the imag
 
 `userdel -r` is the teardown proof this design was chosen for: everything the
 instance ever made lived under one home, inside one daemon, and goes with it.
+
+**Nothing else is needed to retire it.** The runner's next report does not find
+the slot, the control plane reconciles against what it is sent, and any grant
+the slot was holding is released with it. There is no command to run against the
+control plane and no document to edit — which is the whole point of the host
+being the one that attests.
 
 ## What this does NOT do, stated where somebody looks
 

@@ -381,6 +381,12 @@ public sealed class RunnerLoop(
     // Synchronous, unlike the allowance: reading four files is not a round trip
     // and a Task here would be ceremony over a value already in hand.
     Func<DateTimeOffset, Gg.Contracts.MachineReading?>? machine = null,
+    // AND WHICH ENVIRONMENT INSTANCES IT HAS, on the machine reading's shape
+    // above and synchronous for its reason: a walk of one directory is not a
+    // round trip. Null is a machine that hosts no environments, which is every
+    // machine composed without a scan and every one whose environment root does
+    // not exist.
+    Func<DateTimeOffset, Gg.Contracts.EnvironmentInstanceReading?>? environments = null,
     // WHEN THIS RUNNER'S OWN CREDENTIAL ENDS, so a 401 can be told apart from a
     // revocation. Null is a real value and means "not recorded" - every runner
     // registered before a member existed is in that state - and it is
@@ -726,6 +732,37 @@ public sealed class RunnerLoop(
         }
     }
 
+    /// <summary>
+    /// Says which environment instances this host has, and never stands the
+    /// runner down over it.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="ReportMachineAsync"/>'s guard, for its reason: the control
+    /// plane is the authority on liveness, and a runner that took itself out of
+    /// the fleet because a measurement was refused would have turned a
+    /// bookkeeping route into an availability dependency. It also swallows a
+    /// control plane that does not serve the route yet, which every one pinned
+    /// below this contract version is.
+    /// </remarks>
+    private async Task ReportEnvironmentsAsync(CancellationToken cancellationToken)
+    {
+        if (environments is null) { return; }
+
+        try
+        {
+            if (environments(_clock.UtcNow) is { } reading)
+            {
+                await _protocol.ReportEnvironmentsAsync(reading, cancellationToken);
+            }
+        }
+        catch (HttpRequestException)
+        {
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
     /// <summary>The flight this loop is holding, or null while it is idle.</summary>
     /// <remarks>
     /// <b>What "idle" is asked of now.</b> It used to be asked of the attended
@@ -851,6 +888,13 @@ public sealed class RunnerLoop(
             // minutes a machine is busy are exactly the minutes worth knowing
             // its load.
             await ReportMachineAsync(cancellationToken);
+
+            // AND WHAT IT CAN HOST A STACK IN. Beside the machine reading for
+            // its reasons, and reported while holding a flight for one of its
+            // own: a slot's daemon can die at any moment, and every second
+            // between that and this report is a second the claim may hand
+            // somebody its name.
+            await ReportEnvironmentsAsync(cancellationToken);
 
             // A SERVED BEAT CLEARS IT, so an hour of health does not inherit a
             // bad minute's wait.

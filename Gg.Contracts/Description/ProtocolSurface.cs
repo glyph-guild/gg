@@ -652,6 +652,26 @@ public static class ProtocolSurface
         },
         new()
         {
+            // WHICH ENVIRONMENT INSTANCES IT HAS, on the machine reading's shape
+            // below and for the identical reason: a measurement on its own
+            // route, 202 and nothing back, never a field on the beat. It binds
+            // harder here than it does for a load figure - a stale list still
+            // naming an instance has the claim hand a flight to a daemon that
+            // is gone.
+            //
+            // THE WHOLE LIST, because per-instance news can say a thing
+            // appeared and can never say one went. An empty reading is a host
+            // retiring what it used to have, and is the only thing in the system
+            // that can.
+            Method = "POST",
+            Path = "/v1/runner/environment/instances",
+            Audience = Audience.Runner,
+            Request = typeof(EnvironmentInstanceReading),
+            Statuses = [202, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [RunnerHeader],
+        },
+        new()
+        {
             // WHAT ITS MACHINE HAS, on the readiness reading's shape one entry
             // up and for the same reason: a measurement on its own route, 202
             // and nothing back. Not a field on the beat, which is liveness only
@@ -2004,6 +2024,8 @@ public static class ProtocolSurface
             [typeof(MachineReading)] = [
                 "measuredAt", "overSeconds", "cpuMilliLimit", "cpuMilliUsed",
                 "memoryLimitBytes", "memoryUsedBytes"],
+            [typeof(EnvironmentInstanceSeen)] = ["environment", "instance"],
+            [typeof(EnvironmentInstanceReading)] = ["measuredAt", "instances"],
             [typeof(AllowanceSummary)] =
                 ["name", "measuredAt", "windows", "runners", "owners", "floor", "override"],
             [typeof(AllowanceFloor)] = ["sessionFraction", "weekFraction"],

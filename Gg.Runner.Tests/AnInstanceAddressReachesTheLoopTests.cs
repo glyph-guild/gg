@@ -76,6 +76,30 @@ public class AnInstanceAddressReachesTheLoopTests
                    + "comes up where nothing looks for it.");
     }
 
+    [Test]
+    public async Task The_runbook_and_this_binary_agree_on_how_a_slot_says_what_it_serves()
+    {
+        // THE SECOND HALF OF THE SAME CONVENTION, and it earns its own check for
+        // the socket path's reason: the runbook is what a person follows by
+        // hand, and a file written under one name and read under another is a
+        // slot that silently never becomes grantable. Nothing would fail - the
+        // host would report no instances, and a hosted flight would wait for
+        // ever with no diagnosis anywhere.
+        var runbook = File.ReadAllText(Path.Combine(
+            RepoRoot(), "deploy", "pool-host", "environments.md"));
+
+        await Assert.That(runbook)
+            .Contains($"/{Gg.Local.EnvironmentSlotScan.EnvironmentFile}\"")
+            .Because("the runbook tells somebody to write this file by hand, and "
+                   + "EnvironmentSlotScan is what reads it. Derived from the constant "
+                   + "rather than spelled twice, so renaming the file fails here.");
+        await Assert.That(Gg.Local.EnvironmentSlotScan.SocketPath)
+            .IsEqualTo(EnvironmentNaming.SocketFor("x")!["unix:///srv/env/x/".Length..])
+            .Because("the scan decides a slot is reachable by looking for the socket the "
+                   + "loop will dial; two spellings of that path is a slot reported as "
+                   + "ready that nothing can connect to.");
+    }
+
     private static string RepoRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

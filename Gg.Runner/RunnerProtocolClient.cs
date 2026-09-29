@@ -52,6 +52,7 @@ namespace Gg.Runner;
 [JsonSerializable(typeof(FleetProfileState))]
 [JsonSerializable(typeof(ReadinessReading))]
 [JsonSerializable(typeof(MachineReading))]
+[JsonSerializable(typeof(EnvironmentInstanceReading))]
 public sealed partial class RunnerJsonContext : JsonSerializerContext;
 
 /// <summary>
@@ -224,6 +225,23 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
         // would be a runner speaking for it.
         using var request = Request(HttpMethod.Post, "/v1/runner/machine/reading");
         request.Content = JsonContent.Create(reading, RunnerJsonContext.Default.MachineReading);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        ThrowIfProtocolRefused(response);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task ReportEnvironmentsAsync(
+        EnvironmentInstanceReading reading, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(reading);
+
+        // NO RUNNER ID IN THE PATH, for the machine reading's reason above: the
+        // credential says which host this is, and a host naming another could
+        // retire that host's instances.
+        using var request = Request(HttpMethod.Post, "/v1/runner/environment/instances");
+        request.Content = JsonContent.Create(
+            reading, RunnerJsonContext.Default.EnvironmentInstanceReading);
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         ThrowIfProtocolRefused(response);

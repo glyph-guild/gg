@@ -52,6 +52,12 @@ public static class FactCategories
 
     public static IReadOnlyList<string> All { get; } = [Subject, Tree, Flight];
 
+    // NEITHER DIGEST COVERS THIS TABLE, so a change here moves no fingerprint and
+    // fails no build. The surface digest hashes pinned types and their members;
+    // the fact vocabulary hashes the KINDS. A mapping between them is in neither
+    // - so a category changed without a version bump changes what a consumer does
+    // with a fact at the same pin, silently. Move <Version> by hand and say why in
+    // the ledger, the way 0.258.0 does.
     private static readonly Dictionary<string, string> Categories = new(StringComparer.Ordinal)
     {
         // THE ONLY SUBJECT FACT WE SHIP, and it belongs to a subject kind that
@@ -59,7 +65,6 @@ public static class FactCategories
         // whether any of this generalises: the fact exists and the subject does
         // not. An environment is not a subject kind, so nothing vetoes it.
         [FactKinds.EnvironmentIdentity] = Subject,
-        [FactKinds.EnvironmentReclaimed] = Subject,
 
         // MEASURED FROM A TREE. A diff and the commit it was taken from. These
         // are the families the subject can veto, and the only ones.
@@ -115,6 +120,15 @@ public static class FactCategories
         // this flight is opening and about nothing that outlives it. Tree would
         // be wrong for a nearer reason than the proposal's - a title is not a
         // property of the source at all.
+        // WHAT PREPARING THE PLACE REMOVED. A FLIGHT fact, not a subject one:
+        // it measures the episode - what this flight's runner did before it ran -
+        // and a subject fact is "a standing property of a thing that exists
+        // between flights", which a reclaim is the opposite of. It was Subject
+        // for one release because it was written beside environment.identity and
+        // copied its line; good-grief's own guard refused it, in the words it was
+        // written with: the day a second subject fact lands is a day somebody
+        // changed that line.
+        [FactKinds.EnvironmentReclaimed] = Flight,
         [FactKinds.LandingProposal] = Flight,
 
         // FLIGHT, and the alternative is worth naming. An address is served BY a

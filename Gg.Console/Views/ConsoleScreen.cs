@@ -167,6 +167,8 @@ public sealed class ConsoleScreen : Window
     private readonly Label _itineraries;
     private readonly FrameView _itinerariesPane;
 
+    private readonly FrameView _itineraryLegsPane;
+
     /// <summary>
     /// The three views that are lists of one shape of thing.
     /// </summary>
@@ -180,6 +182,8 @@ public sealed class ConsoleScreen : Window
     private readonly TableView _flightsTable;
     private readonly TableView _boardTable;
     private readonly TableView _itinerariesTable;
+
+    private readonly TableView _itineraryLegsTable;
 
     // WHAT THE FLIGHT PANE LAST SAID, AND WHAT IT SAID IT ABOUT. Building that
     // pane walks every entry of the selected flight's story - measured at
@@ -969,15 +973,35 @@ public sealed class ConsoleScreen : Window
         // THE PLANS, ON THE BOARD'S SHAPE. Its rows are the board's rows read
         // the other way round, so the pane is too - a label for the three
         // things an empty one means, and a table for when there is something.
+        // TWO PANES, the queue's shape. A plan is a short row and its legs are
+        // the wide half, so the master takes the narrower side - the same
+        // proportion the queue and its flight use, because it is the same
+        // question: choose on the left, read on the right.
         _itinerariesPane = new FrameView
         {
             Title = "itineraries",
-            X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(1),
-            Visible = false,
+            X = 0, Y = 0, Width = Dim.Percent(38), Height = Dim.Fill(1),
         };
         _itineraries = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
         _itinerariesTable = CollectionViews.Table();
         _itinerariesPane.Add(_itineraries, _itinerariesTable);
+
+        _itineraryLegsPane = new FrameView
+        {
+            Title = "legs",
+            X = Pos.Right(_itinerariesPane), Y = 0, Width = Dim.Fill(), Height = Dim.Fill(1),
+        };
+        _itineraryLegsTable = CollectionViews.Table();
+
+        // NO CURSOR OF ITS OWN, which is why this one is not subscribed. Every
+        // other table on a tab is subscribed because a person moves its cursor
+        // and the model must learn about it; a table nobody can focus, whose
+        // contents are decided by the cursor NEXT TO IT, has nothing to report.
+        // Leaving it focusable and unsubscribed is the exact defect this
+        // console has already met twice - an arrow moves the widget, raises an
+        // event nothing listens to, and the next render puts it back.
+        _itineraryLegsTable.CanFocus = false;
+        _itineraryLegsPane.Add(_itineraryLegsTable);
         _browseTable = CollectionViews.Table();
         _browsePane.Add(_browseTable);
 
@@ -2060,6 +2084,10 @@ public sealed class ConsoleScreen : Window
         // THE QUEUE TAB IS TWO PANES, so it gets a container: the list a person
         // drives and the detail of whatever it lands on are one view of one
         // thing.
+        var itinerariesTab =
+            new View { Title = "itineraries", Width = Dim.Fill(), Height = Dim.Fill() };
+        itinerariesTab.Add(_itinerariesPane, _itineraryLegsPane);
+
         var queueTab = new View { Title = "queue", Width = Dim.Fill(), Height = Dim.Fill() };
         _queuePane.Height = Dim.Fill();
         _flightPane.Height = Dim.Fill();
@@ -2100,7 +2128,7 @@ public sealed class ConsoleScreen : Window
             // board it shares a page type with, because the first three places
             // are pinned and inserting anywhere would move a bar a person has
             // learned.
-            (TabId.Itineraries, Tabbed(_itinerariesPane)),
+            (TabId.Itineraries, itinerariesTab),
         ];
 
         _bar = new Terminal.Gui.Views.Tabs
@@ -4342,7 +4370,14 @@ public sealed class ConsoleScreen : Window
             {
                 Fill(_itinerariesTable, _itineraries, itineraryRows, Rows.ItineraryColumns,
                     State.ItinerariesSelected,
-                    r => [r.Plan, r.Kind, r.State, r.Flight, r.Since]);
+                    r => [r.Plan, r.About, r.Legs, r.State, r.Since]);
+
+                // AND THE PLAN THE CURSOR IS ON, beside it. Driven rather than
+                // filtered in the view: the row builder reads the same cursor,
+                // so the two tables cannot disagree about which plan is chosen.
+                Fill(_itineraryLegsTable, null, Rows.ItineraryLegs(State),
+                    Rows.ItineraryLegColumns, 0,
+                    r => [r.Kind, r.Subject, r.State, r.Flight, r.Since]);
             }
 
             Fill(_browseTable, null, Rows.Browse(State), Rows.BrowseColumns,

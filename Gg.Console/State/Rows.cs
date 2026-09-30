@@ -1,4 +1,5 @@
 using Gg.Contracts;
+using Gg.Contracts.Description;
 
 namespace Gg.Console;
 
@@ -380,8 +381,13 @@ public static class Rows
     /// identity, not its description - so what a reader actually reads is the
     /// KIND and the state, which is why those come next.
     /// </remarks>
+    /// <summary>The left-hand table: one row for each plan.</summary>
     public static IReadOnlyList<string> ItineraryColumns { get; } =
-        ["plan", "kind", "state", "flight", "since"];
+        ["plan", "about", "legs", "state", "since"];
+
+    /// <summary>The right-hand table: the chosen plan's legs.</summary>
+    public static IReadOnlyList<string> ItineraryLegColumns { get; } =
+        ["kind", "subject", "state", "flight", "since"];
 
     public static IReadOnlyList<string> RunnerColumns { get; } =
         ["", "runner", "whose", "profile", "state", "working on", "cpu", "memory",
@@ -627,70 +633,112 @@ public static class Rows
     /// than a case to render, so it is dropped rather than drawn as blank.
     /// </para>
     /// </remarks>
+    /// <summary>The plans, one row each - the left-hand table.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>ONE ROW PER PLAN, and the legs live in <see cref="ItineraryLegs"/>.</b>
+    /// This was a single list with a header per nominator and the work indented
+    /// under it, which is not what a master and a detail is: nothing was
+    /// chosen, nothing was driven, and the first column was headed `plan` while
+    /// being blank on every row that was not a header.
+    /// </para>
+    /// <para>
+    /// <b>ITINERARIES ONLY.</b> The read behind this tab was widened to every
+    /// nominator while no itinerary had ever been minted, so that a tenant with
+    /// thirty nominations would see something rather than "no plans yet". They
+    /// mint now, and the widening is exactly the clutter: it put one real plan
+    /// of three lines above thirty flights a person had opened by hand, which
+    /// the flights tab already lists.
+    /// </para>
+    /// </remarks>
     public static IReadOnlyList<ItineraryRow> Itineraries(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        // GROUPED ON THE NOMINATOR, NOT THE ITINERARY NUMBER. Requiring a
-        // number showed a tenant nothing it had ever done: thirty nominations
-        // on the live tenant and not one carries an itinerary, because one is
-        // minted only when a nomination names a `subject` and no agent sets
-        // one. The relationship a person is looking for - what proposed this,
-        // and what flew from it - is already carried by the nominator.
-        //
-        // AND IT UPGRADES RATHER THAN NEEDING REPLACING. When an itinerary IS
-        // minted its legs carry `itinerary:{id}` as their nominator, so the
-        // same grouping draws plans instead of passes with nothing changed
-        // here. The number, when there is one, is what the header shows.
+        return [.. Plans(state).Select(Plan)];
+    }
+
+    /// <summary>
+    /// The legs of the plan chosen on the left - the right-hand table.
+    /// </summary>
+    /// <remarks>
+    /// <b>Driven by the cursor, and empty when it points at nothing.</b> A
+    /// stale cursor is ordinary - a refresh can shorten the list under it - and
+    /// a row builder that indexed it would take the whole console down rather
+    /// than one pane.
+    /// </remarks>
+    public static IReadOnlyList<ItineraryLegRow> ItineraryLegs(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var plans = Plans(state);
+
+        if (state.ItinerariesSelected < 0 || state.ItinerariesSelected >= plans.Count)
+        {
+            return [];
+        }
+
         return
         [
-            .. (state.Itineraries?.Nominations ?? [])
-                .GroupBy(n => n.Nominator, StringComparer.Ordinal)
-                .OrderByDescending(group => group.Max(n => n.MadeAt))
-                .SelectMany(group => Group(group)),
+            .. plans[state.ItinerariesSelected]
+                .OrderByDescending(leg => leg.MadeAt)
+                .Select(leg => new ItineraryLegRow(
+                    leg.NominationId.ToString(),
+                    leg.WorkKind,
+                    // WHICH PIECE OF WORK, which the kind cannot say: two legs
+                    // of one plan are both `implement`, and the subject is the
+                    // only thing telling them apart. It is also the field this
+                    // tab exists to show - a plan is what several distinct
+                    // subjects make.
+                    leg.Subject,
+                    // WHAT BECAME OF IT: the ending if it has one, the mode
+                    // while it stands. `dropped` reads here and nowhere else,
+                    // because the board excludes these rows.
+                    leg.Ending is { Length: > 0 } ended ? ended : leg.Mode,
+                    // THE FLIGHT IT OPENED, which is what a person follows to
+                    // see the work. Blank while it stands, and blank on one
+                    // refused or dropped - neither opened one, and a dash
+                    // would be a claim about a flight that does not exist.
+                    leg.FlightNumber ?? "",
+                    PaneText.AgeOf(leg.MadeAt))),
         ];
     }
 
-    /// <summary>One nominator's header, then the work it proposed, indented.</summary>
+    /// <summary>
+    /// The nominations an itinerary owns, newest plan first.
+    /// </summary>
     /// <remarks>
-    /// <b>A header rather than the group repeated on every row.</b> Repeating it
-    /// reads as a table of legs; a header with its work under it reads as the
-    /// thing a person came to see - this proposed that, and this is what flew.
-    /// The header carries no kind, because the pass is not itself a piece of
-    /// work, and the child rows carry no nominator, because it is the line above.
+    /// Grouped on the nominator rather than on <c>ItineraryNumber</c>: the
+    /// nominator is what the write side keys a leg by, and a row whose number
+    /// has not been rendered yet still belongs to its plan.
     /// </remarks>
-    private static IEnumerable<ItineraryRow> Group(IGrouping<string, NominationSummary> group)
+    private static List<IGrouping<string, NominationSummary>> Plans(AppState state) =>
+        [.. (state.Itineraries?.Nominations ?? [])
+            .Where(n => n.Nominator.StartsWith(ItineraryRef.NominatorPrefix, StringComparison.Ordinal))
+            .GroupBy(n => n.Nominator, StringComparer.Ordinal)
+            .OrderByDescending(group => group.Max(n => n.MadeAt))];
+
+    private static ItineraryRow Plan(IGrouping<string, NominationSummary> plan)
     {
-        var first = group.OrderByDescending(n => n.MadeAt).First();
+        var newest = plan.OrderByDescending(n => n.MadeAt).First();
 
-        // THE NUMBER WHEN THERE IS ONE, and what proposed it otherwise. An
-        // itinerary is what this tab is named for and is still the better
-        // label; until one exists, the pass is the truthful answer rather than
-        // a blank.
-        var heading = first.ItineraryNumber is { Length: > 0 } plan
-            ? plan
-            : ControlText.Strip(group.Key);
-
-        yield return new ItineraryRow(
-            "group:" + group.Key, heading, "", "", "", PaneText.AgeOf(group.Max(n => n.MadeAt)));
-
-        foreach (var leg in group.OrderByDescending(n => n.MadeAt))
-        {
-            yield return new ItineraryRow(
-                leg.NominationId.ToString(),
-                "",
-                "  " + leg.WorkKind,
-                // WHAT BECAME OF IT: the ending if it has one, the mode while
-                // it stands. `dropped` reads here and nowhere else, because the
-                // board excludes these rows.
-                leg.Ending is { Length: > 0 } ended ? ended : leg.Mode,
-                // THE FLIGHT IT OPENED, which is what a person follows to see
-                // the work. Blank while it stands, and blank on one refused or
-                // dropped - neither opened one, and a dash would be a claim
-                // about a flight that does not exist.
-                leg.FlightNumber ?? "",
-                PaneText.AgeOf(leg.MadeAt));
-        }
+        return new ItineraryRow(
+            plan.Key,
+            // THE NUMBER WHEN THERE IS ONE. An itinerary always has one by the
+            // time a person can see it; the nominator is the honest fallback
+            // rather than a blank cell in the column the table is named for.
+            newest.ItineraryNumber is { Length: > 0 } number
+                ? number
+                : ControlText.Strip(plan.Key),
+            // WHAT IT IS ABOUT, from the legs rather than from the plan: an
+            // itinerary carries no subject of its own, and every leg of one
+            // names the same piece of work it came out of.
+            newest.IntentKey ?? "",
+            plan.Count().ToString(System.Globalization.CultureInfo.InvariantCulture),
+            // STANDING WHILE ANY LEG DOES, because a plan a person still has
+            // to answer is not finished by its first leg being opened.
+            plan.Any(n => n.Ending is null or "") ? NominationStates.Standing : "ended",
+            PaneText.AgeOf(plan.Max(n => n.MadeAt)));
     }
 
     public static IReadOnlyList<BoardRow> Board(AppState state)
@@ -1513,7 +1561,11 @@ public static class Rows
 /// would put five empty cells on every row of both panes.
 /// </remarks>
 public sealed record ItineraryRow(
-    string Key, string Plan, string Kind, string State, string Flight, string Since);
+    string Key, string Plan, string About, string Legs, string State, string Since);
+
+/// <summary>One leg of the plan chosen on the left.</summary>
+public sealed record ItineraryLegRow(
+    string Key, string Kind, string Subject, string State, string Flight, string Since);
 
 public sealed record BoardRow(
     string Key, string What, string Subject, string State, string Kind, string Since,

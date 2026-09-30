@@ -191,8 +191,16 @@ public class TheRunnersCursorStaysTests
         var wired = screen.Split("ValueChanged += OnRowPointedAt").Length - 1;
         var released = screen.Split("ValueChanged -= OnRowPointedAt").Length - 1;
 
-        await Assert.That(built).IsEqualTo(17)
-            .Because("TEN calls now - the tenth is the Itineraries pane's, and it came past "
+        await Assert.That(built).IsEqualTo(18)
+            .Because("The eighteenth is the Itineraries tab's LEGS table, and it is the "
+                   + "first on a tab that is deliberately NOT wired - so `built` moved and "
+                   + "`wired` did not, which is the pair this ratchet exists to make "
+                   + "somebody say out loud. It carries no cursor because `CanFocus` is "
+                   + "false: what it shows is decided by the plan chosen in the table beside "
+                   + "it, so there is no cursor move for the model to learn about. A "
+                   + "focusable table subscribed to nothing would be the defect this class "
+                   + "is named for, met a third time. "
+                   + "TEN calls now - the tenth is the Itineraries pane's, and it came past "
                    + "this ratchet with its subscription rather than without one, which is "
                    + "what the count is for. "
                    + "Nine before that, and the count is here so an eleventh has to come "

@@ -43,7 +43,10 @@ public class ARehearsalLearnsTheBringUpTests
 
         await PlatformToolServer.RunAsync(
             new StringReader("""{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}"""),
-            output, intentPath: null, documentRoot: "/tmp/tree", inForce: null);
+            // NO documentRoot AND NO intentPath: propose_document is offered on
+            // the FLIGHT branch. Drafting reads the airspace and hands a document
+            // back, which is not what a rehearsal does.
+            output, intentPath: null, documentRoot: null, inForce: null);
 
         using var answer = JsonDocument.Parse(output.ToString().Trim().Split('\n')[0]);
 

@@ -32,6 +32,9 @@ public class EnvelopeModelRoundTripTests
     {
         Context = new ContextBinding { Scope = "src/**", Constitution = "1.10" },
         Brief = "Score this work item against the rubric and write the score to the tracker.",
+        // A STACK SCRIPT, which requires `hosts:` - Validate refuses one without
+        // an environment to run in, because nothing would ever perform it.
+        Stack = "scripts/stack.ps1",
         Environments = ["aspire-payments"],
         Repositories = ["payments"],
         Accepts = [SubjectKinds.Repository],
@@ -296,7 +299,7 @@ public class EnvelopeModelRoundTripTests
         // rendered' shipped twice because nothing forced that decision.
         string[] covered =
         [
-            nameof(Envelope.Description), nameof(Envelope.Brief),
+            nameof(Envelope.Description), nameof(Envelope.Brief), nameof(Envelope.Stack),
             nameof(Envelope.Context), nameof(Envelope.Environments), nameof(Envelope.Repositories),
             // THE LEGACY SPELLINGS, exempted rather than covered: they are read
             // so a stored document keeps its bound and are deliberately NEVER

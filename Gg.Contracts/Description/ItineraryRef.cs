@@ -37,6 +37,29 @@ public sealed record ItineraryRef
     /// <summary>How an itinerary number is written wherever a person will see it.</summary>
     public const string Prefix = "ITN-";
 
+    /// <summary>
+    /// How an itinerary is written when it is the NOMINATOR of a leg, which is
+    /// not how its number is written.
+    /// </summary>
+    /// <remarks>
+    /// <b>Here because the console needs it and had nowhere to read it from.</b>
+    /// The control plane composes <c>itinerary:{id}</c> into a nomination's
+    /// `nominator`, and the console tells a plan's legs from every other
+    /// nomination by the same prefix. A spelling that drifted would not fail -
+    /// the console would simply draw an empty Itineraries tab for a tenant
+    /// with plans in it.
+    /// </para>
+    /// <para>
+    /// <b>NOT yet the only copy, and saying so would be a claim the code does
+    /// not support.</b> good-grief keeps its own speller and parser together
+    /// in <c>NominationLedger</c>, for this reason written in its own words -
+    /// <i>"a spelling with no parser gets a second one written somewhere
+    /// else"</i>. Whichever release next moves that repository's contract pin
+    /// should point them here, and then this remark can say "the only copy"
+    /// and mean it.
+    /// </remarks>
+    public const string NominatorPrefix = "itinerary:";
+
     private ItineraryRef(Guid? id, int? number)
     {
         Id = id;

@@ -54,57 +54,6 @@ public class TheItinerariesTabShowsThePlansTests
     };
 
     [Test]
-    public async Task A_plan_is_shown_by_its_number_with_its_legs_under_it()
-    {
-        var state = Showing(
-            Leg(ItineraryRef.Format(7), "research"),
-            Leg(ItineraryRef.Format(7), "implement"),
-            Leg(ItineraryRef.Format(7), "review"));
-
-        var rows = Rows.Itineraries(state);
-
-        // A HEADER AND ITS THREE LEGS. The number moved onto a header of its
-        // own rather than repeating on every line, because repeating it reads
-        // as a table of legs rather than as a plan with work under it.
-        await Assert.That(rows.Count).IsEqualTo(4);
-
-        await Assert.That(rows[0].Plan).IsEqualTo(ItineraryRef.Format(7))
-            .Because("the number is what a person typed and what they are looking for, and "
-                   + "the header is where they look for it.");
-        await Assert.That(rows[0].Kind).IsEmpty()
-            .Because("a plan is not itself a piece of work.");
-
-        await Assert.That(rows.Skip(1).Select(r => r.Kind.Trim())).IsEquivalentTo((string[])
-            ["research", "implement", "review"])
-            .Because("the kind is what a reader actually reads - a leg's subject is a digest, "
-                   + "an identity rather than a description.");
-    }
-
-    [Test]
-    public async Task Two_plans_are_kept_apart_and_each_ones_legs_stay_together()
-    {
-        // GROUPED HERE, because nothing on the wire orders them: the rows are
-        // nominations read by nominator, and interleaved plans are unreadable.
-        var state = Showing(
-            Leg(ItineraryRef.Format(7), "research", madeAtHour: 9),
-            Leg(ItineraryRef.Format(8), "implement", madeAtHour: 11),
-            Leg(ItineraryRef.Format(7), "review", madeAtHour: 10));
-
-        // THE HEADERS, IN ORDER. Each plan's legs sit under its own header
-        // rather than carrying the number themselves.
-        var plans = Rows.Itineraries(state)
-            .Where(r => r.Plan.Length > 0)
-            .Select(r => r.Plan)
-            .ToList();
-
-        await Assert.That(plans).IsEquivalentTo((string[])
-            [ItineraryRef.Format(8), ItineraryRef.Format(7)])
-            .Because("the newest plan leads and its legs stay beneath it - a list that "
-                   + "interleaved two plans would make a person read the number on every "
-                   + "line to tell them apart.");
-    }
-
-    [Test]
     public async Task A_plan_whose_legs_have_all_flown_still_reads()
     {
         // THE HALF THAT WOULD BE SKIPPED. The board hides what is over because
@@ -113,14 +62,17 @@ public class TheItinerariesTabShowsThePlansTests
             Leg(ItineraryRef.Format(7), "research", NominationEndings.Opened, "GG-42"),
             Leg(ItineraryRef.Format(7), "implement", NominationEndings.Opened, "GG-43"));
 
-        var rows = Rows.Itineraries(state);
+        var plans = Rows.Itineraries(state);
+        var legs = Rows.ItineraryLegs(state);
 
-        await Assert.That(rows.Count).IsEqualTo(3)
-            .Because("a header and two flown legs. A finished plan is still a plan, and a "
-                   + "surface that emptied when the work started would be one nobody could "
-                   + "use to follow it.");
+        await Assert.That(plans.Count).IsEqualTo(1)
+            .Because("one plan on the left. A finished plan is still a plan, and a surface "
+                   + "that emptied when the work started would be one nobody could use to "
+                   + "follow it.");
 
-        await Assert.That(rows.Where(r => r.Flight.Length > 0).Select(r => r.Flight))
+        await Assert.That(plans[0].Legs).IsEqualTo("2");
+
+        await Assert.That(legs.Where(r => r.Flight.Length > 0).Select(r => r.Flight))
             .IsEquivalentTo((string[]) ["GG-42", "GG-43"])
             .Because("the flight is what a person follows to see the work, and it is the "
                    + "whole reason this tab is worth opening after the approval.");
@@ -140,7 +92,7 @@ public class TheItinerariesTabShowsThePlansTests
             Leg(ItineraryRef.Format(7), "research", NominationEndings.Opened, "GG-42"),
             Leg(ItineraryRef.Format(7), "implement", NominationEndings.Dropped));
 
-        var rows = Rows.Itineraries(state);
+        var rows = Rows.ItineraryLegs(state);
 
         await Assert.That(rows.Select(r => r.State)).Contains(NominationEndings.Dropped);
 

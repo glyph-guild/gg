@@ -1023,6 +1023,14 @@ public sealed class ConsoleScreen : Window
             Width = Dim.Fill(),
             Height = Dim.Percent(60),
 
+            // AND IT CAN HOLD THE KEYBOARD. A FrameView is created CanFocus
+            // false, and a container that cannot take focus cannot pass it to
+            // a child - so SetFocus on the table inside silently did nothing,
+            // focus stayed on the tab BEHIND the modal, and not one key
+            // reached it. Not the arrows, not `j`, not even escape: the modal
+            // could be opened and not closed.
+            CanFocus = true,
+
             // A STOP, NOT A GROUP, which the flight log's own pane already
             // says in full one screen up: a FrameView is created as a
             // TabGroup, and focus descends only into DIRECT subviews whose
@@ -1053,9 +1061,10 @@ public sealed class ConsoleScreen : Window
             Width = Dim.Fill(),
             Height = Dim.Fill(),
 
-            // THE SAME, so a long sentence can be scrolled rather than only
-            // looked at: this pane holds a list and tab has to be able to
-            // reach it.
+            // THE SAME PAIR, so a long sentence can be scrolled rather than
+            // only looked at: this pane holds a list, and tab has to be able
+            // to reach it AND it has to be able to hold it.
+            CanFocus = true,
             TabStop = TabBehavior.TabStop,
         };
 

@@ -66,6 +66,18 @@ public class AnInstanceIsEmptiedBeforeUseTests
                 ? Task.FromException<IReadOnlyList<string>>(Throws)
                 : Task.FromResult<IReadOnlyList<string>>([.. Present]);
 
+        /// <summary>
+        /// Recorded so the reclaim's own test can assert it is NOT used: only the
+        /// polite tear-down stops anything.
+        /// </summary>
+        internal List<string> Stopped { get; } = [];
+
+        public Task StopContainerAsync(string id, CancellationToken cancellationToken = default)
+        {
+            Stopped.Add(id);
+            return Task.CompletedTask;
+        }
+
         public Task RemoveContainerAsync(
             string id, CancellationToken cancellationToken = default)
         {
@@ -146,6 +158,12 @@ public class AnInstanceIsEmptiedBeforeUseTests
         {
             Order.Add("containers");
             return Task.FromResult<IReadOnlyList<string>>([.. Present]);
+        }
+
+        public Task StopContainerAsync(string id, CancellationToken cancellationToken = default)
+        {
+            Order.Add($"stop:{id}");
+            return Task.CompletedTask;
         }
 
         public Task RemoveContainerAsync(

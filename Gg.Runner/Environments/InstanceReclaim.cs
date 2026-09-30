@@ -31,6 +31,18 @@ public interface IInstanceDaemon
     /// <summary>Every container id in this daemon, running or not.</summary>
     Task<IReadOnlyList<string>> ContainersAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Asks one container to stop, and waits for it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The polite half.</b> It sends the app its termination signal and waits,
+    /// so it flushes what it was writing and closes what it held. Only the
+    /// tear-down uses it: the reclaim is cleaning up after something already
+    /// dead, and a timeout per dead container is paid by the flight waiting to
+    /// start.
+    /// </remarks>
+    Task StopContainerAsync(string id, CancellationToken cancellationToken = default);
+
     /// <summary>Removes one container, running or not.</summary>
     Task RemoveContainerAsync(string id, CancellationToken cancellationToken = default);
 
@@ -87,8 +99,33 @@ public sealed record Emptied
 public static class InstanceReclaim
 {
     /// <summary>Removes everything this instance holds except its images.</summary>
-    public static async Task<Emptied> EmptyAsync(
-        IInstanceDaemon daemon, CancellationToken cancellationToken = default)
+    public static Task<Emptied> EmptyAsync(
+        IInstanceDaemon daemon, CancellationToken cancellationToken = default) =>
+        ClearAsync(daemon, politely: false, cancellationToken);
+
+    /// <summary>
+    /// Brings this instance's stack down, letting each container stop first.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A courtesy, never the mechanism</b> — slice fifty-six rule 3. The
+    /// reclaim on the way in is what makes the next flight's environment
+    /// trustworthy; this is for the time BETWEEN flights, when an instance
+    /// holding thirteen idle containers holds their ports and their memory and a
+    /// person looking at the host sees a stack that finished hours ago.
+    /// </para>
+    /// <para>
+    /// <b>Nothing reports it.</b> No fact and no lease member says a stack came
+    /// down, so no later decision can read it as a precondition — which is how
+    /// the courtesy stays one.
+    /// </para>
+    /// </remarks>
+    public static Task<Emptied> BringDownAsync(
+        IInstanceDaemon daemon, CancellationToken cancellationToken = default) =>
+        ClearAsync(daemon, politely: true, cancellationToken);
+
+    private static async Task<Emptied> ClearAsync(
+        IInstanceDaemon daemon, bool politely, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(daemon);
 
@@ -100,6 +137,11 @@ public static class InstanceReclaim
         // the next flight collides with names it was told were gone.
         foreach (var container in containers)
         {
+            if (politely)
+            {
+                await daemon.StopContainerAsync(container, cancellationToken);
+            }
+
             await daemon.RemoveContainerAsync(container, cancellationToken);
         }
 

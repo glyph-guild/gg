@@ -750,6 +750,43 @@ public sealed class RunnerLoop(
     /// field: there is no daemon to empty and no reason to dial one.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Brings this flight's stack down, and never fails the flight over it.
+    /// </summary>
+    /// <remarks>
+    /// <b>A courtesy, and the guard is what makes it one.</b> Slice fifty-six
+    /// rule 3: nothing may depend on this having happened, and the strongest way
+    /// to mean that is for its failure to change nothing. The agent has finished
+    /// by the time this runs — failing a flight whose work is done in order to
+    /// keep a host tidy would throw away the work.
+    /// </remarks>
+    private async Task BringDownAsync(string? instance, CancellationToken cancellationToken)
+    {
+        if (Pools.EnvironmentNaming.SocketFor(instance) is not { } address)
+        {
+            return;
+        }
+
+        try
+        {
+            using var daemon = Environments.DockerInstanceDaemon.At(address["unix://".Length..]);
+
+            _ = await Environments.InstanceReclaim.BringDownAsync(daemon, cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+        }
+        catch (IOException)
+        {
+        }
+        catch (System.Net.Sockets.SocketException)
+        {
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
     private async Task ReclaimAsync(string? instance, CancellationToken cancellationToken)
     {
         if (Pools.EnvironmentNaming.SocketFor(instance) is not { } address)
@@ -2386,6 +2423,17 @@ public sealed class RunnerLoop(
         var handedOver = _clock.UtcNow;
         var run = await _executor.ExecuteAsync(request, cancellationToken);
         var held = _clock.UtcNow - handedOver;
+
+        // AND THE STACK COMES DOWN, politely, as a COURTESY - slice fifty-six
+        // rule 3. It frees ports and memory between flights and gives a person a
+        // clean host to look at; it is not what makes the next flight's
+        // environment trustworthy, because a flight that is killed never reaches
+        // this line. The reclaim on the way in is that, and it stays.
+        //
+        // EVERYTHING IS SWALLOWED, unlike the reclaim two hundred lines up. The
+        // agent has finished: failing a flight whose work is done over a tidy-up
+        // would throw away the work to keep the host neat.
+        await BringDownAsync(loop.Instance, cancellationToken);
 
         // NOTHING MEASURED A LOOP, which is what an attended session answers:
         // a person held the terminal, so there is no outcome to append a

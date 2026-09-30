@@ -424,6 +424,34 @@ public enum UiMode
     /// </para>
     /// </remarks>
     Watching,
+
+    /// <summary>One plan opened: what it is about, and every leg under it.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The Itineraries tab was the one tab whose <c>enter</c> did nothing.</b>
+    /// Every other list in this console opens the thing under the cursor -
+    /// the board opens a nomination, the fleet opens a runner, browse opens a
+    /// work item, flights open a flight - and a plan was the only row a person
+    /// could point at and not look inside.
+    /// </para>
+    /// <para>
+    /// <b>It exists because the table cannot hold what a person needs.</b> A
+    /// leg's sentence is an agent's prose and runs past a hundred characters,
+    /// so the pane cuts it at 44; the whole of it has to be somewhere, and a
+    /// cell that cannot show it is not an argument for a wider cell. Its
+    /// subject is a hash by construction, so the sentence is the only thing
+    /// that tells two legs of one plan apart.
+    /// </para>
+    /// <para>
+    /// <b>And it is where a plan stops being a list and becomes a route.</b> A
+    /// person reading one wants the flight a leg became and the ticket the
+    /// whole plan is about - so this modal binds `f` and `t` for exactly the
+    /// reasons <see cref="BoardDetail"/> and <see cref="FlightDetail"/> do, and
+    /// with the same conditions: neither key is offered where the jump would
+    /// land nowhere.
+    /// </para>
+    /// </remarks>
+    ItineraryDetail,
 }
 
 /// <summary>Which page of help a person is reading.</summary>
@@ -1286,6 +1314,15 @@ public sealed record AppState
     /// absence a nullable would express is already the empty list.
     /// </remarks>
     public int ItinerariesSelected { get; init; }
+
+    /// <summary>Which leg the plan modal's cursor is on.</summary>
+    /// <remarks>
+    /// <b>Its own, not the tab's.</b> <see cref="ItinerariesSelected"/> chooses
+    /// the PLAN and drives which legs are drawn at all; this chooses one of
+    /// them, and `f` acts on it. Sharing one cursor would mean moving inside
+    /// the modal changed which plan the modal was about.
+    /// </remarks>
+    public int ItineraryLegSelected { get; init; }
 
     /// <summary>
     /// How every watch in force is doing, exactly as `gg watches` returned it.

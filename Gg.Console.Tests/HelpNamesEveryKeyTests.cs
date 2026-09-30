@@ -126,12 +126,18 @@ public class HelpNamesEveryKeyTests
         // can never be handed.
         //   0 = no row   1 = a row nobody can answer   2 = a standing nomination
         //   3 = a row that opened into a flight this console is holding
+        //   4 = a plan under the Itineraries cursor
         // THE FOURTH VALUE RATHER THAN A FOURTH BOOL, for the reason the third
         // one is here: a row that opened into a flight is not a standing
         // nomination - the contract says FlightId is null on every standing row
         // - so crossing the two would enumerate a state the keymap can never be
         // handed and double a product already measured in minutes.
-        from board in (int[])[0, 1, 2, 3]
+        // AND A FIFTH FOR THE PLAN, by the same argument once more: the
+        // Itineraries cursor and the board's are on different tabs, so a plan
+        // under one and a nomination under the other is not a state one
+        // keypress is ever decided by - and a bool would double the product to
+        // cross a pair that cannot matter together.
+        from board in (int[])[0, 1, 2, 3, 4]
 
         // AND WHETHER THE ACTIVITY LINE IS SHOWING PART OF ITS MESSAGE, for the
         // reason every clause above records, six times now. It binds the one
@@ -164,6 +170,7 @@ public class HelpNamesEveryKeyTests
             ABoardRowIsUnderTheCursor = board > 0,
             ANominationWaits = board == 2,
             TheRowsFlightIsLoaded = board == 3,
+            APlanIsUnderTheCursor = board == 4,
             SaidIsClipped = saidIsClipped,
             OverALink = overALink,
             AllowanceIsMine = allowanceIsMine,
@@ -522,7 +529,7 @@ public class HelpNamesEveryKeyTests
         // one. Two flags rather than one because they are not the same
         // question - something to show, and something to page between - and
         // the second is false for most of the first's life.
-        await Assert.That(members.Count).IsEqualTo(32)
+        await Assert.That(members.Count).IsEqualTo(33)
             .Because("Everywhere() crosses every one of these, or OverAMachineSomebodyOwns() "
                    + "holds it beside the cross - and a member in neither would leave the "
                    + "completeness check above quietly incomplete, which is exactly how the "

@@ -2819,6 +2819,7 @@ public static class PaneText
         {
             UiMode.FlightDetail => FlightDetails.Title(state),
             UiMode.BoardDetail => BoardDetails.Title(state),
+            UiMode.ItineraryDetail => ItineraryDetails.Title(state),
             UiMode.Runner => RunnerDetails.Title(state),
             UiMode.WorkItemDetail => WorkItemDetails.Title(state),
 
@@ -2999,6 +3000,7 @@ public static class PaneText
         // it; a nomination is a thing somebody found, and the question is
         // whether it is worth a flight.
         UiMode.BoardDetail => "this row",
+        UiMode.ItineraryDetail => "this plan",
         UiMode.SignIn => "nobody is signed in",
         UiMode.FloorChoice => "how much to keep back",
         UiMode.ComposeChoice => "how do you want to write this flight?",
@@ -3160,7 +3162,12 @@ public static class PaneText
              // - a body somebody reads and scrolls, not a question with
              // answers. It is sized past a document by ModalIsFullScreen, and
              // both are true of it.
-             or UiMode.Watching;
+             or UiMode.Watching
+
+             // AND A PLAN, which is a table plus prose - the flight modal's
+             // shape exactly. A plan of five legs each carrying a sentence
+             // measured to a box that showed two of them.
+             or UiMode.ItineraryDetail;
 
     /// <summary>Whether a modal takes the terminal rather than a share of
     /// it.</summary>
@@ -3315,6 +3322,7 @@ public static class PaneText
             UiMode.ConfirmRevoke => ConfirmRevoke(state),
             UiMode.ConfirmFlyAgain => ConfirmFlyAgain(state),
             UiMode.BoardDetail => BoardDetails.Linear(state),
+            UiMode.ItineraryDetail => ItineraryDetails.Linear(state),
             UiMode.SignIn => SignIn(state),
             UiMode.GateDecision => GateDecision(state),
             UiMode.FloorChoice => FloorChoice(state),
@@ -3978,6 +3986,7 @@ public static class PaneText
         UiMode.ConfirmFlyAgain => "when asked whether to fly one again",
         UiMode.GateDecision => "while answering a gate",
         UiMode.BoardDetail => "while a board row is open",
+        UiMode.ItineraryDetail => "while a plan is open",
         _ => "",
     };
 

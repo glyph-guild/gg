@@ -115,7 +115,13 @@ public static class Reducer
             // the page anybody browsed - and replacing the listing to make room
             // for it would throw away a filtered page somebody assembled. What
             // the reader answers arrives afterwards, as every other read does.
-            Command.OpenTheTicket => FlightDetails.TicketAReaderHere(state) is var ticket
+            // FROM EITHER MODAL. The flight modal asks about the flight's own
+            // intent; the plan modal asks about the plan's. It is the same
+            // read of the same reader about the same kind of thing, so it is
+            // the same command rather than a second one to keep in step.
+            Command.OpenTheTicket => (state.Mode is UiMode.ItineraryDetail
+                                          ? ItineraryDetails.TicketAReaderHere(state)
+                                          : FlightDetails.TicketAReaderHere(state)) is var ticket
                                   && ticket is not null
                 ? state with
                 {
@@ -240,6 +246,13 @@ public static class Reducer
             // board and the watches are already held, so the modal is a second
             // reading of what the table drew.
             Command.ShowBoardRow => Modal(state, UiMode.BoardDetail),
+
+            // AND THE PLAN UNDER THE ITINERARIES CURSOR. The leg cursor starts
+            // at the top rather than wherever it was left: the modal is about
+            // a plan a person just chose, and a cursor carried over from the
+            // last one would point at a leg of a different plan.
+            Command.ShowItinerary => Modal(state, UiMode.ItineraryDetail)
+                with { ItineraryLegSelected = 0 },
 
             Command.GoToTheFlight => GoToTheFlight(state),
 
@@ -746,7 +759,14 @@ public static class Reducer
     /// </remarks>
     private static AppState GoToTheFlight(AppState state)
     {
-        if (BoardDetails.FlightInTheList(state) is not { } wanted)
+        // WHICHEVER MODAL SENT IT. Both answer the same thing - the id of the
+        // flight the row under the open modal opened into, when this console
+        // has it loaded - so the rest of this method does not care which asked.
+        var found = state.Mode is UiMode.ItineraryDetail
+            ? ItineraryDetails.FlightInTheList(state)
+            : BoardDetails.FlightInTheList(state);
+
+        if (found is not { } wanted)
         {
             // UNREACHABLE THROUGH THE KEY and answered anyway: a command can
             // arrive from a re-read that moved the board underneath somebody,
@@ -1489,6 +1509,13 @@ public static class Reducer
             ? PickFilterRow(state, BrowseFilters.Cursor(state) + by)
             : state.Mode is UiMode.WorkItemDetail
             ? PickWorkItemChange(state, state.WorkItemSelected + by)
+
+            // THE PLAN MODAL MOVES ITS OWN CURSOR, not the tab's behind it.
+            // Sharing one would mean moving inside the modal changed which
+            // plan the modal was about, which is the flight modal's lesson
+            // three arms up.
+            : state.Mode is UiMode.ItineraryDetail
+            ? PickItineraryLeg(state, state.ItineraryLegSelected + by)
             : state.ActiveTab switch
             {
                 TabId.Repositories => PickRepository(state, state.RepositorySelected + by),
@@ -1767,6 +1794,19 @@ public static class Reducer
     /// would let the cursor leave the table a person is looking at - the
     /// runner cursor's own lesson, one pane over.
     /// </remarks>
+    /// <summary>Move the plan modal's leg cursor, inside the plan.</summary>
+    /// <remarks>
+    /// Clamped against the legs of the CHOSEN plan, so a plan of two followed
+    /// by a plan of nine cannot leave the cursor past the end of the shorter
+    /// one - the shape PickLeg beneath this has for the tab's own cursor.
+    /// </remarks>
+    private static AppState PickItineraryLeg(AppState state, int to) => state with
+    {
+        ItineraryLegSelected = Rows.ItineraryLegs(state) is { Count: > 0 } legs
+            ? Math.Clamp(to, 0, legs.Count - 1)
+            : 0,
+    };
+
     private static AppState PickLeg(AppState state, int to) => state with
     {
         ItinerariesSelected = Rows.Itineraries(state) is { Count: > 0 } legs

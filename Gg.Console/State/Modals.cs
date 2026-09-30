@@ -96,6 +96,11 @@ public static class Modals
         // new here and neither changes what Drawn means: a frame, a title, and
         // its keys.
         UiMode.Watching,
+
+        // A PLAN, AND EVERY LEG UNDER IT. A document rather than a question:
+        // it holds a table a person scrolls and prose too long for the cell it
+        // came from, which is the shape the flight modal already has.
+        UiMode.ItineraryDetail,
     ];
 
     /// <summary>

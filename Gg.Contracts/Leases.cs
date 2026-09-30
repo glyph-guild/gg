@@ -367,7 +367,8 @@ public sealed record LeaseFeedback
     /// <summary>Who rejected it.</summary>
     public required string DecidedBy { get; init; }
 
-    /// <summary>Their words, stripped and bounded before they got here.</summary>
+
+/// <summary>Their words, stripped and bounded before they got here.</summary>
     public required string Reason { get; init; }
 
     public required DateTimeOffset DecidedAt { get; init; }
@@ -405,6 +406,35 @@ public sealed record LeaseLoop
     /// </para>
     /// </remarks>
     public string? Instance { get; init; }
+
+    /// <summary>
+    /// Whose the instance's hold is — one of <see cref="InstanceHolds"/>, or null
+    /// for a flight that holds it alone.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The runner cannot work this out.</b> Whether a sibling leg of the same
+    /// itinerary still stands is knowable only where the legs are recorded, and a
+    /// member shares its maintainer's machine — so the two things the runner does
+    /// with an instance, emptying it on the way in and bringing its stack down on
+    /// the way out, both depend on an answer only this side has.
+    /// </para>
+    /// <para>
+    /// <b>Whose the HOLD is, never whether the stack is RUNNING.</b> Slice
+    /// fifty-six rule 13: a hold is a fact about the grant, written by the
+    /// transaction that took it, and it stays true until the hold lapses. A
+    /// liveness flag would be read as authority and would be wrong the moment a
+    /// container died, so nothing here answers for the daemon — the agent asks
+    /// it.
+    /// </para>
+    /// <para>
+    /// <b>Null is a flight holding alone</b>, which is every flight in the field
+    /// and every lease from a control plane older than this member. A runner that
+    /// receives a value it does not know treats it the same way, because reuse is
+    /// an optimisation and a dirty instance is a defect.
+    /// </para>
+    /// </remarks>
+    public string? InstanceHold { get; init; }
 
     /// <summary>Which rung runs it.</summary>
     public required string Executor { get; init; }
@@ -1258,4 +1288,58 @@ public sealed record LeasePreview
             + "locator. The secret stays on the machine that resolves it."
             : null;
     }
+}
+
+    /// <summary>Whose an environment instance's hold is, while a flight runs in it.</summary>
+/// <remarks>
+/// <para>
+/// <b>Three values because two behaviours hang off them.</b> A leg that INHERITED
+/// a hold must not empty the instance, because a sibling's stack is in it. A leg
+/// that TOOK one must, because nothing of its plan has run yet and the instance
+/// may hold what a dead flight left. And no itinerary hold is brought down at the
+/// end, including the taker's, because a leg cannot know whether a sibling is
+/// coming.
+/// </para>
+/// <para>
+/// <b>Both readings live here rather than at the two call sites.</b> A rule
+/// spelled twice is a rule that can disagree with itself, and the disagreement
+/// here is either a destroyed environment or a dirty one.
+/// </para>
+/// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
+public static class InstanceHolds
+{
+    /// <summary>This flight holds it alone, and gives it back when it ends.</summary>
+    public const string Flight = "flight";
+
+    /// <summary>An itinerary holds it, and this leg is the one that took it.</summary>
+    public const string Itinerary = "itinerary";
+
+    /// <summary>An itinerary holds it, and this leg received it from a sibling.</summary>
+    public const string Inherited = "inherited";
+
+    /// <summary>
+    /// Whether a flight holding this empties the instance before using it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Anything unrecognised empties.</b> A control plane ahead of this binary
+    /// can name a hold it has never heard of, and the conservative reading is the
+    /// right one: reuse is an optimisation, and a flight standing its stack up
+    /// beside somebody else's leftovers is a defect.
+    /// </remarks>
+    public static bool EmptiesOnArrival(string? hold) =>
+        !string.Equals(hold, Inherited, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Whether a flight holding this brings its stack down when it finishes.
+    /// </summary>
+    /// <remarks>
+    /// <b>No itinerary hold does</b>, including the one this leg took: a leg
+    /// cannot know whether a sibling is coming, and guessing wrong destroys the
+    /// environment the next leg was granted. The hold lapsing frees it, and the
+    /// next taker empties it.
+    /// </remarks>
+    public static bool BringsDownOnDeparture(string? hold) =>
+        !string.Equals(hold, Itinerary, StringComparison.Ordinal)
+        && !string.Equals(hold, Inherited, StringComparison.Ordinal);
 }

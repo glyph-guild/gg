@@ -293,6 +293,8 @@ public sealed class ClaudeCodeExecutor(
 
         // LAST, so the two above win. A tenant's document cannot redirect an
         // agent's temp files or blank its credential by naming the same thing.
+        // BEFORE THE VARIABLES, so a document cannot replace a granted address.
+        PlaceInstance(info, request);
         PlaceVariables(info, request);
         return info;
     }
@@ -341,6 +343,45 @@ public sealed class ClaudeCodeExecutor(
     /// document must not be able to replace a credential or a scratch
     /// directory. A test of that through the agent would need an agent.
     /// </remarks>
+    /// <summary>
+    /// Points the agent at the daemon its flight was granted, or at nothing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The environment, because that is where a Docker client looks.</b> The
+    /// CLI, an AppHost and a compose file all read <c>DOCKER_HOST</c>; handing
+    /// the address any other way would mean teaching each of them separately.
+    /// </para>
+    /// <para>
+    /// <b>Called BEFORE <see cref="PlaceVariables"/>, and the order is the
+    /// rule.</b> That method skips a name already present, so placing this first
+    /// makes a document's own <c>DOCKER_HOST</c> inert — which is the same
+    /// protection it already gives a credential, for the same reason: the
+    /// platform granted this instance, and a document naming another would point
+    /// the flight at somebody else's stack.
+    /// </para>
+    /// <para>
+    /// <b>Absent, never empty.</b> Every flight in the field hosts nothing, and
+    /// a client reads an empty address as "use the default" on some platforms
+    /// and as malformed on others. Neither is what this means.
+    /// </para>
+    /// <para>
+    /// <b>It says nothing about whether a stack is RUNNING there</b> — slice
+    /// fifty-six rule 13. This is an address; the daemon is the only thing that
+    /// knows what is in it, and advice asks it.
+    /// </para>
+    /// </remarks>
+    public static void PlaceInstance(ProcessStartInfo info, ExecutorRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(info);
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (Pools.EnvironmentNaming.SocketFor(request.Instance) is { } socket)
+        {
+            info.Environment["DOCKER_HOST"] = socket;
+        }
+    }
+
     public static void PlaceVariables(ProcessStartInfo info, ExecutorRequest request)
     {
         foreach (var declared in request.Variables)

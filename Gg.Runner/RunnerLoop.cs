@@ -2263,6 +2263,17 @@ public sealed class RunnerLoop(
             // agent's token, which gg puts there for reasons a tenant document
             // cannot know about.
             Variables = loop.Variables ?? [],
+
+            // AND WHERE ITS STACK RUNS, so the agent's DOCKER_HOST points at the
+            // daemon this flight was granted rather than at whatever this
+            // machine's default is. The NAME crosses; PlaceInstance derives the
+            // address through EnvironmentNaming, which is the one place that
+            // convention lives on this side.
+            //
+            // Null for every flight in the field, and the placer adds nothing
+            // for null - an empty address is read as "use the default" by some
+            // clients, which is the opposite of what hosting nothing means.
+            Instance = loop.Instance,
             // AND AGAIN, for the operator's standing instructions. Composed
             // and rendered control-plane-side in layer order with each block's
             // provenance attached, so re-wrapping or re-ordering here would be

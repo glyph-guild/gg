@@ -103,6 +103,27 @@ public sealed class DockerInstanceDaemon : IInstanceDaemon, IDisposable
         return [.. (listed ?? []).Select(one => one.Id).Where(id => id is { Length: > 0 })!];
     }
 
+    public async Task StopContainerAsync(
+        string id, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+
+        // t=10, the daemon's own default, stated rather than inherited: it sends
+        // the termination signal, waits that many seconds, and kills what has not
+        // gone. A longer wait is a flight held open by an app that is not going to
+        // exit; a shorter one is a politeness that is not one.
+        //
+        // 304 is "already stopped", which is not a failure here - a stack whose
+        // containers exited on their own is exactly what a clean run leaves.
+        using var response = await _httpClient.PostAsync(
+            $"/containers/{id}/stop?t=10", content: null, cancellationToken);
+
+        if (response.StatusCode is not System.Net.HttpStatusCode.NotModified)
+        {
+            response.EnsureSuccessStatusCode();
+        }
+    }
+
     public async Task RemoveContainerAsync(
         string id, CancellationToken cancellationToken = default)
     {

@@ -5217,9 +5217,30 @@ public sealed class ConsoleScreen : Window
 
     private void RenderPlan()
     {
-        Fill(_planLegs, null, Rows.ItineraryLegs(State), Rows.ItineraryLegColumns,
-            State.ItineraryLegSelected,
-            r => [r.Kind, r.Reason, r.State, r.Flight, r.Since]);
+        // UNDER THE SYNC FLAG, which is the CALLER'S to hold: Fill is static
+        // and the flag is not, and RenderFlight holds it around its own fill
+        // for this reason. A repopulated table raises ValueChanged, which is
+        // also how a click arrives - so a fill outside the flag is a click
+        // nobody made, on every render.
+        //
+        // WHAT IT COST: the phantom click reached Reducer.Pointed with
+        // whatever row the WIDGET still had, which put the leg cursor back
+        // where it started. The model moved on every keypress and the screen
+        // never did, so `j` and the arrows looked dead while every unit test
+        // passed. This render runs outside the big sync region above, which
+        // is why it had to say so itself.
+        _syncing = true;
+
+        try
+        {
+            Fill(_planLegs, null, Rows.ItineraryLegs(State), Rows.ItineraryLegColumns,
+                State.ItineraryLegSelected,
+                r => [r.Kind, r.Reason, r.State, r.Flight, r.Since]);
+        }
+        finally
+        {
+            _syncing = false;
+        }
 
         // SIZED TO ITS LEGS, not to a share of the box. The flight log takes
         // 60% because a log is long and unbounded; a plan is bounded by its
@@ -6186,11 +6207,20 @@ public sealed class ConsoleScreen : Window
                 return;
 
             case FocusTarget.PlanLegs:
-                // THE TABLE, not the frame around it: the arrows are the
-                // table's and a frame with the keyboard leaves them reaching
-                // nothing. Returns rather than falling through, which
-                // AModalNeverFocusesTheTabBehindItTests holds every arm to.
-                _planLegs.SetFocus();
+                // THE TABLE WHEN IT HAS ROWS, THE MODAL WHEN IT HAS NONE -
+                // the work item modal's fallback, for its reason: SetFocus on
+                // a view that is not drawn does NOTHING AT ALL, silently, and
+                // focus then stays wherever it was. Wherever it was is the tab
+                // behind this modal, so the modal gets no keys - not the
+                // arrows, not `j`, not even escape.
+                (_planLegs.Visible ? (View)_planLegs : _modal).SetFocus();
+
+                // AND THE LANDING IS CLEARED, which every other arm here does
+                // and this one did not. `_landed` is fed back into
+                // FocusChange.Wanted on the next pass; left holding a tab, the
+                // render a second later takes the keyboard back to that tab -
+                // which is why this was intermittent rather than simply dead.
+                _landed = null;
                 return;
 
             case FocusTarget.FlightTab:

@@ -2006,7 +2006,7 @@ public static class ProtocolSurface
             [typeof(LeaseLoop)] =
                 ["loopId", "instance", "executor", "moves", "wallClockSeconds", "onExhaustion",
                  "resumesFrom", "instructions", "brief", "landing", "variables", "produces",
-                 "learned", "instanceHold"],
+                 "learned", "instanceHold", "stack"],
             [typeof(LoopOutcome)] =
                 ["loopId", "outcome", "reason", "executor", "attempts", "durationMs", "movesUsed",
                  "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],

@@ -565,6 +565,18 @@ public sealed record LeaseLoop
     public string? Brief { get; init; }
 
     /// <summary>
+    /// The script that brings this flight's stack up and down, as a path in the
+    /// repository it checks out — or null for a kind that asks an agent.
+    /// </summary>
+    /// <remarks>
+    /// <b>Carried, not rendered</b>, on <see cref="Brief"/>'s terms: one layer,
+    /// one string, nothing to order or attribute. The runner performs it with
+    /// <c>up</c> and <c>down</c>, and has no other way to learn the path — the
+    /// envelope that names it is a document that side never receives.
+    /// </remarks>
+    public string? Stack { get; init; }
+
+    /// <summary>
     /// What earlier flights learned about this place, as a person approved it.
     /// </summary>
     /// <remarks>

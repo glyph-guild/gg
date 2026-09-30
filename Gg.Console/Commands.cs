@@ -843,6 +843,14 @@ public enum Command
     /// </remarks>
     GoToTheFlight,
 
+    /// <summary>Open the plan the Itineraries tab's cursor is on.</summary>
+    /// <remarks>
+    /// <b>Reads nothing.</b> The plan and its legs are already in the page the
+    /// tab drew - this only opens a modal over rows this console is holding,
+    /// which is why it is here and not among the reads.
+    /// </remarks>
+    ShowItinerary,
+
     /// <summary>Open the browse tab's field, to go to an item or find one.</summary>
     /// <remarks>
     /// <b>Opens a field and reads nothing.</b> What is asked for is decided by

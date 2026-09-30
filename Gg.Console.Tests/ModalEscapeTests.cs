@@ -308,6 +308,12 @@ public class ModalEscapeTests
         // AND WITH A NOTIFICATION IN THE CORNER, the same widening a fifth time.
         // `!` picks the corner up and is offered only while something is in it,
         // so a console nothing has happened to could never reach that mode.
+        //
+        // AND WITH A PLAN ON THE ITINERARIES TAB, a sixth time. `enter` there
+        // opens one and is offered only over a plan - and a plan is a row
+        // nominated BY AN ITINERARY, which is not what most nominations are: a
+        // page of `flight:` and `person:` rows leaves the tab empty and the
+        // key unoffered however many times the walk presses it.
         var everywhere = Enum.GetValues<TabId>()
             .Select(tab => new AppState
             {
@@ -342,6 +348,28 @@ public class ModalEscapeTests
                             WorkKind = "review",
                             Mode = "gated",
                             State = "standing",
+                            MadeAt = DateTimeOffset.UnixEpoch,
+                        },
+                    ],
+                },
+                ItinerariesSelected = 0,
+                Itineraries = new Gg.Contracts.BoardPage
+                {
+                    IncludedEnded = true,
+                    Nominations =
+                    [
+                        new()
+                        {
+                            NominationId = new Guid("01a078bb-0000-7000-8000-00000000000e"),
+                            Nominator = "itinerary:01a078bb-0000-7000-8000-00000000000f",
+                            Subject = "leg:implement@d0a04631313809f9",
+                            Reason = "the first piece of work this plan proposes",
+                            Version = "1",
+                            WorkKind = "implement",
+                            Mode = "auto",
+                            State = "standing",
+                            ItineraryNumber = "ITN-1",
+                            IntentKey = "ado#16308",
                             MadeAt = DateTimeOffset.UnixEpoch,
                         },
                     ],

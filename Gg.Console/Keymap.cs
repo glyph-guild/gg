@@ -340,6 +340,15 @@ public readonly record struct KeymapContext(
     /// </remarks>
     public bool ABoardRowIsUnderTheCursor { get; init; }
 
+    /// <summary>Whether the Itineraries tab's cursor is on a plan.</summary>
+    /// <remarks>
+    /// <b><see cref="ABoardRowIsUnderTheCursor"/>'s question, one tab over.</b>
+    /// A tenant that has run no `plan` flight has no plans, which is ordinary
+    /// rather than a fault - and `enter` there would open a modal whose only
+    /// content is that there is nothing in it.
+    /// </remarks>
+    public bool APlanIsUnderTheCursor { get; init; }
+
     /// <summary>
     /// Whether the board's cursor is on a row whose flight this console holds.
     /// </summary>
@@ -441,7 +450,15 @@ public readonly record struct KeymapContext(
             // AND WHICH HALF OF THE COMPOSE MODAL, for that reason: space
             // marks a repository and there are none to mark on the other.
             state.WorkKindTab is WorkKindTab.Repositories,
-            FlightDetails.TicketAReaderHere(state) is not null,
+            // WHICHEVER MODAL IS ASKING. One flag rather than two, because it
+            // is one question - "is the thing under this modal a ticket a
+            // reader here can read" - and the binding it gates is declared per
+            // mode, so the flag never answers about a modal that is not open.
+            // Two flags would let the flight modal's ticket offer the key in
+            // the plan modal, which is the failure a shared flag looks like.
+            (state.Mode is UiMode.ItineraryDetail
+                ? ItineraryDetails.TicketAReaderHere(state)
+                : FlightDetails.TicketAReaderHere(state)) is not null,
 
             // AND WHETHER THE ROW UNDER THE QUEUE'S CURSOR IS WAITING ON AN
             // ANSWER, derived here with the rest so the buttons and the keys
@@ -505,7 +522,20 @@ public readonly record struct KeymapContext(
             // asks. Derived from the same rows the table draws, so a key
             // offered here is a key over something a person can see.
             ABoardRowIsUnderTheCursor = BoardDetails.Under(state) is not null,
-            TheRowsFlightIsLoaded = BoardDetails.FlightInTheList(state) is not null,
+            // AND THE SAME FOR THE FLIGHT A ROW OPENED INTO. "The row" is
+            // whichever row the open modal is about - a board nomination, or a
+            // plan's leg - and both answer null for the two reasons the key
+            // wants neither: it opened into nothing, or the flights tab is
+            // paged and this console has not loaded it.
+            TheRowsFlightIsLoaded = (state.Mode is UiMode.ItineraryDetail
+                ? ItineraryDetails.FlightInTheList(state)
+                : BoardDetails.FlightInTheList(state)) is not null,
+
+            // AND WHETHER THERE IS A PLAN TO OPEN AT ALL, which is
+            // ABoardRowIsUnderTheCursor's question one tab over: `enter` on an
+            // empty Itineraries tab would open a modal that can only say there
+            // is no plan.
+            APlanIsUnderTheCursor = ItineraryDetails.Under(state) is not null,
 
             NotificationsWaiting = state.Notifications.Count > 0,
             NotificationsSeveral = state.Notifications.Count > 1,
@@ -1004,6 +1034,55 @@ public static class Keymap
                 ]
                 : [],
             new(KeyStroke.Esc, Command.CloseModal, "close") { Label = "Close" },
+        ],
+
+        // A PLAN, AND THE TWO WAYS OUT OF ONE. Both keys are the ones the
+        // modals they were taken from already use for the same act - `f` is
+        // BoardDetail's "go to the flight" and `t` is FlightDetail's "open the
+        // ticket" - because a person who has learnt one modal should not have
+        // to learn a second alphabet for the same two questions.
+        //
+        // NO LABELS, which is FlightDetail's choice and its reason: labels are
+        // all-or-nothing per mode, and a button cannot be copied out of. This
+        // modal's whole point is prose somebody reads and takes away.
+        UiMode.ItineraryDetail =>
+        [
+            // THE FLIGHT THIS LEG BECAME, and only where this console has it.
+            // A standing leg opened into nothing and the flights tab is PAGED,
+            // so the key is withheld rather than landing the cursor somewhere
+            // arbitrary. The modal still prints the number either way.
+            .. context.TheRowsFlightIsLoaded
+                ? (KeyBinding[])
+                [
+                    new(KeyStroke.Char('f'), Command.GoToTheFlight, "go to the flight")
+                        { When = "on a leg that opened into one" },
+                ]
+                : [],
+
+            // AND WHAT THE WHOLE PLAN IS ABOUT. From the PLAN rather than the
+            // leg: a leg's subject is `leg:{kind}@{digest}` and holds no
+            // ticket, while every leg of a plan is about the one piece of work
+            // the planning flight read.
+            .. context.OverAReadableTicket
+                ? (KeyBinding[])
+                [
+                    new(KeyStroke.Char('t'), Command.OpenTheTicket, "open the ticket")
+                        { When = "on a plan about a ticket a reader here can read" },
+                ]
+                : [],
+
+            new(KeyStroke.Char('c'), Command.CopyModal, "copy"),
+
+            // THE LEG CURSOR. Untaught and off the line for the reason the
+            // flight modal's are: arrows do this too, the table binds them
+            // itself, and a hint line that spent two of its slots saying so
+            // would crowd out the keys a person cannot guess.
+            new(KeyStroke.Char('j'), Command.SelectNext, "next leg")
+                { OffTheHintLine = true, Untaught = true },
+            new(KeyStroke.Char('k'), Command.SelectPrevious, "previous leg")
+                { OffTheHintLine = true, Untaught = true },
+
+            new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 
         // A CONFIRMATION IS A MODAL LIKE ANY OTHER: it captures the keyboard,
@@ -2502,6 +2581,17 @@ public static class Keymap
                 { OffTheHintLine = true, When = "on the flights tab" },
         ],
 
+        // AND THE ONE TAB WHOSE ENTER DID NOTHING. Every other list here opens
+        // what the cursor is on; a plan was the only row a person could point
+        // at and not look inside - and it is the row that most needs it, since
+        // the table cuts each leg's sentence at 44 columns and a leg's subject
+        // is a hash.
+        TabId.Itineraries when context.APlanIsUnderTheCursor =>
+        [
+            new(KeyStroke.EnterKey, Command.ShowItinerary, "open this plan")
+                { OffTheHintLine = true, When = "on a plan" },
+        ],
+
         _ => [],
     };
 
@@ -2589,6 +2679,7 @@ public static class Keymap
         c => c with { OverAReadableTicket = true },
         c => c with { AGateWaits = true },
         c => c with { ABoardRowIsUnderTheCursor = true },
+        c => c with { APlanIsUnderTheCursor = true },
         c => c with { TheRowsFlightIsLoaded = true },
         c => c with { SignInStarted = true },
         c => c with { RunnerIsOurs = true },

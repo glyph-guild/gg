@@ -386,6 +386,33 @@ public class TheSignInModalReadsTests
             },
             BoardSelected = 0,
 
+            // AND A PLAN UNDER THE ITINERARIES CURSOR, which is two facts the
+            // same way: the page holds a row nominated BY AN ITINERARY - a
+            // `flight:` or `person:` row is not a plan and this read shows
+            // none of them - and the cursor is on it.
+            Itineraries = new Gg.Contracts.BoardPage
+            {
+                IncludedEnded = true,
+                Nominations =
+                [
+                    new()
+                    {
+                        NominationId = new Guid("019fe8b4-0000-7000-8000-00000000000c"),
+                        Nominator = "itinerary:019fe8b4-0000-7000-8000-00000000000d",
+                        Subject = "leg:implement@d0a04631313809f9",
+                        Reason = "the first piece of work this plan proposes",
+                        Version = "1",
+                        WorkKind = "implement",
+                        Mode = "auto",
+                        State = "standing",
+                        ItineraryNumber = "ITN-1",
+                        IntentKey = "ado#16308",
+                        MadeAt = DateTimeOffset.UnixEpoch,
+                    },
+                ],
+            },
+            ItinerariesSelected = 0,
+
             // AND AN ACTIVITY LINE SHOWING PART OF ITSELF, which is two facts
             // as well: something was said, and the line it landed on is
             // narrower than it is. Either alone leaves the flag false however

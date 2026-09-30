@@ -441,6 +441,18 @@ public sealed record ExecutorRequest
     /// </remarks>
     public IReadOnlyList<Gg.Contracts.EnvelopeVariable> Variables { get; init; } = [];
 
+    /// <summary>
+    /// The environment instance hosting this flight's stack, or null when it
+    /// hosts none.
+    /// </summary>
+    /// <remarks>
+    /// <b>The NAME, not the address.</b> The socket is derived from it by
+    /// <c>EnvironmentNaming</c>, which is the one place that convention lives on
+    /// this side — the runbook holds the other half, and a second spelling is a
+    /// stack that comes up where nothing looks for it.
+    /// </remarks>
+    public string? Instance { get; init; }
+
 }
 
 /// <summary>What a loop did.</summary>

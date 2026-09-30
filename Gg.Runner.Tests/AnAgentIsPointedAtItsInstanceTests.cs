@@ -47,7 +47,13 @@ public class AnAgentIsPointedAtItsInstanceTests
     private static ExecutorRequest Asking(
         string? instance, params (string Name, string Value)[] variables) => new()
     {
-        WorkingDirectory = "/tmp/tree",
+        LoopId = "implement-and-serve",
+        WorkingDirectory = "/work/tree",
+        Trees = [],
+        Moves = [LoopMoves.Read, LoopMoves.Edit],
+        WallClock = TimeSpan.FromMinutes(30),
+        Task = "make the change",
+        TranscriptPath = "/work/transcript.jsonl",
         Instance = instance,
         Variables = [.. variables.Select(v => new EnvelopeVariable
         {

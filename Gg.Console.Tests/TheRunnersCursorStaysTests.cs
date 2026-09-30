@@ -321,6 +321,72 @@ public class TheRunnersCursorStaysTests
     }
 
     /// <summary>
+    /// EVERY fill, not only the ones on a list.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The ratchet above walks <c>Driven</c>, which is a hand-kept list of
+    /// the TAB tables.</b> A modal's table is not on it, so the plan modal's
+    /// fill went in outside the flag and no test said a word - and the defect
+    /// was exactly the one that list exists to prevent: the fill raised
+    /// <c>ValueChanged</c>, <c>Reducer.Pointed</c> took the row the WIDGET
+    /// still had, and the leg cursor was put back on every render. The model
+    /// moved on every keypress and the screen never did.
+    /// </para>
+    /// <para>
+    /// <b>So this one names nothing.</b> It finds every <c>Fill(</c> in the
+    /// file and asks the same question of each, which is the version that
+    /// covers a table added tomorrow by somebody who never reads this.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task And_that_is_true_of_every_fill_in_the_file_not_just_the_listed_ones()
+    {
+        var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
+
+        var unguarded = new List<string>();
+        var found = 0;
+
+        for (var at = screen.IndexOf("Fill(_", StringComparison.Ordinal); at >= 0;
+             at = screen.IndexOf("Fill(_", at + 1, StringComparison.Ordinal))
+        {
+            // THE TABLE OVERLOAD ONLY. `Fill(view, ref bool, HelpPage)` is a
+            // different method that shows or hides a help page: it fills no
+            // table, raises no ValueChanged and has nobody subscribed to it,
+            // so the flag is nothing to do with it.
+            var comma = screen.IndexOf(',', at);
+
+            if (comma < 0 || screen[(comma + 1)..].TrimStart().StartsWith("ref ",
+                    StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            found++;
+
+            var before = screen[..at];
+            var held = before.LastIndexOf("_syncing = true", StringComparison.Ordinal);
+            var cleared = before.LastIndexOf("_syncing = false", StringComparison.Ordinal);
+
+            if (held < cleared)
+            {
+                // THE NAME IT IS FILLING, so the failure says which one rather
+                // than an offset nobody can act on.
+                unguarded.Add(screen[(at + 5)..comma]);
+            }
+        }
+
+        await Assert.That(found).IsGreaterThan(10)
+            .Because("finding none would make the assertion below vacuous, which is how a "
+                   + "source scan comes to pass while measuring nothing.");
+
+        await Assert.That(unguarded).IsEmpty()
+            .Because("Fill is static and the flag is not, so holding it is the CALLER'S "
+                   + "job. A fill outside it is a click nobody made, once per render. "
+                   + "Unguarded: " + string.Join(", ", unguarded));
+    }
+
+    /// <summary>
     /// The fifth table is subscribed, and to something else.
     /// </summary>
     /// <remarks>

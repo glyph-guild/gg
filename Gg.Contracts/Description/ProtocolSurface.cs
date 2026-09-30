@@ -2034,6 +2034,7 @@ public static class ProtocolSurface
             [typeof(AllowanceList)] = ["allowances"],
             [typeof(ArtifactReference)] = ["locator", "sha256", "bytes", "mediaType", "scope"],
             [typeof(LoopSession)] = ["artifact"],
+            [typeof(EnvironmentReclaimed)] = ["instance", "containers", "networks", "volumes"],
             [typeof(DocumentProposal)] = ["role", "name", "document"],
             [typeof(LearnedContext)] = ["against", "advice"],
             [typeof(LearnedAgainst)] = ["repository", "commit", "image", "envelope"],
@@ -2349,7 +2350,8 @@ public static class ProtocolSurface
             [typeof(FactEnvelope)] =
                 ["idempotencyKey", "kind", "digest", "observedAt", "environment", "source", "change",
                  "loop", "transcript", "session", "document", "landed", "pushed", "loopDigest", "human",
-                 "nomination", "question", "attended", "proposal", "landing", "preview"],
+                 "nomination", "question", "attended", "proposal", "landing", "preview",
+                 "reclaimed"],
             [typeof(FactBatch)] = ["generation", "facts"],
             [typeof(FactRejection)] = ["idempotencyKey", "reason"],
             // Refusals only: accepted and duplicates are answers the write has,

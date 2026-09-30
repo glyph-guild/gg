@@ -167,6 +167,15 @@ public static class FactHygiene
             },
         }),
 
+        // THE INSTANCE NAME IS THE ONLY STRING HERE, and it came from the lease
+        // rather than from anything a customer wrote - but it is cleaned anyway,
+        // because a payload whose strings are cleaned SOMETIMES is a payload
+        // nobody can reason about.
+        FactPayload.Reclaimed reclaimed => new FactPayload.Reclaimed(reclaimed.Value with
+        {
+            Instance = Text(reclaimed.Value.Instance),
+        }),
+
         FactPayload.Landing landing => new FactPayload.Landing(landing.Value with
         {
             DestinationId = Text(landing.Value.DestinationId),

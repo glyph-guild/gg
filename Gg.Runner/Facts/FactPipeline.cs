@@ -24,6 +24,9 @@ public abstract record FactPayload
     /// <summary>The agent's own record of the session, beside our stream.</summary>
     public sealed record Session(LoopSession Value) : FactPayload;
 
+    /// <summary>What a reclaim took out of the instance this flight was granted.</summary>
+    public sealed record Reclaimed(EnvironmentReclaimed Value) : FactPayload;
+
     /// <summary>An airspace document this flight drafted, asking it be applied.</summary>
     public sealed record Document(DocumentProposal Value) : FactPayload;
 
@@ -128,6 +131,7 @@ public sealed record FilteredFacts(IReadOnlyList<FactEnvelope> Items);
 [JsonSerializable(typeof(LoopOutcome))]
 [JsonSerializable(typeof(ArtifactReference))]
 [JsonSerializable(typeof(LoopSession))]
+[JsonSerializable(typeof(EnvironmentReclaimed))]
 [JsonSerializable(typeof(DocumentProposal))]
 [JsonSerializable(typeof(DestinationLanded))]
 [JsonSerializable(typeof(LoopDigest))]
@@ -306,6 +310,15 @@ public static class FactPipeline
                     Session = session.Value,
                 },
 
+                FactPayload.Reclaimed reclaimed => new FactEnvelope
+                {
+                    IdempotencyKey = Key(flightId, kind, digest),
+                    Kind = kind,
+                    Digest = digest,
+                    ObservedAt = observedAt,
+                    Reclaimed = reclaimed.Value,
+                },
+
                 FactPayload.Document document => new FactEnvelope
                 {
                     IdempotencyKey = Key(flightId, kind, digest),
@@ -449,6 +462,10 @@ public static class FactPipeline
         FactPayload.Session session => (
             FactKinds.LoopSession,
             JsonSerializer.Serialize(session.Value, FactJsonContext.Default.LoopSession)),
+        FactPayload.Reclaimed reclaimed => (
+            FactKinds.EnvironmentReclaimed,
+            JsonSerializer.Serialize(
+                reclaimed.Value, FactJsonContext.Default.EnvironmentReclaimed)),
         FactPayload.Document document => (
             FactKinds.DocumentProposal,
             JsonSerializer.Serialize(document.Value, FactJsonContext.Default.DocumentProposal)),

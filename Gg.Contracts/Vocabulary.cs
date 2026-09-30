@@ -175,6 +175,7 @@ public static class Vocabulary
         typeof(DestinationAdmission),
         typeof(ArtifactReference),
         typeof(LoopSession),
+        typeof(EnvironmentReclaimed),
         typeof(DocumentProposal),
         typeof(ContextBinding),
         typeof(Obligation),

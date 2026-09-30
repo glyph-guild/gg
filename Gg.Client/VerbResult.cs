@@ -2389,6 +2389,28 @@ public static class VerbOutput
             text.AppendLine(
                 $"{under}{Clean(runner.State),-8}  {Clean(runner.Label),-16}{beat}{on}"
               + $"{Whose(runner)}{has}{labels}");
+
+            // AND WHAT IT IS HOSTING, under the machine that has it, on the
+            // member's own terms: an environment instance is a UNIX user on THIS
+            // machine and only a runner that is the machine can open its socket,
+            // so a listing of them elsewhere would carry the machine as a
+            // foreign key and leave a reader to join it back.
+            //
+            // NULL DRAWS NOTHING. A control plane too old to say has no member
+            // at all, and rows invented from that absence would be this binary
+            // making a claim about a machine - the `Whose` column's rule.
+            foreach (var hosted in runner.Instances ?? [])
+            {
+                // FREE IS A LINE, because the question this listing answers is
+                // "why is my preview not starting", and "every instance is
+                // taken" reads completely differently from "there are none".
+                var using_ = hosted.FlightNumber is { Length: > 0 } held
+                    ? $"hosting {Clean(held)}"
+                    : "free";
+
+                text.AppendLine(
+                    $"{under}  {Clean(hosted.Environment)}/{Clean(hosted.Instance),-16}  {using_}");
+            }
         }
         return text.ToString().TrimEnd();
     }

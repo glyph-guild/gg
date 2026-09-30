@@ -663,6 +663,45 @@ public sealed record FlightLog
 
     public required IReadOnlyList<FlightLogEntry> Entries { get; init; }
 }
+/// <summary>One environment instance on a host, and the flight using it.</summary>
+/// <remarks>
+/// <para>
+/// <b>Both names, because neither answers alone.</b> A grant is made against the
+/// ENVIRONMENT — what a work kind's <c>hosts:</c> selects — and the daemon a
+/// runner talks to is named after the INSTANCE. A tenant with two environments
+/// cannot read a list of bare slot names.
+/// </para>
+/// <para>
+/// <b>It travels on the host's row rather than in a listing of its own</b>,
+/// because it belongs to exactly one machine: a UNIX user there (ADR-0034), a
+/// socket path there, and only a runner that IS that machine may be granted it.
+/// A top-level list would carry the machine as a foreign key and leave every
+/// reader to join it back.
+/// </para>
+/// </remarks>
+[PinnedId("374fd8ef-46c6-4a67-9e54-bc0cc1afe1f0")]
+public sealed record HostedInstance
+{
+    /// <summary>The charted environment this instance serves.</summary>
+    public required string Environment { get; init; }
+
+    /// <summary>Its name, which is a UNIX user on the host carrying this.</summary>
+    public required string Instance { get; init; }
+
+    /// <summary>
+    /// The flight standing its stack up here, rendered e.g. GG-412 — or null
+    /// when nothing holds it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null is free, and an empty string is not.</b>
+    /// <see cref="RunnerSummary.CurrentFlightNumber"/>'s rule one type over: an
+    /// empty number renders as a flight nobody can identify, which is the one
+    /// thing a listing read to answer "why is my preview not starting" must
+    /// never say.
+    /// </remarks>
+    public string? FlightNumber { get; init; }
+}
+
 
 /// <summary>
 /// A runner, as the control plane has worked out it is.
@@ -879,6 +918,30 @@ public sealed record RunnerSummary
     /// </para>
     /// </remarks>
     public string? Machine { get; init; }
+
+    /// <summary>
+    /// The environment instances this host has, or null from a control plane
+    /// that does not say.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Only ever on a host.</b> A pool member shares its maintainer's machine
+    /// and not its filesystem, so an instance is never a member's to use and
+    /// never appears on one — the rule good-grief#627 enforces on the claim.
+    /// </para>
+    /// <para>
+    /// <b>Absent and empty are different answers, and the renderer depends on
+    /// it.</b> Null is "this control plane does not say", which every one older
+    /// than this member is; an empty list is a host that has none. A listing that
+    /// drew "no instances" from absence would invent a fact about a machine, the
+    /// way a row reading "open" from a control plane with no claim door would.
+    /// </para>
+    /// <para>
+    /// <b>Not required, and it never becomes required.</b> Every tenant that
+    /// hosts nothing has none, which is all of them today.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<HostedInstance>? Instances { get; init; }
 
     /// <summary>
     /// Whose this runner is - one of <see cref="RunnerOwnerships"/> - or empty

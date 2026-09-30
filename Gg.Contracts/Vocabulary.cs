@@ -103,6 +103,7 @@ public static class Vocabulary
         typeof(NominationSummary),
         typeof(NominationDecision),
         typeof(BoardPage),
+        typeof(HostedInstance),
         typeof(RunnerSummary),
         typeof(RunnerList),
         typeof(TelemetryDisclosure),

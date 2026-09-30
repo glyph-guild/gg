@@ -797,6 +797,70 @@ public sealed class RunnerLoop(
         }
     }
 
+    /// <summary>
+    /// Performs the stack script this kind named, with one verb, and never fails
+    /// the flight over it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE FIRST TREE, because a stack belongs to a repository.</b> A flight
+    /// with none has nothing to run and a flight with several runs the one whose
+    /// kind named the script — the same choice the environment survey makes one
+    /// method over, and for its reason.
+    /// </para>
+    /// <para>
+    /// <b>The path is resolved inside the tree and nowhere else.</b> The document
+    /// refused an absolute path when it was applied; this lease came from a
+    /// control plane this binary does not control, and a boundary that trusts the
+    /// far side is not one.
+    /// </para>
+    /// <para>
+    /// <b>A path the tree does not have is narrated and skipped, not invented.</b>
+    /// A document valid when it was applied describes a repository that has since
+    /// moved, which is ordinary — and falling back to "ask an agent instead"
+    /// would make a kind that believes it is deterministic quietly not be.
+    /// </para>
+    /// <para>
+    /// <b>It never fails the flight.</b> A bring-up that did not work shows up as
+    /// the work failing against a stack that is not there, which is a diagnosis
+    /// with the actual symptom in it — better than a runner that stopped with a
+    /// process exit code and no further account.
+    /// </para>
+    /// </remarks>
+    private async Task PerformStackAsync(
+        string? stack, WorkspaceResult workspace, string verb,
+        CancellationToken cancellationToken)
+    {
+        if (!Environments.StackScript.Runs(stack) || workspace.Trees.Count == 0)
+        {
+            return;
+        }
+
+        var script = Environments.StackScript.Within(workspace.Trees[0].Path, stack);
+
+        if (script is null || !File.Exists(script))
+        {
+            return;
+        }
+
+        try
+        {
+            await Environments.StackScript.PerformAsync(
+                script, Environments.StackScript.ArgumentFor(verb),
+                workspace.Trees[0].Path, cancellationToken);
+        }
+        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException
+                                        or System.ComponentModel.Win32Exception)
+        {
+            // NOT NARRATED HERE, on the reclaim's terms two methods down: the
+            // observer's methods are about the control plane and the lease, and
+            // widening one of them for this would put a second account of the
+            // same thing beside the one that matters. What a person reads is the
+            // work failing against a stack that is not there, which is the
+            // diagnosis with the actual symptom in it.
+        }
+    }
+
     private async Task<Environments.Emptied?> ReclaimAsync(
         string? instance, string? hold, CancellationToken cancellationToken)
     {
@@ -2387,6 +2451,12 @@ public sealed class RunnerLoop(
             // runner hands it over. Null is every kind that states none, which
             // is what keeps their wording exactly as it was.
             Brief = loop.Brief,
+
+            // AND THE SCRIPT ITS STACK COMES UP WITH, carried to the executor for
+            // the brief's reason - though the RUNNER performs it rather than the
+            // agent, so what this does is tell the agent the bring-up has been
+            // done for it and by what.
+            Stack = loop.Stack,
             // THE FLIGHT'S OWN DIRECTORY, ALWAYS, with the repositories below
             // it. This was the FIRST tree when there was one, which put an
             // agent inside a checkout and left every other tree the flight had
@@ -2435,6 +2505,16 @@ public sealed class RunnerLoop(
         // so it can never have emptied something else instead.
         var reclaimed = await ReclaimAsync(loop.Instance, loop.InstanceHold, cancellationToken);
 
+        // AND THE STACK COMES UP, when the kind named the script that does it
+        // (slice fifty-six step 6). After the reclaim, because it stands its
+        // containers up in the instance that was just emptied; before the agent,
+        // because the agent's work is against a stack that is already serving.
+        //
+        // A KIND THAT NAMES NONE IS UNCHANGED - the agent works the bring-up out
+        // from `learned:` advice, which is every kind in the field.
+        await PerformStackAsync(
+            loop.Stack, workspace, Environments.StackScript.Up, cancellationToken);
+
         // TIMED HERE, because this is the only place that knows when the person
         // was handed the terminal and when they gave it back. Rule 6 records the
         // wall clock for an attended session and does not enforce it - nobody's
@@ -2453,6 +2533,14 @@ public sealed class RunnerLoop(
         // EVERYTHING IS SWALLOWED, unlike the reclaim two hundred lines up. The
         // agent has finished: failing a flight whose work is done over a tidy-up
         // would throw away the work to keep the host neat.
+        // THE REPOSITORY'S OWN `down` FIRST, when it named one: it knows how its
+        // stack goes down and this side is guessing. The generic tear-down still
+        // follows, because a script that half-ran leaves containers the
+        // repository did not account for - and the reclaim on the next flight's
+        // way in is the backstop for both.
+        await PerformStackAsync(
+            loop.Stack, workspace, Environments.StackScript.Down, cancellationToken);
+
         await BringDownAsync(loop.Instance, loop.InstanceHold, cancellationToken);
 
         // NOTHING MEASURED A LOOP, which is what an attended session answers:

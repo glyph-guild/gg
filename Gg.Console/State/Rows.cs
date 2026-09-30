@@ -385,6 +385,25 @@ public static class Rows
     public static IReadOnlyList<string> ItineraryColumns { get; } =
         ["plan", "about", "legs", "state", "since"];
 
+    /// <summary>
+    /// How much of a leg's sentence fits its cell before the columns after it
+    /// are pushed off the pane.
+    /// </summary>
+    /// <remarks>
+    /// <b>A constant, because the row builder cannot see the terminal.</b> The
+    /// table expands its LAST column and has no horizontal scroll bar, so a
+    /// long cell in a middle one takes the width it wants and hides `state`,
+    /// `flight` and `since` behind the frame - measured on the first real
+    /// itinerary, whose legs ran to a hundred characters each.
+    ///
+    /// Chosen against the narrow case rather than the comfortable one: the
+    /// legs pane is what is left after a 38% master, so at an 80-column
+    /// terminal it is about 48 columns wide and the four short columns take
+    /// roughly half of that. The whole sentence is a keypress away in the
+    /// modal, so cutting early costs nothing a person cannot get back.
+    /// </remarks>
+    public const int LegReasonFits = 44;
+
     /// <summary>The right-hand table: the chosen plan's legs.</summary>
     public static IReadOnlyList<string> ItineraryLegColumns { get; } =
         ["kind", "what it is", "state", "flight", "since"];
@@ -694,7 +713,7 @@ public static class Rows
                     // work, and it is the only column that tells two legs of
                     // one plan apart: kind, state, flight and age are all the
                     // same on both.
-                    leg.Reason ?? "",
+                    PaneText.Clipped(leg.Reason, LegReasonFits),
                     // WHAT BECAME OF IT: the ending if it has one, the mode
                     // while it stands. `dropped` reads here and nowhere else,
                     // because the board excludes these rows.

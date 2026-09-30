@@ -490,6 +490,44 @@ public static class PaneText
     /// <summary>How long ago, for a table that has its own idea of columns.</summary>
     internal static string AgeOf(DateTimeOffset created) => Age(created);
 
+    /// <summary>
+    /// One line of prose, cut to fit a table cell, with an ellipsis where it
+    /// was cut.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Because the table cannot do it.</b> Its style sets
+    /// <c>ExpandLastColumn</c> and no horizontal scroll bar, so a long cell in
+    /// a MIDDLE column takes the width it wants and pushes every column after
+    /// it off the pane. That is how an Itineraries leg's sentence hid its own
+    /// state, flight and age.
+    /// </para>
+    /// <para>
+    /// <b>Shared, because there were three copies and no owner.</b>
+    /// <c>ReaderConversation</c>, <c>ConsoleApply</c> and the screen's own
+    /// wrapper each cut a line their own way; they are not changed here, but a
+    /// fourth belongs somewhere a fifth can find.
+    /// </para>
+    /// <para>
+    /// <b>The ellipsis is one character.</b> Three dots would make a cell one
+    /// column wider than the width it was given, which is the whole thing this
+    /// is for - and every other cut in this console already uses it.
+    /// </para>
+    /// </remarks>
+    /// <param name="line">The prose. Null and empty both come back empty.</param>
+    /// <param name="fits">The cell width, including the ellipsis.</param>
+    internal static string Clipped(string? line, int fits)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(fits, 2);
+
+        // NEWLINES FIRST, because a table cell is one line and a sentence that
+        // contains a break would draw over the row beneath it. An agent's
+        // reason is prose it wrote, so this is ordinary rather than rare.
+        var flat = (line ?? "").ReplaceLineEndings(" ").Trim();
+
+        return flat.Length <= fits ? flat : flat[..(fits - 1)].TrimEnd() + "…";
+    }
+
     private static string LoopEnding(FlightSummary flight) =>
         flight.Facts
             .Where(f => string.Equals(f.Kind, FactKinds.LoopOutcome, StringComparison.Ordinal))

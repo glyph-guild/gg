@@ -73,9 +73,15 @@ public class FocusReachesIntoTheFlightModalTests
             // AND THE REGISTRY A CREDENTIAL IS SENT FOR, which is the kinds'
             // shape over the other list: a sentence and a table a person
             // drives. Its target is asserted where the table is, too.
+            // AND THE PLAN, which is the flight modal's own shape once more: a
+            // table of legs a person drives and, under it, the whole of the
+            // sentence the table had to cut. Focus at the frame would leave
+            // that table's arrows moving nothing. Its target is asserted where
+            // the table is.
             if (mode is UiMode.FlightDetail or UiMode.Runner or UiMode.Help
                      or UiMode.BrowseFilter or UiMode.WorkItemDetail
-                     or UiMode.WorkKindChoice or UiMode.CredentialRepositoryChoice)
+                     or UiMode.WorkKindChoice or UiMode.CredentialRepositoryChoice
+                     or UiMode.ItineraryDetail)
             {
                 continue;
             }

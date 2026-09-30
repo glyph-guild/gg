@@ -431,6 +431,16 @@ public sealed class ConsoleScreen : Window
     private readonly View _flightLogTab;
     private readonly View _flightFactsTab;
     private readonly Label _flightFacts;
+    private readonly View _planBody;
+
+    private readonly FrameView _planLegsPane;
+
+    private readonly TableView _planLegs;
+
+    private readonly FrameView _planDetailPane;
+
+    private readonly ListView _planDetail;
+
     private readonly FrameView _flightLogDetailPane;
     private readonly ListView _flightLogDetail;
     private readonly Label _flightGate;
@@ -991,6 +1001,68 @@ public sealed class ConsoleScreen : Window
             Title = "legs",
             X = Pos.Right(_itinerariesPane), Y = 0, Width = Dim.Fill(), Height = Dim.Fill(1),
         };
+        // THE MODAL'S OWN, and the flight modal's shape exactly: the legs in a
+        // table at the top and the chosen one's whole sentence underneath. A
+        // plan's legs are rows - a kind, a state, a flight - and the thing
+        // that cannot be a row is the prose, which is why the table alone was
+        // not enough and why prose alone read as a wall.
+        _planBody = new View
+        {
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            Visible = false,
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
+
+        _planLegsPane = new FrameView
+        {
+            Title = "legs",
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Percent(60),
+
+            // A STOP, NOT A GROUP, which the flight log's own pane already
+            // says in full one screen up: a FrameView is created as a
+            // TabGroup, and focus descends only into DIRECT subviews whose
+            // TabStop matches - so its children are not candidates at all.
+            // Without this the table never took the keyboard: `t` and `esc`
+            // worked because they bubbled to the dialog, and j/k/arrows did
+            // nothing because the thing they belong to was never focused.
+            TabStop = TabBehavior.TabStop,
+        };
+
+        _planLegs = CollectionViews.Table();
+
+        // AND IT HEARS THE MODAL'S KEYS ITSELF. Keys do NOT bubble out of a
+        // focused widget to the dialog here - every focusable thing inside a
+        // modal in this file subscribes this handler by name, and a table that
+        // did not left `f`, `t` and `c` dead the moment it took the focus.
+        // The model was right and the console did nothing, which is why the
+        // unit tests passed while the walk showed a cursor that never moved.
+        _planLegs.KeyDown += OnModalKeyDown;
+        _planLegs.ValueChanged += OnModalRowPointedAt;
+        _planLegsPane.Add(_planLegs);
+
+        _planDetailPane = new FrameView
+        {
+            Title = "what it is",
+            X = 0,
+            Y = Pos.Bottom(_planLegsPane),
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+
+            // THE SAME, so a long sentence can be scrolled rather than only
+            // looked at: this pane holds a list and tab has to be able to
+            // reach it.
+            TabStop = TabBehavior.TabStop,
+        };
+
+        _planDetail = CollectionViews.Document();
+        _planDetailPane.Add(_planDetail);
+        _planBody.Add(_planLegsPane, _planDetailPane);
+
         _itineraryLegsTable = CollectionViews.Table();
 
         // NO CURSOR OF ITS OWN, which is why this one is not subscribed. Every
@@ -2079,7 +2151,7 @@ public sealed class ConsoleScreen : Window
 
         _modal.Add(
             _modalBody, _flightBody, _runnerBody, _readingBody, _helpBody, _filterBody,
-            _itemBody, _kindBody, _credentialRepoBody, _watchBody);
+            _itemBody, _kindBody, _credentialRepoBody, _watchBody, _planBody);
 
         // THE QUEUE TAB IS TWO PANES, so it gets a container: the list a person
         // drives and the detail of whatever it lands on are one view of one
@@ -4592,7 +4664,9 @@ public sealed class ConsoleScreen : Window
         var kind = State.Mode is UiMode.WorkKindChoice;
         var credentialRepo = State.Mode is UiMode.CredentialRepositoryChoice;
         var watching = State.Mode is UiMode.Watching;
+        var plan = State.Mode is UiMode.ItineraryDetail;
 
+        _planBody.Visible = plan;
         _watchBody.Visible = watching;
         _flightBody.Visible = flight;
         _runnerBody.Visible = runner;
@@ -4604,7 +4678,7 @@ public sealed class ConsoleScreen : Window
         _credentialRepoBody.Visible = credentialRepo;
         _modalBody.Visible =
             !flight && !runner && !reading && !helping && !filtering && !item && !kind
-            && !credentialRepo && !watching;
+            && !credentialRepo && !watching && !plan;
 
         if (watching)
         {
@@ -4636,7 +4710,11 @@ public sealed class ConsoleScreen : Window
             RenderCredentialRepositories();
         }
 
-        if (flight)
+        if (plan)
+        {
+            RenderPlan();
+        }
+        else if (flight)
         {
             RenderFlight();
         }
@@ -5112,6 +5190,51 @@ public sealed class ConsoleScreen : Window
     /// <see cref="_logShowing"/>.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// The plan modal: its legs in a table, and the chosen one's whole
+    /// sentence underneath.
+    /// </summary>
+    /// <remarks>
+    /// <b>The table's cells are the CLIPPED rows and the pane's body is not.</b>
+    /// A cell has a width and a plan's reason does not fit one; the pane under
+    /// it is the reason this modal exists, so it shows what the control plane
+    /// sent rather than what the table could draw.
+    /// </remarks>
+    /// <summary>The header, its underline and the frame's two borders.</summary>
+    private const int LegsPaneChrome = 4;
+
+    /// <summary>The most of the modal the legs may take before they scroll.</summary>
+    private const int LegsPaneRows = 14;
+
+    private void RenderPlan()
+    {
+        Fill(_planLegs, null, Rows.ItineraryLegs(State), Rows.ItineraryLegColumns,
+            State.ItineraryLegSelected,
+            r => [r.Kind, r.Reason, r.State, r.Flight, r.Since]);
+
+        // SIZED TO ITS LEGS, not to a share of the box. The flight log takes
+        // 60% because a log is long and unbounded; a plan is bounded by its
+        // destination's cap-per-pass - five on the document in force - so a
+        // fixed share drew two rows above twenty blank ones and squeezed the
+        // prose this modal exists for into what was left.
+        //
+        // Capped anyway, because the cap is the tenant's and a future one
+        // could be twenty: past that the table scrolls and the sentence keeps
+        // its half.
+        _planLegsPane.Height = Math.Min(
+            Rows.ItineraryLegs(State).Count + LegsPaneChrome, LegsPaneRows);
+
+        _planLegsPane.Title = ItineraryDetails.LegsTitle(State);
+        _planDetailPane.Title = ItineraryDetails.DetailTitle(State);
+
+        // WRAPPED TO THE PANE IT IS IN, the flight log detail's idiom: a
+        // ListView has one row per item and no variable heights, so a
+        // paragraph has to arrive already broken into lines it fits.
+        _planDetail.SetSource(new System.Collections.ObjectModel.ObservableCollection<string>(
+            [.. ItineraryDetails.DetailLines(
+                State, CollectionViews.TextWidth(_planDetail))]));
+    }
+
     private void RenderFlight()
     {
         _flightGate.Text = FlightDetails.Gate(State);
@@ -6051,6 +6174,14 @@ public sealed class ConsoleScreen : Window
                 // these two is load-bearing rather than incidental.
                 _airspacePath.SetFocus();
                 _landed = null;
+                return;
+
+            case FocusTarget.PlanLegs:
+                // THE TABLE, not the frame around it: the arrows are the
+                // table's and a frame with the keyboard leaves them reaching
+                // nothing. Returns rather than falling through, which
+                // AModalNeverFocusesTheTabBehindItTests holds every arm to.
+                _planLegs.SetFocus();
                 return;
 
             case FocusTarget.FlightTab:

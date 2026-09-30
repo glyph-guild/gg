@@ -4377,7 +4377,7 @@ public sealed class ConsoleScreen : Window
                 // so the two tables cannot disagree about which plan is chosen.
                 Fill(_itineraryLegsTable, null, Rows.ItineraryLegs(State),
                     Rows.ItineraryLegColumns, 0,
-                    r => [r.Kind, r.Subject, r.State, r.Flight, r.Since]);
+                    r => [r.Kind, r.Reason, r.State, r.Flight, r.Since]);
             }
 
             Fill(_browseTable, null, Rows.Browse(State), Rows.BrowseColumns,

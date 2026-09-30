@@ -387,7 +387,7 @@ public static class Rows
 
     /// <summary>The right-hand table: the chosen plan's legs.</summary>
     public static IReadOnlyList<string> ItineraryLegColumns { get; } =
-        ["kind", "subject", "state", "flight", "since"];
+        ["kind", "what it is", "state", "flight", "since"];
 
     public static IReadOnlyList<string> RunnerColumns { get; } =
         ["", "runner", "whose", "profile", "state", "working on", "cpu", "memory",
@@ -685,12 +685,16 @@ public static class Rows
                 .Select(leg => new ItineraryLegRow(
                     leg.NominationId.ToString(),
                     leg.WorkKind,
-                    // WHICH PIECE OF WORK, which the kind cannot say: two legs
-                    // of one plan are both `implement`, and the subject is the
-                    // only thing telling them apart. It is also the field this
-                    // tab exists to show - a plan is what several distinct
-                    // subjects make.
-                    leg.Subject,
+                    // WHICH PIECE OF WORK, IN THE NOMINATOR'S OWN WORDS, and
+                    // NOT the subject. A leg's subject is a hash by
+                    // construction - `leg:{kind}@{digest}`, so that identical
+                    // pairs converge - and drawing it put two rows of
+                    // `leg:implement@d0a04631313809f9` in front of a person.
+                    // The reason is what the agent wrote about this piece of
+                    // work, and it is the only column that tells two legs of
+                    // one plan apart: kind, state, flight and age are all the
+                    // same on both.
+                    leg.Reason ?? "",
                     // WHAT BECAME OF IT: the ending if it has one, the mode
                     // while it stands. `dropped` reads here and nowhere else,
                     // because the board excludes these rows.
@@ -1565,7 +1569,7 @@ public sealed record ItineraryRow(
 
 /// <summary>One leg of the plan chosen on the left.</summary>
 public sealed record ItineraryLegRow(
-    string Key, string Kind, string Subject, string State, string Flight, string Since);
+    string Key, string Kind, string Reason, string State, string Flight, string Since);
 
 public sealed record BoardRow(
     string Key, string What, string Subject, string State, string Kind, string Since,

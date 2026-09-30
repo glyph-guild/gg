@@ -167,6 +167,33 @@ public sealed record NominationSummary
 
     public required string Subject { get; init; }
 
+    /// <summary>
+    /// What the nominator said this piece of work IS, in its own words.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The only thing that tells two legs of one plan apart, for a person.</b>
+    /// A leg's <see cref="Subject"/> is a HASH by construction - the control
+    /// plane spells it <c>leg:{kind}@{digest}</c> so that identical pairs
+    /// converge - and that spelling's own remark accepts the unreadability on
+    /// the grounds that <i>"what the Itineraries tab shows is the kind and the
+    /// reason"</i>. The tab could show neither: this member did not exist, so a
+    /// plan of two <c>implement</c> legs drew two rows identical in every
+    /// column.
+    /// </para>
+    /// <para>
+    /// <b>It was read and then dropped, which is why nothing failed.</b> The
+    /// ledger selects <c>n.reason</c> and carries it on its own row type; the
+    /// endpoint composing this summary mapped every other field and not this
+    /// one. Nothing errored anywhere - the sentence simply stopped at the wire.
+    /// </para>
+    /// <para>
+    /// Null on rows written before the member, and on any nominator that gave
+    /// no reason. Absent is "nobody said", never an empty sentence.
+    /// </para>
+    /// </remarks>
+    public string? Reason { get; init; }
+
     /// <summary>The version of that subject which was nominated.</summary>
     public required string Version { get; init; }
 

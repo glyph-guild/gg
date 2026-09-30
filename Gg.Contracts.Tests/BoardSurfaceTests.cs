@@ -86,6 +86,12 @@ public class BoardSurfaceTests
             nameof(NominationSummary.GatedBecause),
             nameof(NominationSummary.For),
             nameof(NominationSummary.ForDisplay),
+
+            // WHAT THE NOMINATOR SAID IT IS. The fifth thing this list has had
+            // to learn, and the one a person actually reads: a leg's subject
+            // is a hash by construction, so without this two `implement` legs
+            // of one plan are identical in every column the console has.
+            nameof(NominationSummary.Reason),
         });
     }
 

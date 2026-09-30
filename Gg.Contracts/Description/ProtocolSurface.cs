@@ -2210,7 +2210,12 @@ public static class ProtocolSurface
                 ["nominationId", "nominator", "subject", "version", "workKind", "mode",
                  "state", "ending", "because", "flightId", "flightNumber", "madeAt", "endedAt",
                  "intentKey", "gatedBecause", "for", "forDisplay",
-                 "itineraryNumber"],
+                 "itineraryNumber",
+                 // WHAT THE NOMINATOR SAID IT IS. Declared here because this
+                 // table is the only thing standing between a new member and a
+                 // name nothing agreed to - the contract digest does not cover
+                 // it, so Gg.Contracts.Tests stays green either way.
+                 "reason"],
             [typeof(BoardPage)] = ["nominations", "includedEnded", "next"],
             [typeof(NominationDecision)] = ["outcome", "because"],
             [typeof(RunnerSummary)] =

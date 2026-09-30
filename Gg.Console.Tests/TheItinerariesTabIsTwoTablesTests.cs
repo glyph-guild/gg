@@ -35,7 +35,12 @@ public class TheItinerariesTabIsTwoTablesTests
     {
         NominationId = Guid.NewGuid(),
         Nominator = nominator,
-        Subject = subject,
+        // AS THE CONTROL PLANE REALLY SPELLS IT. A leg's subject is a hash,
+        // and a fixture that put readable words here would have let the
+        // console draw the subject and call the pane finished - which is
+        // exactly what the first version of this did.
+        Subject = "leg:" + kind + "@d0a04631313809f9",
+        Reason = subject,
         Version = "abcdef",
         WorkKind = kind,
         Mode = "auto",
@@ -99,7 +104,7 @@ public class TheItinerariesTabIsTwoTablesTests
         var legs = Rows.ItineraryLegs(state);
 
         await Assert.That(chosen.Plan).IsEqualTo("ITIN-2");
-        await Assert.That(legs.Select(l => l.Subject)).IsEquivalentTo((string[])["19069: the spike"])
+        await Assert.That(legs.Select(l => l.Reason)).IsEquivalentTo((string[])["19069: the spike"])
             .Because("the right table is driven by the left, so it holds that plan's legs "
                    + "and no other plan's.");
     }
@@ -119,14 +124,14 @@ public class TheItinerariesTabIsTwoTablesTests
 
         var legs = Rows.ItineraryLegs(Showing(1, rows));
 
-        await Assert.That(legs.Select(l => l.Subject))
+        await Assert.That(legs.Select(l => l.Reason))
             .IsEquivalentTo((string[])["16308: phase 1", "16308: history log"])
             .Because("moving the cursor down one plan must redraw the right-hand table, or "
                    + "the two tables are a master and a detail that never met.");
     }
 
     [Test]
-    public async Task A_leg_says_its_subject_rather_than_only_its_kind()
+    public async Task A_leg_says_what_it_is_rather_than_only_its_kind()
     {
         // WHAT THE OLD TABLE COULD NOT SAY. Two legs of one plan are both
         // `implement`; a table showing the kind alone showed the same word
@@ -138,9 +143,10 @@ public class TheItinerariesTabIsTwoTablesTests
         var legs = Rows.ItineraryLegs(state);
 
         await Assert.That(legs.Select(l => l.Kind).Distinct().Count()).IsEqualTo(1);
-        await Assert.That(legs.Select(l => l.Subject).Distinct().Count()).IsEqualTo(2)
-            .Because("the subject is the only thing telling two legs of one plan apart, and "
-                   + "it is the very field this release made an agent supply.");
+        await Assert.That(legs.Select(l => l.Reason).Distinct().Count()).IsEqualTo(2)
+            .Because("the nominator's own sentence is the only thing telling two legs of one "
+                   + "plan apart - the subject is a hash, and kind, state, flight and age "
+                   + "are identical on both.");
 
         await Assert.That(legs[0].Flight).IsEqualTo("GG-431");
     }

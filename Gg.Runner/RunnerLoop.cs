@@ -787,24 +787,24 @@ public sealed class RunnerLoop(
         }
     }
 
-    private async Task ReclaimAsync(string? instance, CancellationToken cancellationToken)
+    private async Task<Environments.Emptied?> ReclaimAsync(
+        string? instance, CancellationToken cancellationToken)
     {
         if (Pools.EnvironmentNaming.SocketFor(instance) is not { } address)
         {
-            return;
+            return null;
         }
 
         // The scheme is the wire's; a socket is dialled by PATH.
         using var daemon = Environments.DockerInstanceDaemon.At(
             address["unix://".Length..]);
 
-        // WHAT IT REMOVED IS NOT RECORDED YET, and that is the next step rather
-        // than an omission: S56.2-04 puts it on the flight's evidence, which is
-        // where a flight's own acts belong. A narration here would be a second
-        // account of the same thing, and the observer it would go through has
-        // eight implementations - a cost worth paying for a fact and not for a
-        // line of prose.
-        _ = await Environments.InstanceReclaim.EmptyAsync(daemon, cancellationToken);
+        // WHAT IT REMOVED IS RETURNED, so the batch can carry it as a fact
+        // (S56.2-04). It is as durable as every other fact this flight produces
+        // and no more: a flight that dies before shipping reports none of them,
+        // and a second round trip for this one would buy a request per flight to
+        // improve the evidence of a flight that has no evidence anyway.
+        return await Environments.InstanceReclaim.EmptyAsync(daemon, cancellationToken);
     }
 
     /// <summary>
@@ -2413,7 +2413,7 @@ public sealed class RunnerLoop(
         // a flight that would stand its stack up beside the last one's, or
         // nowhere - and the reclaim is bound to one socket path by construction,
         // so it can never have emptied something else instead.
-        await ReclaimAsync(loop.Instance, cancellationToken);
+        var reclaimed = await ReclaimAsync(loop.Instance, cancellationToken);
 
         // TIMED HERE, because this is the only place that knows when the person
         // was handed the terminal and when they gave it back. Rule 6 records the
@@ -2458,7 +2458,7 @@ public sealed class RunnerLoop(
                 return Invocation.Nothing;
             }
 
-            return new Invocation(null, new LoopAttended
+            return new Invocation(null, Reclaimed: reclaimed, Attended: new LoopAttended
             {
                 LoopId = loop.LoopId,
                 Rung = loop.Executor,
@@ -2499,7 +2499,7 @@ public sealed class RunnerLoop(
             _observer.MoveRefused(refusal);
         }
 
-        return new Invocation(run, null);
+        return new Invocation(run, null, reclaimed);
     }
 
     /// <summary>
@@ -2513,7 +2513,14 @@ public sealed class RunnerLoop(
     /// it could not; <c>Nothing</c> is a runner with no executor at all, which
     /// ships neither and is a third state rather than a degraded second.
     /// </remarks>
-    private sealed record Invocation(ExecutorRun? Run, LoopAttended? Attended)
+    /// <param name="Reclaimed">
+    /// What emptying the granted instance removed, or null for a flight hosted
+    /// nowhere. Carried here because the reclaim happens while preparing this
+    /// invocation and the facts ship from the caller — the same journey the run's
+    /// own outcome makes.
+    /// </param>
+    private sealed record Invocation(
+        ExecutorRun? Run, LoopAttended? Attended, Environments.Emptied? Reclaimed = null)
     {
         /// <summary>No executor, or nothing that names work: no loop fact of any kind.</summary>
         public static Invocation Nothing { get; } = new(null, null);
@@ -2558,12 +2565,32 @@ public sealed class RunnerLoop(
                 unbounded: Gg.Contracts.LoopMoves.Unbounded(lease.Loop?.Moves))),
         };
 
+        // WHAT PREPARING THE PLACE REMOVED - slice fifty-six S56.2-04, and rule 5:
+        // a reclaim that cannot prove it happened is a failure. Shipped whenever
+        // there WAS an instance, including when it removed nothing, because
+        // "already clean" and "never reclaimed" must not read the same and only
+        // one of them means this flight's environment is trustworthy.
+        //
+        // OUTSIDE the tree loop, because one flight reclaims one instance however
+        // many repositories it checked out - a fact per tree would be the same act
+        // reported several times, and the first draft of this had it there.
+        if (invoked.Reclaimed is { } emptied && lease.Loop?.Instance is { Length: > 0 } instance)
+        {
+            payloads.Add(new FactPayload.Reclaimed(new Gg.Contracts.EnvironmentReclaimed
+            {
+                Instance = instance,
+                Containers = emptied.Containers,
+                Networks = emptied.Networks,
+                Volumes = emptied.Volumes,
+            }));
+        }
+
         foreach (var tree in workspace.Trees)
         {
             // What changed, when the flight named a base to measure from. The
             // tenant's rules classify every path here, on this machine, before
             // the filter decides which of them may cross.
-            if (ChangeExtractor.Extract(tree, lease.ClassificationRules) is { } manifest)
+        if (ChangeExtractor.Extract(tree, lease.ClassificationRules) is { } manifest)
             {
                 payloads.Add(new FactPayload.Change(manifest));
             }

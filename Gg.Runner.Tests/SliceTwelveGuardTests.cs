@@ -183,7 +183,9 @@ public class SliceTwelveGuardTests
     /// untouched — <c>flight.nomination</c> already belonged to a flight, and
     /// still does.
     /// </para>
-    private const string VocabularyAtSliceStart = "0.37.0";
+    // 0.38.0 since slice fifty-six added environment.reclaimed. The argument
+    // for it is on KindsThatCross below.
+    private const string VocabularyAtSliceStart = "0.38.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number
@@ -302,7 +304,22 @@ public class SliceTwelveGuardTests
     /// have to tell them apart by inspecting a locator, which is a naming
     /// convention doing a schema's job.
     /// </para>
-    private const int KindsThatCross = 17;
+    /// <para>
+    /// <b>Eighteen since slice fifty-six, and the argument for the eighteenth.</b>
+    /// <c>environment.reclaimed</c> crosses because slice fifty-six rule 5 — slice
+    /// fifty-four's rule 8 one level down — says a reclaim that cannot prove it
+    /// happened is a failure. When a preview flight dies on a port already bound,
+    /// whether its instance was emptied first and what was in it is a question
+    /// nothing else can answer afterwards, because the containers are gone.
+    /// </para>
+    /// <para>
+    /// It is NOT <c>environment.identity</c>, which is what ran and WHERE about
+    /// the worker — host fingerprint, image digest, tool versions. This is about
+    /// the environment the worker's STACK runs in, and one payload carrying both
+    /// would conflate the two environments slice fifty-four spent eight rounds
+    /// separating.
+    /// </para>
+    private const int KindsThatCross = 18;
 
     [Test]
     public async Task Attestations_are_not_facts_and_the_count_moves_only_with_an_argument()

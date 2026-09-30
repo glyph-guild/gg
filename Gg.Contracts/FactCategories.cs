@@ -59,6 +59,7 @@ public static class FactCategories
         // whether any of this generalises: the fact exists and the subject does
         // not. An environment is not a subject kind, so nothing vetoes it.
         [FactKinds.EnvironmentIdentity] = Subject,
+        [FactKinds.EnvironmentReclaimed] = Subject,
 
         // MEASURED FROM A TREE. A diff and the commit it was taken from. These
         // are the families the subject can veto, and the only ones.

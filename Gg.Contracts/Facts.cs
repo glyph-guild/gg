@@ -93,6 +93,18 @@ public static class FactKinds
     public const string LoopSession = "loop.session";
 
     /// <summary>
+    /// What a reclaim removed from the environment instance this flight was
+    /// granted, before it stood its stack up.
+    /// </summary>
+    /// <remarks>
+    /// Slice fifty-six rule 5 — slice fifty-four's rule 8 one level down. Its own
+    /// kind rather than <see cref="EnvironmentIdentity"/>, which is what ran and
+    /// WHERE about the worker: this is about the environment the worker's stack
+    /// runs in, and folding them conflates the two.
+    /// </remarks>
+    public const string EnvironmentReclaimed = "environment.reclaimed";
+
+    /// <summary>
     /// Where a flight's work landed, once a destination admitted it.
     /// </summary>
     /// <remarks>
@@ -262,6 +274,7 @@ public static class FactKinds
     public static IReadOnlyList<string> All { get; } =
         [EnvironmentIdentity, SourceProvenance, ChangeManifest, LoopOutcome, LoopTranscript,
          LoopSession, DocumentProposal,
+         EnvironmentReclaimed,
          DestinationLanded,
          DestinationPushed,
          LoopDigest,
@@ -470,7 +483,7 @@ public static class FactVocabulary
     /// control-plane-side and travels outward, and no runner ships one inside a
     /// fact - so the seventh ending moves the contract number and leaves this
     /// one alone. Two ledgers, and the split is doing its job.
-    public const string Version = "0.37.0";
+    public const string Version = "0.38.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>
@@ -1063,6 +1076,9 @@ public sealed record FactEnvelope
     /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.EnvironmentIdentity"/>.</summary>
     public EnvironmentIdentity? Environment { get; init; }
 
+    /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.EnvironmentReclaimed"/>.</summary>
+    public EnvironmentReclaimed? Reclaimed { get; init; }
+
     /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.SourceProvenance"/>.</summary>
     public SourceProvenance? Source { get; init; }
 
@@ -1318,6 +1334,7 @@ public sealed record FactEnvelope
         (FactKinds.LoopOutcome, envelope.Loop is not null),
         (FactKinds.LoopTranscript, envelope.Transcript is not null),
         (FactKinds.LoopSession, envelope.Session is not null),
+        (FactKinds.EnvironmentReclaimed, envelope.Reclaimed is not null),
         (FactKinds.DocumentProposal, envelope.Document is not null),
         (FactKinds.DestinationLanded, envelope.Landed is not null),
         (FactKinds.DestinationPushed, envelope.Pushed is not null),

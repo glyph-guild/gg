@@ -274,3 +274,85 @@ public sealed record LoopOutcome
             : outcome.DurationMs < 0 ? "A loop cannot have taken negative time." : null;
     }
 }
+
+/// <summary>
+/// What a reclaim removed from an environment instance before a flight used it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Slice fifty-six rule 5:</b> a reclaim that cannot prove it happened is a
+/// failure — slice fifty-four's rule 8 one level down. When a preview flight dies
+/// on a port already bound, the question a person needs answered is <i>was this
+/// instance emptied first, and what was in it?</i>, and nothing else in the
+/// system can answer it afterwards, because the containers are gone.
+/// </para>
+/// <para>
+/// <b>Counted rather than named.</b> The numbers are what a reader acts on; a
+/// list of container ids is a list of things that no longer exist.
+/// </para>
+/// <para>
+/// <b>Zero is a value, not an absence.</b> An instance that was already clean is
+/// the ordinary state of a fresh slot and of one whose last flight brought its
+/// stack down politely. A fact shipped only when something was removed would make
+/// "already clean" and "never reclaimed" read the same, and only one of those
+/// means the environment is trustworthy.
+/// </para>
+/// <para>
+/// <b>Images are not counted, because they are not removed.</b> Warmth is the
+/// image store (rule 4), and the port a reclaim uses has no method that could
+/// take one.
+/// </para>
+/// </remarks>
+[FactKind(FactKinds.EnvironmentReclaimed)]
+[PinnedId("a5324756-60b6-4e65-bd18-7d0f14e79afd")]
+public sealed record EnvironmentReclaimed
+{
+    /// <summary>The instance that was emptied, as the lease named it.</summary>
+    /// <remarks>
+    /// Carried rather than inferred: the grant that would answer this is released
+    /// by the time anybody reads the fact, and a host may have several instances.
+    /// </remarks>
+    public required string Instance { get; init; }
+
+    /// <summary>How many containers were removed.</summary>
+    public required int Containers { get; init; }
+
+    /// <summary>How many networks the prune took.</summary>
+    public required int Networks { get; init; }
+
+    /// <summary>How many volumes the prune took.</summary>
+    public required int Volumes { get; init; }
+
+    /// <summary>
+    /// What no reclaim can usefully mean, and what to refuse.
+    /// </summary>
+    /// <remarks>
+    /// <b>Zero is never refused</b> — see the note on the type. What is refused is
+    /// a fact nobody can act on: no instance named, or a negative quantity of
+    /// anything, which is <see cref="MachineReading"/>'s rule and for its reason.
+    /// </remarks>
+    public static string? Validate(EnvironmentReclaimed reclaimed)
+    {
+        ArgumentNullException.ThrowIfNull(reclaimed);
+
+        if (string.IsNullOrWhiteSpace(reclaimed.Instance))
+        {
+            return "a reclaim that names no instance is unreadable on a host with two, and the "
+                 + "grant that would have answered it is released by the time anybody asks.";
+        }
+
+        foreach (var (what, count) in ((string, int)[])
+                 [("containers", reclaimed.Containers),
+                  ("networks", reclaimed.Networks),
+                  ("volumes", reclaimed.Volumes)])
+        {
+            if (count < 0)
+            {
+                return $"'{what}' is {count}, and no reclaim removes a negative quantity of "
+                     + "anything. Zero is the ordinary answer for an instance that was clean.";
+            }
+        }
+
+        return null;
+    }
+}

@@ -760,8 +760,18 @@ public sealed class RunnerLoop(
     /// by the time this runs — failing a flight whose work is done in order to
     /// keep a host tidy would throw away the work.
     /// </remarks>
-    private async Task BringDownAsync(string? instance, CancellationToken cancellationToken)
+    private async Task BringDownAsync(
+        string? instance, string? hold, CancellationToken cancellationToken)
     {
+        // NO ITINERARY HOLD IS BROUGHT DOWN, including one this leg took: a leg
+        // cannot know whether a sibling is coming, and guessing wrong destroys
+        // the environment the next leg was granted. The hold lapsing frees it,
+        // and the next taker empties it.
+        if (!InstanceHolds.BringsDownOnDeparture(hold))
+        {
+            return;
+        }
+
         if (Pools.EnvironmentNaming.SocketFor(instance) is not { } address)
         {
             return;
@@ -788,8 +798,18 @@ public sealed class RunnerLoop(
     }
 
     private async Task<Environments.Emptied?> ReclaimAsync(
-        string? instance, CancellationToken cancellationToken)
+        string? instance, string? hold, CancellationToken cancellationToken)
     {
+        // A LEG THAT INHERITED ITS HOLD LEAVES THE STACK ALONE. A sibling brought
+        // it up and is the reason the itinerary kept the instance at all;
+        // emptying it here is the defect reuse exists to avoid. The reading is
+        // InstanceHolds', not this method's, because the tear-down below asks the
+        // same question and two spellings of it can disagree.
+        if (!InstanceHolds.EmptiesOnArrival(hold))
+        {
+            return null;
+        }
+
         if (Pools.EnvironmentNaming.SocketFor(instance) is not { } address)
         {
             return null;
@@ -2413,7 +2433,7 @@ public sealed class RunnerLoop(
         // a flight that would stand its stack up beside the last one's, or
         // nowhere - and the reclaim is bound to one socket path by construction,
         // so it can never have emptied something else instead.
-        var reclaimed = await ReclaimAsync(loop.Instance, cancellationToken);
+        var reclaimed = await ReclaimAsync(loop.Instance, loop.InstanceHold, cancellationToken);
 
         // TIMED HERE, because this is the only place that knows when the person
         // was handed the terminal and when they gave it back. Rule 6 records the
@@ -2433,7 +2453,7 @@ public sealed class RunnerLoop(
         // EVERYTHING IS SWALLOWED, unlike the reclaim two hundred lines up. The
         // agent has finished: failing a flight whose work is done over a tidy-up
         // would throw away the work to keep the host neat.
-        await BringDownAsync(loop.Instance, cancellationToken);
+        await BringDownAsync(loop.Instance, loop.InstanceHold, cancellationToken);
 
         // NOTHING MEASURED A LOOP, which is what an attended session answers:
         // a person held the terminal, so there is no outcome to append a

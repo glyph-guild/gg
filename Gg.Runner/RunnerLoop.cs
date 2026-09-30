@@ -733,6 +733,44 @@ public sealed class RunnerLoop(
     }
 
     /// <summary>
+    /// Empties the environment instance this flight was granted, and raises if
+    /// it cannot.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Unlike every reporter beside it, this is NOT best-effort.</b> Those are
+    /// bookkeeping and must never take a runner out of the fleet; this is the
+    /// flight's own workspace. A flight whose environment could not be prepared
+    /// has to fail loudly, because continuing means standing a stack up beside
+    /// the last one's — two AppHosts on one daemon, which fails by serving each
+    /// other's work.
+    /// </para>
+    /// <para>
+    /// <b>Nothing for a flight hosted nowhere</b>, which is every flight in the
+    /// field: there is no daemon to empty and no reason to dial one.
+    /// </para>
+    /// </remarks>
+    private async Task ReclaimAsync(string? instance, CancellationToken cancellationToken)
+    {
+        if (Pools.EnvironmentNaming.SocketFor(instance) is not { } address)
+        {
+            return;
+        }
+
+        // The scheme is the wire's; a socket is dialled by PATH.
+        using var daemon = Environments.DockerInstanceDaemon.At(
+            address["unix://".Length..]);
+
+        // WHAT IT REMOVED IS NOT RECORDED YET, and that is the next step rather
+        // than an omission: S56.2-04 puts it on the flight's evidence, which is
+        // where a flight's own acts belong. A narration here would be a second
+        // account of the same thing, and the observer it would go through has
+        // eight implementations - a cost worth paying for a fact and not for a
+        // line of prose.
+        _ = await Environments.InstanceReclaim.EmptyAsync(daemon, cancellationToken);
+    }
+
+    /// <summary>
     /// Says which environment instances this host has, and never stands the
     /// runner down over it.
     /// </summary>
@@ -2327,6 +2365,18 @@ public sealed class RunnerLoop(
             WallClock = TimeSpan.FromSeconds(loop.WallClockSeconds),
             TranscriptPath = _transcripts.For(lease.FlightId, loop.LoopId),
         };
+
+        // THE INSTANCE IS EMPTIED BEFORE THE AGENT TOUCHES IT - slice fifty-six
+        // rule 2, on the way IN. A flight that was killed holding its stack up
+        // left it running, and nothing else in the system takes it down: a
+        // tear-down at landing cannot be what makes this flight's environment
+        // trustworthy, because the dead keep no promises.
+        //
+        // IT THROWS RATHER THAN CONTINUING. An instance that cannot be reached is
+        // a flight that would stand its stack up beside the last one's, or
+        // nowhere - and the reclaim is bound to one socket path by construction,
+        // so it can never have emptied something else instead.
+        await ReclaimAsync(loop.Instance, cancellationToken);
 
         // TIMED HERE, because this is the only place that knows when the person
         // was handed the terminal and when they gave it back. Rule 6 records the

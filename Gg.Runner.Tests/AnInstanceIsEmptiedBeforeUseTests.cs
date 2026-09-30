@@ -50,6 +50,16 @@ public class AnInstanceIsEmptiedBeforeUseTests
 
         internal Exception? Throws { get; set; }
 
+        /// <summary>
+        /// What a prune finds. Zero by default, because an instance with no
+        /// containers has no networks or volumes left attached to anything —
+        /// a fake that returned otherwise would describe a daemon that cannot
+        /// exist, and one test read it as "something was removed".
+        /// </summary>
+        internal int Networks { get; set; }
+
+        internal int Volumes { get; set; }
+
         public Task<IReadOnlyList<string>> ContainersAsync(
             CancellationToken cancellationToken = default) =>
             Throws is not null
@@ -66,13 +76,13 @@ public class AnInstanceIsEmptiedBeforeUseTests
         public Task<int> PruneNetworksAsync(CancellationToken cancellationToken = default)
         {
             NetworkPrunes++;
-            return Task.FromResult(2);
+            return Task.FromResult(Networks);
         }
 
         public Task<int> PruneVolumesAsync(CancellationToken cancellationToken = default)
         {
             VolumePrunes++;
-            return Task.FromResult(3);
+            return Task.FromResult(Volumes);
         }
     }
 
@@ -96,7 +106,8 @@ public class AnInstanceIsEmptiedBeforeUseTests
         // A STACK IS NOT ONLY CONTAINERS. Aspire creates a network per run and
         // volumes for anything stateful; leaving those behind leaks names a
         // second run collides with, which reads as a stack that will not start.
-        var daemon = new Watched();
+        var daemon = new Watched { Networks = 2, Volumes = 3 };
+        daemon.Present.Add("abc123");
 
         var emptied = await InstanceReclaim.EmptyAsync(daemon);
 
@@ -118,9 +129,10 @@ public class AnInstanceIsEmptiedBeforeUseTests
 
         _ = await InstanceReclaim.EmptyAsync(daemon);
 
-        await Assert.That(daemon.Order).IsEquivalentTo(
-            (string[])["containers", "remove:abc123", "networks", "volumes"],
-            CollectionOrdering.Matching);
+        // Compared as a joined string, because the ORDER is the assertion and a
+        // set comparison passes on a reclaim that pruned first.
+        await Assert.That(string.Join(" -> ", daemon.Order))
+            .IsEqualTo("containers -> remove:abc123 -> networks -> volumes");
     }
 
     private sealed class OrderWatched : IInstanceDaemon

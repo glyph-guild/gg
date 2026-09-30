@@ -1061,7 +1061,7 @@ public static class EnvelopeYaml
     private static Envelope Map(Node document)
     {
         var root = RequireMap(document, "");
-        Closed(root, BasedOnKey, "description", "brief", "context", "environment", "environments",
+        Closed(root, BasedOnKey, "description", "brief", "stack", "context", "environment", "environments",
                "repository", "repositories", "accepts", "produces", "learned", "variables", "targeting", "hosts", "instructions",
                "obligations", "loops", "destinations", "offers");
 
@@ -1101,6 +1101,9 @@ public static class EnvelopeYaml
             // key means "keep the wording every flight has always had".
             Brief = root.Entries.TryGetValue("brief", out var brief)
                 ? RequireScalar(brief, "brief")
+                : null,
+            Stack = root.Entries.TryGetValue("stack", out var stack)
+                ? RequireScalar(stack, "stack")
                 : null,
             Context = new ContextBinding
             {

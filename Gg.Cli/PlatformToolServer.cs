@@ -1931,6 +1931,17 @@ public static class PlatformToolServer
           + "tenant's bound on what exists, and which one a flight gets is chosen when it "
           + "is flown. A name the floor does not permit is refused.");
         said.AppendLine(
+            "  stack:              for a work kind with `hosts:`, the script that brings "
+          + "its stack up and down - a path in the repository the flight checks out, run "
+          + "with `up` or `down` as its argument. ONE path for both, because they are two "
+          + "halves of one procedure and the repository knows both. Omitting it means an "
+          + "agent works the bring-up out from `learned:` advice, which is every kind "
+          + "today and where a kind stays until that advice has been used enough to be "
+          + "worth writing down. It is refused on a kind with no `hosts:`, because nothing "
+          + "would ever run it, and refused if it is absolute or climbs out of the "
+          + "checkout - it names the repository's own knowledge, not a file on the "
+          + "machine.");
+        said.AppendLine(
             "  obligations:        what must hold. Keyed by name; the name is how a loop "
           + "or a destination refers to it.");
         said.AppendLine(

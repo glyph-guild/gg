@@ -1672,6 +1672,15 @@ public static class Reducer
             return PickLogEntry(state, row);
         }
 
+        // AND THE PLAN MODAL'S LEGS, before the tab switch for exactly the
+        // reason the runner modal's note gives: the tab behind this modal IS
+        // Itineraries, so falling through would move the PLAN cursor and
+        // change which plan the modal is about, under somebody reading it.
+        if (state.Mode is UiMode.ItineraryDetail)
+        {
+            return PickItineraryLeg(state, row);
+        }
+
         // AND THE RUNNER MODAL'S TWO TABLES, before the tab switch below for
         // the reason that switch is the hazard: the tab behind this modal is
         // Runners, so falling through would move the FLEET's cursor and change

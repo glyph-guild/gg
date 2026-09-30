@@ -191,8 +191,12 @@ public class TheRunnersCursorStaysTests
         var wired = screen.Split("ValueChanged += OnRowPointedAt").Length - 1;
         var released = screen.Split("ValueChanged -= OnRowPointedAt").Length - 1;
 
-        await Assert.That(built).IsEqualTo(18)
-            .Because("The eighteenth is the Itineraries tab's LEGS table, and it is the "
+        await Assert.That(built).IsEqualTo(19)
+            .Because("The nineteenth is the PLAN MODAL's legs table - a modal table, so it "
+                   + "subscribes OnModalRowPointedAt and `wired` stays where it is. It "
+                   + "carries a cursor and is focused directly (FocusTarget.PlanLegs), "
+                   + "because the modal is two regions and only the top one is driven. "
+                   + "The eighteenth is the Itineraries tab's LEGS table, and it is the "
                    + "first on a tab that is deliberately NOT wired - so `built` moved and "
                    + "`wired` did not, which is the pair this ratchet exists to make "
                    + "somebody say out loud. It carries no cursor because `CanFocus` is "

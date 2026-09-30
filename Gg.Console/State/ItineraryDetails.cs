@@ -183,6 +183,72 @@ public static class ItineraryDetails
             : null;
     }
 
+    /// <summary>What the legs pane is called: how many, and how they stand.</summary>
+    public static string LegsTitle(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var legs = LegsSent(state).Count;
+
+        return legs == 1 ? "1 leg" : $"{legs} legs";
+    }
+
+    /// <summary>
+    /// What the detail pane is called: which leg is being read.
+    /// </summary>
+    /// <remarks>
+    /// The KIND and the flight rather than "what it is", because the pane's
+    /// body is the sentence and a title repeating the heading above it tells a
+    /// person nothing about which of five rows they are looking at.
+    /// </remarks>
+    public static string DetailTitle(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (LegNominationUnder(state) is not { } leg)
+        {
+            return "what it is";
+        }
+
+        // WHICH OF HOW MANY, because every leg of a plan is usually the same
+        // kind - both of the first real itinerary's are `implement` - so a
+        // title naming only the kind cannot say which row is being read.
+        var which = $"leg {state.ItineraryLegSelected + 1} of {LegsSent(state).Count}";
+
+        return leg.FlightNumber is { Length: > 0 } flight
+            ? $"{which}  {leg.WorkKind}  {flight}"
+            : $"{which}  {leg.WorkKind}";
+    }
+
+    /// <summary>
+    /// The chosen leg's sentence, whole, wrapped to the pane it is drawn in.
+    /// </summary>
+    /// <remarks>
+    /// <b>THE WHOLE POINT OF THE PANE.</b> The table above cuts each sentence
+    /// at <see cref="Rows.LegReasonFits"/> so the columns after it survive, and
+    /// a detail pane repeating the cut would make this modal a bigger box
+    /// around the same ellipsis.
+    /// </remarks>
+    public static IReadOnlyList<string> DetailLines(AppState state, int columns)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (LegNominationUnder(state) is not { } leg)
+        {
+            return ["no leg is selected."];
+        }
+
+        if (leg.Reason is not { Length: > 0 } said)
+        {
+            // ABSENT IS "NOBODY SAID", and a pane drawn empty reads as one
+            // still loading. Every leg that mattered carries one; a plan from
+            // before the member does not.
+            return ["this leg came with no reason."];
+        }
+
+        return [.. PaneText.Wrapped(said, Math.Max(columns, 20)).Split('\n')];
+    }
+
     /// <summary>The whole modal as one document, for copying out.</summary>
     /// <remarks>
     /// <b>The sentences UNCUT, which is most of why this modal exists.</b> The

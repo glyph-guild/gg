@@ -59,6 +59,7 @@ public class APlanOpensAndGoesSomewhereTests
     private static AppState Open(params NominationSummary[] legs) => new()
     {
         Mode = UiMode.ItineraryDetail,
+        ActiveTab = TabId.Itineraries,
         Itineraries = new BoardPage { Nominations = legs, IncludedEnded = true },
         ItinerariesSelected = 0,
         ItineraryLegSelected = 0,
@@ -113,7 +114,12 @@ public class APlanOpensAndGoesSomewhereTests
         // never said they were on.
         var state = Open(Leg("the first", hour: 10), Leg("the second", hour: 9));
 
-        await Assert.That(PaneText.Modal(state)).Contains("> implement");
+        // THE KEY, not just the command. The first version of this test called
+        // the reducer directly and passed while `j` did nothing in the live
+        // console - a command nothing resolves to is a command nobody can
+        // reach.
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('j'), KeymapContext.For(state)))
+            .IsEqualTo(Command.SelectNext);
 
         var moved = Reducer.Reduce(state, Command.SelectNext);
 

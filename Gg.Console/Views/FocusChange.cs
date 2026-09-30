@@ -91,6 +91,16 @@ public enum FocusTarget
     /// </remarks>
     FlightTab,
 
+    /// <summary>The plan modal's legs table.</summary>
+    /// <remarks>
+    /// <b>The table rather than the frame, because the table is what a person
+    /// drives.</b> The modal is two regions - the legs and the chosen one's
+    /// sentence - and only the top one takes a cursor; focusing the frame
+    /// would leave the arrows reaching nothing, which is the shape the runner
+    /// modal's own note records.
+    /// </remarks>
+    PlanLegs,
+
     /// <summary>
     /// The airspace path field, which is not a modal and still owns the
     /// keyboard.
@@ -291,6 +301,15 @@ public static class FocusChange
             (UiMode.FlightDetail, _) when modalHasFocus && landedFlightTab == flightTab
                 => FocusTarget.LeaveAlone,
             (UiMode.FlightDetail, _) => FocusTarget.FlightTab,
+
+            // THE PLAN'S LEGS, ALWAYS, and NOT under the flight modal's
+            // "leave it alone if the modal already has focus" guard. That
+            // guard is there because the flight modal has TABS and a person
+            // may have tabbed between them; this modal has exactly one
+            // focusable thing. Under the guard the frame kept the focus, the
+            // table never got it, its KeyDown never fired, and j/k/f/t were
+            // dead in a modal whose every unit test passed.
+            (UiMode.ItineraryDetail, _) => FocusTarget.PlanLegs,
 
             (not UiMode.Normal, _) when modalHasFocus => FocusTarget.LeaveAlone,
 

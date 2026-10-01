@@ -761,13 +761,20 @@ public sealed class RunnerLoop(
     /// keep a host tidy would throw away the work.
     /// </remarks>
     private async Task BringDownAsync(
-        string? instance, string? hold, CancellationToken cancellationToken)
+        string? instance, string? hold, bool holdsItsMachine, CancellationToken cancellationToken)
     {
         // NO ITINERARY HOLD IS BROUGHT DOWN, including one this leg took: a leg
         // cannot know whether a sibling is coming, and guessing wrong destroys
         // the environment the next leg was granted. The hold lapsing frees it,
         // and the next taker empties it.
-        if (!InstanceHolds.BringsDownOnDeparture(hold))
+        //
+        // AND NO FLIGHT HOLDING ITS MACHINE FOR A PREVIEW, which is GG-522: the
+        // agent served its change from inside this instance, verified it, and
+        // the departure emptied it a second before gg published the address and
+        // held the machine for a person to come and look. The decision is
+        // InstanceDeparture's rather than this method's, because two slices had
+        // half of it each and the call site is where that showed.
+        if (!Environments.InstanceDeparture.BringsDown(hold, holdsItsMachine))
         {
             return;
         }
@@ -2549,7 +2556,12 @@ public sealed class RunnerLoop(
         var broughtDown = await PerformStackAsync(
             loop.Stack, workspace, Environments.StackScript.Down, cancellationToken);
 
-        await BringDownAsync(loop.Instance, loop.InstanceHold, cancellationToken);
+        // THE SAME PREDICATE THE HOLD BELOW USES, read here so the tear-down and
+        // the hold cannot disagree about whether anybody is coming to look.
+        await BringDownAsync(
+            loop.Instance, loop.InstanceHold,
+            Exposures.TreeRetention.HoldsItsMachine(_served, loop.Produces),
+            cancellationToken);
 
         // BOTH HALVES, EACH ON ITS OWN - slice fifty-six S56.6-01, and the
         // owner's framing: the thing to measure about a script is whether it

@@ -2658,6 +2658,19 @@ static async Task<int> HoldAsync(
         // sources are cumulative counters, so a rate is a difference and a
         // second instance would keep restarting the interval.
         machine: Gg.Runner.MachineReporter.OfThisMachine(),
+        // AND WHICH ENVIRONMENT INSTANCES THIS HOST HAS. The scan answers null
+        // on a machine with no /srv/env - every developer's Mac and every member
+        // container - so this is safe on all three runners and the host's own
+        // disk is what decides, rather than this line guessing which of them is
+        // a pool host.
+        //
+        // UNSUPPLIED UNTIL NOW, AND IT MADE THE FEATURE INERT. A provisioned
+        // instance that is never reported is a row the control plane does not
+        // have, and its pick predicate requires one - so a flight whose kind
+        // declares `hosts:` was stepped over in silence, for ever. Measured on
+        // vmlinux001: sixteen polls, "nothing ready" every time, no error
+        // anywhere.
+        environments: Gg.Runner.EnvironmentReporter.OfThisHost(),
         // THE ONE READER, HANDED ACROSS. Gg.Runner cannot see Gg.Client - the
         // runner is treated as hostile and the reference graph keeps them
         // apart - so this project, which is the only one that sees both, passes
@@ -3033,6 +3046,19 @@ static async Task<int> RunnerUpAsync()
             // sources are cumulative counters, so a rate is a difference and a
             // second instance would keep restarting the interval.
             machine: Gg.Runner.MachineReporter.OfThisMachine(),
+        // AND WHICH ENVIRONMENT INSTANCES THIS HOST HAS. The scan answers null
+        // on a machine with no /srv/env - every developer's Mac and every member
+        // container - so this is safe on all three runners and the host's own
+        // disk is what decides, rather than this line guessing which of them is
+        // a pool host.
+        //
+        // UNSUPPLIED UNTIL NOW, AND IT MADE THE FEATURE INERT. A provisioned
+        // instance that is never reported is a row the control plane does not
+        // have, and its pick predicate requires one - so a flight whose kind
+        // declares `hosts:` was stepped over in silence, for ever. Measured on
+        // vmlinux001: sixteen polls, "nothing ready" every time, no error
+        // anywhere.
+        environments: Gg.Runner.EnvironmentReporter.OfThisHost(),
             // HOW THE AGENT AUTHENTICATES, from the same declaration the
             // executor came from, and the token from the same store the
             // channel's keeper writes - so a token sent over the channel is
@@ -3432,6 +3458,19 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
         // sources are cumulative counters, so a rate is a difference and a
         // second instance would keep restarting the interval.
         machine: Gg.Runner.MachineReporter.OfThisMachine(),
+        // AND WHICH ENVIRONMENT INSTANCES THIS HOST HAS. The scan answers null
+        // on a machine with no /srv/env - every developer's Mac and every member
+        // container - so this is safe on all three runners and the host's own
+        // disk is what decides, rather than this line guessing which of them is
+        // a pool host.
+        //
+        // UNSUPPLIED UNTIL NOW, AND IT MADE THE FEATURE INERT. A provisioned
+        // instance that is never reported is a row the control plane does not
+        // have, and its pick predicate requires one - so a flight whose kind
+        // declares `hosts:` was stepped over in silence, for ever. Measured on
+        // vmlinux001: sixteen polls, "nothing ready" every time, no error
+        // anywhere.
+        environments: Gg.Runner.EnvironmentReporter.OfThisHost(),
         // A MEMBER IS THE MACHINE THIS EXISTS FOR: no login of its own, so it
         // holds until a token is sent, and the hold is what keeps it reachable.
         agent: agent,

@@ -38,6 +38,28 @@ public sealed record ExposureServed
     /// <summary>The slot, spelled as the inventory spells it.</summary>
     public required string Slot { get; init; }
 
+    /// <summary>
+    /// The origin the connector dials, or null when nothing was served.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The one address a person reaches through <see cref="Url"/>, and the
+    /// only one safe to measure.</b> Nothing in gg declares a port for a flight:
+    /// <c>ExposureInventory.Port</c>, <c>LeasePreview.Port</c> and the
+    /// <c>PREVIEW_PORT</c> variable are three unconnected answers, and an
+    /// envelope settles that a flight may serve a port but cannot be FOR one.
+    /// Probing a declared port measured traefik on ADR-0033's topology, where
+    /// the kind said 8080 and the app bound 4200.
+    /// </para>
+    /// <para>
+    /// <b>Built from the value handed to the connector</b>, which is the same
+    /// number <c>TunnelFiles</c> writes as <c>service: http://localhost:{port}</c>.
+    /// Two spellings of one address is a preview measured where nobody is
+    /// serving.
+    /// </para>
+    /// </remarks>
+    public string? Origin { get; init; }
+
     /// <summary>What went wrong, or null when nothing did.</summary>
     public string? Diagnosis { get; init; }
 }
@@ -137,6 +159,13 @@ public sealed class CloudflareExposureAdapter(IExposureConnector connector)
                 // gg can arrange an exposure serves one, and because a scheme
                 // decided in two places is a scheme that disagrees with itself.
                 Url = $"https://{request.Preview.Hostname}",
+
+                // AND WHERE THAT ADDRESS SENDS TRAFFIC, from the same port the
+                // connector was just dialled with. Carried because it is
+                // knowable here and nowhere afterwards, and because the only
+                // honest way to ask "is the preview serving" is to ask the
+                // address the preview actually forwards to.
+                Origin = $"http://localhost:{request.Preview.Port}",
                 Exposure = request.Preview.Exposure,
                 Slot = slot,
             };

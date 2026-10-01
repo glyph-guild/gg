@@ -150,6 +150,13 @@ public class TheHostRunbooksNameWhatExistsTests
 
         var cloudInit = File.ReadAllText(Path.Combine(root, "deploy", "pool-host", "cloud-init.yaml"));
         var memberImage = File.ReadAllText(Path.Combine(root, "deploy", "member-browser", "Dockerfile"));
+
+        // AND THE DEV POOL'S, which joined this list because living outside it
+        // is what let it rot. It was in gg-airspace, where nothing held its
+        // version to anything: it reached gg 0.37.0 while every host ran
+        // 0.67.0 - thirty releases - and three releases after a hand bump it
+        // was stale again. Both member images are held to the release now.
+        var devImage = File.ReadAllText(Path.Combine(root, "deploy", "member", "Dockerfile"));
         var readme = File.ReadAllText(Path.Combine(root, "README.md"));
 
         var pins = new List<(string Where, string Version)>();
@@ -162,10 +169,13 @@ public class TheHostRunbooksNameWhatExistsTests
             .Select(m => ("cloud-init final message", m.Groups[1].Value)));
         pins.AddRange(Regex.Matches(memberImage, @"ARG GG_VERSION=(\d+\.\d+\.\d+)")
             .Select(m => ("member-browser", m.Groups[1].Value)));
+        pins.AddRange(Regex.Matches(devImage, @"ARG GG_VERSION=(\d+\.\d+\.\d+)")
+            .Select(m => ("member", m.Groups[1].Value)));
         pins.AddRange(Regex.Matches(readme, @"(?m)^v=(\d+\.\d+\.\d+)")
             .Select(m => ("README", m.Groups[1].Value)));
 
-        foreach (var where in (string[])["cloud-init --version", "cloud-init bundle", "member-browser", "README"])
+        foreach (var where in (string[])
+            ["cloud-init --version", "cloud-init bundle", "member-browser", "member", "README"])
         {
             await Assert.That(pins.Any(p => p.Where == where)).IsTrue()
                 .Because($"no pin was found in {where}, so there is nothing to hold to the release.");

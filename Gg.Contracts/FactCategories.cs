@@ -129,6 +129,7 @@ public static class FactCategories
         // written with: the day a second subject fact lands is a day somebody
         // changed that line.
         [FactKinds.EnvironmentReclaimed] = Flight,
+        [FactKinds.StackPerformed] = Flight,
         [FactKinds.LandingProposal] = Flight,
 
         // FLIGHT, and the alternative is worth naming. An address is served BY a

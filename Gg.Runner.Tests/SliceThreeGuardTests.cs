@@ -99,7 +99,7 @@ public class SliceThreeGuardTests
     /// would conflate the two environments slice fifty-four spent eight rounds
     /// separating.
     /// </para>
-    private const int KindsThatCross = 18;
+    private const int KindsThatCross = 19;
 
     [Test]
     public async Task A_moved_vocabulary_version_has_a_ledger_entry()
@@ -240,6 +240,7 @@ public class SliceThreeGuardTests
                 FactKinds.DestinationPushed,
                 FactKinds.EnvironmentIdentity,
                 FactKinds.EnvironmentReclaimed,
+                FactKinds.StackPerformed,
                 FactKinds.FlightNomination,
                 FactKinds.HumanAccount,
                 FactKinds.LoopAttended,

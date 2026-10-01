@@ -183,9 +183,9 @@ public class SliceTwelveGuardTests
     /// untouched — <c>flight.nomination</c> already belonged to a flight, and
     /// still does.
     /// </para>
-    // 0.38.0 since slice fifty-six added environment.reclaimed. The argument
-    // for it is on KindsThatCross below.
-    private const string VocabularyAtSliceStart = "0.38.0";
+    // 0.39.0 since slice fifty-six added environment.reclaimed and then
+    // stack.performed. The argument for both is on KindsThatCross below.
+    private const string VocabularyAtSliceStart = "0.39.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number
@@ -319,7 +319,26 @@ public class SliceTwelveGuardTests
     /// would conflate the two environments slice fifty-four spent eight rounds
     /// separating.
     /// </para>
-    private const int KindsThatCross = 18;
+    /// <para>
+    /// <b>Nineteen, and the argument for the nineteenth.</b> <c>stack.performed</c>
+    /// crosses because the owner replaced slice fifty-six's rule 10 with it on
+    /// 2026-09-30: <i>we do not need to worry about a team that knows its own
+    /// stack — the thing to measure is whether the script works.</i> Nothing else
+    /// can answer that. A script that failed its bring-up reached a person only
+    /// as work failing against a stack that was not there, and the two readings
+    /// of that — a wrong script, or a kind whose work was always going to fail —
+    /// are not distinguishable from the flight's own outcome.
+    /// </para>
+    /// <para>
+    /// It belongs to a flight on this guard's own terms, and is the SECOND fact
+    /// about the environment the worker's stack runs in rather than about the
+    /// worker. It is not folded into <c>environment.reclaimed</c>: that one is
+    /// what preparing the place REMOVED, shipped once, and this is what a script
+    /// DID, shipped per performance — a single fact carrying both could only be
+    /// shipped once both had happened, which is exactly the case that does not
+    /// arrive when the bring-up fails.
+    /// </para>
+    private const int KindsThatCross = 19;
 
     [Test]
     public async Task Attestations_are_not_facts_and_the_count_moves_only_with_an_argument()

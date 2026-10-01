@@ -356,3 +356,170 @@ public sealed record EnvironmentReclaimed
         return null;
     }
 }
+
+/// <summary>
+/// The two halves of the procedure a work kind's stack script performs.
+/// </summary>
+/// <remarks>
+/// <b>Declared here because the verb crosses.</b> It was a runner-side constant
+/// while nothing but the runner said it; the measurement of a performance names
+/// which half it was, so a reader on the far side needs the same two words.
+/// </remarks>
+[VocabularyOf(VocabularyFingerprints.Fact)]
+public static class StackVerbs
+{
+    /// <summary>Brings the stack up, after the instance is emptied and before the agent.</summary>
+    public const string Up = "up";
+
+    /// <summary>Brings it down, after the agent has finished.</summary>
+    public const string Down = "down";
+
+    /// <summary>
+    /// Both, in the order one flight performs them.
+    /// </summary>
+    /// <remarks>
+    /// <b>Listed so the ratchet can see it.</b> Written first as two bare
+    /// constants, which left it discovered by nothing: a third verb would have
+    /// changed what <see cref="StackPerformed.Validate"/> accepts and moved no
+    /// ledger — exactly the gap <c>VocabularyMembershipTests</c> exists to close,
+    /// and it was invisible because that guard finds a vocabulary by its list.
+    /// </remarks>
+    public static IReadOnlyList<string> All { get; } = [Up, Down];
+}
+
+/// <summary>
+/// How a performance of a stack script ended.
+/// </summary>
+/// <remarks>
+/// <b>Named rather than inferred from a duration.</b> A reader handed only a
+/// number would have to guess a timeout from a long one and an unstartable
+/// script from a short one, which is a naming convention doing a schema's job —
+/// the same objection that gave <c>loop.session</c> its own kind.
+/// </remarks>
+[VocabularyOf(VocabularyFingerprints.Fact)]
+public static class StackOutcomes
+{
+    /// <summary>The process ran and exited, and <c>exit</c> says how.</summary>
+    public const string Exited = "exited";
+
+    /// <summary>It was still running when the runner's patience ran out.</summary>
+    public const string Timeout = "timeout";
+
+    /// <summary>It never started — the file is there and the host would not run it.</summary>
+    public const string Unstartable = "unstartable";
+
+    /// <summary>The three, in the order a reader meets them.</summary>
+    public static IReadOnlyList<string> All { get; } = [Exited, Timeout, Unstartable];
+}
+
+/// <summary>
+/// What happened when the runner performed the script a work kind named.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Slice fifty-six step 6, as the owner put it on 2026-09-30:</b> <i>the thing
+/// to measure is whether the script works.</i> This is that measurement, and it
+/// replaces a criterion that asked instead where the script came from — a
+/// question that would have refused a team who knew their own stack, and that
+/// never answered this one: advice performed ten times can crystalize into a
+/// script that is wrong, and a script written from memory can be right.
+/// </para>
+/// <para>
+/// <b>One fact per performance</b>, so a bring-up that failed is on the record
+/// whatever the flight then did. A single fact carrying both halves could only be
+/// shipped once both had happened, which is precisely the case that does not
+/// arrive when the first one fails.
+/// </para>
+/// <para>
+/// <b>The script as the KIND NAMED IT</b> — the path relative to the checkout.
+/// The runner resolves it against a tree under <c>/srv/env</c>, and an absolute
+/// path here would put a pool host's layout in the control plane, which holds no
+/// such thing by design.
+/// </para>
+/// <para>
+/// <b>It does not fail the flight, and this is what makes that defensible.</b>
+/// The argument for swallowing a failed bring-up was that the work failing
+/// against a stack that is not there is a diagnosis with the symptom in it. That
+/// was true and thin: it was also the ONLY account. Now the script is named
+/// beside its exit code, and the swallow is a choice rather than a silence.
+/// </para>
+/// </remarks>
+[FactKind(FactKinds.StackPerformed)]
+[PinnedId("c8cc6e31-c515-436b-aa40-1ba0ff0b162b")]
+public sealed record StackPerformed
+{
+    /// <summary>The script, as the work kind named it: a path inside the checkout.</summary>
+    public required string Script { get; init; }
+
+    /// <summary>Which half of the procedure this was — <c>up</c> or <c>down</c>.</summary>
+    public required string Verb { get; init; }
+
+    /// <summary>One of <see cref="StackOutcomes"/>.</summary>
+    public required string Outcome { get; init; }
+
+    /// <summary>
+    /// The process's exit code, for the one outcome that has one.
+    /// </summary>
+    /// <remarks>
+    /// Null for <see cref="StackOutcomes.Timeout"/> and
+    /// <see cref="StackOutcomes.Unstartable"/>, and required for
+    /// <see cref="StackOutcomes.Exited"/>. A zero on a process that never exited
+    /// would read as a bring-up that worked.
+    /// </remarks>
+    public int? Exit { get; init; }
+
+    /// <summary>How long it took, in whole seconds.</summary>
+    /// <remarks>
+    /// Seconds rather than milliseconds because what a reader does with this is
+    /// notice that a bring-up takes four minutes — and a precision nobody uses
+    /// invites a comparison between two flights that means nothing.
+    /// </remarks>
+    public required int Seconds { get; init; }
+
+    /// <summary>What no measurement can usefully mean, and what to refuse.</summary>
+    public static string? Validate(StackPerformed performed)
+    {
+        ArgumentNullException.ThrowIfNull(performed);
+
+        if (string.IsNullOrWhiteSpace(performed.Script))
+        {
+            return "a measurement of an unnamed script cannot be compared with anything, and a "
+                 + "kind may name several over its life.";
+        }
+
+        if (!StackVerbs.All.Contains(performed.Verb, StringComparer.Ordinal))
+        {
+            return $"'{performed.Verb}' is not one of the two halves of the procedure, and a "
+                 + "third would be a reader guessing what the runner did.";
+        }
+
+        if (!StackOutcomes.All.Contains(performed.Outcome, StringComparer.Ordinal))
+        {
+            return $"'{performed.Outcome}' is not an outcome this contract declares.";
+        }
+
+        // THE ONE THAT CARRIES THE MEASUREMENT. An exited performance that does
+        // not say how is this criterion missing; a code beside an outcome that
+        // never exited is a zero reading as success.
+        var exited = string.Equals(performed.Outcome, StackOutcomes.Exited, StringComparison.Ordinal);
+
+        if (exited && performed.Exit is null)
+        {
+            return "a performance that exited and does not say how is the measurement missing: "
+                 + "whether the script worked is exactly what the code says.";
+        }
+
+        if (!exited && performed.Exit is not null)
+        {
+            return $"'{performed.Outcome}' never produced an exit code, and one here would read "
+                 + "as a result the process never gave.";
+        }
+
+        if (performed.Seconds < 0)
+        {
+            return $"'seconds' is {performed.Seconds}, and nothing takes a negative time.";
+        }
+
+        return null;
+    }
+}

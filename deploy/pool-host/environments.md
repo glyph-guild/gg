@@ -5,9 +5,16 @@ a customer's own stack, brought up by Aspire, so a `ui-preview` flight has
 somewhere to point.
 
 > **Status: this implements a PROPOSED decision.** ADR-0034 (control-plane repo)
-> is not accepted, and nothing here is deployed on vmlinux001 beyond the
-> measurements that produced it. Every step below was run on that host at least
-> once; the order has not been run start to finish.
+> is not accepted. **The order was run start to finish on vmlinux001 for the
+> first time on 2026-10-01**, and section 4 did not work as written — the
+> corrections are in it now, each marked with what was measured. `gg-env-1`
+> serves `ui` on that host and `gg` reaches its daemon.
+>
+> One deviation stands on that host and is the owner's call: **there is no data
+> disk.** `/srv/env` is a plain directory on the OS disk, so section 1 was
+> skipped. The blast radius section 1 exists to bound is therefore real — the
+> host was reclaimed to 22 G free first, and a stack larger than that takes the
+> pool's members down with it.
 
 ## Why it is shaped this way, in one paragraph each
 
@@ -89,6 +96,24 @@ Repeat per slot. `gg-env-1`, `gg-env-2`, …
 SLOT=gg-env-1
 sudo useradd -m -b /srv/env -s /bin/bash "$SLOT"
 ```
+
+**If the slot already exists with the wrong home**, which is what happens when
+somebody made it before reading this, `usermod -d /srv/env/$SLOT -m $SLOT` moves
+it — but **it refuses while any process belongs to the user, and
+`enable-linger` guarantees one**: the `systemd --user` manager. The error names
+a pid and reads like something is wedged. Turn linger off, stop the manager,
+move, then put linger back:
+
+```sh
+sudo loginctl disable-linger "$SLOT"
+sudo systemctl stop "user@$(id -u "$SLOT").service"
+sudo usermod -d "/srv/env/$SLOT" -m "$SLOT"
+sudo loginctl enable-linger "$SLOT"            # also recreates /run/user/<uid>
+```
+
+And check the move **with sudo**. The home is `drwxr-x---` and owned by the
+slot, so a bare `test -d /srv/env/$SLOT/.local/share/docker` is false for a
+perfectly good move, and reports a failure that did not happen.
 
 **`-b /srv/env` is the whole trick.** The home lands on the data disk, so the
 rootless daemon's default store — `~/.local/share/docker` — is on that disk with
@@ -177,6 +202,36 @@ it systemd appends a second command rather than replacing the first, and the uni
 fails to start. **Both `-H` flags are required too** — naming one replaces the
 default rather than adding to it, and the slot's own tooling still expects the
 runtime-dir socket.
+
+**The socket cannot be given to `gg-env`, and trying breaks the daemon.**
+Measured 2026-10-01, which is the first time this section was run start to
+finish. Rootless `dockerd` chowns its own socket after binding it, and it can
+only chown to a gid inside its subuid/subgid mapping — `gg-env` is a host group
+far outside that range. Left alone the socket lands as `srw-rw---- 1 <slot>
+232057`, a mapped subgid no host user is in, so `gg` is refused. And putting
+setgid on the directory so the socket inherits `gg-env` makes it **worse**: the
+daemon then fails to start at all, with
+
+    failed to load listeners: can't create unix socket
+    /srv/env/$SLOT/run/docker.sock: chown …: operation not permitted
+
+**So the DIRECTORY is the gate and the socket is open inside it.** `0750`
+`root:gg-env` on `run/` means only `gg` and the slot may enter; a `0666` socket
+behind a door you cannot open is not access. The mode is reapplied on every
+start because the socket is recreated on every start, and it is polled because
+`ExecStartPost` runs as soon as `ExecStart` has been *forked* — before `dockerd`
+has bound anything:
+
+```sh
+ExecStartPost=/bin/sh -c "for i in $(seq 1 100); do [ -S /srv/env/$SLOT/run/docker.sock ] && exec chmod 0666 /srv/env/$SLOT/run/docker.sock; sleep 0.1; done; exit 1"
+```
+
+Add that line to the same drop-in, under the two `ExecStart=` lines.
+
+> If you reached here from a `chown … operation not permitted`, check for a
+> stray setgid bit first: `chmod 0750` does **not** clear it on a directory that
+> already has it on this kernel — `chmod g-s` does, and `ls -lnd` showing
+> `drwxr-s---` is the tell.
 
 `gg` must re-login for its new group to take effect; `sg gg-env -c …` or a
 restart of the runner service is the short way. Then:

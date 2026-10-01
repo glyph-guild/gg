@@ -76,10 +76,29 @@ public static class TreeRetention
     /// it because the hold is not the flight's state. The paragraph above always
     /// said "a flight gated on a preview"; this is that sentence enforced.
     /// </para>
+    /// <para>
+    /// <b>AND SOMETHING HAS TO BE ANSWERING, which it also did not ask.</b>
+    /// GG-531's loop failed with <i>"nothing answers at http://localhost:8080"</i>
+    /// and this rule held the host for twelve hours four seconds later, so a
+    /// person could go and review that address. It was always wrong and only
+    /// said so once <c>PreviewAnswers</c> measured it — GG-522 and GG-524 held
+    /// their machines for a 502 as well, and nothing in the log admitted it.
+    /// </para>
+    /// <para>
+    /// <b>The ADDRESS decides, not the outcome.</b> A loop can fail for reasons
+    /// that leave a perfectly good preview standing — an obligation refused, a
+    /// destination that would not take it — and that preview is still somebody's
+    /// to look at. Null is "nobody asked", which is every caller that does not
+    /// probe, so this adds a reason to release a machine and takes none away.
+    /// </para>
     /// </remarks>
+    /// <param name="answered">
+    /// Whether the origin answered when it was probed, or null when nothing
+    /// probed it.
+    /// </param>
     public static bool HoldsItsMachine(
-        ExposureServed? serving, IReadOnlyList<string>? produces) =>
-        ServesAnAddress(serving) && Previews(produces);
+        ExposureServed? serving, IReadOnlyList<string>? produces, bool? answered = null) =>
+        ServesAnAddress(serving) && Previews(produces) && answered != false;
 
     /// <summary>Whether this flight's kind asked for a preview at all.</summary>
     /// <remarks>

@@ -1797,6 +1797,18 @@ public sealed class RunnerLoop(
     private Exposures.ExposureServed? _served;
 
     /// <summary>
+    /// Whether this flight's preview answered when it was probed, or null when
+    /// nothing probed it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Beside the address it is about</b>, because the hold is decided a long
+    /// way from where the measurement happens and re-probing there would be a
+    /// second answer that can disagree with the one already reported to a
+    /// person.
+    /// </remarks>
+    private bool? _previewAnswered;
+
+    /// <summary>
     /// Dials the slot this machine was granted, and remembers where it answered.
     /// </summary>
     /// <remarks>
@@ -2530,6 +2542,13 @@ public sealed class RunnerLoop(
         // a flight that would stand its stack up beside the last one's, or
         // nowhere - and the reclaim is bound to one socket path by construction,
         // so it can never have emptied something else instead.
+        // NOTHING MEASURED YET, AND THIS RUNNER OUTLIVES THE FLIGHT. The field
+        // below is per-flight and the loop is not, so without this the next
+        // flight inherits the last one's answer - and a machine would be
+        // released for a preview that is this flight's and fine, because the
+        // previous flight's was dead.
+        _previewAnswered = null;
+
         var reclaimed = await ReclaimAsync(loop.Instance, loop.InstanceHold, cancellationToken);
 
         // AND THE STACK COMES UP, when the kind named the script that does it
@@ -2638,11 +2657,20 @@ public sealed class RunnerLoop(
         // has a reason of its own, and overwriting it with this one would answer
         // a question nobody is asking: nothing was going to publish an address
         // for it anyway.
-        if (string.Equals(run.Outcome, LoopOutcomes.Completed, StringComparison.Ordinal)
-            && await Exposures.PreviewAnswers.RefusalAsync(
-                loop.Produces, _served?.Origin, Reach, cancellationToken) is { } unserved)
+        if (string.Equals(run.Outcome, LoopOutcomes.Completed, StringComparison.Ordinal))
         {
-            run = run with { Outcome = LoopOutcomes.Failed, Reason = unserved };
+            var unserved = await Exposures.PreviewAnswers.RefusalAsync(
+                loop.Produces, _served?.Origin, Reach, cancellationToken);
+
+            // REMEMBERED, so the hold can be told. A machine held for an address
+            // this just reported dead is GG-531: two adjacent log lines, the
+            // second asking a person to review what the first said is not there.
+            _previewAnswered = unserved is null;
+
+            if (unserved is { } why)
+            {
+                run = run with { Outcome = LoopOutcomes.Failed, Reason = why };
+            }
         }
 
         // THE ENVELOPE'S SENTENCE, appended where the envelope is known. The
@@ -3647,7 +3675,8 @@ public sealed class RunnerLoop(
         // The machine stays out of service for as long as nobody answers, and
         // that is the intent rather than an oversight: what it is serving is
         // somebody's unreviewed work.
-        var holding = Exposures.TreeRetention.HoldsItsMachine(_served, lease.Loop?.Produces);
+        var holding = Exposures.TreeRetention.HoldsItsMachine(
+            _served, lease.Loop?.Produces, _previewAnswered);
         var until = _clock.UtcNow + (holding ? PreviewHoldFor : HoldFor);
 
         if (holding)

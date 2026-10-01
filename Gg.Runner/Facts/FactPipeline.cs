@@ -27,6 +27,8 @@ public abstract record FactPayload
     /// <summary>What a reclaim took out of the instance this flight was granted.</summary>
     public sealed record Reclaimed(EnvironmentReclaimed Value) : FactPayload;
 
+    public sealed record Performed(StackPerformed Value) : FactPayload;
+
     /// <summary>An airspace document this flight drafted, asking it be applied.</summary>
     public sealed record Document(DocumentProposal Value) : FactPayload;
 
@@ -132,6 +134,7 @@ public sealed record FilteredFacts(IReadOnlyList<FactEnvelope> Items);
 [JsonSerializable(typeof(ArtifactReference))]
 [JsonSerializable(typeof(LoopSession))]
 [JsonSerializable(typeof(EnvironmentReclaimed))]
+[JsonSerializable(typeof(StackPerformed))]
 [JsonSerializable(typeof(DocumentProposal))]
 [JsonSerializable(typeof(DestinationLanded))]
 [JsonSerializable(typeof(LoopDigest))]
@@ -466,6 +469,10 @@ public static class FactPipeline
             FactKinds.EnvironmentReclaimed,
             JsonSerializer.Serialize(
                 reclaimed.Value, FactJsonContext.Default.EnvironmentReclaimed)),
+        FactPayload.Performed performed => (
+            FactKinds.StackPerformed,
+            JsonSerializer.Serialize(
+                performed.Value, FactJsonContext.Default.StackPerformed)),
         FactPayload.Document document => (
             FactKinds.DocumentProposal,
             JsonSerializer.Serialize(document.Value, FactJsonContext.Default.DocumentProposal)),

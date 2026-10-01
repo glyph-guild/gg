@@ -105,6 +105,17 @@ public static class FactKinds
     public const string EnvironmentReclaimed = "environment.reclaimed";
 
     /// <summary>
+    /// What happened when the runner performed the script a work kind named for
+    /// bringing its stack up or down.
+    /// </summary>
+    /// <remarks>
+    /// Slice fifty-six step 6, as the owner framed it: the thing to measure about
+    /// a script is whether it works. One fact per performance, so a bring-up that
+    /// failed is on the record whatever the flight then did.
+    /// </remarks>
+    public const string StackPerformed = "stack.performed";
+
+    /// <summary>
     /// Where a flight's work landed, once a destination admitted it.
     /// </summary>
     /// <remarks>
@@ -275,6 +286,7 @@ public static class FactKinds
         [EnvironmentIdentity, SourceProvenance, ChangeManifest, LoopOutcome, LoopTranscript,
          LoopSession, DocumentProposal,
          EnvironmentReclaimed,
+         StackPerformed,
          DestinationLanded,
          DestinationPushed,
          LoopDigest,
@@ -483,7 +495,7 @@ public static class FactVocabulary
     /// control-plane-side and travels outward, and no runner ships one inside a
     /// fact - so the seventh ending moves the contract number and leaves this
     /// one alone. Two ledgers, and the split is doing its job.
-    public const string Version = "0.38.0";
+    public const string Version = "0.39.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>
@@ -1079,6 +1091,9 @@ public sealed record FactEnvelope
     /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.EnvironmentReclaimed"/>.</summary>
     public EnvironmentReclaimed? Reclaimed { get; init; }
 
+    /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.StackPerformed"/>.</summary>
+    public StackPerformed? Performed { get; init; }
+
     /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.SourceProvenance"/>.</summary>
     public SourceProvenance? Source { get; init; }
 
@@ -1335,6 +1350,7 @@ public sealed record FactEnvelope
         (FactKinds.LoopTranscript, envelope.Transcript is not null),
         (FactKinds.LoopSession, envelope.Session is not null),
         (FactKinds.EnvironmentReclaimed, envelope.Reclaimed is not null),
+        (FactKinds.StackPerformed, envelope.Performed is not null),
         (FactKinds.DocumentProposal, envelope.Document is not null),
         (FactKinds.DestinationLanded, envelope.Landed is not null),
         (FactKinds.DestinationPushed, envelope.Pushed is not null),

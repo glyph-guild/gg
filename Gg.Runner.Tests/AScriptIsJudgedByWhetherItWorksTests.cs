@@ -49,8 +49,14 @@ public class AScriptIsJudgedByWhetherItWorksTests
 
         var script = Path.Combine(tree, "stack.sh");
         File.WriteAllText(script, "#!/bin/sh\n" + body + "\n");
-        File.SetUnixFileMode(script, UnixFileMode.UserRead | UnixFileMode.UserWrite
-                                   | UnixFileMode.UserExecute);
+        // GUARDED FOR THE ANALYZER, as WorkingTreeRoot and HandoffRoot are. A
+        // stack script is performed on a Linux pool host; this repository's CI is
+        // linux-x64 and the development machine is macOS.
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(script, UnixFileMode.UserRead | UnixFileMode.UserWrite
+                                       | UnixFileMode.UserExecute);
+        }
 
         return (tree, script);
     }
@@ -107,7 +113,10 @@ public class AScriptIsJudgedByWhetherItWorksTests
         // this and narrate nothing, so the only thing left was a flight failing
         // for reasons nobody could connect to a script.
         var (tree, script) = AScript("exit 0");
-        File.SetUnixFileMode(script, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(script, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
 
         try
         {

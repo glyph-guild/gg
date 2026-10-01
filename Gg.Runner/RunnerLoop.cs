@@ -821,44 +821,52 @@ public sealed class RunnerLoop(
     /// would make a kind that believes it is deterministic quietly not be.
     /// </para>
     /// <para>
-    /// <b>It never fails the flight.</b> A bring-up that did not work shows up as
-    /// the work failing against a stack that is not there, which is a diagnosis
-    /// with the actual symptom in it — better than a runner that stopped with a
-    /// process exit code and no further account.
+    /// <b>It never fails the flight, and the measurement is what makes that
+    /// defensible.</b> The argument for swallowing a failed bring-up was that the
+    /// work failing against a stack that is not there is a diagnosis with the
+    /// symptom in it. True, and thin, because it was also the only account. The
+    /// performance comes back from here and is shipped as <c>stack.performed</c>,
+    /// so the script is named beside its exit code and the swallow is a choice
+    /// rather than a silence — the owner's framing on 2026-09-30, <i>the thing to
+    /// measure is whether the script works</i>.
+    /// </para>
+    /// <para>
+    /// <b>Null means nothing ran</b>, which is every kind in the field and is not
+    /// the same as a script that ran and failed. A fact for "this kind names no
+    /// script" would be shipped by every flight and say nothing.
     /// </para>
     /// </remarks>
-    private async Task PerformStackAsync(
+    private async Task<Gg.Contracts.StackPerformed?> PerformStackAsync(
         string? stack, WorkspaceResult workspace, string verb,
         CancellationToken cancellationToken)
     {
         if (!Environments.StackScript.Runs(stack) || workspace.Trees.Count == 0)
         {
-            return;
+            return null;
         }
 
         var script = Environments.StackScript.Within(workspace.Trees[0].Path, stack);
 
         if (script is null || !File.Exists(script))
         {
-            return;
+            return null;
         }
 
-        try
+        var performance = await Environments.StackScript.PerformAsync(
+            script, Environments.StackScript.ArgumentFor(verb),
+            workspace.Trees[0].Path, Environments.StackScript.Patience, cancellationToken);
+
+        // THE PATH THE KIND NAMED, not the one just performed. That one is
+        // resolved against a tree under /srv/env and describes a pool host's
+        // layout, which the control plane holds none of by design.
+        return new Gg.Contracts.StackPerformed
         {
-            await Environments.StackScript.PerformAsync(
-                script, Environments.StackScript.ArgumentFor(verb),
-                workspace.Trees[0].Path, cancellationToken);
-        }
-        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException
-                                        or System.ComponentModel.Win32Exception)
-        {
-            // NOT NARRATED HERE, on the reclaim's terms two methods down: the
-            // observer's methods are about the control plane and the lease, and
-            // widening one of them for this would put a second account of the
-            // same thing beside the one that matters. What a person reads is the
-            // work failing against a stack that is not there, which is the
-            // diagnosis with the actual symptom in it.
-        }
+            Script = stack!,
+            Verb = verb,
+            Outcome = performance.Outcome,
+            Exit = performance.Exit,
+            Seconds = (int)Math.Round(performance.Took.TotalSeconds, MidpointRounding.AwayFromZero),
+        };
     }
 
     private async Task<Environments.Emptied?> ReclaimAsync(
@@ -2512,7 +2520,7 @@ public sealed class RunnerLoop(
         //
         // A KIND THAT NAMES NONE IS UNCHANGED - the agent works the bring-up out
         // from `learned:` advice, which is every kind in the field.
-        await PerformStackAsync(
+        var broughtUp = await PerformStackAsync(
             loop.Stack, workspace, Environments.StackScript.Up, cancellationToken);
 
         // TIMED HERE, because this is the only place that knows when the person
@@ -2538,10 +2546,28 @@ public sealed class RunnerLoop(
         // follows, because a script that half-ran leaves containers the
         // repository did not account for - and the reclaim on the next flight's
         // way in is the backstop for both.
-        await PerformStackAsync(
+        var broughtDown = await PerformStackAsync(
             loop.Stack, workspace, Environments.StackScript.Down, cancellationToken);
 
         await BringDownAsync(loop.Instance, loop.InstanceHold, cancellationToken);
+
+        // BOTH HALVES, EACH ON ITS OWN - slice fifty-six S56.6-01, and the
+        // owner's framing: the thing to measure about a script is whether it
+        // works. One fact per performance rather than one carrying both, because
+        // a single fact could only be shipped once both had happened, and the
+        // case that matters most is the one where the first fails.
+        //
+        // EMPTY IS EVERY KIND IN THE FIELD. A kind that names no script ships
+        // nothing, which is not the same as a script that ran and failed.
+        var performed = new List<Gg.Contracts.StackPerformed>(capacity: 2);
+
+        foreach (var half in (Gg.Contracts.StackPerformed?[])[broughtUp, broughtDown])
+        {
+            if (half is { } measured)
+            {
+                performed.Add(measured);
+            }
+        }
 
         // NOTHING MEASURED A LOOP, which is what an attended session answers:
         // a person held the terminal, so there is no outcome to append a
@@ -2563,10 +2589,10 @@ public sealed class RunnerLoop(
             if (await _executor.AttendedAsync(request, held, cancellationToken)
                 is not { } session)
             {
-                return Invocation.Nothing;
+                return Invocation.Nothing with { Performed = performed };
             }
 
-            return new Invocation(null, Reclaimed: reclaimed, Attended: new LoopAttended
+            return new Invocation(null, Performed: performed, Reclaimed: reclaimed, Attended: new LoopAttended
             {
                 LoopId = loop.LoopId,
                 Rung = loop.Executor,
@@ -2607,7 +2633,7 @@ public sealed class RunnerLoop(
             _observer.MoveRefused(refusal);
         }
 
-        return new Invocation(run, null, reclaimed);
+        return new Invocation(run, null, reclaimed, performed);
     }
 
     /// <summary>
@@ -2627,8 +2653,15 @@ public sealed class RunnerLoop(
     /// invocation and the facts ship from the caller — the same journey the run's
     /// own outcome makes.
     /// </param>
+    /// <param name="Performed">
+    /// Each half of the stack script this kind named that actually ran — none,
+    /// one, or both. Carried here for the reclaim's reason, and SEPARATELY from
+    /// it because a bring-up that failed has to reach a reader whatever the
+    /// flight then did.
+    /// </param>
     private sealed record Invocation(
-        ExecutorRun? Run, LoopAttended? Attended, Environments.Emptied? Reclaimed = null)
+        ExecutorRun? Run, LoopAttended? Attended, Environments.Emptied? Reclaimed = null,
+        IReadOnlyList<Gg.Contracts.StackPerformed>? Performed = null)
     {
         /// <summary>No executor, or nothing that names work: no loop fact of any kind.</summary>
         public static Invocation Nothing { get; } = new(null, null);
@@ -2691,6 +2724,19 @@ public sealed class RunnerLoop(
                 Networks = emptied.Networks,
                 Volumes = emptied.Volumes,
             }));
+        }
+
+        // WHETHER THE SCRIPT WORKED, which is what the owner asked be measured
+        // in place of a gate on where the script came from. A performance per
+        // half, naming the script and how it ended - so a bring-up that failed
+        // reaches a person as a script that failed, rather than only as work
+        // failing against a stack that was not there.
+        //
+        // OUTSIDE the tree loop, with the reclaim and for its reason: one flight
+        // performs one kind's script however many repositories it checked out.
+        foreach (var half in invoked.Performed ?? [])
+        {
+            payloads.Add(new FactPayload.Performed(half));
         }
 
         foreach (var tree in workspace.Trees)

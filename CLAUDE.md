@@ -208,6 +208,7 @@ fleet no longer runs. At 0.56.0 that was **seven places in three files**:
   `releases/download/v<ver>/gg-pool-host.tar.gz` fetch, and the final message
   telling an operator which gg the host runs
 - `deploy/member-browser/Dockerfile` — `ARG GG_VERSION`
+- `deploy/member/Dockerfile` — `ARG GG_VERSION`
 
 The test names the ones it found, so read the failure rather than guessing.
 

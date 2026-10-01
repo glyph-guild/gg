@@ -584,6 +584,18 @@ public sealed class RunnerLoop(
     /// </remarks>
     public TimeSpan PreviewHoldFor { get; init; } = TimeSpan.FromHours(12);
 
+    /// <summary>
+    /// How this runner asks whether a preview's origin answers.
+    /// </summary>
+    /// <remarks>
+    /// <b>Defaulted to the real probe rather than left null.</b> A null here
+    /// would be a check that exists and never runs, which is the shape that put
+    /// two flights' previews behind a human gate with nothing serving. A test
+    /// supplies its own; production supplies none and gets this.
+    /// </remarks>
+    public Func<string, CancellationToken, Task<string?>> Reach { get; init; }
+        = Exposures.PreviewAnswers.OfThisMachine();
+
     private readonly IRunnerProtocol _protocol = protocol;
 
     /// <summary>When this runner next owes the control plane a heartbeat.</summary>
@@ -2615,6 +2627,22 @@ public sealed class RunnerLoop(
                 Unmeasured = session.Unmeasured,
                 SettingsCleared = session.SettingsCleared,
             });
+        }
+
+        // AND WHETHER ANYBODY CAN ACTUALLY LOOK AT IT, for a kind that says it
+        // produces a preview. Measured at the origin the connector dials, which
+        // is the one address `preview.url` forwards to - not at a declared port,
+        // which does not exist and measured traefik the last time somebody tried.
+        //
+        // ONLY A COMPLETED LOOP IS ASKED. A loop that already failed or ran out
+        // has a reason of its own, and overwriting it with this one would answer
+        // a question nobody is asking: nothing was going to publish an address
+        // for it anyway.
+        if (string.Equals(run.Outcome, LoopOutcomes.Completed, StringComparison.Ordinal)
+            && await Exposures.PreviewAnswers.RefusalAsync(
+                loop.Produces, _served?.Origin, Reach, cancellationToken) is { } unserved)
+        {
+            run = run with { Outcome = LoopOutcomes.Failed, Reason = unserved };
         }
 
         // THE ENVELOPE'S SENTENCE, appended where the envelope is known. The

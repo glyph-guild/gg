@@ -76,6 +76,21 @@ public static class StackScript
     }
 
 
+    /// <summary>
+    /// How many times a start is attempted before the script is called
+    /// unstartable.
+    /// </summary>
+    /// <remarks>
+    /// Three, because the window the retry exists for is a descriptor closing —
+    /// measured in milliseconds, and gone the moment the child that inherited it
+    /// does. A script that genuinely will not run here is reported three hundred
+    /// milliseconds later, which nothing notices.
+    /// </remarks>
+    private const int StartAttempts = 3;
+
+    /// <summary>How long to wait between those attempts.</summary>
+    private static readonly TimeSpan StartBackoff = TimeSpan.FromMilliseconds(150);
+
     /// <summary>How long a killed process is given to actually die.</summary>
     /// <remarks>
     /// Not a policy so much as the difference between asking and knowing. If it
@@ -166,21 +181,42 @@ public static class StackScript
 
         var began = System.Diagnostics.Stopwatch.StartNew();
 
-        System.Diagnostics.Process? process;
+        System.Diagnostics.Process? process = null;
 
-        try
+        for (var attempt = 1; attempt <= StartAttempts && process is null; attempt++)
         {
-            process = System.Diagnostics.Process.Start(start);
-        }
-        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException
-                                        or System.ComponentModel.Win32Exception
-                                        or InvalidOperationException)
-        {
-            // A FILE THE TREE HAS AND THE HOST WILL NOT RUN - a mode lost in a
-            // checkout, a shebang naming an interpreter the image lacks, a `pwsh`
-            // that is not installed. All of them are "this script does not work
-            // here", which is the thing being measured.
-            process = null;
+            try
+            {
+                process = System.Diagnostics.Process.Start(start);
+            }
+            catch (Exception failure) when (failure is IOException or UnauthorizedAccessException
+                                            or System.ComponentModel.Win32Exception
+                                            or InvalidOperationException)
+            {
+                // A FILE THE TREE HAS AND THE HOST WILL NOT RUN - a mode lost in
+                // a checkout, a shebang naming an interpreter the image lacks, a
+                // `pwsh` that is not installed. All of them are "this script does
+                // not work here", which is the thing being measured.
+                //
+                // EXCEPT ONE, AND IT IS WHY THIS RETRIES. Linux refuses to exec a
+                // file while any process holds it open for writing (ETXTBSY), and
+                // a fork inherits the whole descriptor table - so a runner that
+                // checks a tree out and then performs a script from it can be
+                // refused by its own timing, on a thread that had nothing to do
+                // with either. Recorded once and believed, that blames the script
+                // for the runner. CI found it on the first run of this very
+                // feature's tests, which fork constantly.
+                //
+                // NOT TOLD APART BY ERRNO. The transient one is the only one
+                // worth retrying and the rest cost a few hundred milliseconds
+                // once, in a method whose patience is ten minutes - and reading a
+                // platform error number to decide would be this file growing an
+                // opinion about two kernels to save that.
+                if (attempt < StartAttempts)
+                {
+                    await Task.Delay(StartBackoff, cancellationToken);
+                }
+            }
         }
 
         if (process is null)

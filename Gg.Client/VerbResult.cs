@@ -2931,6 +2931,37 @@ public static class VerbOutput
         return string.Join(Environment.NewLine, lines);
     }
 
+    /// <summary>
+    /// Why a leg has not been offered, and whether waiting will help.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Two sentences, because there are two situations and only one of them
+    /// resolves itself.</b> A predecessor still flying will release this leg
+    /// when it lands. One that ended any other way never will: this leg's
+    /// premise is false, nothing expires the hold, and the person's next act is
+    /// to end the itinerary rather than to wait. ADR-0035 Decision 3 point 3 is
+    /// that the second must be visible as permanent rather than discovered.
+    /// </para>
+    /// <para>
+    /// <b>`landed` is not a case here.</b> A landed predecessor releases the
+    /// leg, so the claim would have offered it and the control plane sends no
+    /// hold. If one ever arrives it is rendered by the first arm, which says the
+    /// leg is waiting - the honest answer to a hold whose reason has already
+    /// gone away, and better than a client deciding the hold is stale.
+    /// </para>
+    /// </remarks>
+    private static string HoldText(LegHold held) =>
+        held.Ending is { Length: > 0 } ending
+            && !string.Equals(ending, FlightStates.Landed, StringComparison.Ordinal)
+        ? $"NOT STARTED: this leg follows {Clean(held.Follows)} ({Clean(held.Subject)}), "
+        + $"which {Clean(ending)} rather than landing. It will never be offered - this "
+        + "leg's premise was that one's result, and nothing expires the wait. End the "
+        + "itinerary, or re-open the work behind it."
+        : $"NOT STARTED: this leg follows {Clean(held.Follows)} ({Clean(held.Subject)}), "
+        + "which has not landed yet. It will be offered when that one does; nothing has "
+        + "to be done here.";
+
     private static string WhyText(FlightAttribution attribution)
     {
         var text = new StringBuilder();
@@ -2944,8 +2975,32 @@ public static class VerbOutput
             text.AppendLine($"HALTED: {Clean(halt, lines: true)}");
         }
 
+        // BEFORE THE OBLIGATIONS AND OUTSIDE THEIR BRANCH, which is the whole
+        // of the care needed here. The empty-list branch below RETURNS, so a
+        // hold written after it would be invisible on exactly the flights that
+        // have one - a leg that was never offered has run no loop and so has
+        // nothing evaluated against it. And it must not live INSIDE that branch
+        // either: a leg can be held after a loop of its own was exhausted and
+        // requeued, and then it has both an attribution and a reason it is not
+        // being offered.
+        if (attribution.Held is { } held)
+        {
+            text.AppendLine();
+            text.AppendLine(HoldText(held));
+        }
+
         if (attribution.Obligations.Count == 0)
         {
+            // A HELD LEG IS A THIRD ABSENCE, AND THE PARAGRAPH BELOW DOES NOT
+            // KNOW ABOUT IT. Its two readings are both right and neither is
+            // this one, so a held leg read as "nothing has been evaluated yet"
+            // - the ordinary, patient-looking case, which is the whole of what
+            // ADR-0035 Decision 3 refuses. The hold printed above has already
+            // said why nothing was judged, in words that name the flight and
+            // its ending, so adding "or nothing has been evaluated yet" after
+            // it would offer a reader a second explanation that is less true.
+            if (attribution.Held is null)
+            {
             // TWO ABSENCES THIS CANNOT TELL APART, so it reports the absence
             // and names both rather than picking one. An envelope that
             // declares no obligation and a flight nothing has evaluated yet
@@ -2972,6 +3027,8 @@ public static class VerbOutput
             text.AppendLine("Either its envelope declares no obligation, or nothing has been "
                           + "evaluated yet - a flight that has not reached its first gate "
                           + "reads this way. `gg show` says which stage it is at.");
+            }
+
             return text.ToString().TrimEnd();
         }
 

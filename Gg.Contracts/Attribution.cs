@@ -333,4 +333,66 @@ public sealed record FlightAttribution
     /// rather than that it passed.
     /// </remarks>
     public string? Halt { get; init; }
+
+    /// <summary>
+    /// What this flight is waiting to be offered behind, when it is a leg that
+    /// follows another. Null for every flight that declared no order.
+    /// </summary>
+    /// <remarks>
+    /// <b>ADR-0035 Decision 3, which says that decision is wrong without
+    /// this.</b> Letting a leg wait was permitted on the condition that a held
+    /// leg is legible to a person asking why, because ADR-0019's warning was
+    /// never that a flight waits - it is that it waits <i>and looks patient</i>.
+    /// </remarks>
+    public LegHold? Held { get; init; }
+}
+
+/// <summary>
+/// The leg this flight follows, and what became of it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Sent rather than derived, like the rest of this read.</b> The client is
+/// told which flight is being waited on and how it ended; it does not resolve a
+/// predecessor and it does not decide whether an ending releases anything. A
+/// client that worked that out for itself would be explaining a decision the
+/// claim made, and the two would drift.
+/// </para>
+/// <para>
+/// <b>One, because a leg follows one leg</b> (ADR-0035 Decision 1). The moment
+/// this needs to be a list, the refusal of fan-in is what is being changed, and
+/// that is an ADR rather than a shape.
+/// </para>
+/// </remarks>
+[PinnedId("b2149091-1492-419d-b3a4-546e72b3d838")]
+public sealed record LegHold
+{
+    /// <summary>The flight it follows, rendered. GG-41.</summary>
+    /// <remarks>
+    /// THE NUMBER, because it is what a person types next. A leg held behind
+    /// something they cannot go and look at is a hold reported without being
+    /// explained.
+    /// </remarks>
+    public required string Follows { get; init; }
+
+    /// <summary>What the nomination declared it followed, in the agent's words.</summary>
+    /// <remarks>
+    /// BOTH THIS AND THE NUMBER, because they answer different questions. The
+    /// number says where to look; the subject is what the agent wrote, and it is
+    /// the only thing that says whether the order it chose was the one intended
+    /// - which is the question slice fifty-seven cannot otherwise answer.
+    /// </remarks>
+    public required string Subject { get; init; }
+
+    /// <summary>
+    /// How that flight ended, or null while it has not ended.
+    /// </summary>
+    /// <remarks>
+    /// <b>The difference between a wait and a strand, and it is the whole
+    /// reason this member exists.</b> A predecessor still flying will release
+    /// this leg when it lands. One that was grounded never will: its successor's
+    /// premise is false, nothing expires the hold, and a person's next act is to
+    /// end the itinerary rather than to wait. Those two must not render alike.
+    /// </remarks>
+    public string? Ending { get; init; }
 }

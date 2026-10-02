@@ -1962,7 +1962,8 @@ public static class ProtocolSurface
                 ["kind", "runner", "runnerLabel", "provider", "item", "subject", "diagnosis"],
             [typeof(BranchPush)] = ["branch", "baseRef", "slug", "reason"],
             [typeof(FlightAttribution)] =
-                ["flightNumber", "envelopeVersion", "obligations", "halt"],
+                ["flightNumber", "envelopeVersion", "obligations", "halt", "held"],
+            [typeof(LegHold)] = ["follows", "subject", "ending"],
             [typeof(TakeoverClaimed)] = ["generation", "heldUntil", "renewWithinSeconds"],
             [typeof(TakeoverHeld)] = ["by", "since", "heldUntil"],
             [typeof(TakeoverRenewalRequest)] = ["generation"],

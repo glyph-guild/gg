@@ -55,6 +55,7 @@ public class FlightNominationSurfaceTests
             nameof(FlightNomination.Subject),
             nameof(FlightNomination.Version),
             nameof(FlightNomination.Itinerary),
+            nameof(FlightNomination.After),
         });
     }
 

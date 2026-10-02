@@ -79,6 +79,15 @@ public static class NominationTool
     public const string Version = "version";
 
     /// <summary>
+    /// The subject of the leg this one follows.
+    /// </summary>
+    /// <remarks>
+    /// The contract's own spelling, because two spellings of one argument is a
+    /// nomination an agent writes and the platform drops.
+    /// </remarks>
+    public const string After = "after";
+
+    /// <summary>
     /// The flag <c>gg runner tools</c> is started with when this flight's
     /// destination expects SEVERAL nominations, so the one thing that tells
     /// them apart is required rather than suggested.

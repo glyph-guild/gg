@@ -1980,7 +1980,7 @@ public static class ProtocolSurface
                 ["by", "statement", "confirmation", "confirmedAt", "wasProposed"],
             [typeof(FlightNomination)] =
                 ["workKind", "reason", "note", "environment", "repository",
-                 "subject", "version", "itinerary"],
+                 "subject", "version", "itinerary", "after"],
             [typeof(LoopQuestion)] = ["question"],
             [typeof(WorkItemProposal)] =
                 ["operation", "reason", "target", "score", "detail", "fields"],

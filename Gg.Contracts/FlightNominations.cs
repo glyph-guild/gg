@@ -177,6 +177,37 @@ public sealed record FlightNomination
     public string? Subject { get; init; }
 
     /// <summary>
+    /// The subject of the leg this one follows, when it follows one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A plan's legs all become claimable at once, and nothing said so.</b>
+    /// On a one-runner tenant a three-leg plan runs in whatever order the queue
+    /// happens to offer, so every plan whose legs truly depend on each other has
+    /// been relying on luck. Slice fifty-seven.
+    /// </para>
+    /// <para>
+    /// <b>A SUBJECT, not an index.</b> A plan's legs are rarely a total order —
+    /// two of three are commonly independent — and an index would make an agent
+    /// invent a sequence it does not believe in. This names the identifier the
+    /// nominator already supplies, and which the board already keys on.
+    /// </para>
+    /// <para>
+    /// <b>Null is no constraint</b>, which is every nomination in the field.
+    /// Absent and null are one answer, and neither is a claim to anything.
+    /// </para>
+    /// <para>
+    /// <b>Whether the subject EXISTS is not knowable here.</b> That is a
+    /// question about the other nominations of the same plan, and one nomination
+    /// does not know them: the control plane resolves it when the board is
+    /// approved, and refuses a cycle there, because an agent nominating one leg
+    /// at a time cannot see the cycle it is about to close. What this type
+    /// refuses is only what a single nomination can be wrong about by itself.
+    /// </para>
+    /// </remarks>
+    public string? After { get; init; }
+
+    /// <summary>
     /// Which version of that subject was nominated, when there is one.
     /// </summary>
     /// <remarks>
@@ -303,6 +334,44 @@ public sealed record FlightNomination
                 return $"A nomination's subject is at most {MaxSubject} characters and this one "
                      + $"is {subject.Length}. It is what names the thing, not a description of "
                      + "it.";
+            }
+        }
+
+        if (nomination.After is { } after)
+        {
+            if (string.IsNullOrWhiteSpace(after))
+            {
+                return "A nomination's `after` is blank. Leave it out rather than sending an "
+                     + "empty one: absence means this leg follows nothing, and blank means "
+                     + "somebody meant to say which leg and did not.";
+            }
+
+            if (after.Length > MaxSubject)
+            {
+                return $"A nomination's `after` is at most {MaxSubject} characters and this one "
+                     + $"is {after.Length}. It holds a SUBJECT, so a longer value names a "
+                     + "subject no leg can have.";
+            }
+
+            // THE ONE CYCLE A SINGLE NOMINATION CAN SEE. Every longer one needs
+            // the other legs, which is the board's to check when it has them
+            // all - and a leg that waits for itself never runs, with nothing
+            // downstream able to say why.
+            if (string.Equals(after, nomination.Subject, StringComparison.Ordinal))
+            {
+                return $"A nomination follows '{after}', which is its own subject. A leg that "
+                     + "waits for itself never runs.";
+            }
+
+            // AN UNNAMEABLE LEG CANNOT BE ORDERED. The board supersedes per
+            // (nominator, subject), so legs with no subject collapse into one
+            // row - and an edge into a row about to be overwritten is an order
+            // nobody can honour.
+            if (nomination.Subject is null)
+            {
+                return $"A nomination follows '{after}' and names no subject of its own. One "
+                     + "nomination with no subject is a single piece of work, and a single "
+                     + "piece of work has nothing to follow.";
             }
         }
 

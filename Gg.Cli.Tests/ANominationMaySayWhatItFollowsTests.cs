@@ -39,7 +39,7 @@ namespace Gg.Cli.Tests;
 /// </remarks>
 public class ANominationMaySayWhatItFollowsTests
 {
-    private static FlightNomination ALeg(string? after = null, string? subject = "the-schema") => new()
+    private static FlightNomination ALeg(string? after = null, string? subject = "the-page") => new()
     {
         WorkKind = "implement",
         Reason = "the page cannot be built until the schema it reads exists",

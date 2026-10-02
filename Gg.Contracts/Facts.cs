@@ -495,7 +495,7 @@ public static class FactVocabulary
     /// control-plane-side and travels outward, and no runner ships one inside a
     /// fact - so the seventh ending moves the contract number and leaves this
     /// one alone. Two ledgers, and the split is doing its job.
-    public const string Version = "0.39.0";
+    public const string Version = "0.40.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>

@@ -185,7 +185,14 @@ public class SliceTwelveGuardTests
     /// </para>
     // 0.39.0 since slice fifty-six added environment.reclaimed and then
     // stack.performed. The argument for both is on KindsThatCross below.
-    private const string VocabularyAtSliceStart = "0.39.0";
+    //
+    // 0.40.0 since slice fifty-seven, and NO KIND MOVED FOR IT. The surface
+    // hashes payload types and their members, and flight.nomination gained
+    // `after` - the subject of the leg it follows, so a plan's legs can be
+    // ordered rather than all becoming claimable at once. KindsThatCross is
+    // unchanged, which is this guard's actual criterion: flight.nomination
+    // already belonged to a flight and still does.
+    private const string VocabularyAtSliceStart = "0.40.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number

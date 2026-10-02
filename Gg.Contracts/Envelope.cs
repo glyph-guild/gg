@@ -586,8 +586,56 @@ public static class DestinationKinds
     /// </remarks>
     public const string WorkItemTracker = "work-item-tracker";
 
+    /// <summary>
+    /// Nothing is delivered anywhere. The flight lands when its obligations
+    /// hold.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The first kind that names no target, and it was found by a flight that
+    /// could not end.</b> A <c>preview-probe</c> serves a page from a container,
+    /// changes no code and takes no repository. Its destination said
+    /// <c>pull-request</c> — which has to be opened AGAINST a repository — so
+    /// there was never anything to push, the delivery step could not happen, and
+    /// the runner renewed its claim every forty seconds for ever, holding the
+    /// host and its environment slot out of service. Measured twice on the dev
+    /// tenant, 2026-10-02.
+    /// </para>
+    /// <para>
+    /// <b>A destination is a target plus its admission conditions, and here the
+    /// conditions are the whole of it.</b> The output of this work is a running
+    /// server at an address and a person's verdict on it; there is no artefact
+    /// to hand anywhere. <c>requires:</c> still governs landing exactly as it
+    /// does for every other kind — so a preview a person must review lands when
+    /// they review it, and a probe nobody needs to review lands when its loop
+    /// ends.
+    /// </para>
+    /// <para>
+    /// <b>A WORD RATHER THAN AN EMPTY LIST.</b> An envelope carries exactly one
+    /// destination, and relaxing that would have been the smaller edit. It would
+    /// also make the absence silent: "this kind deliberately delivers nothing"
+    /// and "nobody has written a destination yet" would read identically, which
+    /// is the distinction this contract draws everywhere else.
+    /// </para>
+    /// <para>
+    /// <b>Nothing leaves, and no credential is involved</b> — the property it
+    /// shares with <c>envelope-change</c>, <c>airspace-registration</c> and
+    /// <c>flight</c>. What is new is that nothing is produced either, inside or
+    /// out, so it carries none of the other kinds' keys: no branch, no title, no
+    /// <c>opens:</c>, no may-write. Each of those is already a sweep refusing
+    /// the kinds it does not belong to, so a seventh is refused all of them by
+    /// construction rather than by an exemption list.
+    /// </para>
+    /// </remarks>
+    public const string None = "none";
+
     public static IReadOnlyList<string> All { get; } =
-        [PullRequest, EnvelopeChange, AirspaceRegistration, CheckRun, Flight, WorkItemTracker];
+        [PullRequest, EnvelopeChange, AirspaceRegistration, CheckRun, Flight, WorkItemTracker,
+         // AND THE SEVENTH IS IN THE LIST, which is the whole of slice twelve's
+         // lesson: AirspaceRegistration was declared in 0.53.0 and left out of
+         // All, so the vocabulary refused a word it had itself declared, and it
+         // took a slice to notice.
+         None];
 }
 
 /// <summary>

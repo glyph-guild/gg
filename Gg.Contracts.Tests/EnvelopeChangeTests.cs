@@ -90,8 +90,20 @@ public class EnvelopeChangeTests
     public async Task A_destination_that_is_not_a_repository_is_its_own_kind()
     {
         await Assert.That(DestinationKinds.All).Contains(DestinationKinds.EnvelopeChange);
-        await Assert.That(DestinationKinds.All.Count).IsEqualTo(6)
-            .Because("SIX, and the sixth is the second whose act leaves this system on the "
+        await Assert.That(DestinationKinds.All.Count).IsEqualTo(7)
+            .Because("SEVEN, and the seventh is the first that names NO TARGET: `none`, "
+                   + "nothing is delivered anywhere and the flight lands when its obligations "
+                   + "hold. It was found by a flight that could not end - a preview-probe "
+                   + "serves a page, changes no code and takes no repository, and its "
+                   + "destination said pull-request, which has to be opened AGAINST one. So "
+                   + "there was nothing to push, the delivery step could not happen, and the "
+                   + "runner renewed its claim for ever holding a host out of service. A "
+                   + "destination is a target plus its admission conditions, and this is the "
+                   + "case where the conditions are the whole of it. Declared as a WORD "
+                   + "rather than by letting an envelope carry no destination, because that "
+                   + "would make 'deliberately delivers nothing' and 'nobody wrote one yet' "
+                   + "read the same. "
+                   + "The sixth is the second whose act leaves this system on the "
                    + "CUSTOMER'S credential: `work-item-tracker`, somebody's backlog and the "
                    + "changes a flight proposes be made to it. It is pull-request's shape - "
                    + "the runner performs it, after admission, on a credential the developer "

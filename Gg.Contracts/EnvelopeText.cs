@@ -423,7 +423,7 @@ public static class EnvelopeText
         }
 
         // SAME RULE, SAME REASON. Only a flight destination may carry this,
-        // so emitting `opens: []` for the four kinds that may not would put
+        // so emitting `opens: []` for the five kinds that may not would put
         // a refused key into every document that has ever been written.
         if (destination.Opens is { } opens)
         {
@@ -449,7 +449,7 @@ public static class EnvelopeText
         }
 
         // SAME RULE, THIRD KNOB. Only a tracker may carry this, so emitting
-        // it for the five kinds that may not would put a refused key into
+        // it for the six kinds that may not would put a refused key into
         // every document anybody has written.
         if (destination.MayPerform is { } performable)
         {

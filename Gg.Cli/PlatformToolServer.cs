@@ -2207,6 +2207,12 @@ public static class PlatformToolServer
         said.AppendLine(
             $"  · A `{Gg.Contracts.DestinationKinds.WorkItemTracker}` must name at least "
           + "one operation. One that may perform nothing can never act.");
+        said.AppendLine(
+            $"  · A `{Gg.Contracts.DestinationKinds.None}` delivers nothing anywhere, and "
+          + "takes none of those keys. It is for work whose whole result is something a "
+          + "person looks at - a preview at an address, say - so there is no artefact to "
+          + "hand over and nothing to push. Its `requires` still decides when the flight "
+          + "lands, which for a preview is when somebody has reviewed it.");
 
         // THE SECOND SILENT ONE, and it belongs here rather than in the gloss
         // for the same reason the score does: each key is true alone. `title:`

@@ -143,6 +143,7 @@ public static class Vocabulary
         typeof(LoopQuestion),
         typeof(LoopAttended),
         typeof(FlightAttribution),
+        typeof(LegHold),
         typeof(DestinationPushed),
         typeof(DecisionRequest),
         typeof(DecisionRecorded),

@@ -1404,6 +1404,27 @@ public static class TranscriptDigest
             Subject = subject is null
                 ? null
                 : Bound(subject, Gg.Contracts.FlightNomination.MaxSubject, prose: false),
+            // WHAT THIS LEG FOLLOWS, and reading it here is the whole of what
+            // made slice fifty-seven work. The tool offered the argument and the
+            // contract carried the member from the first step; this extractor did
+            // not read it, so every fact shipped `after` null and a two-leg plan
+            // ran its legs backwards on a live stack - the follower handed out
+            // five seconds after opening, the leg it followed unclaimed for six
+            // minutes.
+            //
+            // BOUNDED RATHER THAN DROPPED, the subject's rule for the member that
+            // names one: a value cut short is still one the control plane refuses
+            // BY NAME, and one dropped silently is an order nobody can see was
+            // lost.
+            //
+            // AND CARRIED WITHOUT A SUBJECT, which is NOT the version's rule one
+            // member down. A version of nothing is meaningless, so the extractor
+            // refuses to invent the subject it would be a version OF; an `after`
+            // beside no subject is a mistake the CONTRACT already refuses and
+            // names, and dropping it here would turn that refusal into silence.
+            After = Argument(input, NominationTool.After) is { } after
+                ? Bound(after, Gg.Contracts.FlightNomination.MaxSubject, prose: false)
+                : null,
             // ONLY BESIDE A SUBJECT. The contract refuses a version with none
             // and so does the server, and this extractor may not invent the
             // subject it would be a version OF - so it carries neither rather

@@ -1494,6 +1494,63 @@ public static class Reducer
             : state with { CredentialRepoSelected = Math.Clamp(row, 0, rows - 1) };
     }
 
+    /// <summary>
+    /// The boot's whole model, with what a person did while it was in flight.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The boot is a whole model rather than a patch</b> - it is the state
+    /// the console would have opened with - so the few fields a person can
+    /// have MOVED in the seconds before it landed are carried over it. They
+    /// are all view: which tab, which modal, and the look. Everything a
+    /// selection indexes is empty until this lands, so a cursor has nothing to
+    /// have moved over yet.
+    /// </para>
+    /// <para>
+    /// <b>EXCEPT THAT THE BOOT IS THE ONLY THING THAT CAN SAY NOBODY IS SIGNED
+    /// IN.</b> Carrying the person's mode over unconditionally threw that away
+    /// every time: <c>ConsoleStart</c> answers a <c>NotSignedInException</c>
+    /// with <c>Mode = SignIn</c> and the diagnosis beside it, the diagnosis
+    /// arrived and was drawn in the flight pane, and the mode did not - so the
+    /// console said "Nobody is signed in here" in a pane and offered no way to
+    /// do anything about it. The modal that exists for exactly this could not
+    /// appear, on any version.
+    /// </para>
+    /// <para>
+    /// <b>So the person's mode wins only when they HAVE one.</b> Normal is
+    /// nobody having opened anything, and the boot may speak into it. A person
+    /// who opened help or a flight in those two seconds keeps what they
+    /// opened, which is what the carrying-over is for.
+    /// </para>
+    /// </remarks>
+    /// <param name="arrived">The boot's model.</param>
+    /// <param name="current">What is on the screen now.</param>
+    public static AppState Booted(AppState arrived, AppState current)
+    {
+        ArgumentNullException.ThrowIfNull(arrived);
+        ArgumentNullException.ThrowIfNull(current);
+
+        return arrived with
+        {
+            ActiveTab = current.ActiveTab,
+
+            Mode = current.Mode is UiMode.Normal ? arrived.Mode : current.Mode,
+
+            Look = current.Look,
+
+            // AND ASK AGAIN FOR THE TAB THEY ACTUALLY MOVED TO. The boot fills
+            // the tab it opens on and nothing else, so a person who turned to
+            // another one has an empty pane until that tab's own read runs.
+            // Only when they HAVE moved: staying put would buy a second
+            // identical round of the heaviest read the console makes, at the
+            // one moment it has just finished.
+            Refresh = arrived.Refresh with
+            {
+                Wanted = current.ActiveTab != arrived.ActiveTab,
+            },
+        };
+    }
+
     private static AppState Moved(AppState state, int by) =>
         // A MODAL WITH A LIST IN IT OWNS THE CURSOR, because it owns the
         // keyboard. The tab is what answers this the rest of the time, and it

@@ -872,7 +872,7 @@ public sealed class RunnerLoop(
 
     private async Task<Gg.Contracts.StackPerformed?> PerformStackAsync(
         string? stack, WorkspaceResult workspace, string verb,
-        CancellationToken cancellationToken)
+        string? instance, CancellationToken cancellationToken)
     {
         if (!Environments.StackScript.Runs(stack) || workspace.Trees.Count == 0)
         {
@@ -886,9 +886,13 @@ public sealed class RunnerLoop(
             return null;
         }
 
+        // AND THE INSTANCE, so this hook's Docker client reaches the daemon the
+        // flight was granted rather than the pool host's own. The agent has been
+        // pointed at it since ADR-0033 and the hook was not.
         var performance = await Environments.StackScript.PerformAsync(
             script, Environments.StackScript.ArgumentFor(verb),
-            workspace.Trees[0].Path, Environments.StackScript.Patience, cancellationToken);
+            workspace.Trees[0].Path, Environments.StackScript.Patience, cancellationToken,
+            instance);
 
         // THE PATH THE KIND NAMED, not the one just performed. That one is
         // resolved against a tree under /srv/env and describes a pool host's
@@ -2597,10 +2601,12 @@ public sealed class RunnerLoop(
         // started survives it and the instance daemon stays the only owner of
         // what is running.
         var prepared = await PerformStackAsync(
-            loop.Hooks, workspace, Environments.StackScript.Prepare, cancellationToken);
+            loop.Hooks, workspace, Environments.StackScript.Prepare,
+            loop.Instance, cancellationToken);
 
         var broughtUp = await PerformStackAsync(
-            loop.Hooks, workspace, Environments.StackScript.Attach, cancellationToken);
+            loop.Hooks, workspace, Environments.StackScript.Attach,
+            loop.Instance, cancellationToken);
 
         // JUDGED NOW, BEFORE THE AGENT. Until slice fifty-eight the outcome was
         // recorded as a fact and the loop carried on, so a stack that failed to
@@ -2644,7 +2650,8 @@ public sealed class RunnerLoop(
         // repository did not account for - and the reclaim on the next flight's
         // way in is the backstop for both.
         var broughtDown = await PerformStackAsync(
-            loop.Hooks, workspace, Environments.StackScript.Detach, cancellationToken);
+            loop.Hooks, workspace, Environments.StackScript.Detach,
+            loop.Instance, cancellationToken);
 
         // THE SAME PREDICATE THE HOLD BELOW USES, read here so the tear-down and
         // the hold cannot disagree about whether anybody is coming to look.

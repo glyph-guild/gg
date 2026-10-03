@@ -213,6 +213,7 @@ public static class FocusChange
         bool pathHasFocus = false,
         bool readingTheDocument = false,
         bool landedReading = false,
+
         RunnerView runnerView = RunnerView.Log,
         RunnerView landedRunnerView = RunnerView.Log,
         HelpPage helpPage = HelpPage.Keys,
@@ -225,7 +226,19 @@ public static class FocusChange
         WorkItemTab landedWorkItemTab = WorkItemTab.Details,
         WorkKindTab workKindTab = WorkKindTab.Kind,
         WorkKindTab landedWorkKindTab = WorkKindTab.Kind,
-        bool notificationsHaveFocus = false) => (mode, landed) switch
+        bool notificationsHaveFocus = false,
+
+        // WHAT THE LAST LANDING LANDED ON, and what the tab looks like now.
+        // A tab whose rows come from its own read is empty when a person
+        // arrives, so focus goes to the label beside the table; these two
+        // differ the moment the rows land, which is the only signal that the
+        // keyboard is sitting on a widget no longer drawn.
+        //
+        // LAST, and defaulted, because every other caller passes positionally
+        // and a parameter inserted mid-list silently rebinds their arguments -
+        // which is exactly what adding it in the middle just did.
+        bool landedEmpty = false,
+        bool tabIsEmpty = false) => (mode, landed) switch
         {
             // THE CORNER, FOR THE AIRSPACE PATH'S REASON: not a modal, so the
             // arms below would hand the keyboard to a dialog nobody can see.
@@ -319,7 +332,16 @@ public static class FocusChange
 
             // NOTHING MOVED, so nothing is moved. The tab is the one focus was
             // placed on AND the same half of it still wants the keyboard.
+            // AND THE TABLE HAS NOT FILLED SINCE. A tab fed by its own read
+            // arrives EMPTY, so the first landing is the label beside the
+            // table - and without this clause `already == showing` says the
+            // tab has been landed on and focus is never re-asserted. The rows
+            // arrive, the label is hidden, and the keyboard sits on a view
+            // that is not drawn: keys the keymap resolves still work because
+            // they bubble, but the TABLE's own arrows never reach it, so a
+            // down arrow goes to the bar and selects the next tab.
             (_, { } already) when already == showing && landedReading == readingTheDocument
+                                                     && landedEmpty == tabIsEmpty
                 => FocusTarget.LeaveAlone,
 
             // THE HALF TURNED. Crossing to the document is its own target; crossing

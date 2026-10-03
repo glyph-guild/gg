@@ -872,7 +872,7 @@ public sealed class RunnerLoop(
 
     private async Task<Gg.Contracts.StackPerformed?> PerformStackAsync(
         string? stack, WorkspaceResult workspace, string verb,
-        string? instance, CancellationToken cancellationToken)
+        string? instance, CancellationToken cancellationToken, bool capture = false)
     {
         if (!Environments.StackScript.Runs(stack) || workspace.Trees.Count == 0)
         {
@@ -892,7 +892,7 @@ public sealed class RunnerLoop(
         var performance = await Environments.StackScript.PerformAsync(
             script, Environments.StackScript.ArgumentFor(verb),
             workspace.Trees[0].Path, Environments.StackScript.Patience, cancellationToken,
-            instance);
+            instance, capture);
 
         // THE PATH THE KIND NAMED, not the one just performed. That one is
         // resolved against a tree under /srv/env and describes a pool host's
@@ -2614,14 +2614,28 @@ public sealed class RunnerLoop(
         // agent spent its budget discovering it. The two points are checked in
         // the order they ran, so the refusal names the FIRST thing that went
         // wrong rather than the last.
+        // AND THEN IT ASKS WHETHER THE STACK IS ANSWERING, which is the point of
+        // having brought it up. `attach` returning says it reached health once;
+        // `ready` is the question a person's preview and the next flight both
+        // depend on, and it is the only point whose answer is read rather than
+        // inferred from an exit code.
+        var answered = await PerformStackAsync(
+            loop.Hooks, workspace, Environments.StackScript.Ready,
+            loop.Instance, cancellationToken, capture: true);
+
         var stopped = Refused(Environments.StackScript.Prepare, prepared)
-                   ?? Refused(Environments.StackScript.Attach, broughtUp);
+                   ?? Refused(Environments.StackScript.Attach, broughtUp)
+                   ?? Refused(Environments.StackScript.Ready, answered);
 
         if (stopped is { Length: > 0 })
         {
             return Invocation.Nothing with
             {
-                Performed = [.. new[] { prepared, broughtUp }.OfType<Gg.Contracts.StackPerformed>()],
+                Performed =
+                [
+                    .. new[] { prepared, broughtUp, answered }
+                        .OfType<Gg.Contracts.StackPerformed>(),
+                ],
                 Refused = stopped,
             };
         }
@@ -2671,7 +2685,7 @@ public sealed class RunnerLoop(
         var performed = new List<Gg.Contracts.StackPerformed>(capacity: 2);
 
         foreach (var half in (Gg.Contracts.StackPerformed?[])
-            [prepared, broughtUp, broughtDown])
+            [prepared, broughtUp, answered, broughtDown])
         {
             if (half is { } measured)
             {

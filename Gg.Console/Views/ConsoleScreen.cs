@@ -1155,11 +1155,22 @@ public sealed class ConsoleScreen : Window
         // focusing the button over the table - a deliberate move inside one
         // pane, and OnTableEdge stands down for a key already handled.
         //
-        // The six tab tables and not the modals': what this stops is a key
+        // The SEVEN tab tables and not the modals': what this stops is a key
         // falling through to the tab bar, and a modal has no bar under it.
+        //
+        // THE SEVENTH IS THE ITINERARIES TAB'S, and it was missing while this
+        // comment said "every tab's table" - wired to OnRowPointedAt two lines
+        // above and left out of here. One press past the last plan went to the
+        // bar, whose own binding answers a down arrow by selecting the NEXT
+        // TAB, so it abandoned the page somebody was reading.
+        //
+        // Held now by derivation rather than by this list being right:
+        // ATableHoldsAtItsEdgeTests.Every_table_a_tab_drives_holds_at_its_edges
+        // takes the tables wired to OnRowPointedAt - which IS what makes one a
+        // tab's rather than a modal's - and requires each to appear here.
         foreach (var table in (TableView[])
                  [_flightsTable, _boardTable, _browseTable, _repositoriesTable,
-                  _runnersTable, _airspaceTable])
+                  _runnersTable, _airspaceTable, _itinerariesTable])
         {
             table.KeyDown += OnTableEdge;
         }
@@ -6498,7 +6509,7 @@ public sealed class ConsoleScreen : Window
 
             foreach (var table in (TableView[])
                      [_flightsTable, _boardTable, _browseTable, _repositoriesTable,
-                      _runnersTable, _airspaceTable])
+                      _runnersTable, _airspaceTable, _itinerariesTable])
             {
                 table.KeyDown -= OnTableEdge;
             }

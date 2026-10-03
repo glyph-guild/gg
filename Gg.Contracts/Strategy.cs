@@ -27,6 +27,154 @@ public static class StrategyKinds
 /// How decided work reaches the pool. Closed at one; a strategy naming none
 /// is refused at authoring, because a powered-off pool cannot pull.
 /// </summary>
+/// <summary>
+/// The five points an environment is brought up and taken down through.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>ADR-0033's second amendment, superseding Decision 9.</b> That decision
+/// collapsed five hooks into an AppHost because Aspire already is the warm-up,
+/// the reconcile, the health model and the teardown — which made Aspire the
+/// contract, excluding every compose stack and every project that is not .NET.
+/// These are the points; Aspire is one implementation behind them.
+/// </para>
+/// <para>
+/// <b>A point names a place gg calls, never a language.</b> What is at the path
+/// is an executable the customer wrote, run on the host that holds the instance.
+/// <c>pwsh</c> is absent from the pool host and from the member image, so a
+/// contract naming PowerShell would have shipped five files nothing can run.
+/// </para>
+/// <para>
+/// <b>Two are renames, and that is not cosmetic.</b> <c>warm</c> already means a
+/// COUNT (<see cref="StrategyInventory.Warm"/>) and a VERB on the control
+/// plane's grants, so a hook of that name would be a third sense of a word in
+/// use; it is <see cref="Prepare"/>. <c>verify</c> is already a pool action —
+/// inspect a member and attest what was found — about the member and not the
+/// customer's app; it is <see cref="Ready"/>.
+/// </para>
+/// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
+public static class EnvironmentPoints
+{
+    /// <summary>
+    /// Make this project ready to run here, before anything is started.
+    /// </summary>
+    /// <remarks>
+    /// Restore, build, pull. <b>What survives a flight is the image store and
+    /// nothing else</b> — ADR-0033's second amendment measured reclaim's volume
+    /// prune and found it unfiltered — so work that lands in the image store
+    /// buys the next flight something and work that lands in a volume does not.
+    /// Renamed from <c>warm</c>, which was taken twice over.
+    /// </remarks>
+    public const string Prepare = "prepare";
+
+    /// <summary>
+    /// Bring the stack up in the background, wait until it answers, and exit.
+    /// </summary>
+    /// <remarks>
+    /// <b>The hook's job is REACHING health, not holding it.</b> Nothing it
+    /// starts survives it: the instance daemon owns what is running, which is
+    /// what keeps reclaim the single way an instance empties. A hook that stayed
+    /// up would be a second owner of the same containers.
+    /// </remarks>
+    public const string Attach = "attach";
+
+    /// <summary>
+    /// Move the tree to where the stack will read it.
+    /// </summary>
+    /// <remarks>
+    /// Invoked only when <see cref="EnvironmentStrategy.Filesystem"/> is not
+    /// <see cref="FilesystemRelationships.Shared"/>. A co-located environment
+    /// writes no sync hook at all rather than an empty one, because an
+    /// always-empty hook teaches an agent to produce empty files.
+    /// </remarks>
+    public const string Sync = "sync";
+
+    /// <summary>
+    /// Answer whether the stack is answering, and report what it is reachable at.
+    /// </summary>
+    /// <remarks>
+    /// <b>It answers; it does not merely exit.</b> <c>ready=yes</c> or
+    /// <c>ready=no</c> on stdout, plus any number of <c>key=value</c> lines. A
+    /// non-zero exit is a THIRD outcome — the hook could not answer — and is
+    /// never read as <c>ready=no</c>, because a broken hook is not a slow stack.
+    /// <para>
+    /// A <c>url</c> among the values is what the control plane stamps
+    /// <c>preview.url</c> from (ADR-0033 Decision 8). A stack with no address is
+    /// a working environment that reports none — a queue consumer answers
+    /// <c>ready=yes</c> and nothing else — which is what a declared
+    /// <c>PREVIEW_PORT</c> could not express.
+    /// </para>
+    /// Renamed from <c>verify</c>, which is a pool action about the member.
+    /// </remarks>
+    public const string Ready = "ready";
+
+    /// <summary>Take the stack down.</summary>
+    /// <remarks>
+    /// Reclaim removes containers, networks and volumes afterwards regardless,
+    /// so this is the project's chance to stop things in the order it wants
+    /// rather than the only thing standing between an instance and a prune.
+    /// </remarks>
+    public const string Detach = "detach";
+
+    /// <summary>Every point, in the order they are invoked.</summary>
+    /// <remarks>
+    /// Slice twelve's lesson: <c>airspace-registration</c> was declared and left
+    /// out of its own list, so the vocabulary refused a word it had itself
+    /// declared. A point absent from here cannot be invoked.
+    /// </remarks>
+    public static IReadOnlyList<string> All { get; } = [Prepare, Attach, Sync, Ready, Detach];
+
+    /// <summary>Why this is not a point, or null when it is one.</summary>
+    public static string? Validate(string? point) =>
+        point is { Length: > 0 } named && All.Contains(named, StringComparer.Ordinal)
+            ? null
+            : $"'{point}' is not a point this version knows. Expected one of: "
+            + $"{string.Join(", ", All)}.";
+}
+
+/// <summary>
+/// How an environment's filesystem relates to the tree its stack reads.
+/// </summary>
+/// <remarks>
+/// <b>Three values so the schema does not move the day a worker is remote, and
+/// two of them refused until something implements them.</b> ADR-0033's first
+/// amendment found sync <i>"mostly disappears"</i> because the tree and the
+/// daemon share a filesystem — and holds that only <i>"while the worker is
+/// co-located with the environment; a remote worker brings the pull back"</i>.
+/// Declaring all three makes the vocabulary right before the product is;
+/// refusing two stops a document applying cleanly and doing nothing at the
+/// first flight that needs it.
+/// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
+public static class FilesystemRelationships
+{
+    /// <summary>The stack reads the tree where it already is. Implemented.</summary>
+    public const string Shared = "shared";
+
+    /// <summary>gg puts the tree where the stack will read it. Not implemented.</summary>
+    public const string Push = "push";
+
+    /// <summary>The stack fetches the tree itself. Not implemented.</summary>
+    public const string Pull = "pull";
+
+    /// <summary>Every relationship.</summary>
+    public static IReadOnlyList<string> All { get; } = [Shared, Push, Pull];
+
+    /// <summary>The ones no product path performs yet.</summary>
+    public static IReadOnlyList<string> Unbuilt { get; } = [Push, Pull];
+
+    /// <summary>Whether this relationship obliges a sync hook.</summary>
+    /// <remarks>
+    /// False for <see cref="Shared"/> and for a strategy that declared nothing,
+    /// because there is nothing to move. A <c>shared</c> environment writes no
+    /// sync hook at all rather than an empty one.
+    /// </remarks>
+    public static bool NeedsSyncHook(string? relationship) =>
+        relationship is { Length: > 0 } declared
+        && !string.Equals(declared, Shared, StringComparison.Ordinal);
+}
+
 [VocabularyOf(VocabularyFingerprints.Contract)]
 public static class PullPoints
 {
@@ -241,6 +389,27 @@ public sealed record EnvironmentStrategy
     public StrategyBuild? Build { get; init; }
 
     /// <summary>
+    /// Where this project's five hooks are, or null for an environment that has
+    /// none - which is every strategy written before slice fifty-eight.
+    /// </summary>
+    /// <remarks>
+    /// <b>A path, never a script body.</b> The contract carries where to look;
+    /// what is there is the customer's, read by the runner on the host that holds
+    /// the instance. A contract carrying the script would be this package holding
+    /// customer code, which is the one boundary it exists to keep.
+    /// </remarks>
+    public string? Hooks { get; init; }
+
+    /// <summary>
+    /// One of <see cref="FilesystemRelationships"/>, or null with no hooks.
+    /// </summary>
+    /// <remarks>
+    /// How the tree reaches the place the hooks run, which decides whether a
+    /// <see cref="EnvironmentPoints.Sync"/> hook is owed at all.
+    /// </remarks>
+    public string? Filesystem { get; init; }
+
+    /// <summary>
     /// What <see cref="Image"/> was built from, written by a build. Null when
     /// the image was pinned by hand or no build has run.
     /// </summary>
@@ -302,6 +471,40 @@ public sealed record EnvironmentStrategy
         {
             return $"'{strategy.PullPoint}' is not a pull point this version knows. Expected "
                  + $"one of: {string.Join(", ", PullPoints.All)}.";
+        }
+
+        // THE COMES-UP DECLARATION, both members optional and neither meaningful
+        // alone. A relationship says how the tree reaches the place the hooks
+        // run; with no hooks there is no place and nothing to get, so one
+        // declared without them describes nothing.
+        if (strategy.Filesystem is { Length: > 0 } && strategy.Hooks is not { Length: > 0 })
+        {
+            return "filesystem is declared and hooks is not. A filesystem relationship says "
+                 + "how the tree reaches the place the hooks run, so one without hooks "
+                 + "describes nothing - add hooks, or remove filesystem.";
+        }
+
+        if (strategy.Filesystem is { Length: > 0 } relationship)
+        {
+            if (!FilesystemRelationships.All.Contains(relationship, StringComparer.Ordinal))
+            {
+                return $"filesystem is '{relationship}', which is not a relationship this "
+                     + $"version knows. Expected one of: "
+                     + $"{string.Join(", ", FilesystemRelationships.All)}.";
+            }
+
+            // IN THE VOCABULARY AND NOT IN THE PRODUCT, refused where the author
+            // can act. The alternative is a document that applies cleanly and
+            // does nothing at the first flight that needs it, which is a person
+            // finding out from a stranded flight rather than from what they
+            // just wrote.
+            if (FilesystemRelationships.Unbuilt.Contains(relationship, StringComparer.Ordinal))
+            {
+                return $"filesystem is '{relationship}', which this version declares and does "
+                     + "not perform. Only 'shared' is implemented - an environment whose tree "
+                     + "and daemon share a filesystem. Moving a tree is a later slice, and a "
+                     + "document declaring it now would apply and then do nothing.";
+            }
         }
 
         if (string.IsNullOrWhiteSpace(strategy.Image) || !strategy.Image.Contains("@sha256:", StringComparison.Ordinal))

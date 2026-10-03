@@ -831,7 +831,7 @@ public static class EnvelopeYaml
         var root = RequireMap(document, "");
         Closed(
             root, BasedOnKey, "kind", "environment", "inventory", "pull-point", "image", "bounds",
-            "build", "built-from");
+            "build", "built-from", "hooks", "filesystem");
 
         if (!root.Entries.ContainsKey("pull-point"))
         {
@@ -884,6 +884,8 @@ public static class EnvelopeYaml
             },
             PullPoint = RequireScalar(Require(root, "pull-point"), "pull-point"),
             Image = RequireScalar(Require(root, "image"), "image"),
+            Hooks = Optional(root, "hooks"),
+            Filesystem = Optional(root, "filesystem"),
             Bounds = bounds,
             Build = root.Entries.TryGetValue("build", out var build) ? RecipeOf(build) : null,
             BuiltFrom = root.Entries.TryGetValue("built-from", out var builtFrom)

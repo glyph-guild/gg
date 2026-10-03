@@ -978,6 +978,20 @@ public static class EnvelopeText
             text.Append($"  commit: {Scalar(provenance.Commit)}\n");
         }
 
+        // ABSENT IS NOT RENDERED, for `warm`'s reason two members up: every
+        // strategy in force declares neither, and a line grown onto one would
+        // make the first `gg airspace pull` after this deploy report a change
+        // nobody made, in every estate.
+        if (strategy.Hooks is { Length: > 0 } hooks)
+        {
+            text.Append($"hooks: {Scalar(hooks)}\n");
+        }
+
+        if (strategy.Filesystem is { Length: > 0 } filesystem)
+        {
+            text.Append($"filesystem: {Scalar(filesystem)}\n");
+        }
+
         text.Append("bounds:\n");
         text.Append($"  pool-max: {strategy.Bounds.PoolMax}\n");
 

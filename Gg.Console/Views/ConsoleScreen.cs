@@ -2539,41 +2539,12 @@ public sealed class ConsoleScreen : Window
                     return true;
                 }
 
-                // WHAT THEY HAVE DONE MEANWHILE STAYS. The boot is a whole
-                // model rather than a patch - it is the state the console would
-                // have opened with - so the fields a person can have MOVED in
-                // the seconds before it landed are carried over it. They are
-                // few and they are all view: which tab, which modal, and the
-                // look. Everything a selection indexes is empty until this
-                // lands, so a cursor has nothing to have moved over yet.
-                State = arrived with
-                {
-                    ActiveTab = State.ActiveTab,
-                    Mode = State.Mode,
-                    Look = State.Look,
-
-                    // AND ASK AGAIN FOR THE TAB THEY ACTUALLY MOVED TO, which
-                    // is what makes folding a whole model safe here without
-                    // listing which fields are the read plane - the list this
-                    // console's patches exist to avoid.
-                    //
-                    // Measured: pressing the board's key at one second started
-                    // its read, the boot landed at three and a half and the
-                    // fold put a null board back over it, so the pane a person
-                    // was looking at went empty and stayed empty until the next
-                    // tick. The boot fills the tab it opens on and nothing
-                    // else; anything further is a tab's own read, so the honest
-                    // repair is to ask for that tab again rather than to
-                    // preserve fields by name.
-                    //
-                    // Only when they HAVE moved. Staying put would otherwise
-                    // buy a second identical round of the heaviest read the
-                    // console makes, at the one moment it has just finished.
-                    Refresh = arrived.Refresh with
-                    {
-                        Wanted = State.ActiveTab != arrived.ActiveTab,
-                    },
-                };
+                // WHAT THEY HAVE DONE MEANWHILE STAYS - and what the BOOT
+                // alone can say is not thrown away with it. Reducer.Booted
+                // holds both halves and is tested; this line used to carry
+                // `Mode = State.Mode` unconditionally, which discarded the one
+                // field that says nobody is signed in.
+                State = Reducer.Booted(arrived, State);
 
                 Render();
                 return false;

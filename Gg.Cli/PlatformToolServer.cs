@@ -1320,6 +1320,7 @@ public static class PlatformToolServer
           + "      repository: acme/web\n"
           + "      commit: a1b2c3d\n"
           + "      image: ghcr.io/acme/ci@sha256:1c82ce28...\n"
+          + "      environment: staging-pool\n"
           + "    advice:            # a list of single values, each a sentence\n"
           + "      - \"node_modules is absent at checkout; npm install takes about fifty seconds.\"\n"
           + "      - \"jsdom performs no layout, so a margin assertion proves nothing here.\"\n\n"
@@ -1332,6 +1333,19 @@ public static class PlatformToolServer
           // that stops it happening: the image was spelled as a TAG here while every
           // image this platform pins is name@sha256:..., and nothing told an agent
           // that its own is already sitting in its environment.
+          // THE KEY AN AGENT ASKED FOR. GG-800 was told its image must be
+          // digest-pinned and that its own is in GG_IMAGE_DIGEST; it ran on a
+          // resident runner where that is unset, correctly named no image, and
+          // then reached for `environment:` - which had no slot, so its header
+          // named nothing and the whole document was refused. It is a key now,
+          // and this says what it is for so the next one does not have to guess.
+          + "ADVICE ABOUT THE PLACE GOES UNDER 'environment'. What a daemon does, "
+          + "what its network refuses, what a previous flight left behind: that is "
+          + "about the environment you were granted, not about a repository and not "
+          + "about an image - and if you are not in a member image there is no image "
+          + "to name. You do not need to know your environment's name: write the key "
+          + "with whatever you have and the control plane records the one that "
+          + "granted you.\n\n"
           + "THE 'against' VALUES ARE COMPARED, NOT READ. Put identifiers there and "
           + "put sentences in 'advice'. The commit is matched against a later flight's "
           + "own commit and the image against the image that flight's member runs, so a "

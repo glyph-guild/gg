@@ -1237,6 +1237,7 @@ public static class EnvelopeYaml
                 Repository = Optional(against, "repository"),
                 Commit = Optional(against, "commit"),
                 Image = Optional(against, "image"),
+                Environment = Optional(against, "environment"),
                 Envelope = Optional(against, "envelope"),
             },
             Advice = learned.Entries.TryGetValue("advice", out var advice)

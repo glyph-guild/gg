@@ -3441,15 +3441,22 @@ public sealed record Envelope
     /// <summary>What one piece of advice is ABOUT, for telling entries apart.</summary>
     /// <remarks>
     /// In the order a reader would ask: the repository is the most specific thing a
-    /// rehearsal learns about, then the image, then the envelope it was measured
-    /// against. A commit is deliberately NOT a subject - advice learned at one commit
-    /// is advice about the repository, and keying on the commit would let a second
-    /// rehearsal of the same repository accumulate beside the first rather than
-    /// replace it, which is the unbounded growth this exists to stop.
+    /// rehearsal learns about, then the image, then the environment, then the
+    /// envelope it was measured against. A commit is deliberately NOT a subject -
+    /// advice learned at one commit is advice about the repository, and keying on
+    /// the commit would let a second rehearsal of the same repository accumulate
+    /// beside the first rather than replace it, which is the unbounded growth this
+    /// exists to stop.
+    ///
+    /// THE ENVIRONMENT SITS BELOW THE IMAGE because an image is the narrower claim:
+    /// every instance of an environment is furnished from one pinned image, so
+    /// advice about the image is true of the environment and not the reverse. A
+    /// rehearsal that can name both says both, and the fold keys on the narrower.
     /// </remarks>
     private static string? Subject(LearnedContext learned) =>
         learned.Against.Repository is { Length: > 0 } repository ? repository
         : learned.Against.Image is { Length: > 0 } image ? image
+        : learned.Against.Environment is { Length: > 0 } environment ? environment
         : learned.Against.Envelope is { Length: > 0 } envelope ? envelope
         : null;
 
@@ -3473,7 +3480,8 @@ public sealed record Envelope
         // the declared-members guard caught it. A contract record holds data.
         var against = learned.Against;
         var named = against.Repository is { Length: > 0 } || against.Commit is { Length: > 0 }
-                 || against.Image is { Length: > 0 } || against.Envelope is { Length: > 0 };
+                 || against.Image is { Length: > 0 } || against.Environment is { Length: > 0 }
+                 || against.Envelope is { Length: > 0 };
 
         if (!named)
         {
@@ -3949,6 +3957,34 @@ public sealed record LearnedAgainst
 
     /// <summary>The member image those flights ran on.</summary>
     public string? Image { get; init; }
+
+    /// <summary>The charted environment those flights ran in.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>For advice about the PLACE rather than the code or the image.</b> A
+    /// rehearsal of an environment learns what its daemon does, what its network
+    /// refuses and what a previous flight left cached - none of which is about a
+    /// repository, and none of which a flight on a resident runner can key to an
+    /// image, because it is not running in one.
+    /// </para>
+    /// <para>
+    /// <b>The environment, never the instance.</b> An instance is named per
+    /// environment per host, so <c>gg-env-1</c> on one machine and
+    /// <c>gg-env-1</c> on another are different places wearing one name; keying
+    /// advice to it would carry one machine's findings to a flight on a different
+    /// one. A charted environment is unique in the tenant and is what the strategy
+    /// furnishing all of its instances describes.
+    /// </para>
+    /// <para>
+    /// <b>Not format-checked, unlike <see cref="Commit"/> and
+    /// <see cref="Image"/>.</b> Those are compared against values a machine
+    /// produces, so a description in either can never match and this schema
+    /// refuses one. This is a name somebody declared, and only the tenant's own
+    /// airspace could say whether it exists - which this contract cannot read. The
+    /// control plane fills it from the grant that hosted the flight.
+    /// </para>
+    /// </remarks>
+    public string? Environment { get; init; }
 
     /// <summary>The version of this kind's own document at the time.</summary>
     public string? Envelope { get; init; }

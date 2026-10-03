@@ -2039,7 +2039,8 @@ public static class ProtocolSurface
             [typeof(StackPerformed)] = ["script", "verb", "outcome", "exit", "seconds"],
             [typeof(DocumentProposal)] = ["role", "name", "document"],
             [typeof(LearnedContext)] = ["against", "advice"],
-            [typeof(LearnedAgainst)] = ["repository", "commit", "image", "envelope"],
+            [typeof(LearnedAgainst)] =
+                ["repository", "commit", "image", "environment", "envelope"],
             [typeof(ContextBinding)] = ["scope", "constitution"],
             [typeof(Obligation)] = ["id", "check", "when", "rule", "approver", "provenance", "evidence"],
             [typeof(LoopBudget)] = ["wallClock", "attempts"],

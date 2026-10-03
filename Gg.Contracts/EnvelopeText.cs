@@ -161,7 +161,9 @@ public static class EnvelopeText
 
                 foreach (var (key, value) in ((string, string?)[])
                     [("repository", entry.Against.Repository), ("commit", entry.Against.Commit),
-                     ("image", entry.Against.Image), ("envelope", entry.Against.Envelope)])
+                     ("image", entry.Against.Image),
+                     ("environment", entry.Against.Environment),
+                     ("envelope", entry.Against.Envelope)])
                 {
                     if (value is { Length: > 0 })
                     {

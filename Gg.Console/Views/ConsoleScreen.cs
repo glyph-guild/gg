@@ -614,6 +614,23 @@ public sealed class ConsoleScreen : Window
     private TabId? _landed;
 
     /// <summary>
+    /// Whether the widget focus was placed on was the tab's EMPTY-state one.
+    /// </summary>
+    /// <remarks>
+    /// <b>Beside <see cref="_landedReading"/> and for its reason, which is the
+    /// same reason twice.</b> The tab landing picks a table when it has rows
+    /// and the label beside it when it does not - and a tab fed by its own
+    /// read arrives EMPTY, so the first landing is the label. `_landed` then
+    /// says this tab has been landed on and focus is never re-asserted; the
+    /// rows arrive, the label is hidden, and focus sits on a view that is not
+    /// drawn. Keys the keymap resolves still work, because they bubble; the
+    /// table's own arrows do not, so a down arrow reaches the tab BAR and
+    /// selects the next tab. Measured on the Itineraries tab, whose rows come
+    /// from a read of its own.
+    /// </remarks>
+    private bool _landedEmpty;
+
+    /// <summary>
     /// Which of the runner modal's views focus was last placed in.
     /// </summary>
     /// <remarks>
@@ -991,6 +1008,15 @@ public sealed class ConsoleScreen : Window
         {
             Title = "itineraries",
             X = 0, Y = 0, Width = Dim.Percent(38), Height = Dim.Fill(1),
+
+            // AND IT CAN HOLD THE KEYBOARD, which the tab got for free until
+            // it became two panes: Tabbed() set this up, and a tab built by
+            // hand goes nowhere near it. A FrameView is created CanFocus
+            // false and as a TabGroup, so SetFocus on the table inside did
+            // NOTHING, silently - focus stayed on the bar, the table's own
+            // arrows never reached it, and a down arrow selected the next tab.
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
         };
         _itineraries = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
         _itinerariesTable = CollectionViews.Table();
@@ -1000,6 +1026,10 @@ public sealed class ConsoleScreen : Window
         {
             Title = "legs",
             X = Pos.Right(_itinerariesPane), Y = 0, Width = Dim.Fill(), Height = Dim.Fill(1),
+
+            // THE SAME PAIR, so tab can reach the legs beside the plans.
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
         };
         // THE MODAL'S OWN, and the flight modal's shape exactly: the legs in a
         // table at the top and the chosen one's whole sentence underneath. A
@@ -6177,6 +6207,32 @@ public sealed class ConsoleScreen : Window
     /// and only one of them is driven.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// The table a tab's landing prefers, or null for a tab that has none.
+    /// </summary>
+    /// <remarks>
+    /// <b>So "did we land on the empty one" is one question with one answer.</b>
+    /// The landing switch below picks a table when it is visible and the label
+    /// beside it when it is not; this names the same table, so the two cannot
+    /// drift into disagreeing about which widget a tab prefers.
+    /// </remarks>
+    private TableView? TableOf(TabId tab) => tab switch
+    {
+        TabId.Flights => _flightsTable,
+        TabId.Board => _boardTable,
+        TabId.Browse => _browseTable,
+        TabId.Repositories => _repositoriesTable,
+        TabId.Runners => _runnersTable,
+        TabId.Envelope => _airspaceTable,
+        TabId.Itineraries => _itinerariesTable,
+
+        // THE TWO THAT ARE READ RATHER THAN DRIVEN. The queue's list is a
+        // ListView and the allowances pane is a label; neither has an empty
+        // twin to fall back to, so neither can land on one.
+        TabId.Queue or TabId.Allowances => null,
+        _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
+    };
+
     private void Focus()
     {
         // A MODAL WHOSE FOCUSED VIEW HAS BEEN HIDDEN DOES NOT HAVE FOCUS, and
@@ -6194,7 +6250,9 @@ public sealed class ConsoleScreen : Window
             flightTab: State.FlightTab, landedFlightTab: _landedFlightTab,
             workItemTab: State.WorkItemTab, landedWorkItemTab: _landedWorkItemTab,
             workKindTab: State.WorkKindTab, landedWorkKindTab: _landedWorkKindTab,
-            notificationsHaveFocus: _notifications.HasFocus))
+            notificationsHaveFocus: _notifications.HasFocus,
+            landedEmpty: _landedEmpty,
+            tabIsEmpty: TableOf(State.ActiveTab) is { Visible: false }))
         {
             case FocusTarget.LeaveAlone:
                 return;
@@ -6480,6 +6538,10 @@ public sealed class ConsoleScreen : Window
         landing.SetFocus();
         _landed = State.ActiveTab;
         _landedReading = State.AirspaceReading;
+
+        // AND WHETHER THAT WAS THE EMPTY ONE, so a table that fills afterwards
+        // takes the keyboard rather than leaving it on a hidden label.
+        _landedEmpty = !ReferenceEquals(landing, TableOf(State.ActiveTab));
     }
 
     protected override void Dispose(bool disposing)

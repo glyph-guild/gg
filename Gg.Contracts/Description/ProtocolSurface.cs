@@ -2256,7 +2256,7 @@ public static class ProtocolSurface
             [typeof(WatchStandingList)] = ["standings"],
             [typeof(EnvironmentStrategy)] =
                 ["kind", "environment", "inventory", "pullPoint", "image", "bounds", "build",
-                 "builtFrom"],
+                 "builtFrom", "hooks", "filesystem"],
             [typeof(StrategyBuild)] = ["repository", "path", "ref", "dockerfile"],
             [typeof(StrategyProvenance)] = ["repository", "path", "commit"],
             [typeof(EnvironmentStrategyState)] = ["name", "version", "appliedAt", "strategy"],

@@ -196,6 +196,16 @@ public class StrategyRoundTripTests
             nameof(StrategyBuild.Ref),
             nameof(StrategyBuild.Dockerfile),
             nameof(StrategyProvenance.Commit),
+
+            // SLICE FIFTY-EIGHT'S TWO, covered by
+            // AnEnvironmentMaySayHowItComesUpTests.Both_survive_the_writer for
+            // the same reason the recipe's are covered elsewhere: Full() is
+            // shared by suites that render it, and neither member is rendered
+            // when absent - every strategy in force declares neither, so adding
+            // them here would change those outputs to assert a line that must
+            // not appear on a document that did not ask for it.
+            nameof(EnvironmentStrategy.Hooks),
+            nameof(EnvironmentStrategy.Filesystem),
         ];
 
         var members = new[]

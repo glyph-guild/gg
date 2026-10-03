@@ -107,7 +107,7 @@ public class ATenantMayCarryLearnedContextTests
         var first = EnvelopeYaml.Parse(WithLearned("""
             learned:
               - against:
-                  image: "sha256:abc"
+                  image: "127.0.0.1:5000/gg-member@sha256:1c82ce2828c4b885b9bf7d3e1182b0b93975e0d1580e158b19319d851cccba5a"
                   envelope: "v7"
                 advice:
                   - "Serve on the port, not a port."

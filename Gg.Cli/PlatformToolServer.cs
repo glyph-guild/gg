@@ -1319,10 +1319,28 @@ public static class PlatformToolServer
           + "  - against:          # at least one of these, so staleness can be computed\n"
           + "      repository: acme/web\n"
           + "      commit: a1b2c3d\n"
-          + "      image: ghcr.io/acme/ci:12\n"
+          + "      image: ghcr.io/acme/ci@sha256:1c82ce28...\n"
           + "    advice:            # a list of single values, each a sentence\n"
           + "      - \"node_modules is absent at checkout; npm install takes about fifty seconds.\"\n"
           + "      - \"jsdom performs no layout, so a margin assertion proves nothing here.\"\n\n"
+          // EVERY ONE OF THESE IS COMPARED, NOT READ. The commit is compared with a
+          // later flight's commit and the image with the image its member runs, so a
+          // description in either place is advice that reaches nobody. GG-333 wrote
+          // git's chatter into `commit`; GG-785 wrote a sentence about a daemon into
+          // `image`, and both were valid documents that could never match. Both are
+          // refused now, which is a reason an agent can act on - and this is the half
+          // that stops it happening: the image was spelled as a TAG here while every
+          // image this platform pins is name@sha256:..., and nothing told an agent
+          // that its own is already sitting in its environment.
+          + "THE 'against' VALUES ARE COMPARED, NOT READ. Put identifiers there and "
+          + "put sentences in 'advice'. The commit is matched against a later flight's "
+          + "own commit and the image against the image that flight's member runs, so a "
+          + "description in either field is advice that can never reach anybody - a "
+          + "rehearsal before you lost eight good lines about a container daemon that "
+          + "way. YOUR OWN IMAGE IS IN YOUR ENVIRONMENT, as GG_IMAGE_DIGEST, already "
+          + "pinned: copy it rather than describing what you are running on. If that "
+          + "variable is not set you are not in a member image, and the entry should "
+          + "name no image at all.\n\n"
           + "A FILE IS NOT HOW A LESSON LEAVES. Nothing on this machine is kept - the "
           + "tree is deleted when the flight ends, and that covers every file you wrote and "
           + "not only the ones you were asked to change. This tool is the only way out, so "

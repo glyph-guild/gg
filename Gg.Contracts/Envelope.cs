@@ -3501,6 +3501,29 @@ public sealed record Envelope
                  + "characters.";
         }
 
+        // AND AN IMAGE IS AN IMAGE REFERENCE, which is the same defect one field
+        // over. GG-785 wrote `rootless Docker 29.7.2 / containerd 2.3.4 / Compose
+        // v5.5.0, env instance gg-env-1 (DOCKER_HOST=...)` - a description of the
+        // place, in the field that has to equal something. Eight good lines about a
+        // daemon, undeliverable for ever, and nothing said so. The commit branch
+        // above was written for GG-333 and this one was not, so the next rehearsal
+        // walked into the half that was left open.
+        //
+        // THE DIGEST FORM, because it is the only thing this key is ever compared
+        // with. `EnvironmentStrategy.Validate` refuses an unpinned image on its own
+        // argument - what reset resets TO must be a fixed point - so every image a
+        // member actually runs is `name@sha256:...`. A tag is not wrong in spirit
+        // and is still undeliverable in fact, and the fact is what this refuses.
+        if (against.Image is { Length: > 0 } image
+            && !image.Contains("@sha256:", StringComparison.Ordinal))
+        {
+            return $"learned.against.image is '{image}', which is not a digest-pinned image "
+                 + "reference. It is compared against the image a later flight's member "
+                 + "actually runs, and every one of those is pinned - so anything else is "
+                 + "advice that reaches no flight and reports nothing. Write it as "
+                 + "name@sha256:..., which is what the member's own GG_IMAGE_DIGEST holds.";
+        }
+
         return learned.Advice.Count == 0
             ? "learned.advice is empty. A header with no advice records the provenance of "
             + "nothing - remove the section, or say what an agent should be told."

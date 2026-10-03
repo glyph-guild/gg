@@ -59,7 +59,7 @@ public class AdviceIsKeyedByWhatItWasLearnedAgainstTests
                 advice:
                   - "node_modules is absent at checkout; npm install takes about fifty seconds."
               - against:
-                  image: "ghcr.io/acme/ci:12"
+                  image: "ghcr.io/acme/ci@sha256:1c82ce2828c4b885b9bf7d3e1182b0b93975e0d1580e158b19319d851cccba5a"
                 advice:
                   - "No dotnet and no docker on PATH, so an Aspire backend cannot start here."
             obligations:
@@ -209,7 +209,7 @@ public class AdviceIsKeyedByWhatItWasLearnedAgainstTests
         var folded = Envelope.Fold(current,
         [
             Advice("JDX/JDNext", "jsdom performs no layout."),
-            Advice("ghcr.io/acme/ci:12", "No dotnet and no docker on PATH.", image: true),
+            Advice("ghcr.io/acme/ci@sha256:1c82ce2828c4b885b9bf7d3e1182b0b93975e0d1580e158b19319d851cccba5a", "No dotnet and no docker on PATH.", image: true),
         ]);
 
         await Assert.That(folded.Count).IsEqualTo(3)

@@ -234,4 +234,77 @@ public class ATableHoldsAtItsEdgeTests
         await Assert.That(TableEdge.Blinks(EdgePresses.None, T0)).IsFalse();
         await Assert.That(TableEdge.Lit(EdgePresses.None, T0)).IsFalse();
     }
+
+    [Test]
+    public async Task Every_table_a_tab_drives_holds_at_its_edges()
+    {
+        // DERIVED, NOT LISTED, because a list is what went wrong. The
+        // subscription block says "EVERY TAB'S TABLE HOLDS AT ITS OWN EDGES"
+        // and then names six by hand - and the Itineraries tab's table, added
+        // later, was wired to OnRowPointedAt two lines above and left out of
+        // this one. A person pressing down on the last plan fell through to
+        // the tab bar, which answers a down arrow by selecting the next tab.
+        //
+        // THE DERIVATION IS THE OTHER HANDLER. A tab's table subscribes
+        // OnRowPointedAt; a modal's subscribes OnModalRowPointedAt, and a
+        // modal has no bar under it to fall through to. So the tables that
+        // must hold are exactly the tables wired to the first one.
+        var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
+
+        var driven = Named(screen, "ValueChanged += OnRowPointedAt");
+        var holding = Named(screen, "KeyDown += OnTableEdge");
+
+        await Assert.That(driven).IsNotEmpty()
+            .Because("finding none would make the comparison below vacuous.");
+
+        var falling = driven.Except(holding, StringComparer.Ordinal).ToList();
+
+        await Assert.That(falling).IsEmpty()
+            .Because("a tab's table that does not hold at its edge sends the key to the "
+                   + "bar, and the bar answers a down arrow by moving to the NEXT TAB - so "
+                   + "one press past the last row abandons the page somebody was reading. "
+                   + "Falling through: " + string.Join(", ", falling));
+    }
+
+    /// <summary>
+    /// The field names subscribed to one handler, however they are written.
+    /// </summary>
+    /// <remarks>
+    /// Both forms count: a line of its own (<c>_x.ValueChanged += H;</c>) and
+    /// a loop body over a list (<c>table.KeyDown += H;</c>), whose members are
+    /// the array literal above it. Without the second the loop reads as one
+    /// subscription and six tables look unsubscribed.
+    /// </remarks>
+    private static List<string> Named(string screen, string subscription)
+    {
+        var names = new List<string>();
+
+        for (var at = screen.IndexOf(subscription, StringComparison.Ordinal); at >= 0;
+             at = screen.IndexOf(subscription, at + 1, StringComparison.Ordinal))
+        {
+            var line = screen.LastIndexOf('\n', at) + 1;
+            var subject = screen[line..at].Trim().TrimEnd('.');
+
+            if (subject.StartsWith('_'))
+            {
+                names.Add(subject);
+                continue;
+            }
+
+            // A LOOP: take the array literal that precedes it. The members are
+            // the tables, and they are what this is really subscribing.
+            var open = screen.LastIndexOf('[', line);
+            var close = open < 0 ? -1 : screen.IndexOf(']', open);
+
+            if (open >= 0 && close > open)
+            {
+                names.AddRange(screen[(open + 1)..close]
+                    .Split(',')
+                    .Select(m => m.Trim())
+                    .Where(m => m.StartsWith('_')));
+            }
+        }
+
+        return names;
+    }
 }

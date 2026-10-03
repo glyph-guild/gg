@@ -112,6 +112,131 @@ public class LearnedContextSaysWhatItWasLearnedAgainstTests
         await Assert.That(read.Diagnosis!).Contains("against");
     }
 
+    /// <summary>
+    /// A key this schema does not know is not a subject.
+    /// </summary>
+    /// <remarks>
+    /// <b>The failure direction is permissive, which is why this refuses.</b> An
+    /// unknown key is ignored by the parser rather than stored, so a header naming
+    /// only one names nothing - and a document that silently kept it would hold
+    /// advice no reader could ever match, which is what this header exists to stop.
+    /// </remarks>
+    [Test]
+    public async Task A_header_naming_only_a_key_this_schema_does_not_know_is_refused()
+    {
+        var read = EnvelopeYaml.Parse(Learned("""
+              against:
+                machine: "vmlinux001"
+              advice:
+                - "Something worth saying."
+        """));
+
+        await Assert.That(read.Diagnosis).IsNotNull()
+            .Because("an unknown key is ignored rather than stored, so this header names "
+                   + "nothing - and advice nothing can match would outlive every environment "
+                   + "it was true of.");
+    }
+
+    /// <summary>
+    /// An environment is a thing advice can be learned about.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>ASKED FOR BY AN AGENT, GG-800, UNPROMPTED.</b> Three rehearsals produced
+    /// good advice about a container daemon and none of it reached a flight. The
+    /// third was told that an image key must be digest-pinned and that its own
+    /// image is in <c>GG_IMAGE_DIGEST</c>; it was a RESIDENT runner rather than a
+    /// pool member, so that variable was unset, and it correctly declined to name
+    /// an image - then reached for <c>environment:</c>, because that is what it had
+    /// actually learned about. The schema had no slot, the key was ignored, the
+    /// header named nothing, and the whole document was refused.
+    /// </para>
+    /// <para>
+    /// <b>THE ENVIRONMENT AND NOT THE INSTANCE, because instance names repeat.</b>
+    /// An instance is named per environment per host - <c>ui/gg-env-1</c> on one
+    /// machine says nothing about <c>gg-env-1</c> on another - so keying by
+    /// instance would hand one machine's advice to a flight on a different one,
+    /// which is the confusion this header exists to prevent. A charted environment
+    /// is a declared airspace name, unique in the tenant, and it is what the
+    /// strategy that furnishes every one of its instances describes.
+    /// </para>
+    /// <para>
+    /// <b>No format rule, unlike <c>commit</c> and <c>image</c>.</b> Those two are
+    /// compared against values a machine produces, so a description in either can
+    /// never match and is refused here. An environment is a NAME somebody
+    /// declared, and the only thing that could validate it is the tenant's own
+    /// airspace, which this contract cannot read. The control plane stamps it from
+    /// the grant, so the authority sits where the knowledge is.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task A_header_naming_only_an_environment_is_taken()
+    {
+        var read = EnvelopeYaml.Parse(Learned("""
+              against:
+                environment: "ui"
+              advice:
+                - "Rootless networking refuses host ports below 1024."
+        """));
+
+        await Assert.That(read.Diagnosis).IsNull()
+            .Because("an environment is what a rehearsal of a PLACE learns about, and three "
+                   + $"rehearsals could not say so: {read.Diagnosis}");
+
+        await Assert.That(read.Envelope!.Learned!.Single().Against.Environment).IsEqualTo("ui")
+            .Because("parsed and kept rather than merely tolerated - an ignored key is what "
+                   + "made GG-800's header name nothing.");
+    }
+
+    [Test]
+    public async Task An_environment_survives_the_writer()
+    {
+        // ROUND TRIP, because a key the writer drops vanishes the first time
+        // anything re-renders the document - and the control plane stores a
+        // composed envelope and renders it back.
+        var first = EnvelopeYaml.Parse(Learned("""
+              against:
+                environment: "ui"
+              advice:
+                - "Rootless networking refuses host ports below 1024."
+        """));
+
+        await Assert.That(first.Diagnosis).IsNull();
+
+        var again = EnvelopeYaml.Parse(EnvelopeText.Render(first.Envelope!));
+
+        await Assert.That(again.Diagnosis).IsNull();
+        await Assert.That(again.Envelope!.Learned!.Single().Against.Environment).IsEqualTo("ui")
+            .Because("the writer emits every member of the header, or the next read loses it.");
+    }
+
+    [Test]
+    public async Task Advice_about_an_environment_replaces_what_was_known_about_it()
+    {
+        // A SUBJECT, so Fold replaces rather than appends. Envelope.Validate
+        // refuses a document carrying two entries for one subject, so an
+        // environment the fold did not recognise would accumulate a second entry
+        // and produce a proposal the applier could never accept - which is a gate
+        // a person opens onto a refusal.
+        static LearnedContext About(string environment, string advice) => new()
+        {
+            Against = new LearnedAgainst { Environment = environment },
+            Advice = [advice],
+        };
+
+        var folded = Envelope.Fold(
+            [About("ui", "The old thing.")],
+            [About("ui", "The new thing."), About("dev", "A different place.")]);
+
+        await Assert.That(folded.Count).IsEqualTo(2)
+            .Because("one subject was already known and was replaced; one is new.");
+
+        await Assert.That(folded.Single(e => e.Against.Environment == "ui").Advice.Single())
+            .IsEqualTo("The new thing.")
+            .Because("what a rehearsal hands back REPLACES what was known about that place, "
+                   + "which is the rule the kind's own instruction states.");
+    }
+
     [Test]
     public async Task A_header_with_no_advice_is_refused()
     {

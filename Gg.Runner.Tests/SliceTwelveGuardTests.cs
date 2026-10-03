@@ -192,7 +192,14 @@ public class SliceTwelveGuardTests
     // ordered rather than all becoming claimable at once. KindsThatCross is
     // unchanged, which is this guard's actual criterion: flight.nomination
     // already belonged to a flight and still does.
-    private const string VocabularyAtSliceStart = "0.40.0";
+    //
+    // 0.41.0 since slice fifty-eight, and NO KIND MOVED FOR IT EITHER. StackVerbs
+    // fed StackPerformed.Validate, and retiring it widened `verb` from two words
+    // to five - the surface hashes a payload's accepted values, so what a
+    // consumer at a pin may read changed while the set of kinds did not.
+    // KindsThatCross is unchanged, which is this guard's actual criterion:
+    // stack.performed already belonged to a flight and still does.
+    private const string VocabularyAtSliceStart = "0.41.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number

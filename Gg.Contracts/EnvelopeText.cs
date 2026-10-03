@@ -98,10 +98,6 @@ public static class EnvelopeText
         // are one work-kind-only scalar and neither is composed across layers.
         // Same absence rule: every kind in the field names none, and a key
         // emitted empty would rewrite all of them.
-        if (envelope.Stack is { Length: > 0 } stack)
-        {
-            text.Append($"stack: {Scalar(stack)}\n");
-        }
 
         text.Append("context:\n");
         text.Append($"{Indent}scope: {Scalar(envelope.Context.Scope)}\n");

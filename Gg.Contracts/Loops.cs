@@ -357,35 +357,6 @@ public sealed record EnvironmentReclaimed
     }
 }
 
-/// <summary>
-/// The two halves of the procedure a work kind's stack script performs.
-/// </summary>
-/// <remarks>
-/// <b>Declared here because the verb crosses.</b> It was a runner-side constant
-/// while nothing but the runner said it; the measurement of a performance names
-/// which half it was, so a reader on the far side needs the same two words.
-/// </remarks>
-[VocabularyOf(VocabularyFingerprints.Fact)]
-public static class StackVerbs
-{
-    /// <summary>Brings the stack up, after the instance is emptied and before the agent.</summary>
-    public const string Up = "up";
-
-    /// <summary>Brings it down, after the agent has finished.</summary>
-    public const string Down = "down";
-
-    /// <summary>
-    /// Both, in the order one flight performs them.
-    /// </summary>
-    /// <remarks>
-    /// <b>Listed so the ratchet can see it.</b> Written first as two bare
-    /// constants, which left it discovered by nothing: a third verb would have
-    /// changed what <see cref="StackPerformed.Validate"/> accepts and moved no
-    /// ledger — exactly the gap <c>VocabularyMembershipTests</c> exists to close,
-    /// and it was invisible because that guard finds a vocabulary by its list.
-    /// </remarks>
-    public static IReadOnlyList<string> All { get; } = [Up, Down];
-}
 
 /// <summary>
 /// How a performance of a stack script ended.
@@ -487,7 +458,11 @@ public sealed record StackPerformed
                  + "kind may name several over its life.";
         }
 
-        if (!StackVerbs.All.Contains(performed.Verb, StringComparer.Ordinal))
+        // THE FIVE POINTS, which replaced `up`/`down` when ADR-0033's second
+        // amendment restored the abstraction. StackVerbs listed two and is gone;
+        // a point absent from EnvironmentPoints.All cannot be performed, so it
+        // cannot be reported either.
+        if (!EnvironmentPoints.All.Contains(performed.Verb, StringComparer.Ordinal))
         {
             return $"'{performed.Verb}' is not one of the two halves of the procedure, and a "
                  + "third would be a reader guessing what the runner did.";

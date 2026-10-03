@@ -27,23 +27,34 @@ namespace Gg.Runner.Environments;
 /// </remarks>
 public static class StackScript
 {
-    /// <summary>Brings the stack up, before the agent works.</summary>
+    /// <summary>Make the project ready to run here, before anything starts.</summary>
     /// <remarks>
-    /// The contract's, since the verb now crosses on <see cref="StackPerformed"/>
-    /// — two constants spelling the same word is a thing to keep in sync.
+    /// The contract's, since the point crosses on <see cref="StackPerformed"/>
+    /// — two constants spelling the same word is a thing to keep in sync. These
+    /// five replaced <c>up</c> and <c>down</c> when ADR-0033's second amendment
+    /// restored the abstraction; <c>StackVerbs</c> listed two and is gone.
     /// </remarks>
-    public const string Up = StackVerbs.Up;
+    public const string Prepare = EnvironmentPoints.Prepare;
 
-    /// <summary>Brings it down, after the agent has finished.</summary>
-    public const string Down = StackVerbs.Down;
+    /// <summary>Bring the stack up, wait until it answers, and return.</summary>
+    public const string Attach = EnvironmentPoints.Attach;
 
-    /// <summary>Whether this kind names a script at all.</summary>
+    /// <summary>Move the tree to where the stack will read it.</summary>
+    public const string Sync = EnvironmentPoints.Sync;
+
+    /// <summary>Answer whether the stack is answering.</summary>
+    public const string Ready = EnvironmentPoints.Ready;
+
+    /// <summary>Take the stack down, after the agent has finished.</summary>
+    public const string Detach = EnvironmentPoints.Detach;
+
+    /// <summary>Whether this environment names an executable at all.</summary>
     /// <remarks>
-    /// False is every kind in the field: the agent works the bring-up out from
-    /// advice, which is where a kind stays until that advice has been used enough
-    /// to be worth writing down.
+    /// False is every environment in the field: the agent works the bring-up out
+    /// from advice, which is where one stays until that advice has been used
+    /// enough to be worth writing down.
     /// </remarks>
-    public static bool Runs(string? stack) => !string.IsNullOrWhiteSpace(stack);
+    public static bool Runs(string? hooks) => !string.IsNullOrWhiteSpace(hooks);
 
     /// <summary>The argument this verb is performed with.</summary>
     public static string ArgumentFor(string verb) => verb;

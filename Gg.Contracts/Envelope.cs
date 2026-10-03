@@ -1944,38 +1944,6 @@ public sealed record Envelope
     [Composes(MergeOperators.WorkKindOnly)]
     public IReadOnlyList<string>? Hosts { get; init; }
 
-    /// <summary>
-    /// The script that brings this kind's stack up and down, as a path in the
-    /// repository the flight checks out — or null for a kind that asks an agent.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>ADR-0023's shape at a second subject.</b> A watch names a skill and,
-    /// later or never, a script — both as paths in the customer's repository,
-    /// read at a pinned ref, with the control plane pinning the commit and the
-    /// runner reading the file. The control plane never reads code, and this
-    /// does not change that: it carries a path.
-    /// </para>
-    /// <para>
-    /// <b>ONE path, with the verb as an argument.</b> Bringing a stack up and
-    /// bringing it down are two halves of one procedure and the repository knows
-    /// both. Two members would be two things to keep in sync, and a kind naming
-    /// one without the other is half a procedure nobody can complete.
-    /// </para>
-    /// <para>
-    /// <b>WORK-KIND-ONLY, for <see cref="Brief"/>'s reason.</b> Root is not any
-    /// kind, and a stack script there would be a procedure for every flight the
-    /// tenant flies.
-    /// </para>
-    /// <para>
-    /// <b>Null is a kind that asks an agent</b>, which is every kind today and
-    /// the state a kind stays in until its advice has been used enough to be
-    /// worth writing down — slice fifty-six rule 10.
-    /// </para>
-    /// </remarks>
-    [Composes(MergeOperators.WorkKindOnly)]
-    public string? Stack { get; init; }
-
     [Composes(MergeOperators.WorkKindOnly)]
     public required IReadOnlyList<Loop> Loops { get; init; }
 
@@ -2452,11 +2420,6 @@ public sealed record Envelope
         if (InstructionsWithin(envelope) is { } instructions)
         {
             return instructions;
-        }
-
-        if (StackWithin(envelope) is { } stack)
-        {
-            return stack;
         }
 
         if (BriefWithin(envelope) is { } brief)
@@ -3154,51 +3117,6 @@ public sealed record Envelope
     /// reason an instruction block is one - it is read in a prompt and diffed in
     /// review, and it keeps the text form exactly round-trippable.
     /// </remarks>
-    /// <summary>
-    /// What no stack script can usefully mean, and what to refuse.
-    /// </summary>
-    /// <remarks>
-    /// <b>A path inside the checkout, for a kind that is given somewhere to run
-    /// it.</b> An absolute path is a file on the pool host rather than in the
-    /// repository; a path that climbs out reaches the same place by another
-    /// route; and a script on a kind with no <c>hosts:</c> is never performed,
-    /// because nothing grants that kind an instance.
-    /// </remarks>
-    private static string? StackWithin(Envelope envelope)
-    {
-        if (envelope.Stack is not { Length: > 0 } stack)
-        {
-            return null;
-        }
-
-        if (envelope.Hosts is not { Count: > 0 })
-        {
-            return "a `stack:` script is performed in the environment instance a flight was "
-                 + "granted, and a kind that names no `hosts:` is never granted one - so this "
-                 + "script would never run. Name the environment its stack runs in, or take "
-                 + "the script off.";
-        }
-
-        if (Path.IsPathRooted(stack) || stack.Contains(':'))
-        {
-            return $"'{stack}' is not a path in the repository. A stack script is the "
-                 + "repository's own knowledge of how its stack comes up; an absolute path "
-                 + "is a file on the pool host, which is a document choosing what a runner "
-                 + "executes on a machine it does not own.";
-        }
-
-        foreach (var step in stack.Split('/', '\\'))
-        {
-            if (step == "..")
-            {
-                return $"'{stack}' climbs out of the checkout, which reaches the host by "
-                     + "another route. A stack script lives in the repository the flight "
-                     + "checked out and nowhere else.";
-            }
-        }
-
-        return null;
-    }
 
     private static string? BriefWithin(Envelope envelope)
     {

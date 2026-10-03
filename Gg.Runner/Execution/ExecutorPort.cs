@@ -454,14 +454,15 @@ public sealed record ExecutorRequest
     public string? Instance { get; init; }
 
     /// <summary>
-    /// The script that brought this flight's stack up, when its kind named one.
+    /// The executable that brought this flight's environment up, when its
+    /// environment named one.
     /// </summary>
     /// <remarks>
     /// The RUNNER performed it, not the agent — so this says the bring-up has
     /// been done and by what, rather than asking for it. An agent that re-ran it
     /// would stand a second stack up beside the first.
     /// </remarks>
-    public string? Stack { get; init; }
+    public string? Hooks { get; init; }
 
 }
 

@@ -2495,7 +2495,7 @@ public sealed class RunnerLoop(
             // the brief's reason - though the RUNNER performs it rather than the
             // agent, so what this does is tell the agent the bring-up has been
             // done for it and by what.
-            Stack = loop.Stack,
+            Hooks = loop.Hooks,
             // THE FLIGHT'S OWN DIRECTORY, ALWAYS, with the repositories below
             // it. This was the FIRST tree when there was one, which put an
             // agent inside a checkout and left every other tree the flight had
@@ -2558,8 +2558,18 @@ public sealed class RunnerLoop(
         //
         // A KIND THAT NAMES NONE IS UNCHANGED - the agent works the bring-up out
         // from `learned:` advice, which is every kind in the field.
+        // PREPARE THEN ATTACH, in that order and both before the agent. Prepare
+        // may build or pull - and what survives a flight is the image store and
+        // nothing else, so that is the only place its work can land usefully.
+        // Attach brings the stack up, waits until it answers and returns: the
+        // hook's job is REACHING health rather than holding it, so nothing it
+        // started survives it and the instance daemon stays the only owner of
+        // what is running.
+        var prepared = await PerformStackAsync(
+            loop.Hooks, workspace, Environments.StackScript.Prepare, cancellationToken);
+
         var broughtUp = await PerformStackAsync(
-            loop.Stack, workspace, Environments.StackScript.Up, cancellationToken);
+            loop.Hooks, workspace, Environments.StackScript.Attach, cancellationToken);
 
         // TIMED HERE, because this is the only place that knows when the person
         // was handed the terminal and when they gave it back. Rule 6 records the
@@ -2585,7 +2595,7 @@ public sealed class RunnerLoop(
         // repository did not account for - and the reclaim on the next flight's
         // way in is the backstop for both.
         var broughtDown = await PerformStackAsync(
-            loop.Stack, workspace, Environments.StackScript.Down, cancellationToken);
+            loop.Hooks, workspace, Environments.StackScript.Detach, cancellationToken);
 
         // THE SAME PREDICATE THE HOLD BELOW USES, read here so the tear-down and
         // the hold cannot disagree about whether anybody is coming to look.
@@ -2604,7 +2614,8 @@ public sealed class RunnerLoop(
         // nothing, which is not the same as a script that ran and failed.
         var performed = new List<Gg.Contracts.StackPerformed>(capacity: 2);
 
-        foreach (var half in (Gg.Contracts.StackPerformed?[])[broughtUp, broughtDown])
+        foreach (var half in (Gg.Contracts.StackPerformed?[])
+            [prepared, broughtUp, broughtDown])
         {
             if (half is { } measured)
             {

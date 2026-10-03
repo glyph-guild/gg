@@ -225,9 +225,51 @@ public static class StackScript
     /// the ends it could not name.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Points a hook at the daemon this flight was granted.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The environment, because that is where a Docker client looks.</b> The
+    /// CLI, an AppHost and a compose file all read <c>DOCKER_HOST</c>; handing
+    /// the address any other way would mean teaching each of them separately.
+    /// <c>ClaudeCodeExecutor.PlaceInstance</c> says the same thing for the
+    /// agent, and this is the hook's half of it.
+    /// </para>
+    /// <para>
+    /// <b>Without this a hook reaches the machine's own daemon</b>, which is the
+    /// hazard <see cref="DockerInstanceDaemon"/> exists to avoid: an unscoped
+    /// client risks <i>"quietly emptying whatever an ambient DOCKER_HOST pointed
+    /// at — which on a pool host would be every member on the machine."</i> A
+    /// bring-up hook is a Docker client like any other.
+    /// </para>
+    /// <para>
+    /// <b>The same derivation the agent gets, not a second one.</b>
+    /// <c>EnvironmentNaming.SocketFor</c> is the one place this convention lives
+    /// on this side; an address derived anywhere else could point a hook at a
+    /// different daemon from the agent working beside it in the same flight.
+    /// </para>
+    /// <para>
+    /// <b>Placed, so an inherited value cannot win.</b> The platform granted this
+    /// instance, and a <c>DOCKER_HOST</c> arriving from the runner's own
+    /// environment would point the hook at the host's daemon — the one thing the
+    /// instance exists to keep it away from.
+    /// </para>
+    /// </remarks>
+    public static void PlaceInstance(System.Diagnostics.ProcessStartInfo info, string? instance)
+    {
+        ArgumentNullException.ThrowIfNull(info);
+
+        if (Pools.EnvironmentNaming.SocketFor(instance) is { } socket)
+        {
+            info.Environment["DOCKER_HOST"] = socket;
+        }
+    }
+
     public static async Task<Performance> PerformAsync(
         string script, string verb, string workingDirectory, TimeSpan patience,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? instance = null)
     {
         var start = new System.Diagnostics.ProcessStartInfo
         {
@@ -237,6 +279,10 @@ public static class StackScript
             WorkingDirectory = workingDirectory,
             UseShellExecute = false,
         };
+
+        // BEFORE ANYTHING ELSE TOUCHES THE ENVIRONMENT, so the granted socket is
+        // what a Docker client in this hook finds.
+        PlaceInstance(start, instance);
 
         if (start.FileName == "pwsh")
         {

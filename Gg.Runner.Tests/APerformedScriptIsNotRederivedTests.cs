@@ -38,19 +38,24 @@ namespace Gg.Runner.Tests;
 public class APerformedScriptIsNotRederivedTests
 {
     [Test]
-    public async Task The_lease_carries_the_script_its_kind_names()
+    public async Task The_lease_carries_the_executable_its_environment_names()
     {
-        await Assert.That(ProtocolSurface.JsonMembers[typeof(LeaseLoop)]).Contains("stack")
+        // RENAMED WITH THE MEMBER, and the owner moved with it: the KIND used to
+        // name this and the ENVIRONMENT does now, because a stack belongs to the
+        // place it runs (ADR-0033's second amendment). `stack` was
+        // [Composes(WorkKindOnly)], which made one procedure per kind for one
+        // place.
+        await Assert.That(ProtocolSurface.JsonMembers[typeof(LeaseLoop)]).Contains("hooks")
             .Because("the runner performs it and has no other way to learn the path: the "
-                   + "envelope that names it is a document this side never receives.");
+                   + "documents that name it are ones this side never receives.");
     }
 
     [Test]
-    public async Task A_kind_that_names_one_is_performed_up_and_down()
+    public async Task An_environment_that_names_one_is_performed_at_each_point()
     {
         await Assert.That(StackScript.Runs("scripts/stack.ps1")).IsTrue();
-        await Assert.That(StackScript.ArgumentFor(StackScript.Up)).IsEqualTo("up");
-        await Assert.That(StackScript.ArgumentFor(StackScript.Down)).IsEqualTo("down");
+        await Assert.That(StackScript.ArgumentFor(StackScript.Attach)).IsEqualTo("attach");
+        await Assert.That(StackScript.ArgumentFor(StackScript.Detach)).IsEqualTo("detach");
     }
 
     [Test]

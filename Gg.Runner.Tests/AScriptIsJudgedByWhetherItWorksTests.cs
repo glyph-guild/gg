@@ -69,7 +69,7 @@ public class AScriptIsJudgedByWhetherItWorksTests
         try
         {
             var performance = await StackScript.PerformAsync(
-                script, StackScript.Up, tree, StackScript.Patience);
+                script, StackScript.Attach, tree, StackScript.Patience);
 
             await Assert.That(performance.Outcome).IsEqualTo(StackOutcomes.Exited);
             await Assert.That(performance.Exit).IsEqualTo(0);
@@ -92,7 +92,7 @@ public class AScriptIsJudgedByWhetherItWorksTests
         try
         {
             var performance = await StackScript.PerformAsync(
-                script, StackScript.Up, tree, StackScript.Patience);
+                script, StackScript.Attach, tree, StackScript.Patience);
 
             await Assert.That(performance.Outcome).IsEqualTo(StackOutcomes.Exited);
             await Assert.That(performance.Exit).IsEqualTo(3)
@@ -121,7 +121,7 @@ public class AScriptIsJudgedByWhetherItWorksTests
         try
         {
             var performance = await StackScript.PerformAsync(
-                script, StackScript.Up, tree, StackScript.Patience);
+                script, StackScript.Attach, tree, StackScript.Patience);
 
             await Assert.That(performance.Outcome).IsEqualTo(StackOutcomes.Unstartable);
             await Assert.That(performance.Exit).IsNull()
@@ -150,7 +150,7 @@ public class AScriptIsJudgedByWhetherItWorksTests
         try
         {
             var performance = await StackScript.PerformAsync(
-                script, StackScript.Up, tree, TimeSpan.FromMilliseconds(250));
+                script, StackScript.Attach, tree, TimeSpan.FromMilliseconds(250));
 
             await Assert.That(performance.Outcome).IsEqualTo(StackOutcomes.Timeout);
             await Assert.That(performance.Exit).IsNull();
@@ -205,7 +205,7 @@ public class AScriptIsJudgedByWhetherItWorksTests
         var performed = new StackPerformed
         {
             Script = "scripts/stack.ps1",
-            Verb = StackScript.Up,
+            Verb = StackScript.Attach,
             Outcome = StackOutcomes.Exited,
             Exit = 0,
             Seconds = 4,
@@ -232,7 +232,7 @@ public class AScriptIsJudgedByWhetherItWorksTests
         var performed = new StackPerformed
         {
             Script = "scripts/stack.ps1",
-            Verb = StackScript.Up,
+            Verb = StackScript.Attach,
             Outcome = StackOutcomes.Exited,
             Exit = 0,
             Seconds = 4,

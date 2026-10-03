@@ -565,16 +565,33 @@ public sealed record LeaseLoop
     public string? Brief { get; init; }
 
     /// <summary>
-    /// The script that brings this flight's stack up and down, as a path in the
-    /// repository it checks out — or null for a kind that asks an agent.
+    /// The executable that brings this flight's environment up and down, as a
+    /// path in the repository it checks out — or null for an environment that
+    /// asks an agent.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Carried, not rendered</b>, on <see cref="Brief"/>'s terms: one layer,
-    /// one string, nothing to order or attribute. The runner performs it with
-    /// <c>up</c> and <c>down</c>, and has no other way to learn the path — the
-    /// envelope that names it is a document that side never receives.
+    /// one string, nothing to order or attribute. The runner has no other way to
+    /// learn the path — the documents that name it are ones that side never
+    /// receives.
+    /// </para>
+    /// <para>
+    /// <b>ONE path, with the point as its argument</b>, which is what
+    /// <c>stack:</c> argued for before this replaced it: <i>"two members would
+    /// be two things to keep in sync."</i> The runner invokes it once per point
+    /// in <see cref="Gg.Contracts.EnvironmentPoints.All"/>, and a project writes
+    /// one executable that switches on its argument rather than five files that
+    /// can drift apart.
+    /// </para>
+    /// <para>
+    /// <b>Filled from the ENVIRONMENT's declaration, not the kind's.</b>
+    /// <see cref="EnvironmentStrategy.Hooks"/> is where it is written, because a
+    /// stack belongs to the place it runs — ADR-0033's second amendment. The kind
+    /// used to declare it, which made one procedure per kind for one place.
+    /// </para>
     /// </remarks>
-    public string? Stack { get; init; }
+    public string? Hooks { get; init; }
 
     /// <summary>
     /// What earlier flights learned about this place, as a person approved it.

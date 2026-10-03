@@ -2007,7 +2007,7 @@ public static class ProtocolSurface
             [typeof(LeaseLoop)] =
                 ["loopId", "instance", "executor", "moves", "wallClockSeconds", "onExhaustion",
                  "resumesFrom", "instructions", "brief", "landing", "variables", "produces",
-                 "learned", "instanceHold", "stack"],
+                 "learned", "instanceHold", "hooks"],
             [typeof(LoopOutcome)] =
                 ["loopId", "outcome", "reason", "executor", "attempts", "durationMs", "movesUsed",
                  "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
@@ -2053,7 +2053,7 @@ public static class ProtocolSurface
             [typeof(Envelope)] =
                 ["description", "brief", "context", "obligations", "instructions", "loops",
                  "destinations", "environments", "repositories", "environment", "repository",
-                 "accepts", "produces", "learned", "targeting", "hosts", "stack", "variables",
+                 "accepts", "produces", "learned", "targeting", "hosts", "variables",
                  "offers"],
             [typeof(EnvelopeInstruction)] = ["text", "provenance"],
             [typeof(EnvelopeState)] = ["version", "envelope", "updatedAt", "updatedBy"],

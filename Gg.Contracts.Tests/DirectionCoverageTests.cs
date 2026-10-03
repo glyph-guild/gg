@@ -460,26 +460,6 @@ public class DirectionCoverageTests
               + "EnvelopeDirectionTests.Adding_an_instruction_is_not_a_widening and its three "
               + "neighbours - text an agent reads moves no bound",
 
-            // INSTRUCTIONS' REASON EXACTLY, one member over. A brief is the
-            // sentence naming the job rather than policy about how it is done,
-            // but the property that matters here is the same: an agent reads it,
-            // and nothing an agent READS decides what a flight may reach. Scope,
-            // moves, destinations and admission all still say no to precisely
-            // what they said no to before - a brief that told an agent to push
-            // would be refused by the destination it does not have.
-            // EXECUTED RATHER THAN READ, which is where it differs from the brief
-            // below - and it still moves no bound. A stack script runs under the
-            // same grant as the agent it replaces: the same moves, the same tool
-            // servers, the same tier. What a flight may reach is unchanged, and
-            // if anything a named script is NARROWER than the alternative, since
-            // the alternative is an agent choosing what to run from a sentence.
-            // Naming one, changing one and taking one away all leave every bound
-            // exactly where it was.
-            ["Envelope.Stack"] =
-                "never a widening in either direction, covered by "
-              + "AWorkKindNamesItsStackScriptTests - it is performed under the grant the "
-              + "agent it replaces already had, so no bound moves in either direction",
-
             ["Envelope.Brief"] =
                 "never a widening in either direction, covered by "
               + "AWorkKindSaysWhatTheFlightIsToDoTests - it names the task and moves no "

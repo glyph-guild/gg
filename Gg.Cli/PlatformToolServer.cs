@@ -2082,6 +2082,14 @@ public static class PlatformToolServer
         said.AppendLine("  active-hours:     when they may run.");
         said.AppendLine("  bounds:           the limits the whole of it sits inside.");
         said.AppendLine(
+            "  hooks:            the directory holding the five executables that bring this "
+          + "environment's stack up and down: prepare, attach, sync, ready, detach. A path in "
+          + "the repository, never the scripts themselves. Absent means it has none.");
+        said.AppendLine(
+            "  filesystem:       how the tree reaches the place those hooks run - shared, "
+          + "push or pull. Only shared is performed today, and a document declaring either "
+          + "other is refused. Meaningless without hooks, and refused without it.");
+        said.AppendLine(
             "  build:            where the next image comes from: a directory in a "
           + "registered repository, built by the pool's own runner. image is still what a "
           + "machine is made from - this never is.");

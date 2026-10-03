@@ -168,6 +168,13 @@ public class AScriptIsJudgedByWhetherItWorksTests
     [Test]
     public async Task The_performance_carries_no_path_of_its_own()
     {
+        // `Said` IS NOT A PATH, which is the only thing this guard is about. It
+        // holds what the `ready` point printed - ready=yes or no, plus any
+        // key=value lines - and slice fifty-eight added it because that point
+        // ANSWERS rather than exiting. It is captured only where something reads
+        // it, and it is not on the wire: StackPerformed carries the measurement
+        // and The_measurement_crosses below pins its members.
+        //
         // ONE SOURCE FOR THE PATH ON THE WIRE, and it is the lease's. What this
         // method is handed is resolved against the checkout, so it is absolute
         // and names where /srv/env puts a tree on the pool host - a host layout
@@ -175,7 +182,7 @@ public class AScriptIsJudgedByWhetherItWorksTests
         // caller to use the relative path the kind declared.
         await Assert.That(typeof(StackScript.Performance).GetProperties()
                 .Select(property => property.Name).Order(StringComparer.Ordinal).ToList())
-            .IsEquivalentTo(new[] { "Exit", "Outcome", "Survived", "Took" }
+            .IsEquivalentTo(new[] { "Exit", "Outcome", "Survived", "Took", "Said" }
                 .Order(StringComparer.Ordinal).ToList());
     }
 

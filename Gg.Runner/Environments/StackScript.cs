@@ -194,7 +194,7 @@ public static class StackScript
     /// member exists so a test can say so rather than assume it.
     /// </param>
     public readonly record struct Performance(
-        string Outcome, int? Exit, TimeSpan Took, bool Survived);
+        string Outcome, int? Exit, TimeSpan Took, bool Survived, string? Said = null);
 
     /// <summary>Performs one verb of this script, inside the tree, and measures it.</summary>
     /// <remarks>
@@ -225,6 +225,138 @@ public static class StackScript
     /// the ends it could not name.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// What the <c>ready</c> point said about the stack.
+    /// </summary>
+    /// <remarks>
+    /// <b>Three, because two would lose a measurement.</b> <see cref="No"/> is a
+    /// stack the hook looked at and found not answering. <see cref="Unanswered"/>
+    /// is a hook that did not say — it failed, it hung, or it exited cleanly
+    /// without implementing the contract. Collapsing them makes a broken hook
+    /// indistinguishable from a slow stack for ever, which is Article XI one
+    /// layer out of the Engine.
+    /// </remarks>
+    public enum Readiness
+    {
+        /// <summary>The hook did not say. NOT the same as saying no.</summary>
+        Unanswered,
+
+        /// <summary>It looked, and the stack was not answering.</summary>
+        No,
+
+        /// <summary>It looked, and the stack was answering.</summary>
+        Yes,
+    }
+
+    /// <summary>
+    /// The answer, and whatever the hook chose to report alongside it.
+    /// </summary>
+    /// <param name="Readiness">One of three answers.</param>
+    /// <param name="Values">
+    /// Named values, by key. <c>url</c> is the only one anything interprets —
+    /// the control plane stamps <c>preview.url</c> from it — and the rest is
+    /// carried for a person to read. An unknown key is KEPT, because a reader
+    /// debugging a queue consumer wants <c>depth=0</c> in front of them rather
+    /// than discarded by a parser that did not recognise it.
+    /// </param>
+    public readonly record struct ReadyReport(
+        Readiness Readiness, IReadOnlyDictionary<string, string> Values);
+
+    /// <summary>The key whose value becomes an address.</summary>
+    /// <remarks>
+    /// The only interpreted name. ADR-0033 Decision 8: the preview address is
+    /// read from the environment rather than declared — which is what makes a
+    /// stack with no address a working environment rather than a broken one,
+    /// something <c>PREVIEW_PORT</c> could not express.
+    /// </remarks>
+    public const string UrlKey = "url";
+
+    private const string ReadyKey = "ready";
+
+    /// <summary>
+    /// Reads what <c>ready</c> reported.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A performance that did not exit zero is <see cref="Readiness.Unanswered"/>
+    /// however it printed.</b> A hook that failed is not a stack that is down,
+    /// and a flight told "not ready" when the truth is "nothing asked" waits for
+    /// something that will never happen.
+    /// </para>
+    /// <para>
+    /// <b>Silence is not readiness</b>, and it is the easiest mistake here
+    /// because exit zero usually means yes. A hook that exits zero and says
+    /// nothing has not answered; reading that as ready hands a flight an
+    /// environment nobody checked.
+    /// </para>
+    /// <para>
+    /// <b>The last answer wins.</b> <see cref="Attach"/> is told to poll until
+    /// the stack answers and a <c>ready</c> written the same way prints as it
+    /// goes, so what is true is what it said last — the same rule the runner uses
+    /// reading the LAST <c>document.proposal</c> of a flight.
+    /// </para>
+    /// <para>
+    /// <b>Noise is ignored rather than refused.</b> A hook is a script and
+    /// scripts print: compose announces its networks, docker reports pull
+    /// progress. A parser that refused a line it did not understand would make
+    /// every working hook look broken, so only lines shaped like a report are
+    /// read.
+    /// </para>
+    /// </remarks>
+    public static ReadyReport ReadReady(Performance performance, string? said)
+    {
+        if (performance.Outcome != StackOutcomes.Exited || performance.Exit is not 0)
+        {
+            return new ReadyReport(Readiness.Unanswered, new Dictionary<string, string>());
+        }
+
+        var answer = Readiness.Unanswered;
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var line in (said ?? string.Empty).Split('\n'))
+        {
+            // THE FIRST SEPARATOR ONLY. A connection string and a query string
+            // both carry `=`, and splitting on every one would hand a person
+            // half an address.
+            var at = line.IndexOf('=', StringComparison.Ordinal);
+
+            if (at <= 0)
+            {
+                continue;
+            }
+
+            var key = line[..at].Trim();
+            var value = line[(at + 1)..].Trim();
+
+            if (key.Length == 0)
+            {
+                continue;
+            }
+
+            if (string.Equals(key, ReadyKey, StringComparison.Ordinal))
+            {
+                // THE ANSWER, and not one of the values: carrying it in both
+                // places would give two sources for one fact.
+                answer = value switch
+                {
+                    "yes" => Readiness.Yes,
+                    "no" => Readiness.No,
+
+                    // A WORD NEITHER OF THOSE is a hook that tried to answer and
+                    // said something this version cannot read, which is not an
+                    // answer. Taken as unanswered rather than guessed at.
+                    _ => Readiness.Unanswered,
+                };
+
+                continue;
+            }
+
+            values[key] = value;
+        }
+
+        return new ReadyReport(answer, values);
+    }
+
     /// <summary>
     /// Points a hook at the daemon this flight was granted.
     /// </summary>
@@ -269,10 +401,15 @@ public static class StackScript
     public static async Task<Performance> PerformAsync(
         string script, string verb, string workingDirectory, TimeSpan patience,
         CancellationToken cancellationToken = default,
-        string? instance = null)
+        string? instance = null,
+        bool capture = false)
     {
         var start = new System.Diagnostics.ProcessStartInfo
         {
+            // CAPTURED ONLY WHERE SOMETHING READS IT. `ready` answers on stdout;
+            // the other four points say what they did with an exit code, and
+            // redirecting a pipe nobody drains is how a chatty bring-up hangs.
+            RedirectStandardOutput = capture,
             FileName = script.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase)
                 ? "pwsh"
                 : script,
@@ -344,10 +481,20 @@ public static class StackScript
 
             try
             {
+                // READ BEFORE THE WAIT, and that order is the whole correctness
+                // of capturing. A pipe has a buffer; a hook that prints more than
+                // it holds blocks on the write while this blocks on the exit, and
+                // neither moves again. Starting the read first means the drain is
+                // already running by the time anything waits.
+                Task<string>? reading = capture
+                    ? process.StandardOutput.ReadToEndAsync(waiting.Token)
+                    : null;
+
                 await process.WaitForExitAsync(waiting.Token);
 
                 return new Performance(
-                    StackOutcomes.Exited, process.ExitCode, began.Elapsed, Survived: false);
+                    StackOutcomes.Exited, process.ExitCode, began.Elapsed, Survived: false,
+                    Said: reading is null ? null : await reading);
             }
             catch (OperationCanceledException)
             {

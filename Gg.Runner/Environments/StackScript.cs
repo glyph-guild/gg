@@ -56,6 +56,62 @@ public static class StackScript
     /// </remarks>
     public static bool Runs(string? hooks) => !string.IsNullOrWhiteSpace(hooks);
 
+    /// <summary>
+    /// Why this point did not work, or null when it did.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A pure decision, so the loop has nothing to get wrong.</b> Before slice
+    /// fifty-eight the loop performed a bring-up, recorded the result as a
+    /// <c>stack.performed</c> fact and carried on — the only reader of the
+    /// outcome collected it for shipping. A stack that failed to come up handed
+    /// an agent an environment that was not there, and the agent spent its budget
+    /// finding out. The judgement lives here because putting it in the loop is
+    /// what made it possible to ignore an exit code at all.
+    /// </para>
+    /// <para>
+    /// <b>It names the point.</b> Five can fail and they fail differently: a
+    /// <c>prepare</c> that could not build is a tree or a registry problem, an
+    /// <c>attach</c> that exited non-zero is the stack itself, a <c>detach</c>
+    /// that failed left something running for the next flight to trip over. "A
+    /// hook failed" sends a reader to read all five.
+    /// </para>
+    /// <para>
+    /// <b>And it is not a retry.</b> <see cref="PerformAsync"/> already retries
+    /// the START of a process, because a fork can lose a race with the
+    /// filesystem — a different failure from a script that ran and said no.
+    /// Running a bring-up again because it failed is how one half-built stack
+    /// becomes two.
+    /// </para>
+    /// </remarks>
+    public static string? Refusal(string point, Performance performance) =>
+        performance.Outcome switch
+        {
+            StackOutcomes.Exited when performance.Exit is 0 => null,
+
+            // THE CODE, because it is the first thing the script's author will
+            // look up. Exit is nullable and only this outcome has one.
+            StackOutcomes.Exited =>
+                $"the '{point}' point of this environment's hooks exited {performance.Exit}. "
+              + "The stack is not up, so nothing is gained by handing this flight to an agent "
+              + "that would spend its budget discovering that. Fix the script, or take the "
+              + "hooks off the environment and let an agent work the bring-up out from advice.",
+
+            // NO CODE EXISTS HERE, which `Exit`'s own summary says: "the exit
+            // code, for the one outcome that has one". Reporting a zero would
+            // make a hang read as a success.
+            StackOutcomes.Timeout =>
+                $"the '{point}' point of this environment's hooks was still running after "
+              + $"{Patience.TotalMinutes:0} minutes and was abandoned. A point that cannot "
+              + "finish is the environment being short rather than a script to wait longer "
+              + "for - attach is meant to reach health and return, not to hold it.",
+
+            _ =>
+                $"the '{point}' point of this environment's hooks would not start. The file is "
+              + "there and this host would not run it, which is a missing interpreter line or "
+              + "a lost executable bit rather than anything the stack did.",
+        };
+
     /// <summary>The argument this verb is performed with.</summary>
     public static string ArgumentFor(string verb) => verb;
 

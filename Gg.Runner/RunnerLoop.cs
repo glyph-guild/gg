@@ -855,6 +855,21 @@ public sealed class RunnerLoop(
     /// script" would be shipped by every flight and say nothing.
     /// </para>
     /// </remarks>
+    /// <summary>Why a performed point refused, or null when it did not run or worked.</summary>
+    /// <remarks>
+    /// <b>A point that did not run is not a point that failed.</b> Null comes back
+    /// for an environment with no hooks, which is every environment in the field -
+    /// so the absence has to read as "nothing to judge" rather than as a refusal,
+    /// or no flight could fly at all.
+    /// </remarks>
+    private static string? Refused(string point, Gg.Contracts.StackPerformed? performed) =>
+        performed is null
+            ? null
+            : Environments.StackScript.Refusal(
+                point,
+                new Environments.StackScript.Performance(
+                    performed.Outcome, performed.Exit, TimeSpan.Zero, Survived: false));
+
     private async Task<Gg.Contracts.StackPerformed?> PerformStackAsync(
         string? stack, WorkspaceResult workspace, string verb,
         CancellationToken cancellationToken)
@@ -2169,6 +2184,22 @@ public sealed class RunnerLoop(
         var proposed = await ShipAsync(
             lease, workspace, invoked, probe, secretsByLocator, cancellationToken);
 
+        // A POINT REFUSED, so there is nothing to land. Placed AFTER the ship
+        // deliberately: the hooks RAN, so their stack.performed facts are true
+        // evidence of what happened and belong on the flight - the opposite of
+        // the probe branch above, where nothing ran and a fact set "would be
+        // evidence of a flight that did not fly".
+        //
+        // Failed rather than abandoned: a stack that would not come up is this
+        // flight's own problem and handing it to another runner would reach the
+        // same wall. The reclaim on the way IN is what makes the next flight's
+        // instance trustworthy, so returning here leaves nothing behind.
+        if (invoked.Refused is { Length: > 0 } refusedBy)
+        {
+            await ReleaseAsync(lease, RunnerDisposition.Failed, refusedBy, cancellationToken);
+            return;
+        }
+
         // AND THEN IT ASKS, because shipping is accepted rather than answered.
         // The control plane records the batch and evaluates afterwards, so the
         // decision arrives on a route of its own - and the tree is still held
@@ -2571,6 +2602,24 @@ public sealed class RunnerLoop(
         var broughtUp = await PerformStackAsync(
             loop.Hooks, workspace, Environments.StackScript.Attach, cancellationToken);
 
+        // JUDGED NOW, BEFORE THE AGENT. Until slice fifty-eight the outcome was
+        // recorded as a fact and the loop carried on, so a stack that failed to
+        // come up handed an agent an environment that was not there and the
+        // agent spent its budget discovering it. The two points are checked in
+        // the order they ran, so the refusal names the FIRST thing that went
+        // wrong rather than the last.
+        var stopped = Refused(Environments.StackScript.Prepare, prepared)
+                   ?? Refused(Environments.StackScript.Attach, broughtUp);
+
+        if (stopped is { Length: > 0 })
+        {
+            return Invocation.Nothing with
+            {
+                Performed = [.. new[] { prepared, broughtUp }.OfType<Gg.Contracts.StackPerformed>()],
+                Refused = stopped,
+            };
+        }
+
         // TIMED HERE, because this is the only place that knows when the person
         // was handed the terminal and when they gave it back. Rule 6 records the
         // wall clock for an attended session and does not enforce it - nobody's
@@ -2738,9 +2787,15 @@ public sealed class RunnerLoop(
     /// it because a bring-up that failed has to reach a reader whatever the
     /// flight then did.
     /// </param>
+    /// <param name="Refused">
+    /// Why a hook point refused, or null when none did. Set by
+    /// <see cref="Environments.StackScript.Refusal"/>, which names the point —
+    /// five can fail and they fail differently.
+    /// </param>
     private sealed record Invocation(
         ExecutorRun? Run, LoopAttended? Attended, Environments.Emptied? Reclaimed = null,
-        IReadOnlyList<Gg.Contracts.StackPerformed>? Performed = null)
+        IReadOnlyList<Gg.Contracts.StackPerformed>? Performed = null,
+        string? Refused = null)
     {
         /// <summary>No executor, or nothing that names work: no loop fact of any kind.</summary>
         public static Invocation Nothing { get; } = new(null, null);

@@ -71,6 +71,19 @@ public class TheMaintainerBuildsFromTheRecipeTests
             Pushes.Add((repository, tag));
             return Task.FromResult(Pushing);
         }
+
+        public List<(string Repository, IReadOnlyCollection<string> Keep)> Reclaims { get; } = [];
+
+        public ImagesReclaimed Reclaiming { get; set; } =
+            new() { Removed = 1, Freed = 1_500_000_000 };
+
+        public Task<ImagesReclaimed> ReclaimImagesAsync(
+            string repository, IReadOnlyCollection<string> keep,
+            CancellationToken cancellationToken = default)
+        {
+            Reclaims.Add((repository, keep));
+            return Task.FromResult(Reclaiming);
+        }
     }
 
     private sealed class Members : IPoolAdapter
@@ -276,5 +289,91 @@ public class TheMaintainerBuildsFromTheRecipeTests
         await Assert.That(build.Diagnosis!).Contains("build")
             .Because("a maintainer that silently skipped a decided build would leave the "
                    + "control plane waiting on an answer that never comes.");
+    }
+
+    /// <summary>
+    /// NOTHING ELSE ON THE HOST RECLAIMS. The bake-and-roll pipeline leaves
+    /// every superseded image behind - measured on this fleet's pool host three
+    /// times, the last at 2.2 G free of 61 - and the roll is not allowed to do
+    /// it, because <see cref="IPoolAdapter"/> is fenced to <c>/containers/</c>
+    /// and a 403 from <c>/images/</c> read as drift resets every member every
+    /// sweep. The builder already writes images, so a build reclaims what the
+    /// build before it superseded.
+    /// </summary>
+    [Test]
+    public async Task A_build_reclaims_the_images_it_superseded_in_its_own_repository()
+    {
+        var (_, _, builder) = await RunAsync(ABuild());
+
+        var (repository, keep) = builder.Reclaims.Single();
+
+        await Assert.That(repository).IsEqualTo("127.0.0.1:5000/gg-member")
+            .Because("the repository part of the pin in force is the only one this build "
+                   + "wrote to, and an unscoped reclaim would take images this pool never made.");
+        await Assert.That(keep).Contains(Pushed)
+            .Because("the digest the registry answered with is what the pin is about to name.");
+        await Assert.That(keep).Contains("sha256:local")
+            .Because("a registry's manifest digest and the daemon's local image id are "
+                   + "different strings in the protocol even where this host makes them the "
+                   + "same one, so the image just built survives either way.");
+        await Assert.That(keep).Contains(Pin["127.0.0.1:5000/gg-member@".Length..])
+            .Because("the pool has not rolled yet: no container holds the old image, so the "
+                   + "daemon's own refusal would not protect it, and a reset has to be able "
+                   + "to recreate from it until the pin moves.");
+    }
+
+    /// <summary>
+    /// HOUSEKEEPING BESIDE THE ACT SOMEBODY ASKED FOR. A build that failed
+    /// because the tidy-up after it was refused would be a worse console than
+    /// a host with a full disk - and the pull point refusing <c>/images/</c> is
+    /// a configuration this fleet really has.
+    /// </summary>
+    [Test]
+    public async Task A_reclaim_that_was_refused_does_not_fail_the_build()
+    {
+        var builder = new Builder
+        {
+            Reclaiming = new ImagesReclaimed
+            {
+                Removed = 0,
+                Freed = 0,
+                Refused = "the daemon would not list images (HTTP 403).",
+            },
+        };
+
+        var (build, _, _) = await RunAsync(ABuild(), builder: builder);
+
+        await Assert.That(build.Outcome).IsEqualTo(PoolOutcomes.Verified)
+            .Because("a push that landed is a build that worked whatever the housekeeping "
+                   + "after it did.");
+        await Assert.That(build.ImageDigest).IsEqualTo(Pushed);
+    }
+
+    [Test]
+    public async Task A_build_that_pushed_nothing_reclaims_nothing()
+    {
+        var builder = new Builder
+        {
+            Pushing = new ImagePushed.Failed("the registry refused the push.", "unauthorized"),
+        };
+
+        var (_, _, _) = await RunAsync(ABuild(), builder: builder);
+
+        await Assert.That(builder.Reclaims).IsEmpty()
+            .Because("there is no new image to keep, so every image in the repository is one "
+                   + "something may still need - a reclaim here would take the pin's own.");
+    }
+
+    [Test]
+    public async Task A_build_that_did_not_build_reclaims_nothing()
+    {
+        var builder = new Builder
+        {
+            Built = new ImageBuilt.Failed("the recipe did not build: a step failed.", "exit 22"),
+        };
+
+        var (_, _, _) = await RunAsync(ABuild(), builder: builder);
+
+        await Assert.That(builder.Reclaims).IsEmpty();
     }
 }

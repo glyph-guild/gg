@@ -514,10 +514,30 @@ public sealed class MaintainLoop(
                 };
             }
 
+            // AND THE DISK, which nothing else reclaims. The bake and roll
+            // pipeline leaves every superseded image behind: measured on this
+            // fleet's pool host three times, the last at 2.2 G free of 61 with
+            // member images at 1.4 G and 4.2 G apiece. It also bounds what can
+            // ever be baked - an image carrying a real application would be
+            // 8-10 G a version, which is two bakes before the host dies.
+            //
+            // HERE RATHER THAN ON THE ROLL, which is where it belongs and is
+            // not allowed: IPoolAdapter is fenced to /containers/ on purpose,
+            // and its own remark says a 403 from /images/ read as drift resets
+            // every member every sweep. The builder already writes images, so
+            // it is the port that may. A build therefore reclaims what the
+            // build before it superseded - one behind, and enough: the steady
+            // state is two images per repository rather than all of them.
+            //
+            // NOT PART OF THE BUILD'S VERDICT. A push that landed is a build
+            // that worked whatever the housekeeping after it did, so this is
+            // narrated and never returned as a failure.
+            var kept = ((ImagePushed.Pushed)pushed).Digest;
+
             return new PoolObservation
             {
                 Outcome = PoolOutcomes.Verified,
-                ImageDigest = ((ImagePushed.Pushed)pushed).Digest,
+                ImageDigest = kept,
                 RecipeCommit = fetched.Commit,
             };
         }

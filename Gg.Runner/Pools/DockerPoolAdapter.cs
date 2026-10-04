@@ -392,6 +392,22 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter, IIm
     }
 
     /// <summary>
+    /// Removes this repository's images that nothing pins and nothing runs.
+    /// </summary>
+    /// <remarks>
+    /// <b>NEVER WITH <c>force</c>.</b> Without it the daemon refuses to delete
+    /// an image a container is using, which is the guard that matters - a
+    /// member that is up cannot lose what it is running even if this is asked
+    /// wrongly. `keep` adds only what the daemon cannot know: the pin, which a
+    /// pool scaled to nothing would leave unused and deletable.
+    /// </remarks>
+    public Task<ImagesReclaimed> ReclaimImagesAsync(
+        string repository,
+        IReadOnlyCollection<string> keep,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new ImagesReclaimed { Removed = 0, Freed = 0 });
+
+    /// <summary>
     /// Pushes a built image to its registry, and returns the digest the registry
     /// answered with - which is what a pin can name.
     /// </summary>

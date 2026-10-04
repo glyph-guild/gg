@@ -565,10 +565,51 @@ public sealed class MaintainLoop(
                 : $"reclaimed {reclaimed.Removed.Count} superseded image(s) for {repository}, "
                 + $"{reclaimed.Freed / 1_000_000} MB.");
 
+            // AND THE OTHER COPY. A push wrote two stores; the reclaim above
+            // emptied one. THE REGISTRY FOLLOWS THE DAEMON and only the
+            // daemon: a tag the daemon refused to give up is one a container
+            // is still using, and a reset recreates from the pin - a pinned
+            // manifest that had been removed could not be pulled back.
+            //
+            // Narrated like the reclaim and for the same reason: a host whose
+            // registry has not been reconfigured is a host to fix, not a build
+            // that went wrong.
             if (_registry is null)
             {
                 _narrate($"the registry behind {repository} was not reached: this runner was "
                        + "started without one, so it still holds every image this host built.");
+            }
+            else
+            {
+                var unlinked = 0;
+
+                foreach (var superseded in reclaimed.Removed)
+                {
+                    var gone = await _registry.RemoveManifestAsync(superseded, cancellationToken);
+
+                    if (gone.Refused is { } why)
+                    {
+                        _narrate($"{superseded} was not removed from the registry: {why}");
+                        break;
+                    }
+
+                    if (gone.Digest is not null)
+                    {
+                        unlinked++;
+                    }
+                }
+
+                if (unlinked is not 0)
+                {
+                    // WHAT THIS DID NOT DO, said where somebody reads it. A
+                    // manifest delete unlinks; measured on this fleet's host it
+                    // returned 213 bytes of a 12 GB store. The layers go when
+                    // gg-registry-gc.timer walks the filesystem, which is a
+                    // stop-the-world pass no API can ask for.
+                    _narrate($"unlinked {unlinked} superseded manifest(s) from the registry "
+                           + "behind " + repository + "; the layers go on the host's next "
+                           + "collection.");
+                }
             }
 
             return new PoolObservation

@@ -3867,7 +3867,13 @@ static async Task<int> RunnerMaintainAsync(string pool)
             Gg.Runner.Vcs.VcsConfiguration.FromEnvironment(
                 Settings.Value(Gg.Runner.Vcs.VcsConfiguration.HostsVariable, InForce.Configuration)),
             SkillCredential),
-        builder: adapter);
+        builder: adapter,
+        // ITS OWN CLIENT, WITH NO BASE ADDRESS. The adapter's one is pointed
+        // at the scope proxy, and the registry is a different service speaking
+        // a different protocol - whose address is read from the pin rather
+        // than configured, so this reaches only the registry the strategy in
+        // force pins from. That is a tighter bound than a key would be.
+        registry: new Gg.Runner.Pools.OciRegistry(new HttpClient()));
 
     return await loop.RunAsync(pool, stopping.Token);
 }

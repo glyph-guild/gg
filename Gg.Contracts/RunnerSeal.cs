@@ -44,7 +44,15 @@ public static class RunnerSeal
     /// <summary>What the answer's key is derived for.</summary>
     private const string AnswerLabel = "gg-runner-introduction-answer";
 
-    private const int KeyBytes = 32;
+    /// <summary>How long a derived or content key is.</summary>
+    /// <remarks>
+    /// <c>internal</c> rather than private so <see cref="CredentialSeal"/> mints
+    /// a content key of the length this file's AEAD expects. A second constant
+    /// over there would be the "two derivations that agree today" this type's
+    /// own remark exists to refuse, one assembly-local step removed.
+    /// </remarks>
+    internal const int KeyBytes = 32;
+
     private const int NonceBytes = 12;
     private const int TagBytes = 16;
 
@@ -133,6 +141,110 @@ public static class RunnerSeal
         ArgumentNullException.ThrowIfNull(ephemeral);
 
         return Open(sealedAnswer, _ => Agree(ephemeral, pinnedRunnerPublicKey, AnswerLabel));
+    }
+
+    /// <summary>
+    /// Seals to a public key under a caller's label, minting the ephemeral half
+    /// here.
+    /// </summary>
+    /// <remarks>
+    /// <b>The asymmetric half of a credential's wrap, and it is this file's
+    /// existing frame.</b> Sealing a content key to a holder's public key is the
+    /// same act as sealing an offer to a runner's, so it reuses
+    /// <see cref="Seal"/> rather than growing a second framing that agrees
+    /// today. The LABEL is the caller's, which is what keeps a wrapped content
+    /// key from opening as an introduction and the other way round.
+    /// </remarks>
+    internal static byte[] SealTo(string publicKey, byte[] plaintext, string label)
+    {
+        using var ephemeral = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
+
+        return Seal(
+            Agree(ephemeral, publicKey, label),
+            ephemeral.PublicKey.ExportSubjectPublicKeyInfo(),
+            plaintext);
+    }
+
+    /// <summary>Opens what <see cref="SealTo"/> sealed, with the holder's own key.</summary>
+    internal static byte[] OpenWith(ECDiffieHellman ours, byte[] sealedBytes, string label)
+    {
+        ArgumentNullException.ThrowIfNull(ours);
+
+        return Open(sealedBytes, theirs => Agree(ours, theirs, label));
+    }
+
+    /// <summary>
+    /// Seals under a key both ends already have: nonce, tag, ciphertext, and no
+    /// frame.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A second framing, and the difference is why it is not a duplicate.</b>
+    /// <see cref="Seal"/> frames a public key ahead of the ciphertext because
+    /// the opener cannot derive the shared secret without it — and
+    /// <see cref="Framed"/> refuses a zero-length one precisely so a truncated
+    /// frame cannot read as an absent key. Here no key travels at all: whoever
+    /// opens this was handed the content key by the wrap. Reusing the other
+    /// shape would mean writing a key length of zero into a reader built to
+    /// reject exactly that.
+    /// </para>
+    /// <para>
+    /// Declared once, here, beside the asymmetric one, so the two cannot drift
+    /// into each other.
+    /// </para>
+    /// </remarks>
+    internal static byte[] SealUnder(byte[] key, byte[] plaintext)
+    {
+        ArgumentNullException.ThrowIfNull(plaintext);
+
+        var nonce = RandomNumberGenerator.GetBytes(NonceBytes);
+        var ciphertext = new byte[plaintext.Length];
+        var tag = new byte[TagBytes];
+
+        using (var gcm = new AesGcm(key, TagBytes))
+        {
+            gcm.Encrypt(nonce, plaintext, ciphertext, tag);
+        }
+
+        var sealedBytes = new byte[NonceBytes + TagBytes + ciphertext.Length];
+        var at = sealedBytes.AsSpan();
+
+        nonce.CopyTo(at);
+        at = at[NonceBytes..];
+        tag.CopyTo(at);
+        at = at[TagBytes..];
+        ciphertext.CopyTo(at);
+
+        return sealedBytes;
+    }
+
+    /// <summary>Opens what <see cref="SealUnder"/> sealed.</summary>
+    internal static byte[] OpenUnder(byte[] key, byte[] sealedBytes)
+    {
+        ArgumentNullException.ThrowIfNull(sealedBytes);
+
+        if (sealedBytes.Length < NonceBytes + TagBytes)
+        {
+            // LOUD AND SPECIFIC, as the framed reader is, and for the same
+            // reason: this is what a truncated file looks like, and a person has
+            // to be able to tell it from a key that does not match.
+            throw new CryptographicException(
+                "A sealed body shorter than its own nonce and tag cannot be opened. "
+              + "Something truncated it.");
+        }
+
+        var at = sealedBytes.AsSpan();
+        var nonce = at[..NonceBytes];
+        at = at[NonceBytes..];
+        var tag = at[..TagBytes];
+        var ciphertext = at[TagBytes..];
+
+        var plaintext = new byte[ciphertext.Length];
+
+        using var gcm = new AesGcm(key, TagBytes);
+        gcm.Decrypt(nonce, ciphertext, tag, plaintext);
+
+        return plaintext;
     }
 
     private static byte[] Agree(ECDiffieHellman ours, string theirs, string label) =>

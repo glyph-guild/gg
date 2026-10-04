@@ -106,10 +106,14 @@ public class LocalCredentialStoreTests
 
         store.Write(Locator, "ghp-not-a-real-token");
 
-        var mode = File.GetUnixFileMode(store.PathFor(Locator));
+        // SealedPathFor, because Write seals now and PathFor names the plaintext
+        // shape a store only ever READS (slice fifty-nine step 2). The claim is
+        // unchanged - the file holding this machine's credential is 0600 - and
+        // only the file's name moved.
+        var mode = File.GetUnixFileMode(store.SealedPathFor(Locator));
 
         await Assert.That(mode).IsEqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite);
-        await Assert.That(File.GetUnixFileMode(Path.GetDirectoryName(store.PathFor(Locator))!))
+        await Assert.That(File.GetUnixFileMode(Path.GetDirectoryName(store.SealedPathFor(Locator))!))
             .IsEqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute)
             .Because("a 0600 file inside a world-readable directory still tells everyone it exists.");
     }

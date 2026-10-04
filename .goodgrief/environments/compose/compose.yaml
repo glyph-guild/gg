@@ -1,0 +1,50 @@
+# A deliberately ordinary compose stack: two services, no .NET, no Aspire.
+#
+# S58.7-02 exists to prove the five points are not Aspire's lifecycle wearing
+# general names, so this stack is chosen for having nothing in common with an
+# AppHost. Both services carry a HEALTHCHECK, because `ready` reports health as
+# the daemon judges it rather than re-probing from wherever the hook happens to
+# run - see the README.
+
+name: gg-compose-env
+
+services:
+  web:
+    image: nginx:1.27-alpine
+    # THE PORT gg CHOSE, not one this file picked. `GG_PREVIEW_PORT` is handed
+    # to the hook by the runner and is the port the preview connector forwards
+    # to; a stack that bound its own would answer where nothing is looking,
+    # which is the defect ADR-0033 Decision 8 described and slice 58 step 4
+    # fixed at the cause.
+    #
+    # The default is for a person running this by hand with no gg involved.
+    ports:
+      - "${GG_PREVIEW_PORT:-18080}:80"
+    volumes:
+      - ./index.html:/usr/share/nginx/html/index.html:ro
+    healthcheck:
+      # wget is in nginx:alpine; curl is not.
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:80/"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 2s
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:18.3
+    environment:
+      POSTGRES_PASSWORD: compose-env
+      POSTGRES_DB: appdb
+    # NO PUBLISHED PORT and no named volume. Nothing outside the stack needs to
+    # reach it, and reclaim's volume prune is unfiltered (ADR-0033's second
+    # amendment), so a named volume would promise durability across flights
+    # that nothing can keep.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d appdb"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 2s

@@ -88,7 +88,11 @@ public class TheExampleEnvironmentSpeaksTheProtocolTests
         await Assert.That(Relative.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase)).IsFalse()
             .Because("a .ps1 is invoked through pwsh, which the fleet does not have.");
 
-        await Assert.That(script).DoesNotContain("pwsh")
+        await Assert.That(script.Split('\n')[0].Trim()).IsEqualTo("#!/bin/sh")
+            .Because("the shebang is what the OS honours when gg execs the file directly, so it "
+                   + "is the line that decides which interpreter actually runs.");
+
+        await Assert.That(CodeOf(script)).DoesNotContain("pwsh")
             .Because("rule 1: the contract names the points, never a language, and the one "
                    + "language the fleet cannot run is the one worth asserting about.");
     }
@@ -102,7 +106,7 @@ public class TheExampleEnvironmentSpeaksTheProtocolTests
         // granted instance; a hook that set its own would reach the pool host's
         // daemon, which is the one thing the instance exists to keep it away
         // from. Mentioning the name in a comment is fine - assigning it is not.
-        await Assert.That(script).DoesNotContain("DOCKER_HOST=")
+        await Assert.That(CodeOf(script)).DoesNotContain("DOCKER_HOST=")
             .Because("gg sets DOCKER_HOST to the granted instance's socket, and a hook that "
                    + "assigns it reaches the pool host's own daemon instead.");
     }
@@ -167,6 +171,23 @@ public class TheExampleEnvironmentSpeaksTheProtocolTests
                    + "making, and reading it as `no` would lose the difference between a stack "
                    + "that is not up and a hook that is broken.");
     }
+
+    /// <summary>
+    /// The script with its comments removed.
+    /// </summary>
+    /// <remarks>
+    /// <b>Because a scan over raw text cannot tell an explanation from an
+    /// invocation.</b> The first version of the <c>pwsh</c> assertion failed on
+    /// the script's own sentence arguing for the rule it was enforcing, and the
+    /// <c>DOCKER_HOST</c> one passed only because that comment happened not to
+    /// write an <c>=</c>. Both claims are about what the script RUNS, so the
+    /// prose comes out before either is made - and the explanations stay, which
+    /// is what a reader of the hook needs most.
+    /// </remarks>
+    private static string CodeOf(string script) =>
+        string.Join('\n', script.Split('\n')
+            .Skip(1)
+            .Where(line => !line.TrimStart().StartsWith('#')));
 
     private static StackScript.Performance Exited(int code) =>
         new(StackOutcomes.Exited, code, TimeSpan.FromSeconds(1), Survived: false);

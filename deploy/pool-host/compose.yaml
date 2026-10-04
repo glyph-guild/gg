@@ -52,6 +52,13 @@ services:
     # NO SOCKET. It stores images; it never starts anything.
     volumes:
       - registry-data:/var/lib/registry
+      # AND ITS CONFIG, REFERENCED RATHER THAN COPIED, for the proxy's reason.
+      # Without it the image's default applies, which carries no
+      # storage.delete.enabled - so DELETE /v2/<name>/manifests/<digest>
+      # answers 405 UNSUPPORTED whatever asks, and every image this host has
+      # ever built stays here forever. Measured on this fleet's host before
+      # this line existed: 12.05 GB over 25 tags, two of them pinned.
+      - ../../scripts/pool-registry/config.yml:/etc/docker/registry/config.yml:ro
 
 volumes:
   # NAMED, so the images a strategy pins survive the container being replaced.

@@ -1,0 +1,46 @@
+# The pool host's own registry - the one a strategy pins from, and the only
+# one a pool member is ever created from. It holds nothing but what this
+# host's maintainer built and pushed.
+#
+# WHY THIS FILE EXISTS AT ALL. compose.yaml used to start registry:2 with no
+# config, which takes the image's default - and that carries no
+# `storage.delete.enabled`, so `DELETE /v2/<name>/manifests/<digest>` answers
+# 405 UNSUPPORTED whatever asks. Every image a host ever built stayed in its
+# registry. Measured on this fleet's host: 12.05 GB over 25 tags, of which two
+# were pinned. That was the larger half of the disk it kept filling.
+#
+# REFERENCED BY compose.yaml, NEVER COPIED, for the same reason the proxy's
+# allowlist is: a second copy beside the service is a second place the rule
+# lives, and ThePoolRegistryCanBeTidiedTests compares this file against the
+# mount that is supposed to carry it.
+#
+# DELETING A MANIFEST FREES NOTHING BY ITSELF. It unlinks; measured on this
+# host, deleting one manifest returned 213 bytes of a 12 GB store. The layers
+# stay until `registry garbage-collect` walks the filesystem, which this API
+# does not expose and which is not safe while the registry is writable. That
+# is deploy/pool-host/gg-registry-gc.service, and it is the half that actually
+# returns the disk.
+version: 0.1
+log:
+  fields:
+    service: registry
+storage:
+  cache:
+    blobdescriptor: inmemory
+  filesystem:
+    rootdirectory: /var/lib/registry
+  # THE ONE LINE THIS FILE IS FOR. Without it the maintainer's reclaim is
+  # refused with 405 and reports that it was - a host that will not let its
+  # registry be tidied keeps its disk, and says so, rather than growing in
+  # silence.
+  delete:
+    enabled: true
+http:
+  addr: :5000
+  headers:
+    X-Content-Type-Options: [nosniff]
+health:
+  storagedriver:
+    enabled: true
+    interval: 10s
+    threshold: 3

@@ -79,7 +79,10 @@ jobs:
           tar -czf artifacts/gg-pool-host.tar.gz \
             deploy/pool-host/compose.yaml \
             deploy/pool-host/gg-runner-maintain.service \
-            scripts/pool-proxy/nginx.conf
+            deploy/pool-host/gg-registry-gc.service \
+            deploy/pool-host/gg-registry-gc.timer \
+            scripts/pool-proxy/nginx.conf \
+            scripts/pool-registry/config.yml
       - uses: actions/upload-artifact@v4
         with:
           name: pool-host-bundle

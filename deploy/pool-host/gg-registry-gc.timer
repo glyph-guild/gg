@@ -1,0 +1,16 @@
+# Nightly, because the store grows by one image per build and a build is a
+# thing a person asks for - not a rate that needs chasing. The randomised
+# delay is so a fleet of pool hosts does not stop every registry at once.
+#
+# Persistent, so a host that was off at 04:00 collects when it comes back
+# rather than waiting a day. This is the only thing that returns the disk.
+[Unit]
+Description=Reclaim the pool registry's unreferenced blobs nightly
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+RandomizedDelaySec=30m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

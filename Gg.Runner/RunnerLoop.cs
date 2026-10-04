@@ -873,7 +873,7 @@ public sealed class RunnerLoop(
     private async Task<Gg.Contracts.StackPerformed?> PerformStackAsync(
         string? stack, WorkspaceResult workspace, string verb,
         string? instance, CancellationToken cancellationToken, bool capture = false,
-        int? previewPort = null)
+        int? previewPort = null, string? previewUrl = null)
     {
         if (!Environments.StackScript.Runs(stack) || workspace.Trees.Count == 0)
         {
@@ -893,7 +893,7 @@ public sealed class RunnerLoop(
         var performance = await Environments.StackScript.PerformAsync(
             script, Environments.StackScript.ArgumentFor(verb),
             workspace.Trees[0].Path, Environments.StackScript.Patience, cancellationToken,
-            instance, capture, previewPort);
+            instance, capture, previewPort, previewUrl);
 
         _lastSaid = performance.Said;
 
@@ -2629,11 +2629,11 @@ public sealed class RunnerLoop(
         // what is running.
         var prepared = await PerformStackAsync(
             loop.Hooks, workspace, Environments.StackScript.Prepare,
-            loop.Instance, cancellationToken, previewPort: _served?.Port);
+            loop.Instance, cancellationToken, previewPort: _served?.Port, previewUrl: _served?.Url);
 
         var broughtUp = await PerformStackAsync(
             loop.Hooks, workspace, Environments.StackScript.Attach,
-            loop.Instance, cancellationToken, previewPort: _served?.Port);
+            loop.Instance, cancellationToken, previewPort: _served?.Port, previewUrl: _served?.Url);
 
         // JUDGED NOW, BEFORE THE AGENT. Until slice fifty-eight the outcome was
         // recorded as a fact and the loop carried on, so a stack that failed to
@@ -2648,7 +2648,7 @@ public sealed class RunnerLoop(
         // inferred from an exit code.
         var answered = await PerformStackAsync(
             loop.Hooks, workspace, Environments.StackScript.Ready,
-            loop.Instance, cancellationToken, capture: true, previewPort: _served?.Port);
+            loop.Instance, cancellationToken, capture: true, previewPort: _served?.Port, previewUrl: _served?.Url);
 
         // TAKEN NOW, because `detach` runs through the same method later and
         // would clear it. Read once, where the point that produced it ran.
@@ -2696,7 +2696,7 @@ public sealed class RunnerLoop(
         // way in is the backstop for both.
         var broughtDown = await PerformStackAsync(
             loop.Hooks, workspace, Environments.StackScript.Detach,
-            loop.Instance, cancellationToken, previewPort: _served?.Port);
+            loop.Instance, cancellationToken, previewPort: _served?.Port, previewUrl: _served?.Url);
 
         // THE SAME PREDICATE THE HOLD BELOW USES, read here so the tear-down and
         // the hold cannot disagree about whether anybody is coming to look.

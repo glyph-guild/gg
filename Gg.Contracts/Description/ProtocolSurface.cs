@@ -2119,7 +2119,7 @@ public static class ProtocolSurface
             // is that ProtocolSurface.Endpoints names no route carrying this
             // type - asserted, not intended - so there is no request body it
             // can enter.
-            [typeof(ConfigureCredentialAsk)] = ["locator", "secret"],
+            [typeof(ConfigureCredentialAsk)] = ["envelope", "locator"],
             [typeof(ConfiguredCredential)] = ["locator", "written"],
             // THE CODE IS THE OTHER DECLARED MEMBER THAT IS A SECRET, on the
             // same argument: channel-only, asserted, and the runner echoes it

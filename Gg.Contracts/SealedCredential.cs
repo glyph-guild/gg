@@ -206,9 +206,19 @@ public static class CredentialSeal
     /// success at delivering nothing.
     /// </para>
     /// </remarks>
+    /// <remarks>
+    /// <b>AN EMPTY VALUE SEALS, and that is deliberate.</b> It is well formed —
+    /// an empty plaintext is a plaintext — and refusing it here would move a
+    /// refusal that already exists and is already better placed. A store that
+    /// threw on an empty secret would make `LocalCredentialResolver`'s own arm
+    /// unreachable, and that arm is Article XI doing its job: *"an empty secret
+    /// is a secret that fetches nothing and fails much later, in a place with no
+    /// way back to here."* Sealing is about how a value rests, not about whether
+    /// it is a good value.
+    /// </remarks>
     public static SealedCredential Seal(string value, IReadOnlyList<string> holders)
     {
-        ArgumentException.ThrowIfNullOrEmpty(value);
+        ArgumentNullException.ThrowIfNull(value);
         ArgumentNullException.ThrowIfNull(holders);
 
         if (holders.Count == 0)

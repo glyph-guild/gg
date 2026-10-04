@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Gg.Contracts;
 
 namespace Gg.Client;
@@ -78,12 +81,49 @@ public interface ICredentialStore
 /// </remarks>
 public sealed class FileCredentialStore : ICredentialStore
 {
-    /// <summary>Every stored secret has this extension, so the directory reads honestly.</summary>
+    /// <summary>What a credential written before slice fifty-nine is kept in.</summary>
+    /// <remarks>
+    /// <b>Still read, never written.</b> Every store in the field holds these,
+    /// and a store that could only read what it sealed would strand every
+    /// machine the day sealing shipped. Step 3 reseals them; until it runs, both
+    /// shapes exist and the extension is what tells them apart — which is also
+    /// what lets <c>Protection</c> answer per credential rather than for a
+    /// directory it has not opened.
+    /// </remarks>
     private const string Extension = ".secret";
 
-    private readonly string _root;
+    /// <summary>What a sealed credential is kept in.</summary>
+    /// <remarks>
+    /// <b>A different extension rather than a header inside the same file.</b>
+    /// Telling the two apart must not require opening either: <c>Holds</c> may
+    /// not open one (rule 7), and a plaintext secret can look like anything,
+    /// including whatever a header would be.
+    /// </remarks>
+    private const string SealedExtension = ".sealed";
 
-    public FileCredentialStore(string? root = null) => _root = root ?? DefaultRoot();
+    private readonly string _root;
+    private readonly Lazy<MachineKey> _key;
+
+    /// <summary>
+    /// This machine's store.
+    /// </summary>
+    /// <param name="root">Where the credentials live. Defaults to <see cref="DefaultRoot"/>.</param>
+    /// <param name="key">
+    /// The key this store seals under. Defaults to this machine's, loaded or
+    /// made on first use.
+    /// </param>
+    /// <remarks>
+    /// <b>The key is resolved LAZILY, and that is not an optimisation.</b>
+    /// Loading it eagerly would mint one on every construction — including in a
+    /// console that only ever asks <c>Holds</c>, and including in a test that
+    /// passed a temporary root and would then have written a key into the real
+    /// user's configuration directory.
+    /// </remarks>
+    public FileCredentialStore(string? root = null, MachineKey? key = null)
+    {
+        _root = root ?? DefaultRoot();
+        _key = new Lazy<MachineKey>(() => key ?? MachineKey.LoadOrCreate());
+    }
 
     /// <summary>Where credentials live when nobody overrides it.</summary>
     /// <remarks>
@@ -123,9 +163,19 @@ public sealed class FileCredentialStore : ICredentialStore
             : throw new ArgumentException($"'{locator}' resolves outside the store.", nameof(locator));
     }
 
+    /// <summary>Where a SEALED credential for this locator is kept.</summary>
+    /// <remarks>
+    /// Public because a test has to be able to damage one, and because
+    /// <c>gg doctor</c> reports per credential in step 3. It derives from
+    /// <see cref="PathFor"/> so there is one containment check rather than two.
+    /// </remarks>
+    public string SealedPathFor(string locator) =>
+        Path.ChangeExtension(PathFor(locator), SealedExtension);
+
     public void Write(string locator, string secret)
     {
-        var path = PathFor(locator);
+        var path = SealedPathFor(locator);
+        var plaintext = PathFor(locator);
 
         // Every directory from the store's root down, not just the leaf. A
         // locator with a slash in it creates an intermediate directory, and one
@@ -146,35 +196,133 @@ public sealed class FileCredentialStore : ICredentialStore
         }
         RestrictFile(path);
 
-        File.WriteAllText(path, secret);
+        File.WriteAllText(
+            path,
+            JsonSerializer.Serialize(
+                CredentialSeal.Seal(secret, [_key.Value.PublicKey]),
+                SealedCredentialJson.Default.SealedCredential));
+
         RestrictFile(path);
+
+        // THE PLAINTEXT GOES, and this line is the whole of S59.2-01's teeth.
+        // Sealing on write while leaving the old file where it sat passes every
+        // round-trip test anybody would write and leaves the value on disk for
+        // ever, for whoever copies the directory.
+        File.Delete(plaintext);
     }
 
     public string? Read(string locator)
     {
+        var sealedPath = SealedPathFor(locator);
+
+        if (File.Exists(sealedPath))
+        {
+            return Open(locator, File.ReadAllText(sealedPath));
+        }
+
         var path = PathFor(locator);
 
         // A missing secret is a diagnosis the caller makes - doctor reports it,
         // the runner turns it into a flight-log event - not an exception thrown
         // from a file API somewhere down the stack.
+        //
+        // STILL READ, NEVER WRITTEN. A credential written before sealing shipped
+        // opens as it always did; step 3 is what reseals it.
         return File.Exists(path) ? File.ReadAllText(path) : null;
+    }
+
+    /// <summary>
+    /// The value inside a sealed entry, or a refusal that is not "absent".
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Rule 9: a credential that cannot be opened is not one that is
+    /// absent.</b> Null means "no credential for that locator on this machine",
+    /// and a runner handed that clones anonymously — so a store carried to
+    /// another machine would quietly become a flight with no permissions
+    /// instead of a diagnosis somebody can act on.
+    /// </para>
+    /// <para>
+    /// <b>Rule 8: the sentence names the locator and never what it found.</b>
+    /// This is reached holding a ciphertext and a wrapped key, and an exception
+    /// that helpfully included either would print both into a console and a
+    /// flight log. <see cref="CredentialUnavailableException"/> is already the
+    /// type for "this machine cannot get it, with a sentence", and
+    /// <c>LocalCredentialResolver</c> already turns it into a flight's
+    /// diagnosis.
+    /// </para>
+    /// </remarks>
+    private string Open(string locator, string written)
+    {
+        SealedCredential? envelope;
+
+        try
+        {
+            envelope = JsonSerializer.Deserialize(
+                written, SealedCredentialJson.Default.SealedCredential);
+        }
+        catch (JsonException)
+        {
+            envelope = null;
+        }
+
+        if (envelope is null)
+        {
+            throw new CredentialUnavailableException(
+                $"The credential at '{locator}' on this machine is not a sealed credential. "
+              + "Something truncated or overwrote it; push it here again.");
+        }
+
+        try
+        {
+            return CredentialSeal.Open(envelope, _key.Value.ForOpeningWhatThisMachineSealed());
+        }
+        catch (CryptographicException refused)
+        {
+            // THE INNER SENTENCE IS ALREADY SAFE. CredentialSeal says which
+            // holders an envelope is for - public keys, and the fact somebody
+            // needs to work out who can push it to them - and never the bytes.
+            throw new CredentialUnavailableException(
+                $"The credential at '{locator}' is on this machine and will not open here. "
+              + refused.Message);
+        }
     }
 
     // THE FILE IS NEVER OPENED. That is the whole difference from Read, and it
     // is why an answer from here may travel somewhere an answer from there may
     // not.
-    public bool Holds(string locator) => File.Exists(PathFor(locator));
+    //
+    // AND SEALING IS WHERE THAT WOULD MOST EASILY BE LOST. The obvious
+    // implementation over a sealed store is "try to open it and see", which is
+    // correct, is easy, and hands the console back the thing this split exists
+    // to keep away from it. Presence is the file existing, whatever is in it.
+    public bool Holds(string locator) =>
+        File.Exists(SealedPathFor(locator)) || File.Exists(PathFor(locator));
 
+    /// <summary>
+    /// Deletes it, in whichever shapes it is here in.
+    /// </summary>
+    /// <remarks>
+    /// <b>BOTH, and never one.</b> A machine mid-migration can hold a sealed
+    /// entry and a plaintext one for the same locator, and a remove that took
+    /// only the sealed half would report true and leave the readable copy behind
+    /// — which is the shape of the defect this slice exists to end, arriving
+    /// through the verb that is supposed to clean up after it.
+    /// </remarks>
     public bool Remove(string locator)
     {
-        var path = PathFor(locator);
-        if (!File.Exists(path))
+        var removed = false;
+
+        foreach (var path in new[] { SealedPathFor(locator), PathFor(locator) })
         {
-            return false;
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+                removed = true;
+            }
         }
 
-        File.Delete(path);
-        return true;
+        return removed;
     }
 
     /// <summary>The store root, then each directory below it, outermost first.</summary>
@@ -222,3 +370,15 @@ public sealed class FileCredentialStore : ICredentialStore
         }
     }
 }
+
+/// <summary>
+/// How a sealed credential is written to this machine's disk.
+/// </summary>
+/// <remarks>
+/// <b>Source-generated, because everything here must stay AOT-publishable.</b>
+/// Its own context rather than a shared one: what a store writes to a local file
+/// is not what crosses a wire, and a single context covering both would make a
+/// change to either able to move the other.
+/// </remarks>
+[JsonSerializable(typeof(SealedCredential))]
+internal sealed partial class SealedCredentialJson : JsonSerializerContext;

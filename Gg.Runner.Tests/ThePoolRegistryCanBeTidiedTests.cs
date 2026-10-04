@@ -185,8 +185,22 @@ public class ThePoolRegistryCanBeTidiedTests
         // host unpacks; a file the tar does not carry is a mount that binds a
         // missing path, which on Linux creates a DIRECTORY over config.yml and
         // starts the registry on its default again.
-        var bundle = File.ReadAllText(
-            Path.Combine(Root(), ".github", "workflows", "publish-cli.yml"));
+        // FOUND BY WHAT IT IS, not by its path. gg forbids a source file
+        // naming an identity provider, and the directory workflows live in is
+        // named after one; assembling that string from pieces would satisfy
+        // the rule and not its reason. The workflow that bundles a pool host
+        // is the one that makes the tarball - which is also the definition
+        // that survives somebody moving it.
+        var bundle = Directory.EnumerateFiles(Root(), "*.yml", SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+                            StringComparison.Ordinal)
+                     && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
+                            StringComparison.Ordinal))
+            .Select(File.ReadAllText)
+            .SingleOrDefault(t => t.Contains("gg-pool-host.tar.gz", StringComparison.Ordinal))
+            ?? throw new InvalidOperationException(
+                "nothing in this repository bundles a pool host, so there is no shipping to "
+              + "check - which would make every assertion below vacuously true.");
 
         foreach (var shipped in (string[])
                  [

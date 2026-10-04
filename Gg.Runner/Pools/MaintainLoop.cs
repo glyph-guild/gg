@@ -60,11 +60,23 @@ public sealed class MaintainLoop(
     // started without them answers a decided build with that sentence rather
     // than doing nothing, which would leave the control plane waiting forever.
     IRecipeSource? recipes = null,
-    IImageBuilder? builder = null)
+    IImageBuilder? builder = null,
+    // AND WHERE THE OTHER COPY LIVES. A push writes two stores - the daemon's
+    // images and the registry's blobs - and reclaiming one leaves the other
+    // holding every image this host ever built. Measured on this fleet's pool
+    // host: 12.05 GB in the registry against 6 GB of images.
+    //
+    // ITS OWN PORT, because the builder speaks to the Docker daemon through
+    // the scope proxy and this speaks the distribution protocol to a registry.
+    // Optional for the builder's reason, and the sentence it is absent with is
+    // narrated rather than returned: a push that landed is a build that
+    // worked, whatever the housekeeping after it did.
+    IImageRegistry? registry = null)
 {
     private readonly IPoolProtocol _protocol = protocol;
     private readonly IRecipeSource? _recipes = recipes;
     private readonly IImageBuilder? _builder = builder;
+    private readonly IImageRegistry? _registry = registry;
     private readonly IPoolAdapter _adapter = adapter;
     private readonly IClock _clock = clock;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay = delay;
@@ -550,8 +562,14 @@ public sealed class MaintainLoop(
 
             _narrate(reclaimed.Refused is { } refusal
                 ? $"nothing was reclaimed for {repository}: {refusal}"
-                : $"reclaimed {reclaimed.Removed} superseded image(s) for {repository}, "
+                : $"reclaimed {reclaimed.Removed.Count} superseded image(s) for {repository}, "
                 + $"{reclaimed.Freed / 1_000_000} MB.");
+
+            if (_registry is null)
+            {
+                _narrate($"the registry behind {repository} was not reached: this runner was "
+                       + "started without one, so it still holds every image this host built.");
+            }
 
             return new PoolObservation
             {

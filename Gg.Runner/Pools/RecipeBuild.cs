@@ -267,12 +267,84 @@ public interface IImageBuilder
 /// </remarks>
 public sealed record ImagesReclaimed
 {
-    /// <summary>How many images were removed.</summary>
-    public required int Removed { get; init; }
+    /// <summary>
+    /// The tags that were removed, not merely how many.
+    /// </summary>
+    /// <remarks>
+    /// <b>Named rather than counted, because something downstream has to mirror
+    /// them.</b> The daemon's images and the registry's blobs are separate
+    /// stores and only this list says which of them the daemon actually gave
+    /// up - an image a container is still using is refused here, and its
+    /// manifest must survive in the registry too or a reset could not recreate
+    /// what is running.
+    /// </remarks>
+    public required IReadOnlyList<string> Removed { get; init; }
 
     /// <summary>What the daemon said it freed, in bytes.</summary>
     public required long Freed { get; init; }
 
     /// <summary>Why nothing was removed, when nothing was. Null when it worked.</summary>
+    public string? Refused { get; init; }
+}
+
+/// <summary>
+/// Removing from the host's own registry a manifest the daemon has given up.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>A second store, and the larger one.</b> Reclaiming the daemon's images
+/// leaves the registry holding every one of them: measured on this fleet's
+/// pool host, 12.05 GB over 25 tags with two pinned, against 6 GB of images.
+/// A push writes both and only one of them was ever read back.
+/// </para>
+/// <para>
+/// <b>Its own port, not another member on <see cref="IImageBuilder"/>.</b> The
+/// builder speaks to the Docker daemon through the scope proxy; this speaks
+/// the OCI distribution protocol to a registry. One adapter answering both
+/// would be one adapter holding two base addresses and two protocols.
+/// </para>
+/// <para>
+/// <b>REACHED DIRECTLY, not through the scope proxy, and that is a smaller
+/// thing than it sounds.</b> The proxy exists because the Docker socket is
+/// host root - anything that reaches it can start a privileged container and
+/// own the machine. A registry is the runner's own output store: this runner
+/// already decides everything in it, because everything in it is what this
+/// runner pushed. A fence between a process and its own output buys nothing,
+/// and the runner is an ordinary process that can already reach any port on
+/// its own loopback.
+/// </para>
+/// <para>
+/// <b>The address comes from the pin, so there is nothing to configure.</b> A
+/// reference is <c>registry/repository:tag</c> by OCI convention, which makes
+/// the bound self-enforcing: the runner reaches only the registry its own
+/// strategy pins from, and a new key could name one it does not.
+/// </para>
+/// </remarks>
+public interface IImageRegistry
+{
+    /// <summary>
+    /// Removes the manifest a tag names, if the registry allows it.
+    /// </summary>
+    /// <param name="reference">
+    /// A full reference - <c>127.0.0.1:5000/gg-member:1c26776e2b1f</c>. The
+    /// registry's address is read from it rather than configured.
+    /// </param>
+    Task<ManifestRemoved> RemoveManifestAsync(
+        string reference, CancellationToken cancellationToken = default);
+}
+
+/// <summary>What removing a manifest did, or why it did nothing.</summary>
+/// <remarks>
+/// <b>A refusal is an answer here too.</b> A registry started on the image's
+/// default config answers 405 UNSUPPORTED to every delete, which is a host
+/// that has not been reconfigured rather than a build that went wrong - it
+/// must be said out loud and must not fail anything.
+/// </remarks>
+public sealed record ManifestRemoved
+{
+    /// <summary>The manifest digest that was removed, or null if none was.</summary>
+    public string? Digest { get; init; }
+
+    /// <summary>Why it was not removed. Null when it was.</summary>
     public string? Refused { get; init; }
 }

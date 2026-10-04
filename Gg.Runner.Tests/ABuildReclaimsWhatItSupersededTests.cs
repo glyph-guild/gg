@@ -106,7 +106,7 @@ public class ABuildReclaimsWhatItSupersededTests
 
         var reclaimed = await Adapter(daemon).ReclaimImagesAsync(Repository, [Keep]);
 
-        await Assert.That(reclaimed.Removed).IsEqualTo(1);
+        await Assert.That(reclaimed.Removed).IsEquivalentTo([Tag(Superseded)]);
         await Assert.That(reclaimed.Freed).IsEqualTo(1_500_000_000L)
             .Because("what a reclaim freed is the only number that says whether it was worth "
                    + "doing, and a host at 2.2 G free is the reason it exists.");
@@ -162,7 +162,7 @@ public class ABuildReclaimsWhatItSupersededTests
 
         var reclaimed = await Adapter(daemon).ReclaimImagesAsync(Repository, []);
 
-        await Assert.That(reclaimed.Removed).IsEqualTo(1);
+        await Assert.That(reclaimed.Removed).IsEquivalentTo([Tag(Superseded)]);
         await Assert.That(reclaimed.Freed).IsEqualTo(1_500_000_000L)
             .Because("an image that was refused freed nothing, and counting it would report a "
                    + "disk that is not there.");
@@ -178,7 +178,7 @@ public class ABuildReclaimsWhatItSupersededTests
 
         var reclaimed = await Adapter(daemon).ReclaimImagesAsync(Repository, [Keep]);
 
-        await Assert.That(reclaimed.Removed).IsEqualTo(0);
+        await Assert.That(reclaimed.Removed).IsEmpty();
         await Assert.That(reclaimed.Refused!).Contains("403")
             .Because("the pull point refusing /images/ is a configuration this fleet really "
                    + "has; a host that will not show its images keeps its disk, and says so.");
@@ -196,7 +196,7 @@ public class ABuildReclaimsWhatItSupersededTests
 
         var reclaimed = await Adapter(daemon).ReclaimImagesAsync(Repository, []);
 
-        await Assert.That(reclaimed.Removed).IsEqualTo(0);
+        await Assert.That(reclaimed.Removed).IsEmpty();
         await Assert.That(reclaimed.Refused!).Contains("403")
             .Because("a disk that silently stops being reclaimed is how it filled three times.");
     }
@@ -214,7 +214,7 @@ public class ABuildReclaimsWhatItSupersededTests
 
         var reclaimed = await Adapter(daemon).ReclaimImagesAsync(Repository, []);
 
-        await Assert.That(reclaimed.Removed).IsEqualTo(0);
+        await Assert.That(reclaimed.Removed).IsEmpty();
         await Assert.That(reclaimed.Refused).IsNull();
         await Assert.That(daemon.Asked.Where(a => a.Method == HttpMethod.Delete)).IsEmpty()
             .Because("there is no path in this host's registry that names it, so there is "

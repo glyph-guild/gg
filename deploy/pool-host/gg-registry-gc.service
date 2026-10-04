@@ -1,0 +1,47 @@
+# Reclaiming the bytes a deleted manifest left behind.
+#
+# TWO HALVES, AND THIS IS THE ONE NO API CAN DO. The maintainer's build
+# deletes the manifests it superseded - it is the only thing that knows which
+# tag a strategy still pins - but a manifest delete only UNLINKS. Measured on
+# this fleet's host: deleting one manifest returned 213 bytes of a 12.05 GB
+# store. The layers stay until `registry garbage-collect` walks the
+# filesystem, which the registry's HTTP API does not expose at all.
+#
+# IT BINDS NO CONFIG, ON PURPOSE. garbage-collect reads a config only for its
+# storage section, and `storage.delete.enabled` gates the API rather than the
+# collector - so the image's own /etc/docker/registry/config.yml is the right
+# one to hand it, and it names the same /var/lib/registry that --volumes-from
+# mounts. Proven equal on vmlinux001: the same 180 blobs with the host's
+# config bound and with the image's taken. A unit that bound a path could be
+# broken by a checkout moving; this one names only a container.
+#
+# --delete-untagged IS NOT OPTIONAL. The containerd image store pushes an OCI
+# *index*, and deleting the index leaves its child manifests behind, still
+# referencing every layer. Without this flag the pass would free almost
+# nothing and the disk would look like the delete had not worked.
+#
+# THE REGISTRY IS STOPPED FOR IT, because a walk of the store is not safe
+# against a concurrent push. On a resident-runner pool that costs almost
+# nothing - members are created from images already in the host's own daemon.
+# A BUILD inside this window would fail its push and attest Failed, which is
+# visible and can be asked for again. That trade is why it runs at 04:00.
+[Unit]
+Description=Reclaim blobs the pool registry no longer references
+Documentation=https://github.com/glyph-guild/gg/blob/main/deploy/pool-host/README.md
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker stop gg-pool-registry
+# SAME IMAGE COMPOSE PINS, by digest. A collector from a different registry
+# version walking the store this one wrote is not a default to take here, and
+# TheRegistryIsCollectedByWhatWroteItTests compares the two.
+ExecStart=/usr/bin/docker run --rm --volumes-from gg-pool-registry \
+  registry:2@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373 garbage-collect --delete-untagged /etc/docker/registry/config.yml
+ExecStart=/usr/bin/docker start gg-pool-registry
+# THE REGISTRY COMES BACK WHATEVER HAPPENED. A failed collection that left it
+# stopped would take the pool's pull point with it until somebody noticed, and
+# nothing here would say so. The leading '-' is what makes this run after a
+# failure rather than only after a success.
+ExecStopPost=-/usr/bin/docker start gg-pool-registry

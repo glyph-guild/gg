@@ -26,6 +26,34 @@ Docker trusts a loopback registry without TLS, so nothing else is configured.
 Until this file started it, a host had one only if a person had run it —
 `APoolHostHasItsRegistryTests` holds it here now.
 
+**And it is tidied, which took four things.** A registry started on the image's
+default config refuses every delete — `DELETE /v2/<name>/manifests/<digest>`
+answers 405 UNSUPPORTED whatever asks — so every image a host ever built stayed
+in it. Measured on this fleet's host: **12.05 GB over 25 tags, two of them
+pinned.** So `compose.yaml` mounts `scripts/pool-registry/config.yml`, which
+turns `storage.delete.enabled` on and nothing else.
+
+That alone frees nothing. A manifest delete *unlinks*; on the same host it
+returned 213 bytes of a 12 GB store, because the layers stay until
+`registry garbage-collect` walks the filesystem — a pass the HTTP API does not
+expose and which is not safe against a concurrent push. That is
+`gg-registry-gc.service`, run nightly by `gg-registry-gc.timer`: it stops the
+registry, collects with `--delete-untagged`, and starts it again whatever
+happened. On a resident-runner pool stopping it costs almost nothing, because
+members are created from images already in the host's own daemon; a build
+inside that window would fail its push and attest `Failed`, which is visible
+and can be asked for again.
+
+`--delete-untagged` is not optional. The containerd image store pushes an OCI
+*index*, so deleting the index leaves its child manifests behind still
+referencing every layer — without the flag the pass frees almost nothing and
+the disk looks like the delete never worked.
+
+**What decides *which* manifests go is the maintainer, not this timer.** A
+build deletes what it superseded, because it is the only thing that knows which
+tag a strategy still pins. The timer only reclaims the bytes those deletes left
+behind. `ThePoolRegistryCanBeTidiedTests` holds all four files to each other.
+
 **Every pool carries `gg-pool-`.** The proxy allows creating a member only
 under that prefix, and the runner refuses a pool that could not pass — so a 403
 from the proxy means one thing: something reached outside the scope.
@@ -77,6 +105,16 @@ what the binary is.
 
 1. Docker, as root. Not a `gg` user that may talk to it — see above.
 2. `docker compose up -d` in this directory — the proxy and the registry.
+   Then the collector, which compose cannot run because it is a timer:
+
+   ```sh
+   sudo systemctl link "$PWD/gg-registry-gc.service" "$PWD/gg-registry-gc.timer"
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now gg-registry-gc.timer
+   ```
+
+   Skipping this leaves a host that tidies its registry's bookkeeping and keeps
+   every layer — which looks exactly like a host that is working.
 3. Put `gg` on the machine. **Two shapes, and they update differently:**
 
    *With the SDK* — what cloud-init does, and what a host that will ever be

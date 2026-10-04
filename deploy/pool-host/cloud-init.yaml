@@ -175,7 +175,16 @@ runcmd:
   # account the runner runs as could rewrite its own ExecStart and User= and
   # wait for a reboot. It now points into a root-owned release bundle.
   - [systemctl, link, /opt/gg-pool-host/deploy/pool-host/gg-runner-maintain.service]
+
+  # AND THE COLLECTOR, linked for the same reason. The registry's config lets a
+  # manifest be deleted; this is the half that returns the bytes, and without
+  # it a host tidies its registry's bookkeeping and keeps every layer. Enabled
+  # here rather than left to a person: nothing else on the machine reclaims,
+  # and the failure is silent until the disk is full.
+  - [systemctl, link, /opt/gg-pool-host/deploy/pool-host/gg-registry-gc.service]
+  - [systemctl, link, /opt/gg-pool-host/deploy/pool-host/gg-registry-gc.timer]
   - [systemctl, daemon-reload]
+  - [systemctl, enable, --now, gg-registry-gc.timer]
 
 final_message: |
   This host is provisioned and the runner is NOT running.

@@ -218,6 +218,80 @@ public static class PaneText
         };
     }
 
+    /// <summary>
+    /// Whether a tab's pane is showing a read that did not happen.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A REFUSAL, NOT AN EMPTINESS.</b> "No work to show" and "nothing
+    /// needs you" are successful reads with nothing in them, and they are the
+    /// ordinary state of a quiet tenant - marking those would have the console
+    /// crying wolf on a good day. This is the other thing: the pane has no
+    /// data AND something said why, or the pane carries a refusal of its own.
+    /// </para>
+    /// <para>
+    /// <b>Every tab answers, and the default throws.</b> A tab added later
+    /// that quietly fell through to "fine" would show a failure as ordinary
+    /// prose, which is the bug this exists for - the browse pane printed
+    /// <c>Response status code does not indicate success: 401</c> in the voice
+    /// the console uses for everything else.
+    /// </para>
+    /// <para>
+    /// <b>Held to <see cref="ForTab"/> by tests rather than by derivation.</b>
+    /// Each arm asks the same question its arm over there asks, and a pane
+    /// driven into its refusal must answer true while the same pane driven
+    /// into its EMPTY state answers false. Two switches can drift; a pair of
+    /// tests per tab is what stops them.
+    /// </para>
+    /// </remarks>
+    /// <summary>What a pane showing a refusal is prefixed with.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A WORD, NOT A COLOUR, because two palettes have no colour to use.</b>
+    /// <c>Palette.Default</c> returns no scheme at all, and Mono's own remark
+    /// is the rule this follows: <i>"anything that only reads because of hue
+    /// stops reading here"</i>. A mark in the text reads on every palette, in
+    /// a screenshot, and in a terminal somebody has themed themselves.
+    /// </para>
+    /// <para>
+    /// <b>In the console's own punctuation.</b> The hint line already reads
+    /// <c>a actions · n new flight</c>, so the separator is one a person has
+    /// seen. The only glyphs this console spends are geometric - no dingbat
+    /// has to render for a failure to be legible.
+    /// </para>
+    /// </remarks>
+    public const string TroubleMark = "error · ";
+
+    public static bool Trouble(AppState state, TabId tab)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        // WHAT SAID WHY, which every arm but browse's needs: a pane with no
+        // data and nothing to say is still reading.
+        var said = state.Diagnosis is { Length: > 0 };
+
+        return tab switch
+        {
+            TabId.Queue => said && state.Flights is null,
+            TabId.Flights => said && state.Flights is null,
+            TabId.Board => said && state.Board is null,
+            TabId.Runners => said && state.Runners is null,
+            TabId.Repositories => said && state.Repositories is null,
+            TabId.Itineraries => said && state.Itineraries is null,
+            TabId.Allowances => said && state.Allowances is null,
+            TabId.Envelope => said && state.Estate is null,
+
+            // AND THE ONE THAT REFUSES IN ITS OWN RIGHT. A reader is a
+            // separate process and answers for itself, so browse can fail
+            // while the control plane is perfectly reachable - its absence is
+            // the refusal, whatever the console's own diagnosis says.
+            TabId.Browse => state.Browse?.Absence is { Length: > 0 }
+                         || (said && state.Browse is null),
+
+            _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),
+        };
+    }
+
     /// <summary>One line per thing needing me.</summary>
     /// <remarks>
     /// <b>Not one line per FLIGHT any more, and the difference shows in the

@@ -482,12 +482,26 @@ public sealed class ReaderConversation(
                 .Select(part => part.GetProperty("text").GetString()))
             : null;
 
-        // THE READER'S OWN WORDS. isError on a result is the tool saying why it
-        // could not answer - an unreachable tracker, a credential that expired.
-        // It already said it; saying it differently here would be a second
-        // answer to one question.
+        // THE READER'S OWN WORDS, SAID TO BE ITS OWN. isError on a result is
+        // the tool saying why it could not answer - an unreachable tracker, a
+        // credential that expired - and rewording that would be a second
+        // answer to one question. So its words are kept whole and FRAMED.
+        //
+        // UNFRAMED THEY ARRIVED AS THE PANE'S OWN PROSE, which is how a
+        // person came to read, as the entire content of the browse tab:
+        //
+        //     Response status code does not indicate success: 401 (Unauthorized).
+        //
+        // A reader is a separate process talking to somebody else's service,
+        // and not everything it says is a sentence somebody wrote - that one
+        // is a .NET exception's ToString. Printed bare it reads as the console
+        // speaking, and it tells a person neither who failed nor what to do.
+        // Framed, the same words are attributed and the pane says plainly
+        // that a read did not happen.
         return result.TryGetProperty("isError", out var failed) && failed.ValueKind == JsonValueKind.True
-            ? (new BrowseOutcome.Refused(text ?? Saying($"refused '{tool}' without saying why.")), null)
+            ? (new BrowseOutcome.Refused(text is { Length: > 0 } said
+                   ? Saying($"could not answer: {Short(said.Trim())}")
+                   : Saying($"refused '{tool}' without saying why.")), null)
             : (null, text);
     }
 

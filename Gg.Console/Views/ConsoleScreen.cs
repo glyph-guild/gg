@@ -4409,7 +4409,7 @@ public sealed class ConsoleScreen : Window
         {
             using (Gg.Local.Timings.Active.Measure("paint.browse-pane"))
             {
-                _browse.Text = PaneText.Browse(State);
+                Pane(_browse, TabId.Browse, PaneText.Browse(State));
             }
         }
 
@@ -4557,7 +4557,7 @@ public sealed class ConsoleScreen : Window
         {
             _syncing = false;
         }
-        _allowances.Text = PaneText.ForTab(State, TabId.Allowances);
+        Pane(_allowances, TabId.Allowances, PaneText.ForTab(State, TabId.Allowances));
 
         // SEEDED FROM THE MODEL WHENEVER THE QUESTION IS NOT OPEN, so
         // arriving on the tab shows the path that is in force - and NOT
@@ -4589,11 +4589,11 @@ public sealed class ConsoleScreen : Window
         // identical to the one they do not.
         _airspacePathBox.Title = PaneText.AirspaceBox(State);
 
-        _flights.Text = PaneText.Flights(State);
-        _board.Text = PaneText.Board(State);
-        _itineraries.Text = PaneText.Itineraries(State);
-        _repositories.Text = PaneText.Repositories(State);
-        _runners.Text = PaneText.Runners(State);
+        Pane(_flights, TabId.Flights, PaneText.Flights(State));
+        Pane(_board, TabId.Board, PaneText.Board(State));
+        Pane(_itineraries, TabId.Itineraries, PaneText.Itineraries(State));
+        Pane(_repositories, TabId.Repositories, PaneText.Repositories(State));
+        Pane(_runners, TabId.Runners, PaneText.Runners(State));
 
         // WHICH ONE IS CHOSEN, IN THE TITLE. It changes what every flight this
         // console opens will name, so a person glancing at the frame should
@@ -5226,6 +5226,19 @@ public sealed class ConsoleScreen : Window
 
     /// <summary>The most of the modal the legs may take before they scroll.</summary>
     private const int LegsPaneRows = 14;
+
+    /// <summary>
+    /// A tab's prose pane, marked when what it is showing is a refusal.
+    /// </summary>
+    /// <remarks>
+    /// <b>ONE PLACE, because seven assignments is a list and a list is what
+    /// gets one short.</b> Every prose pane goes through here, and
+    /// ThePanesSayWhenTheyFailedTests holds that: a `.Text = PaneText.` on a
+    /// pane outside this method is a pane that cannot say it failed. The
+    /// Itineraries tab spent tonight missing from exactly such a list.
+    /// </remarks>
+    private void Pane(Label pane, TabId tab, string text) =>
+        pane.Text = PaneText.Trouble(State, tab) ? PaneText.TroubleMark + text : text;
 
     private void RenderPlan()
     {

@@ -524,6 +524,21 @@ public class EndpointSurfaceTests
         // reader, it has the claim hand a flight to a daemon that is gone.
         // Declared in the version the control plane SERVES it in, which is the
         // rule 0.218.0 and 0.224.0 taught from opposite directions.
+        // AND 0.274.0 ADDS A PERSON'S PUBLIC KEY: POST and GET /v1/auth/keys.
+        // ADR-0037 Decision 2 - a credential is sealed to the people who may
+        // open it, so somebody sealing one has to be able to look up the key of
+        // the person they are sealing it to. A PUBLIC key is neither a secret
+        // nor a reference to one, which is why Article VIII permits this side to
+        // hold it at all; the private half is passphrase-wrapped on the person's
+        // own machine and its adapter will not hand it out even locally.
+        // UNDER AN EXISTING PREFIX, deliberately. A new one CLOSES - every
+        // future route beneath it must then be declared - and that is a
+        // commitment worth making on its own rather than while adding two
+        // routes.
+        // DECLARED IN THE VERSION THE CONTROL PLANE SERVES IT IN, which is the
+        // rule 0.218.0 and 0.224.0 taught from opposite directions, and which
+        // A_declared_route_reaches_a_consumer_only_under_a_published_version
+        // enforces: the pin moves to 0.274.0 in the same change that serves it.
         await Assert.That(Fingerprint())
         // AND 0.224.0 REMOVES ONE: POST /v1/runner/members/{id}/introduction,
         // undeclared until somebody serves it. The comment at 0.216.0 above
@@ -536,7 +551,7 @@ public class EndpointSurfaceTests
         // Declared in the version the control plane SERVES them in, which is
         // the lesson 0.218.0 and 0.224.0 taught from opposite directions -
         // late is unreachable for ever, early freezes the consumer's pin.
-            .IsEqualTo("3547b6338468220a389345aafcb989721e2f55960049650e5134770357e37524")
+            .IsEqualTo("b9a253cd7d64f02bd468a80fb071a3f090ed6c9724bcae66a917be90b8774f69")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

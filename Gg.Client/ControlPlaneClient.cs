@@ -72,6 +72,9 @@ namespace Gg.Client;
 [JsonSerializable(typeof(CredentialRegistrationRequest))]
 [JsonSerializable(typeof(CredentialRegistered))]
 [JsonSerializable(typeof(CredentialList))]
+[JsonSerializable(typeof(PrincipalKeyRegistrationRequest))]
+[JsonSerializable(typeof(PrincipalKeyRegistered))]
+[JsonSerializable(typeof(PrincipalKeyList))]
 [JsonSerializable(typeof(CredentialRemoved))]
 [JsonSerializable(typeof(Envelope))]
 [JsonSerializable(typeof(EnvelopeState))]
@@ -1841,6 +1844,55 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     }
 
     /// <summary>Every credential reference this tenant has registered.</summary>
+    /// <summary>
+    /// Registers the public half of this person's key.
+    /// </summary>
+    /// <remarks>
+    /// <b>A PUBLIC key, which is the whole reason this call may exist.</b>
+    /// Article VIII says the control plane stores references and facts, never
+    /// secrets; a public key is neither a secret nor a reference to one, and
+    /// this is the same move the introduction already makes when a console
+    /// hands over an ephemeral public key so a runner can be reached.
+    /// </remarks>
+    public async Task<PrincipalKeyRegistered> RegisterKeyAsync(
+        string sessionToken, PrincipalKeyRegistrationRequest registration,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Post, "/v1/auth/keys", sessionToken);
+        request.Content = JsonContent.Create(
+            registration, ProtocolJsonContext.Default.PrincipalKeyRegistrationRequest);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.PrincipalKeyRegistered, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane returned no registered key.");
+    }
+
+    /// <summary>
+    /// Every key this tenant's people have registered.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is the LOOKUP, not an inventory.</b> Sealing a credential to
+    /// somebody means finding their key, so a key nobody can read is a key
+    /// nobody can seal to - which would make Decision 8's second holder
+    /// impossible to name.
+    /// </remarks>
+    public async Task<PrincipalKeyList> ListKeysAsync(
+        string sessionToken, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, "/v1/auth/keys", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.PrincipalKeyList, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane returned no key list.");
+    }
+
     public async Task<CredentialList> ListCredentialsAsync(
         string sessionToken, CancellationToken cancellationToken = default)
     {

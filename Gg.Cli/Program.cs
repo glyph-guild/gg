@@ -244,7 +244,7 @@ return await ByName(CliArgs.Parse(args)) switch
     CliAction.CredentialSend send => await SendCredentialAsync(send),
     CliAction.AgentCredentialSend send => await SendAgentCredentialAsync(send),
     CliAction.AgentLogin login => await AgentLoginAsync(login),
-    CliAction.KeyCreate create => KeyCreated(create.Json),
+    CliAction.KeyCreate create => await KeyCreatedAsync(create.Json),
     CliAction.CredentialList list => await CredentialAsync(list.Json, c => c.ListCredentialsAsync()),
     CliAction.CredentialRemove remove =>
         await CredentialAsync(remove.Json, c => c.RemoveCredentialAsync(remove.CredentialId)),
@@ -998,7 +998,50 @@ static async Task<int> TakeAsync(bool json, Func<TakeCommands, Task<VerbResult>>
 /// person pushing to them needs. Nothing else about the key is printable.
 /// </para>
 /// </remarks>
-static int KeyCreated(bool json)
+/// <summary>
+/// Registers a freshly minted public key, and says what became of it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>It never fails the verb.</b> The key is already on disk and is the only
+/// thing that cannot be made again; a network error after it is written must
+/// not read as "nothing happened", because running the command twice then
+/// refuses on the key it just made. So this reports and returns.
+/// </para>
+/// <para>
+/// <b>Not signed in is an ORDINARY answer here</b>, not a refusal. Minting a
+/// key is a local act and a person may do it before they ever reach a control
+/// plane; what they need is to be told the half that is still outstanding.
+/// </para>
+/// </remarks>
+static async Task<string> RegisteredAsync(string publicKey)
+{
+    if (new FileSessionStore().Read() is not { } session)
+    {
+        return "It is not registered yet - this machine is not signed in. Run `gg login` and "
+             + "then `gg key create` on a machine that is, or register this one later; until "
+             + "then nobody can look your key up to seal a credential to it.";
+    }
+
+    try
+    {
+        using var http = new HttpClient { BaseAddress = new Uri(ControlPlaneAddress()) };
+
+        var registered = await new ControlPlaneClient(http).RegisterKeyAsync(
+            session.SessionToken, new PrincipalKeyRegistrationRequest { PublicKey = publicKey });
+
+        return $"Registered as {registered.Fingerprint}, so a credential can be sealed to you.";
+    }
+    catch (Exception failure) when (failure is HttpRequestException or InvalidOperationException)
+    {
+        // NAMED, NOT SWALLOWED. The key is written either way, and somebody has
+        // to know the registration is the part still owed.
+        return "Your key is written, and registering it did not work: " + failure.Message
+             + " Nobody can seal a credential to you until it is registered.";
+    }
+}
+
+static async Task<int> KeyCreatedAsync(bool json)
 {
     var prompt = new ConsoleSecretPrompt();
 
@@ -1025,16 +1068,25 @@ static int KeyCreated(bool json)
         // inventing a contract record so --json had something to reflect over
         // would put a local filesystem path into the audited surface. Encoded
         // rather than interpolated, because a path can carry a quote.
+        // REGISTERED, BECAUSE A KEY NOBODY CAN LOOK UP IS ONE NOBODY CAN SEAL
+        // TO. Minting without registering leaves a person holding something no
+        // colleague can address, and the failure arrives much later as "I
+        // cannot find your key" rather than here, where it can be fixed.
+        var registered = await RegisteredAsync(key.PublicKey);
+
         var at = JsonEncodedText.Encode(PersonKey.DefaultPath());
         var publicHalf = JsonEncodedText.Encode(key.PublicKey);
+        var said = JsonEncodedText.Encode(registered);
 
         Console.WriteLine(json
-            ? $$"""{"at":"{{at}}","publicKey":"{{publicHalf}}"}"""
+            ? $$"""{"at":"{{at}}","publicKey":"{{publicHalf}}","registration":"{{said}}"}"""
             : $"Your key is at {PersonKey.DefaultPath()}."
             + Environment.NewLine
             + "Its public half, which is what a credential is sealed to:"
             + Environment.NewLine
-            + key.PublicKey);
+            + key.PublicKey
+            + Environment.NewLine
+            + registered);
 
         return 0;
     }

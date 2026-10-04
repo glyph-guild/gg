@@ -8,9 +8,8 @@ namespace Gg.Runner.Tests;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The comment and the config disagree.</b> The file says <i>"Everything else
-/// — exec, images, volumes, build, networks, other containers — answers 403 from
-/// the proxy itself."</i> The member rule is
+/// <b>The comment and the config disagree.</b> The file's summary says what is
+/// allowed <i>"and nothing else"</i>, and lists it by endpoint. The member rule is
 /// <c>location ~ ^(/v[0-9.]+)?/containers/gg-pool-</c>, which is **unanchored**,
 /// so it matches every sub-path of a member: <c>/exec</c>, <c>/attach</c>, and
 /// <c>PUT|GET /archive</c> are proxied today.
@@ -152,6 +151,8 @@ public class ScopeProxyReachTests
                      "/v1.43/containers/gg-pool-dev-1/start",
                      "/v1.43/containers/gg-pool-dev-1/stop",
                      "/v1.43/containers/gg-pool-dev-1",
+                     "/v1.43/images/json?filters=%7B%22reference%22%3A...",
+                     "/v1.43/images/127.0.0.1:5000/gg-member:1c26776e2b1f",
                  ])
         {
             await Assert.That(Reaches(allowed)).IsTrue()
@@ -202,7 +203,7 @@ public class ScopeProxyReachTests
         // ever called it. A future need should widen this file deliberately and
         // fail here first, rather than inherit reach nobody asked for.
         await Assert.That(Reaches("/v1.43/containers/gg-pool-dev-1/wait")).IsFalse()
-            .Because("DockerPoolAdapter calls six endpoints and this is not one of them.");
+            .Because("DockerPoolAdapter calls eight endpoints and this is not one of them.");
     }
 
     [Test]
@@ -213,11 +214,56 @@ public class ScopeProxyReachTests
                  [
                      "/v1.43/containers/somebody-elses/json",
                      "/v1.43/containers/gg-scope-probe-abc/json",
-                     "/v1.43/images/json",
                      "/v1.43/volumes",
                  ])
         {
             await Assert.That(Reaches(refused)).IsFalse();
         }
+    }
+
+    /// <summary>
+    /// The reclaim widened this file, and it is admitted by the same shape the
+    /// build and push are: the host's own registry, and nowhere else.
+    /// </summary>
+    [Test]
+    public async Task An_image_outside_the_hosts_own_registry_cannot_be_removed()
+    {
+        foreach (var refused in (string[])
+                 [
+                     "/v1.43/images/sha256:7249a4ca005782263b53b7d560c1178bd7127ee0a0330",
+                     "/v1.43/images/ubuntu:24.04",
+                     "/v1.43/images/docker.io/library/postgres:17",
+                     "/v1.43/images/prune",
+                 ])
+        {
+            await Assert.That(Reaches(refused)).IsFalse()
+                .Because("this runner may remove what this runner pushed. An id is a bare "
+                       + "digest and names nothing a routing table can check, which is why "
+                       + "the adapter deletes by tag rather than by id.");
+        }
+    }
+
+    /// <summary>
+    /// WHAT THE PATH MODEL ABOVE CANNOT SEE, asserted on the file's own text.
+    /// <see cref="Reaches"/> reads location matchers and whether a block proxies;
+    /// it does not evaluate <c>if</c>. Both reclaim rules carry one, and without
+    /// them this file would have admitted every image on the host - so they are
+    /// held here rather than left to a reader.
+    /// </summary>
+    [Test]
+    public async Task The_reclaim_rules_carry_the_guards_the_path_model_cannot_evaluate()
+    {
+        var source = File.ReadAllText(ConfigPath());
+
+        await Assert.That(source).Contains("if ($arg_filters !~")
+            .Because("an unfiltered /images/json lists every image on the host; the adapter "
+                   + "only ever asks for one repository's, so only that is admitted.");
+        await Assert.That(source).Contains("if ($request_method != DELETE)")
+            .Because("the removal rule's pattern also matches a push path, and the push rule "
+                   + "only wins because it sits above it - this is the belt.");
+        await Assert.That(source).Contains("if ($arg_force != \"\")")
+            .Because("without force the daemon refuses an image a container is using, which is "
+                   + "the guard that keeps a running member's image. It is never sent, and it "
+                   + "is refused here too.");
     }
 }

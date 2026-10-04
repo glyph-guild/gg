@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text.Json;
 using Gg.Runner.Pools;
 
 namespace Gg.Runner.Tests;
@@ -42,21 +41,28 @@ public class ABuildReclaimsWhatItSupersededTests
 
     private const string InUse = "sha256:cccc000000000000000000000000000000000000000000000000000000000000";
 
+    /// <summary>The tag each digest carries, which is how a delete names it.</summary>
+    private static string Tag(string digest) => $"{Repository}:{digest[7..13]}";
+
     /// <summary>
     /// A daemon that answers a listing and records every request, so a test can
     /// assert on what was asked rather than only on what came back.
     /// </summary>
-    private sealed class Daemon : HttpMessageHandler
+    private class Daemon : HttpMessageHandler
     {
         public List<(HttpMethod Method, string Uri)> Asked { get; } = [];
 
         /// <summary>Id to Size, in the order the daemon lists them.</summary>
         public Dictionary<string, long> Images { get; } = new(StringComparer.Ordinal);
 
-        /// <summary>Ids the daemon refuses to delete, and with what.</summary>
+        /// <summary>Tags the daemon refuses to delete, and with what.</summary>
         public Dictionary<string, HttpStatusCode> Refuses { get; } = new(StringComparer.Ordinal);
 
         public HttpStatusCode Listing { get; set; } = HttpStatusCode.OK;
+
+        /// <summary>One row of the listing, so a variant can change what it says.</summary>
+        protected virtual string Row(string id, long size) =>
+            $$"""{"Id":"{{id}}","Size":{{size}},"RepoTags":["{{Tag(id)}}"]}""";
 
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
@@ -71,8 +77,8 @@ public class ABuildReclaimsWhatItSupersededTests
                     return Task.FromResult(new HttpResponseMessage(Listing));
                 }
 
-                var body = JsonSerializer.Serialize(
-                    Images.Select(i => new { Id = i.Key, Size = i.Value }));
+                var body = "[" + string.Join(
+                    ",", Images.Select(i => Row(i.Key, i.Value))) + "]";
 
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
                 {
@@ -80,10 +86,10 @@ public class ABuildReclaimsWhatItSupersededTests
                 });
             }
 
-            var id = Uri.UnescapeDataString(uri["/images/".Length..]);
+            var named = uri["/images/".Length..];
 
             return Task.FromResult(new HttpResponseMessage(
-                Refuses.TryGetValue(id, out var refusal) ? refusal : HttpStatusCode.OK));
+                Refuses.TryGetValue(named, out var refusal) ? refusal : HttpStatusCode.OK));
         }
     }
 
@@ -107,7 +113,7 @@ public class ABuildReclaimsWhatItSupersededTests
         await Assert.That(reclaimed.Refused).IsNull();
 
         await Assert.That(daemon.Asked.Where(a => a.Method == HttpMethod.Delete).Select(a => a.Uri))
-            .IsEquivalentTo([$"/images/{Uri.EscapeDataString(Superseded)}"])
+            .IsEquivalentTo([$"/images/{Tag(Superseded)}"])
             .Because("the kept digest is the one the pool is about to roll onto.");
     }
 
@@ -139,10 +145,7 @@ public class ABuildReclaimsWhatItSupersededTests
         // only looked for 'force' would pass against an implementation that
         // deleted nothing at all - it would report an absence it had caused.
         await Assert.That(daemon.Asked.Where(a => a.Method == HttpMethod.Delete).Select(a => a.Uri))
-            .IsEquivalentTo([
-                $"/images/{Uri.EscapeDataString(Superseded)}",
-                $"/images/{Uri.EscapeDataString(InUse)}",
-            ])
+            .IsEquivalentTo([$"/images/{Tag(Superseded)}", $"/images/{Tag(InUse)}"])
             .Because("without force the daemon refuses an image a container is using, and that "
                    + "refusal is the guard that keeps a running member's image. Forcing would "
                    + "throw away the only thing standing between housekeeping and an outage.");
@@ -154,7 +157,7 @@ public class ABuildReclaimsWhatItSupersededTests
         var daemon = new Daemon
         {
             Images = { [Superseded] = 1_500_000_000, [InUse] = 1_400_000_000 },
-            Refuses = { [InUse] = HttpStatusCode.Conflict },
+            Refuses = { [Tag(InUse)] = HttpStatusCode.Conflict },
         };
 
         var reclaimed = await Adapter(daemon).ReclaimImagesAsync(Repository, []);
@@ -188,7 +191,7 @@ public class ABuildReclaimsWhatItSupersededTests
         var daemon = new Daemon
         {
             Images = { [Superseded] = 1 },
-            Refuses = { [Superseded] = HttpStatusCode.Forbidden },
+            Refuses = { [Tag(Superseded)] = HttpStatusCode.Forbidden },
         };
 
         var reclaimed = await Adapter(daemon).ReclaimImagesAsync(Repository, []);
@@ -196,5 +199,35 @@ public class ABuildReclaimsWhatItSupersededTests
         await Assert.That(reclaimed.Removed).IsEqualTo(0);
         await Assert.That(reclaimed.Refused!).Contains("403")
             .Because("a disk that silently stops being reclaimed is how it filled three times.");
+    }
+
+    /// <summary>
+    /// The daemon's reference filter is a match, not a promise, and the path a
+    /// delete uses has to name this repository for the proxy to admit it at
+    /// all. An image the filter returned that carries no tag here is one this
+    /// runner never pushed.
+    /// </summary>
+    [Test]
+    public async Task An_image_with_no_tag_in_this_repository_is_left_alone()
+    {
+        var daemon = new UntaggedDaemon();
+
+        var reclaimed = await Adapter(daemon).ReclaimImagesAsync(Repository, []);
+
+        await Assert.That(reclaimed.Removed).IsEqualTo(0);
+        await Assert.That(reclaimed.Refused).IsNull();
+        await Assert.That(daemon.Asked.Where(a => a.Method == HttpMethod.Delete)).IsEmpty()
+            .Because("there is no path in this host's registry that names it, so there is "
+                   + "nothing this runner is allowed to ask - and a dangling image is the "
+                   + "host's business rather than a build's.");
+    }
+
+    /// <summary>A daemon whose listing returns an image tagged somewhere else.</summary>
+    private sealed class UntaggedDaemon : Daemon
+    {
+        protected override string Row(string id, long size) =>
+            $$"""{"Id":"{{id}}","Size":{{size}},"RepoTags":["other-registry/gg-member:v1"]}""";
+
+        public UntaggedDaemon() => Images[Superseded] = 1_500_000_000;
     }
 }

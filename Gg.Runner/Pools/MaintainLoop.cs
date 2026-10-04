@@ -534,6 +534,25 @@ public sealed class MaintainLoop(
             // narrated and never returned as a failure.
             var kept = ((ImagePushed.Pushed)pushed).Digest;
 
+            //
+            // THREE THINGS SURVIVE, not one. The digest a registry answers
+            // with is a manifest digest and the id the daemon built is a local
+            // one; on this fleet's store they are the same string and nothing
+            // in the protocol promises that, so both are named. The third is
+            // the pin still in force: the pool has not rolled yet, so no
+            // container is holding the old image and the daemon's own refusal
+            // would not protect it - and a reset has to be able to recreate
+            // from it until the pin moves.
+            var reclaimed = await _builder.ReclaimImagesAsync(
+                repository,
+                [kept, ((ImageBuilt.Built)built).ImageId, pin[(at + 1)..]],
+                cancellationToken);
+
+            _narrate(reclaimed.Refused is { } refusal
+                ? $"nothing was reclaimed for {repository}: {refusal}"
+                : $"reclaimed {reclaimed.Removed} superseded image(s) for {repository}, "
+                + $"{reclaimed.Freed / 1_000_000} MB.");
+
             return new PoolObservation
             {
                 Outcome = PoolOutcomes.Verified,

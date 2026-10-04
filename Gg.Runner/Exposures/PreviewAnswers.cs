@@ -104,11 +104,24 @@ public static class PreviewAnswers
     /// the person about to open the address is identical, and the probe's own
     /// words say more than any classification here could.
     /// </remarks>
+    /// <param name="reported">
+    /// The address the stack said it was serving — what the <c>ready</c> point
+    /// reported as <c>url</c> — or null for an environment with no hooks, which
+    /// is every one in the field.
+    /// </param>
+    /// <remarks>
+    /// <b>It changes what the refusal SAYS, never what is refused.</b> A stack
+    /// answering where the connector looks is fine however it describes its own
+    /// internals, because something in front of it is forwarding and that is
+    /// what a traefik is for. What this adds is the one thing a reader of
+    /// <i>"nothing answers at localhost:8080"</i> has to go and find out anyway.
+    /// </remarks>
     public static async Task<string?> RefusalAsync(
         IReadOnlyList<string>? produces,
         string? origin,
         Func<string, CancellationToken, Task<string?>> reach,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? reported = null)
     {
         ArgumentNullException.ThrowIfNull(reach);
 
@@ -133,9 +146,22 @@ public static class PreviewAnswers
             return null;
         }
 
+        // WHERE IT ACTUALLY IS, when the stack said and the two disagree. The
+        // same address is not a disagreement: there the stack is where it should
+        // be and simply is not answering - a crash, a slow boot - and "it is at
+        // 8080 rather than 8080" in front of somebody already confused is worse
+        // than saying nothing.
+        var elsewhere = reported is { Length: > 0 } said
+                     && !string.Equals(said, origin, StringComparison.Ordinal)
+            ? $" Its `ready` point reported serving {said} rather than {origin}, so either the "
+            + "stack has to bind where the connector forwards - gg hands it that port as "
+            + "GG_PREVIEW_PORT - or the exposure document has to name the port it is on."
+            : string.Empty;
+
         return $"this kind serves a preview, and nothing answers at {origin}: {why}. The loop "
              + "changed what it was asked to change, and what it did not do is the one thing "
              + "somebody was about to be asked to look at - so this is not completed. The branch "
-             + "is pushed and the tree is held; what is missing is a server on that address.";
+             + "is pushed and the tree is held; what is missing is a server on that address."
+             + elsewhere;
     }
 }

@@ -895,6 +895,8 @@ public sealed class RunnerLoop(
             workspace.Trees[0].Path, Environments.StackScript.Patience, cancellationToken,
             instance, capture, previewPort);
 
+        _lastSaid = performance.Said;
+
         // THE PATH THE KIND NAMED, not the one just performed. That one is
         // resolved against a tree under /srv/env and describes a pool host's
         // layout, which the control plane holds none of by design.
@@ -907,6 +909,16 @@ public sealed class RunnerLoop(
             Seconds = (int)Math.Round(performance.Took.TotalSeconds, MidpointRounding.AwayFromZero),
         };
     }
+
+    /// <summary>What the last captured hook printed, or null.</summary>
+    /// <remarks>
+    /// <b>Runner-local and deliberately not on the fact.</b> <c>StackPerformed</c>
+    /// carries the measurement — outcome, exit, seconds — and a hook's stdout is
+    /// not the control plane's business: it is a customer's script talking about
+    /// a customer's stack. Only <c>ready</c> is captured, so only <c>ready</c>
+    /// sets this, and it is read in the same method that asked.
+    /// </remarks>
+    private string? _lastSaid;
 
     private async Task<Environments.Emptied?> ReclaimAsync(
         string? instance, string? hold, CancellationToken cancellationToken)
@@ -2624,6 +2636,10 @@ public sealed class RunnerLoop(
             loop.Hooks, workspace, Environments.StackScript.Ready,
             loop.Instance, cancellationToken, capture: true, previewPort: _served?.Port);
 
+        // TAKEN NOW, because `detach` runs through the same method later and
+        // would clear it. Read once, where the point that produced it ran.
+        var readySaid = _lastSaid;
+
         var stopped = Refused(Environments.StackScript.Prepare, prepared)
                    ?? Refused(Environments.StackScript.Attach, broughtUp)
                    ?? Refused(Environments.StackScript.Ready, answered);
@@ -2741,8 +2757,21 @@ public sealed class RunnerLoop(
         // for it anyway.
         if (string.Equals(run.Outcome, LoopOutcomes.Completed, StringComparison.Ordinal))
         {
+            // AND WHAT THE STACK SAID ABOUT ITSELF, so a refusal can name where
+            // it actually is rather than only where nobody answered. Null for
+            // every environment with no hooks, which is every one in the field.
             var unserved = await Exposures.PreviewAnswers.RefusalAsync(
-                loop.Produces, _served?.Origin, Reach, cancellationToken);
+                loop.Produces, _served?.Origin, Reach, cancellationToken,
+                reported: answered is null
+                    ? null
+                    : Environments.StackScript
+                        .ReadReady(
+                            new Environments.StackScript.Performance(
+                                answered.Outcome, answered.Exit, TimeSpan.Zero,
+                                Survived: false, Said: readySaid),
+                            readySaid)
+                        .Values
+                        .GetValueOrDefault(Environments.StackScript.UrlKey));
 
             // REMEMBERED, so the hold can be told. A machine held for an address
             // this just reported dead is GG-531: two adjacent log lines, the

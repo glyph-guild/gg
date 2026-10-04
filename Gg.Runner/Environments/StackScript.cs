@@ -399,6 +399,60 @@ public static class StackScript
     }
 
     /// <summary>
+    /// Why this environment's declared hook cannot be run, or null when it can.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Because an absent file is otherwise a silence.</b> <see cref="Within"/>
+    /// returns null for a path that does not resolve, and the invoker reads null
+    /// as <i>"this environment has no hooks"</i> — which is every environment in
+    /// the field, so it cannot be an error there. The consequence is an
+    /// environment that declared <c>hooks:</c> and whose repository lacks the
+    /// file running with NO STACK, and an agent finding an empty environment.
+    /// </para>
+    /// <para>
+    /// <b>ONE file, because the point is an argument.</b> There is nothing to
+    /// check per point: either the executable is there or it is not.
+    /// </para>
+    /// <para>
+    /// <b>Two mistakes told apart.</b> A path that is missing is one somebody has
+    /// not written; a path that climbs out of the checkout is one aimed at the
+    /// pool host. <see cref="Within"/> refuses both by returning null, and
+    /// somebody told "not found" about the second would go looking for a file
+    /// that is exactly where they put it.
+    /// </para>
+    /// <para>
+    /// <b>Named as the author wrote it.</b> The resolved form is absolute and
+    /// describes a tree under <c>/srv/env</c> — a pool host's layout the author
+    /// never sees and the control plane holds none of.
+    /// </para>
+    /// </remarks>
+    public static string? Missing(string tree, string? hooks)
+    {
+        if (!Runs(hooks))
+        {
+            return null;
+        }
+
+        if (Within(tree, hooks) is not { } script)
+        {
+            return $"this environment's hooks are declared at '{hooks}', which resolves "
+                 + "outside the checkout. A hook is a file in the repository this flight "
+                 + "checked out; an absolute path, or one that climbs out of it, names a file "
+                 + "on the pool host instead - which is not the tenant's to run from here.";
+        }
+
+        return File.Exists(script)
+            ? null
+            : $"this environment's hooks are declared at '{hooks}' and there is no file there. "
+            + "Until slice fifty-eight that read as an environment with no hooks at all, so "
+            + "the flight ran with no stack and an agent found an empty environment. Write "
+            + "the executable - it is invoked once per point, with the point as its argument "
+            + $"({string.Join(", ", EnvironmentPoints.All)}) - or take `hooks:` off the environment and let an "
+            + "agent work the bring-up out from advice.";
+    }
+
+    /// <summary>
     /// Tells a hook which port the connector forwards to.
     /// </summary>
     /// <remarks>

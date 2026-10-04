@@ -2606,6 +2606,20 @@ public sealed class RunnerLoop(
         //
         // A KIND THAT NAMES NONE IS UNCHANGED - the agent works the bring-up out
         // from `learned:` advice, which is every kind in the field.
+        // WHAT WAS DECLARED HAS TO BE THERE, checked before any point runs. An
+        // absent file otherwise reads as an environment with no hooks - which is
+        // every environment in the field - so the flight would run with no stack
+        // and an agent would find an empty one. Not checkable before the GRANT,
+        // which is taken at claim before this tree exists, and not by the
+        // control plane, which reads no customer bytes: the runner attests what
+        // it found.
+        if (workspace.Trees.Count > 0
+            && Environments.StackScript.Missing(workspace.Trees[0].Path, loop.Hooks)
+                is { } incomplete)
+        {
+            return Invocation.Nothing with { Refused = incomplete };
+        }
+
         // PREPARE THEN ATTACH, in that order and both before the agent. Prepare
         // may build or pull - and what survives a flight is the image store and
         // nothing else, so that is the only place its work can land usefully.

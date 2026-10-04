@@ -27,6 +27,25 @@ public sealed record ExposureRequest
 /// is gone rather than the flight failing, which is the same rule as a member
 /// that reset under one.
 /// </remarks>
+/// <summary>
+/// The local origin a slot reaches: a scheme, loopback, and the port.
+/// </summary>
+/// <remarks>
+/// <b>One answer, used twice, because it is one listener.</b> The ingress cloudflared is
+/// given and the address gg dials to ask "is the preview serving" are the same place; built
+/// separately they drift, and the symptom is a stack reported down while it serves
+/// perfectly - a diagnosis that sends somebody to look at the wrong end.
+/// Absent is <see cref="Gg.Contracts.OriginSchemes.Http"/>, which is what every exposure
+/// written before the scheme existed means.
+/// </remarks>
+public static class ExposureOrigins
+{
+    public static string For(int port, string? scheme) =>
+        string.Equals(scheme, Gg.Contracts.OriginSchemes.Https, StringComparison.Ordinal)
+            ? $"{Gg.Contracts.OriginSchemes.Https}://localhost:{port}"
+            : $"{Gg.Contracts.OriginSchemes.Http}://localhost:{port}";
+}
+
 public sealed record ExposureServed
 {
     /// <summary>The address, or null when it could not be served.</summary>
@@ -179,7 +198,9 @@ public sealed class CloudflareExposureAdapter(IExposureConnector connector)
                 // knowable here and nowhere afterwards, and because the only
                 // honest way to ask "is the preview serving" is to ask the
                 // address the preview actually forwards to.
-                Origin = $"http://localhost:{request.Preview.Port}",
+                Origin = request.Preview.Port is { } dialled
+                    ? ExposureOrigins.For(dialled, request.Preview.Scheme)
+                    : null,
 
                 // AND THE NUMBER INSIDE IT, because a stack binds a port rather
                 // than an origin. One read of the grant, so the two cannot

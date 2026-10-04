@@ -2014,7 +2014,7 @@ public static class ProtocolSurface
             [typeof(LandingProposal)] = ["title", "description"],
             [typeof(PreviewUrl)] = ["url", "exposure", "slot"],
             [typeof(EnvelopeVariable)] = ["name", "value"],
-            [typeof(LeasePreview)] = ["exposure", "slot", "hostname", "credential", "port"],
+            [typeof(LeasePreview)] = ["exposure", "slot", "hostname", "credential", "port", "scheme"],
             [typeof(LeaseLanding)] = ["title", "description"],
             [typeof(WorkItemFieldEdit)] = ["path", "value"],
             [typeof(LoopAttended)] =
@@ -2305,7 +2305,7 @@ public static class ProtocolSurface
             // can drive, and a finite inventory of addresses each carrying its
             // own credential reference.
             [typeof(Exposure)] = ["kind", "inventory"],
-            [typeof(ExposureInventory)] = ["size", "hostnames", "credentials", "port"],
+            [typeof(ExposureInventory)] = ["size", "hostnames", "credentials", "port", "scheme"],
             [typeof(ExposureState)] = ["name", "version", "appliedAt", "exposure"],
             [typeof(ExposureList)] = ["exposures"],
             // The pools surface. Digests, hashes and stamps only, asserted

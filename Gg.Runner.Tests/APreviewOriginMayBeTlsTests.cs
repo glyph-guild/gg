@@ -12,7 +12,7 @@ namespace Gg.Runner.Tests;
 /// <c>WithHttpsEndpoint</c> and its dev server is configured <c>ssl: true</c> with an
 /// explicit certificate — it does not answer plain HTTP at all. Its auth cookies carry
 /// the <c>__Secure-</c> prefix, which a browser refuses to set on a non-HTTPS origin,
-/// and Entra's OIDC redirect URIs are HTTPS. So "serve the preview over HTTP instead"
+/// and its OIDC redirect URIs are HTTPS. So "serve the preview over HTTP instead"
 /// is not a configuration choice there; it is dismantling the application's auth.
 /// </para>
 /// <para>
@@ -107,10 +107,10 @@ public class APreviewOriginMayBeTlsTests
         // ask "is the preview serving"; pointed at http while the ingress says https, it
         // would report a stack down that is serving perfectly, and the diagnosis would
         // send somebody to look at the wrong end.
-        await Assert.That(ExposurePort.OriginFor(8080, OriginSchemes.Https))
+        await Assert.That(ExposureOrigins.For(8080, OriginSchemes.Https))
             .IsEqualTo("https://localhost:8080");
 
-        await Assert.That(ExposurePort.OriginFor(8080, scheme: null))
+        await Assert.That(ExposureOrigins.For(8080, scheme: null))
             .IsEqualTo("http://localhost:8080");
     }
 }

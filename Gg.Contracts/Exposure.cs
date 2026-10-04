@@ -310,6 +310,55 @@ public sealed record ExposureList
     public required IReadOnlyList<ExposureState> Exposures { get; init; }
 }
 
+/// <summary>
+/// How a connector dials the local origin a slot reaches.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Because not every stack can answer plaintext.</b> gg wrote
+/// <c>service: http://localhost:{port}</c> into every generated ingress, which is right
+/// for a stack that serves HTTP and wrong for one that does not. Measured on JDNext,
+/// 2026-10-04: its dev server is configured <c>ssl: true</c> with an explicit certificate
+/// and does not answer plain HTTP, its auth cookies carry the <c>__Secure-</c> prefix that
+/// a browser refuses to set on a non-HTTPS origin, and its OIDC redirect URIs are HTTPS.
+/// Serving that preview over HTTP is not a setting; it is removing the application's auth.
+/// </para>
+/// <para>
+/// <b>Said beside the port, for the port's own reason:</b> <i>"said once, here, rather than
+/// in a provider's dashboard per hostname"</i>. A scheme kept anywhere else is a second
+/// place that can disagree, and the symptom of disagreement is a preview answering nothing
+/// with neither document explaining why.
+/// </para>
+/// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
+public static class OriginSchemes
+{
+    /// <summary>Plaintext, and what an exposure that says nothing means.</summary>
+    public const string Http = "http";
+
+    /// <summary>TLS, for a stack that will not answer plaintext.</summary>
+    public const string Https = "https";
+
+    /// <summary>The two, in the order a reader meets them.</summary>
+    public static IReadOnlyList<string> All { get; } = [Http, Https];
+
+    /// <summary>
+    /// The diagnosis, or null when there is nothing wrong.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null is taken, and means http.</b> Every exposure in the field says nothing
+    /// about a scheme, and none of them may change behaviour because this member arrived
+    /// - the same disposition <see cref="ExposureInventory.Port"/> takes for the same
+    /// reason.
+    /// </remarks>
+    public static string? Validate(string? scheme) =>
+        scheme is null || All.Contains(scheme, StringComparer.Ordinal)
+            ? null
+            : $"'{scheme}' is not an origin scheme this version can dial. "
+            + $"Expected one of: {string.Join(", ", All)}, or nothing at all for "
+            + $"{Http}.";
+}
+
 /// <summary>How many addresses an exposure has, and how each one is spelled.</summary>
 /// <remarks>
 /// <b>Both patterns must carry <see cref="Exposure.SlotToken"/></b>, because a
@@ -352,6 +401,18 @@ public sealed record ExposureInventory
     /// </para>
     /// </remarks>
     public int? Port { get; init; }
+
+    /// <summary>
+    /// How the connector dials that port - one of <see cref="OriginSchemes"/>, or null
+    /// for <see cref="OriginSchemes.Http"/>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Absent is http, which is what every existing document means.</b> A stack that
+    /// only speaks TLS - a dev server with <c>ssl: true</c>, anything whose cookies carry
+    /// the <c>__Secure-</c> prefix - cannot be reached by a plaintext ingress, and before
+    /// this there was no way for the document to say so.
+    /// </remarks>
+    public string? Scheme { get; init; }
 }
 
 /// <summary>

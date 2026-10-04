@@ -118,7 +118,8 @@ public static class TunnelFiles
     /// apart from "the origin is down": the first answers 404, the second 502.
     /// </remarks>
     public static string ConfigFor(
-        string tunnelId, string credentialsPath, string hostname, int port)
+        string tunnelId, string credentialsPath, string hostname, int port,
+        string? scheme = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tunnelId);
         ArgumentException.ThrowIfNullOrWhiteSpace(credentialsPath);
@@ -134,7 +135,22 @@ public static class TunnelFiles
         text.AppendLine("no-autoupdate: true");
         text.AppendLine("ingress:");
         text.AppendLine($"  - hostname: {hostname}");
-        text.AppendLine($"    service: http://localhost:{port}");
+        text.AppendLine($"    service: {ExposureOrigins.For(port, scheme)}");
+
+        // ONLY FOR TLS, and only because the certificate is the environment's own
+        // development one on this machine's loopback. cloudflared refuses an https origin
+        // whose certificate it cannot chain, so without this the ingress it was just told
+        // to use answers nothing. Verifying it would mean verifying a name the stack never
+        // claimed - it is reached as `localhost`, by a connector on the same host.
+        //
+        // Written for https alone so that every existing machine's config file is
+        // byte-for-byte what it was.
+        if (string.Equals(scheme, Gg.Contracts.OriginSchemes.Https, StringComparison.Ordinal))
+        {
+            text.AppendLine("    originRequest:");
+            text.AppendLine("      noTLSVerify: true");
+        }
+
         text.AppendLine("  - service: http_status:404");
 
         return text.ToString();

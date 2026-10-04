@@ -1287,6 +1287,18 @@ public sealed record LeasePreview
     /// </remarks>
     public int? Port { get; init; }
 
+    /// <summary>
+    /// How the connector dials that port - one of <see cref="OriginSchemes"/>, or null
+    /// for <see cref="OriginSchemes.Http"/>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Carried from the exposure document, like the port and for the same reason.</b>
+    /// The tenant says it once where it already says which port a slot reaches; a runner
+    /// deciding it would be a second answer to a settled question. Absent is http, which
+    /// is what every exposure written before this member means.
+    /// </remarks>
+    public string? Scheme { get; init; }
+
     /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
     public static string? Validate(LeasePreview preview)
     {

@@ -101,13 +101,13 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
     /// something the other side answers.
     /// </para>
     /// </remarks>
-    public static RunnerAsk Asking(string locator, string secret) => new()
+    public static RunnerAsk Asking(string locator, SealedCredential envelope) => new()
     {
         Kind = RunnerAskKinds.ConfigureCredential,
         ConfigureCredential = new ConfigureCredentialAsk
         {
             Locator = locator,
-            Secret = secret,
+            Envelope = envelope,
         },
     };
 
@@ -176,10 +176,12 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
     /// is said about it do not.
     /// </para>
     /// </remarks>
-    public static string? SecretFor(
-        ICredentialStore store, string locator, ISecretPrompt prompt, Action<string>? saying,
-        string? asking = null)
+    public static SealedCredential? EnvelopeFor(
+        FileCredentialStore store, MachineKey key, string locator, ISecretPrompt prompt,
+        Action<string>? saying, string? asking = null)
     {
+        ArgumentNullException.ThrowIfNull(key);
+
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(prompt);
 
@@ -188,29 +190,43 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
         // A LOCATOR THE STORE REFUSES IS NOT A CRASH. By the time one reaches
         // here it was derived from what somebody typed, and a malformed one has
         // to produce a sentence rather than a stack trace.
-        string? held;
+        // THE ENVELOPE, NOT THE VALUE. Reading what this machine already holds
+        // as a sealed entry is the ordinary case and the one that costs nothing
+        // in plaintext: SealedFor deserialises and does not open.
         try
         {
-            held = store.Read(locator);
-        }
-        catch (ArgumentException)
-        {
-            held = null;
-        }
+            if (store.Holds(locator))
+            {
+                // THE LOCATOR, NEVER THE VALUE. Which credential is about to be
+                // sent is what a person checks before sending it.
+                say($"sending the credential this machine holds for {locator}");
 
-        if (held is { Length: > 0 })
+                // READ FIRST, which reseals a plaintext entry in passing and is
+                // what makes SealedFor able to answer for a machine that has
+                // not migrated yet (step 3). The value is dropped immediately.
+                store.Read(locator);
+                return store.SealedFor(locator);
+            }
+        }
+        catch (Exception failure) when (
+            failure is ArgumentException or CredentialUnavailableException)
         {
-            // THE LOCATOR, NEVER THE VALUE. Which credential is about to be sent
-            // is what a person checks before sending it.
-            say($"sending the credential this machine holds for {locator}");
-            return held;
+            // A MALFORMED LOCATOR OR AN ENVELOPE THIS MACHINE CANNOT OPEN both
+            // mean the same thing here: there is nothing to hand on, and the
+            // prompt below is the honest next step.
         }
 
         say($"this machine holds no credential for {locator}");
 
         var typed = prompt.ReadSecret(asking ?? $"Secret for {locator} (not echoed): ");
 
-        return typed is { Length: > 0 } ? typed : null;
+        // SEALED TO THIS MACHINE, IN MEMORY, AND NOT WRITTEN. Somebody sending a
+        // credential only a pool member needs should not have to keep a copy on
+        // their laptop to do it - the file store's own remark about why a prompt
+        // exists at all.
+        return typed is { Length: > 0 }
+            ? CredentialSeal.Seal(typed, [key.PublicKey])
+            : null;
     }
 
     /// <summary>Introduces, reaches, and hands the credential over.</summary>
@@ -218,7 +234,8 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
         string sessionToken,
         string runnerId,
         string locator,
-        string secret,
+        SealedCredential envelope,
+        ECDiffieHellman ours,
         PinnedRunnerKeys pins,
         DateTimeOffset now,
         Action<string>? saying = null,
@@ -295,8 +312,34 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
         {
             say($"handing the credential to {runner.Label}");
 
+            // REWRAPPED HERE, because this is the first moment the runner's
+            // registered key is known - the introduction carries it and the pin
+            // has just been checked against it. Thirty-two bytes are unwrapped
+            // and wrapped again; the credential itself is never opened, so this
+            // process has not held it at any point (ADR-0037 Decision 3).
+            SealedCredential forThem;
+
+            try
+            {
+                forThem = CredentialSeal.Rewrap(envelope, ours, introduction.RunnerPublicKey);
+            }
+            catch (CryptographicException refused)
+            {
+                return new Sent(
+                    SendOutcome.NothingToSend,
+                    $"This machine cannot open the credential for {locator}, so it cannot hand it "
+                  + "on. " + refused.Message);
+            }
+            catch (ArgumentException)
+            {
+                // ALREADY SEALED TO THAT RUNNER, which is not a failure: it is
+                // the same credential arriving at a machine that has it. Sending
+                // what is already there is the honest answer.
+                forThem = envelope;
+            }
+
             var said = await conversation.AskAsync(
-                Asking(locator, secret), TimeSpan.FromSeconds(20), cancellationToken);
+                Asking(locator, forThem), TimeSpan.FromSeconds(20), cancellationToken);
 
             // NO ANSWER IS NOT A REFUSAL. A runner one version behind has no arm
             // for this kind and drops the message without a word - which is the

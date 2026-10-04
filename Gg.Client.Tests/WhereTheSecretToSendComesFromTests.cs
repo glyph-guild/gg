@@ -1,3 +1,4 @@
+using Gg.Contracts;
 using Gg.Client;
 
 namespace Gg.Client.Tests;
@@ -44,6 +45,8 @@ public class WhereTheSecretToSendComesFromTests
 
         public string PathFor(string locator) => "/nowhere/x";
 
+        public void WriteSealed(string locator, Gg.Contracts.SealedCredential envelope) { }
+
         public void Write(string locator, string value) { }
 
         public string? Read(string locator) => secret;
@@ -67,15 +70,44 @@ public class WhereTheSecretToSendComesFromTests
         public string ReadLine(string prompt) => "";
     }
 
+    /// <summary>
+    /// A real store on a temporary root, and the key it seals under.
+    /// </summary>
+    /// <remarks>
+    /// <b>Real rather than a double, since <c>EnvelopeFor</c> reads an
+    /// ENVELOPE.</b> A fake that answered a string could not have one to hand
+    /// back, and widening the port so it could would put a member on eleven
+    /// doubles to serve one test. This exercises the sealing path the product
+    /// actually takes.
+    /// </remarks>
+    private static (FileCredentialStore Store, MachineKey Key) AStoreHolding(string? secret)
+    {
+        var key = MachineKey.LoadOrCreate(
+            Path.Combine(Path.GetTempPath(), "gg-wsf-" + Guid.NewGuid().ToString("N"), "k"));
+
+        var store = new FileCredentialStore(
+            Path.Combine(Path.GetTempPath(), "gg-wsf-" + Guid.NewGuid().ToString("N")), key);
+
+        if (secret is not null)
+        {
+            store.Write("local:acme/widgets", secret);
+        }
+
+        return (store, key);
+    }
+
     [Test]
     public async Task The_copy_this_machine_has_is_the_one_that_travels()
     {
         var prompt = new APrompt(Typed);
 
-        var found = SendACredential.SecretFor(
-            new AStore(Stored), "local:acme/widgets", prompt, _ => { });
+        var (store, key) = AStoreHolding(Stored);
 
-        await Assert.That(found).IsEqualTo(Stored);
+        var found = SendACredential.EnvelopeFor(store, key, "local:acme/widgets", prompt, _ => { });
+
+        await Assert.That(found).IsNotNull();
+        await Assert.That(CredentialSeal.Open(found!, key.ForOpeningWhatThisMachineSealed()))
+            .IsEqualTo(Stored);
         await Assert.That(prompt.Asked).IsEqualTo(0)
             .Because("asking for a token gg already holds sends somebody to go and find it "
                    + "again, and the likeliest place they find it is where they were told "
@@ -87,10 +119,13 @@ public class WhereTheSecretToSendComesFromTests
     {
         var prompt = new APrompt(Typed);
 
-        var found = SendACredential.SecretFor(
-            new AStore(null), "local:acme/widgets", prompt, _ => { });
+        var (store, key) = AStoreHolding(null);
 
-        await Assert.That(found).IsEqualTo(Typed);
+        var found = SendACredential.EnvelopeFor(store, key, "local:acme/widgets", prompt, _ => { });
+
+        await Assert.That(found).IsNotNull();
+        await Assert.That(CredentialSeal.Open(found!, key.ForOpeningWhatThisMachineSealed()))
+            .IsEqualTo(Typed);
         await Assert.That(prompt.Asked).IsEqualTo(1)
             .Because("a credential only a pool member needs was never added here, and "
                    + "refusing would make somebody store a secret on a laptop purely to "
@@ -104,20 +139,23 @@ public class WhereTheSecretToSendComesFromTests
         // came from is worth printing - a person needs to know whether they are
         // about to send the one they think they are - and the one thing it may
         // not contain is the secret.
-        foreach (var store in (ICredentialStore[])[new AStore(Stored), new AStore(null)])
+        foreach (var held in new[] { Stored, null })
         {
+            var (store, key) = AStoreHolding(held);
             var said = new List<string>();
 
-            var found = SendACredential.SecretFor(
-                store, "local:acme/widgets", new APrompt(Typed), said.Add);
+            var found = SendACredential.EnvelopeFor(
+                store, key, "local:acme/widgets", new APrompt(Typed), said.Add);
 
             var all = string.Join(" | ", said);
 
             await Assert.That(found).IsNotNull()
-                .Because("both arms answer with a secret here; a null would make the next "
+                .Because("both arms answer with an envelope here; a null would make the next "
                        + "assertion pass by having nothing to look for.");
 
-            await Assert.That(all).DoesNotContain(found!, StringComparison.Ordinal);
+            var value = CredentialSeal.Open(found!, key.ForOpeningWhatThisMachineSealed());
+
+            await Assert.That(all).DoesNotContain(value, StringComparison.Ordinal);
             await Assert.That(all).Contains("local:acme/widgets", StringComparison.Ordinal)
                 .Because("which credential is about to be sent is the fact somebody checks "
                        + "before they send it - and naming it is what makes the silence "
@@ -132,8 +170,10 @@ public class WhereTheSecretToSendComesFromTests
         // 'resolved to nothing': an empty secret is a secret that fetches
         // nothing and fails much later, in a place with no way back to here."
         // Placing one on a runner is exactly that, at a distance.
-        await Assert.That(SendACredential.SecretFor(
-                new AStore(null), "local:acme/widgets", new APrompt(""), _ => { }))
+        var (store, key) = AStoreHolding(null);
+
+        await Assert.That(SendACredential.EnvelopeFor(
+                store, key, "local:acme/widgets", new APrompt(""), _ => { }))
             .IsNull()
             .Because("an empty secret written to a runner fails at the forge with nothing "
                    + "pointing back at the moment somebody pressed return.");

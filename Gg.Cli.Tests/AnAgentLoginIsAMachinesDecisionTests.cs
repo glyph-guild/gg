@@ -44,6 +44,8 @@ public class AnAgentLoginIsAMachinesDecisionTests
 
         public string PathFor(string locator) => "/nowhere/x";
 
+        public void WriteSealed(string locator, Gg.Contracts.SealedCredential envelope) { }
+
         public void Write(string locator, string value) { }
 
         public string? Read(string locator) => null;

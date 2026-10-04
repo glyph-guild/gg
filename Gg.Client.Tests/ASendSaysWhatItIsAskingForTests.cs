@@ -23,6 +23,19 @@ namespace Gg.Client.Tests;
 /// </remarks>
 public class ASendSaysWhatItIsAskingForTests
 {
+
+    /// <summary>An empty real store and its key, for a prompt that must fire.</summary>
+    /// <remarks>
+    /// Real rather than the double, because <c>EnvelopeFor</c> reads an
+    /// envelope and a fake answering a string has none to give. Empty, so the
+    /// prompt arm is the one exercised - which is what these tests are about.
+    /// </remarks>
+    private static MachineKey AKeyForThisTest() =>
+        MachineKey.LoadOrCreate(
+            Path.Combine(Path.GetTempPath(), "gg-asks-" + Guid.NewGuid().ToString("N"), "k"));
+
+    private static FileCredentialStore AStore() =>
+        new(Path.Combine(Path.GetTempPath(), "gg-asks-" + Guid.NewGuid().ToString("N")));
     private const string Typed = "sk-ant-oat01-typed-by-the-person";
 
     private sealed class AnEmptyStore : ICredentialStore
@@ -34,6 +47,8 @@ public class ASendSaysWhatItIsAskingForTests
         public string ProtectionFor(string locator) => "nothing, this is a test";
 
         public string PathFor(string locator) => "/nowhere/x";
+
+        public void WriteSealed(string locator, Gg.Contracts.SealedCredential envelope) { }
 
         public void Write(string locator, string value) { }
 
@@ -62,11 +77,16 @@ public class ASendSaysWhatItIsAskingForTests
     {
         var prompt = new APrompt();
 
-        var secret = SendACredential.SecretFor(
-            new AnEmptyStore(), "local:agent/claude", prompt, _ => { },
+        var key = AKeyForThisTest();
+
+        var envelope = SendACredential.EnvelopeFor(
+            AStore(), key, "local:agent/claude", prompt, _ => { },
             asking: "Long-lived token for claude, from `claude setup-token` on this machine (not echoed): ");
 
-        await Assert.That(secret).IsEqualTo(Typed);
+        await Assert.That(envelope).IsNotNull();
+        await Assert.That(Gg.Contracts.CredentialSeal.Open(
+                envelope!, key.ForOpeningWhatThisMachineSealed()))
+            .IsEqualTo(Typed);
         await Assert.That(prompt.Asked).Contains("claude setup-token")
             .Because("the person has to know which command mints the thing they are being "
                    + "asked to paste, and this line is the only place they are told.");
@@ -82,7 +102,7 @@ public class ASendSaysWhatItIsAskingForTests
         // that names the locator.
         var prompt = new APrompt();
 
-        _ = SendACredential.SecretFor(new AnEmptyStore(), "local:acme/widgets", prompt, _ => { });
+        _ = SendACredential.EnvelopeFor(AStore(), AKeyForThisTest(), "local:acme/widgets", prompt, _ => { });
 
         await Assert.That(prompt.Asked).Contains("local:acme/widgets");
         await Assert.That(prompt.Asked).Contains("not echoed");

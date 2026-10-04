@@ -244,13 +244,26 @@ public sealed record ConfigureCredentialAsk
     /// </remarks>
     public required string Locator { get; init; }
 
-    /// <summary>The value. It goes to a 0600 file and nowhere else.</summary>
+    /// <summary>
+    /// The credential, sealed to the machine this is being sent to.
+    /// </summary>
     /// <remarks>
-    /// <b>Named for what it is.</b> <c>CredentialContainmentTests</c> refuses a
-    /// member called this on every type it scans, which is exactly the guard
-    /// that should fire if anybody ever adds this one to that list.
+    /// <para>
+    /// <b>This member used to be a <c>string Secret</c>, and it was the single
+    /// place on the whole wire surface a value could sit.</b> It was safe
+    /// structurally — no endpoint names it transitively, and the channel has its
+    /// own serializer context — but safe-by-arrangement is weaker than
+    /// safe-by-shape, and ADR-0037 Decision 3 removes the need for the
+    /// arrangement entirely.
+    /// </para>
+    /// <para>
+    /// <b>The sender never held it.</b> A push rewraps the content key to the
+    /// recipient's registered key and carries the body across untouched, so what
+    /// crosses here opens on exactly one machine and was never in the clear on
+    /// the one that sent it.
+    /// </para>
     /// </remarks>
-    public required string Secret { get; init; }
+    public required SealedCredential Envelope { get; init; }
 }
 
 /// <summary>What the runner did with it. Never what it was given.</summary>

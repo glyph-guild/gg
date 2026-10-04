@@ -1,3 +1,4 @@
+using Gg.Contracts;
 using Gg.Local;
 
 namespace Gg.Client;
@@ -92,6 +93,26 @@ public sealed class MachineCredentialStore(ICredentialStore local, KeyVaultCrede
         }
 
         _local.Write(locator, secret);
+    }
+
+    /// <summary>
+    /// Writes an envelope to the file store, or refuses for a vault reference.
+    /// </summary>
+    /// <remarks>
+    /// <b>A vault is read here and written nowhere</b>, which this type already
+    /// says about <see cref="Write"/> and which an envelope does not change: a
+    /// push that quietly put a credential on local disk under a
+    /// <c>keyvault://</c> locator would make a machine hold a copy of something
+    /// the tenant decided lives somewhere else.
+    /// </remarks>
+    public void WriteSealed(string locator, SealedCredential envelope)
+    {
+        if (KeyVaultReference.Names(locator))
+        {
+            throw NotHere(locator);
+        }
+
+        _local.WriteSealed(locator, envelope);
     }
 
     public string? Read(string locator) =>

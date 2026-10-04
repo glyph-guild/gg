@@ -1,3 +1,4 @@
+using Gg.Contracts;
 using Gg.Client;
 using Gg.Runner;
 
@@ -177,14 +178,21 @@ public sealed class LocalCredentialKeeper(ICredentialStore store)
 
     public bool Forget(string locator) => _store.Remove(locator);
 
-    public bool Keep(string locator, string secret)
+    /// <remarks>
+    /// <b>It writes the envelope as it arrived, and does not open it.</b> A
+    /// keeper that unsealed in order to re-seal under this store's own key
+    /// would undo the push's whole property on arrival — the console rewrapped
+    /// thirty-two bytes precisely so the credential was never in the clear at
+    /// either end.
+    /// </remarks>
+    public bool Keep(string locator, SealedCredential envelope)
     {
         // THE DISPATCH ALREADY VALIDATED THE LOCATOR and the store validates it
         // again, which is not redundant: they are two machines' rules about the
         // same string, and the one that owns the disk gets the last word.
         try
         {
-            _store.Write(locator, secret);
+            _store.WriteSealed(locator, envelope);
             return true;
         }
         catch (ArgumentException)
@@ -200,6 +208,28 @@ public sealed class LocalCredentialKeeper(ICredentialStore store)
         }
         catch (UnauthorizedAccessException)
         {
+            return false;
+        }
+    }
+
+    /// <remarks>
+    /// <b>The store seals it, because this machine made it.</b> A locally
+    /// minted token has no envelope yet - nobody sealed one to send it - so
+    /// Write is the right verb and the store's own key is the right holder.
+    /// </remarks>
+    public bool KeepLocallyMinted(string locator, string secret)
+    {
+        try
+        {
+            _store.Write(locator, secret);
+            return true;
+        }
+        catch (Exception failure) when (
+            failure is ArgumentException or IOException or UnauthorizedAccessException)
+        {
+            // A FULL DISK OR A READ-ONLY MOUNT is a real answer to "did it
+            // land", and the console says `written: false` rather than losing
+            // the conversation the person is having.
             return false;
         }
     }

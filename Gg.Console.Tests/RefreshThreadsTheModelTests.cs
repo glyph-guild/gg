@@ -159,6 +159,8 @@ public class RefreshThreadsTheModelTests
 
         public string PathFor(string locator) => throw new InvalidOperationException("no store");
 
+        public void WriteSealed(string locator, Gg.Contracts.SealedCredential envelope) { }
+
         public void Write(string locator, string secret) =>
             throw new InvalidOperationException("no store");
 

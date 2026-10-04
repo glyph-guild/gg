@@ -278,7 +278,7 @@ public sealed partial class AgentLoginCeremony(
 
         // WRITTEN, THEN DROPPED. The keeper's answer is the whole of what is
         // remembered about the value.
-        var written = token is { Length: > 0 } && ports.Keeps.Keep(agent.Locator, token);
+        var written = token is { Length: > 0 } && ports.Keeps.KeepLocallyMinted(agent.Locator, token);
         token = null;
 
         child.Dispose();

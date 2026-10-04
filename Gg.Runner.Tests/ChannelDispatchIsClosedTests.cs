@@ -22,6 +22,22 @@ namespace Gg.Runner.Tests;
 /// </remarks>
 public class ChannelDispatchIsClosedTests
 {
+
+    /// <summary>
+    /// A sealed credential, for a test that is about the dispatch rather than
+    /// about cryptography.
+    /// </summary>
+    /// <remarks>
+    /// Sealed to a throwaway key: the arm under test writes what it is handed
+    /// and never opens it, which is slice fifty-nine step 5's whole point.
+    /// </remarks>
+    private static Gg.Contracts.SealedCredential Sealed(string value = "ghp-not-a-real-token") =>
+        Gg.Contracts.CredentialSeal.Seal(
+            value,
+            [Convert.ToBase64String(
+                System.Security.Cryptography.ECDiffieHellman
+                    .Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256)
+                    .PublicKey.ExportSubjectPublicKeyInfo())]);
     private static readonly DateTimeOffset T0 = new(2026, 9, 8, 7, 0, 0, TimeSpan.Zero);
 
     private sealed class ALog(params string[] lines) : IReadOnlyLog
@@ -69,7 +85,10 @@ public class ChannelDispatchIsClosedTests
     /// <summary>A store that keeps nothing; the subject is the arm's existence.</summary>
     private sealed class Keeping : IKeepACredential
     {
-        public bool Keep(string locator, string secret) => true;
+        public bool Keep(string locator, Gg.Contracts.SealedCredential envelope) =>
+            KeepLocallyMinted(locator, envelope.Ciphertext);
+
+        public bool KeepLocallyMinted(string locator, string secret) => true;
     }
 
     [Test]
@@ -232,7 +251,7 @@ public class ChannelDispatchIsClosedTests
                 ConfigureCredential = new ConfigureCredentialAsk
                 {
                     Locator = "local:acme/widgets",
-                    Secret = "not-a-real-token",
+                    Envelope = Sealed("not-a-real-token"),
                 },
             },
             // THE TWO CEREMONY KINDS ANSWER WITHOUT A PORT, deliberately: a

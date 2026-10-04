@@ -39,6 +39,20 @@ namespace Gg.Cli.Tests;
 /// </remarks>
 public class TheSenderAndTheDispatchAgreeTests
 {
+
+    /// <summary>A credential sealed to a throwaway key.</summary>
+    /// <remarks>
+    /// These tests are about the adapter and the dispatch agreeing on a SHAPE,
+    /// not about cryptography: what matters is that an envelope goes in and is
+    /// written as it came.
+    /// </remarks>
+    private static Gg.Contracts.SealedCredential Sealed(string value) =>
+        Gg.Contracts.CredentialSeal.Seal(
+            value,
+            [Convert.ToBase64String(
+                System.Security.Cryptography.ECDiffieHellman
+                    .Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256)
+                    .PublicKey.ExportSubjectPublicKeyInfo())]);
     private const string TheSecret = "ghp-not-a-real-token-6e2f-81a3";
 
     private sealed class Quiet : IAnswersAboutItself
@@ -56,7 +70,10 @@ public class TheSenderAndTheDispatchAgreeTests
     {
         public string? Kept { get; private set; }
 
-        public bool Keep(string locator, string secret)
+        public bool Keep(string locator, Gg.Contracts.SealedCredential envelope) =>
+            KeepLocallyMinted(locator, envelope.Ciphertext);
+
+        public bool KeepLocallyMinted(string locator, string secret)
         {
             Kept = secret;
             return true;
@@ -73,8 +90,9 @@ public class TheSenderAndTheDispatchAgreeTests
         // than written again here. A literal in this file would assert that a
         // shape the dispatch likes exists, which nobody doubted - the question
         // is whether the console produces it.
-        var said = dispatch.Answer(
-            SendACredential.Asking("local:acme/widgets", TheSecret));
+        var envelope = Sealed(TheSecret);
+
+        var said = dispatch.Answer(SendACredential.Asking("local:acme/widgets", envelope));
 
         await Assert.That(said).IsNotNull()
             .Because("a refused ask is silence on the channel: the console waits out its "
@@ -82,7 +100,11 @@ public class TheSenderAndTheDispatchAgreeTests
                    + "somebody to look at a machine that is working perfectly.");
 
         await Assert.That(said!.Configured!.Written).IsTrue();
-        await Assert.That(store.Kept).IsEqualTo(TheSecret);
+        // THE ENVELOPE, UNOPENED. The keeper is handed what the console built
+        // and writes it as it came - so this compares ciphertext rather than a
+        // value, which is the whole of step 5: nothing on this path has the
+        // plaintext to compare against any more.
+        await Assert.That(store.Kept).IsEqualTo(envelope.Ciphertext);
     }
 
     [Test]

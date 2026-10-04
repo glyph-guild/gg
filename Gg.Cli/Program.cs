@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Diagnostics;
 using System.Reflection;
 using Gg.Cli;
@@ -243,6 +244,7 @@ return await ByName(CliArgs.Parse(args)) switch
     CliAction.CredentialSend send => await SendCredentialAsync(send),
     CliAction.AgentCredentialSend send => await SendAgentCredentialAsync(send),
     CliAction.AgentLogin login => await AgentLoginAsync(login),
+    CliAction.KeyCreate create => KeyCreated(create.Json),
     CliAction.CredentialList list => await CredentialAsync(list.Json, c => c.ListCredentialsAsync()),
     CliAction.CredentialRemove remove =>
         await CredentialAsync(remove.Json, c => c.RemoveCredentialAsync(remove.CredentialId)),
@@ -975,6 +977,73 @@ static async Task<int> TakeAsync(bool json, Func<TakeCommands, Task<VerbResult>>
 /// ones. The result path is the same: a VerbResult, printed one way or the
 /// other, and never both.
 /// </remarks>
+/// <summary>
+/// Mints this person's key, prompting for the passphrase that wraps it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Asked twice, because there is no way back from a typo.</b> gg keeps no
+/// copy of this passphrase and no recovery key (ADR-0037 Decision 8), so a
+/// mistyped one is a key nobody can open and every credential sealed to it
+/// lost. One confirmation is the cheapest thing that prevents it.
+/// </para>
+/// <para>
+/// <b>Prompted, never an argument.</b> A passphrase on a command line reaches
+/// <c>ps</c>, a crash dump and a shell history - the reason
+/// <c>Credentials.cs</c> refuses an environment-variable kind, in those same
+/// words.
+/// </para>
+/// <para>
+/// <b>It prints the PUBLIC half</b>, which is what somebody registers and what a
+/// person pushing to them needs. Nothing else about the key is printable.
+/// </para>
+/// </remarks>
+static int KeyCreated(bool json)
+{
+    var prompt = new ConsoleSecretPrompt();
+
+    var passphrase = prompt.ReadSecret("Passphrase for this key (not echoed): ");
+
+    if (string.IsNullOrEmpty(passphrase))
+    {
+        return Fail("A key is wrapped by a passphrase, and this one is empty. Nothing was written.");
+    }
+
+    if (!string.Equals(passphrase, prompt.ReadSecret("Again: "), StringComparison.Ordinal))
+    {
+        return Fail(
+            "Those did not match, so nothing was written. gg keeps no copy of this passphrase, "
+          + "which is why it asks twice.");
+    }
+
+    try
+    {
+        var key = PersonKey.Create(passphrase: passphrase);
+
+        // WRITTEN OUT RATHER THAN SERIALISED FROM A TYPE, deliberately. A path
+        // and a public key are facts about this machine, not wire types, and
+        // inventing a contract record so --json had something to reflect over
+        // would put a local filesystem path into the audited surface. Encoded
+        // rather than interpolated, because a path can carry a quote.
+        var at = JsonEncodedText.Encode(PersonKey.DefaultPath());
+        var publicHalf = JsonEncodedText.Encode(key.PublicKey);
+
+        Console.WriteLine(json
+            ? $$"""{"at":"{{at}}","publicKey":"{{publicHalf}}"}"""
+            : $"Your key is at {PersonKey.DefaultPath()}."
+            + Environment.NewLine
+            + "Its public half, which is what a credential is sealed to:"
+            + Environment.NewLine
+            + key.PublicKey);
+
+        return 0;
+    }
+    catch (InvalidOperationException refused)
+    {
+        return Fail(refused.Message);
+    }
+}
+
 static async Task<int> CredentialAsync(bool json, Func<CredentialCommands, Task<VerbResult>> run)
 {
     var baseAddress = ControlPlaneAddress();

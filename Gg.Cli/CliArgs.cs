@@ -565,6 +565,15 @@ public abstract record CliAction
 
     public sealed record CredentialList(bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>Mint this person's key, wrapped by a passphrase they type.</summary>
+    /// <remarks>
+    /// <b>No members but <c>Json</c>, and that is the point.</b> A passphrase is
+    /// never an argument - it would reach `ps`, a crash dump and a shell history,
+    /// which is the reason `Credentials.cs` refuses an environment-variable kind
+    /// in those same words. It is prompted for, twice, with no echo.
+    /// </remarks>
+    public sealed record KeyCreate(bool Json) : CliAction, IEmitsResult;
+
     public sealed record CredentialRemove(string CredentialId, bool Json) : CliAction, IEmitsResult;
 
     /// <summary>A redacted diagnostics bundle.</summary>
@@ -829,6 +838,7 @@ public static class CliArgs
         "gg credential add --repo <slug>  register a credential (the value is prompted for)",
         "gg credential send --runner <id|name> --repo <slug>|--agent <name>",
         "                                 put one on a machine that cannot be reached any other way",
+        "gg key create                  mint this person's key; the passphrase is prompted for",
         "gg credential list             the references the control plane holds",
         "gg credential rm <id>          forget one, here and there",
         "gg agent login --runner <id|name> [--agent <name>]",
@@ -1592,6 +1602,8 @@ public static class CliArgs
               + "An intent that says two things says nothing."),
 
             ["agent", "login", .. var login] => AgentLogin(login, runner, json),
+            ["key", "create"] => new CliAction.KeyCreate(json),
+            ["key", ..] => Unknown("gg key takes create."),
             ["credential", "list"] => new CliAction.CredentialList(json),
             ["credential", "rm", var credentialId] => new CliAction.CredentialRemove(credentialId, json),
             ["credential", "rm", ..] => Unknown("gg credential rm needs one credential id. Run gg credential list."),

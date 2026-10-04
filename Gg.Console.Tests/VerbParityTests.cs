@@ -330,6 +330,13 @@ public class VerbParityTests
                                     + "modal. Until then the verb is the command line's: "
                                     + "`gg credential send --runner <id> --agent claude`, which "
                                     + "the held runner's console observer names.",
+            ["KeyCreate"] = "absent, and deliberate for now: minting a person's key reads a "
+                          + "passphrase TWICE with the echo off, which is the same "
+                          + "between-sessions shape CredentialSend and AgentLogin already have "
+                          + "and for the same reason. It is also a once-per-person act rather "
+                          + "than something somebody does while watching flights, so the "
+                          + "console gains nothing by owning it. Until then the verb is the "
+                          + "command line's: `gg key create`.",
             ["AgentLogin"] = "absent, and deliberate for now: the agent-login gate's `s` (the "
                            + "plan's slice 6) is the console's way in, BETWEEN SESSIONS like "
                            + "CredentialSend, because it reads a code with the echo off. Until "

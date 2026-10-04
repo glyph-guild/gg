@@ -29,6 +29,22 @@ namespace Gg.Runner.Tests;
 /// </remarks>
 public class ARunnerLogsItsAgentInOverTheChannelTests
 {
+
+    /// <summary>
+    /// A sealed credential, for a test that is about the dispatch rather than
+    /// about cryptography.
+    /// </summary>
+    /// <remarks>
+    /// Sealed to a throwaway key: the arm under test writes what it is handed
+    /// and never opens it, which is slice fifty-nine step 5's whole point.
+    /// </remarks>
+    private static Gg.Contracts.SealedCredential Sealed(string value = "ghp-not-a-real-token") =>
+        Gg.Contracts.CredentialSeal.Seal(
+            value,
+            [Convert.ToBase64String(
+                System.Security.Cryptography.ECDiffieHellman
+                    .Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256)
+                    .PublicKey.ExportSubjectPublicKeyInfo())]);
     private const string TheUrl = "https://claude.com/cai/oauth/authorize?code_challenge=abc&state=xyz";
     private const string TheToken = "sk-ant-oat01-minted-by-the-agent-not-a-real-one";
     private static readonly DateTimeOffset T0 = new(2026, 9, 15, 12, 0, 0, TimeSpan.Zero);
@@ -145,7 +161,10 @@ public class ARunnerLogsItsAgentInOverTheChannelTests
     {
         public Dictionary<string, string> Kept { get; } = [];
 
-        public bool Keep(string locator, string secret)
+        public bool Keep(string locator, Gg.Contracts.SealedCredential envelope) =>
+            KeepLocallyMinted(locator, envelope.Ciphertext);
+
+        public bool KeepLocallyMinted(string locator, string secret)
         {
             Kept[locator] = secret;
             return true;
@@ -525,7 +544,7 @@ public class ARunnerLogsItsAgentInOverTheChannelTests
                 ConfigureCredential = new ConfigureCredentialAsk
                 {
                     Locator = "local:agent/claude",
-                    Secret = "sk-ant-oat01-sent-from-a-laptop",
+                    Envelope = Sealed("sk-ant-oat01-sent-from-a-laptop"),
                 },
             },
             CancellationToken.None);

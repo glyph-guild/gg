@@ -2235,11 +2235,15 @@ static string SendFromTheConsole(string runnerId, string? chosen)
     // BEFORE ANYTHING IS MINTED, and before anybody is asked for a token: an
     // introduction spent on a send that has nothing to send is a minute of a
     // capability nobody used.
-    var secret = SendACredential.SecretFor(
-        new FileCredentialStore(), locator, new ConsoleSecretPrompt(),
+    // SEALED TO THIS MACHINE FIRST, so what travels is an envelope this process
+    // rewraps rather than a value it holds (ADR-0037 Decision 3).
+    var machineKey = MachineKey.LoadOrCreate();
+
+    var envelope = SendACredential.EnvelopeFor(
+        new FileCredentialStore(null, machineKey), machineKey, locator, new ConsoleSecretPrompt(),
         line => Console.WriteLine($"gg: {line}"));
 
-    if (secret is null)
+    if (envelope is null)
     {
         return $"No secret for {locator}, so nothing was sent.";
     }
@@ -2257,7 +2261,8 @@ static string SendFromTheConsole(string runnerId, string? chosen)
             session.SessionToken,
             runnerId,
             locator,
-            secret,
+            envelope,
+            machineKey.ForOpeningWhatThisMachineSealed(),
             new PinnedRunnerKeys(),
             DateTimeOffset.UtcNow,
             saying: line => Console.WriteLine($"gg: {line}"))
@@ -2398,12 +2403,18 @@ static async Task<int> SendUnderLocatorAsync(string runnerId, string locator, st
     // BEFORE ANYTHING IS MINTED OR ANYBODY IS ASKED FOR A TOKEN. An
     // introduction spent on a send that has nothing to send is a minute of a
     // capability nobody used.
-    var secret = SendACredential.SecretFor(
-        new FileCredentialStore(), locator, new ConsoleSecretPrompt(),
+    // SEALED TO THIS MACHINE BEFORE ANYTHING IS MINTED. The envelope is what
+    // gets rewrapped to the runner once its registered key is known, so this
+    // process holds thirty-two bytes rather than the credential - which is the
+    // whole of ADR-0037 Decision 3 and is only true because it starts here.
+    var machineKey = MachineKey.LoadOrCreate();
+
+    var envelope = SendACredential.EnvelopeFor(
+        new FileCredentialStore(null, machineKey), machineKey, locator, new ConsoleSecretPrompt(),
         line => Console.Error.WriteLine($"gg: {line}"),
         asking: asking);
 
-    if (secret is null)
+    if (envelope is null)
     {
         return Fail(
             $"no secret for {locator}, so nothing was sent. An empty credential written to a "
@@ -2428,7 +2439,8 @@ static async Task<int> SendUnderLocatorAsync(string runnerId, string locator, st
             session.SessionToken,
             runnerId,
             locator,
-            secret,
+            envelope,
+            machineKey.ForOpeningWhatThisMachineSealed(),
             new PinnedRunnerKeys(),
             DateTimeOffset.UtcNow,
             // TO STDERR, because it is progress rather than output. The connect

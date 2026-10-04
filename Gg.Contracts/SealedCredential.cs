@@ -266,6 +266,75 @@ public static class CredentialSeal
     }
 
     /// <summary>
+    /// Adds a holder by rewrapping the content key. The body is not touched.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>ADR-0037 Decision 3, and the difference between a design and a
+    /// slogan.</b> This unwraps thirty-two bytes and wraps them again. It never
+    /// decrypts the credential, so the machine performing it never holds the
+    /// value — and the plaintext exists in only two moments of a credential's
+    /// life: when a person first seals it, and when the machine it reached uses
+    /// it.
+    /// </para>
+    /// <para>
+    /// <b>The ciphertext is carried across unchanged</b>, which is what makes
+    /// that claim checkable from outside: sealing again would mint a fresh
+    /// nonce, so a byte-identical body is proof nothing was opened. The version
+    /// is carried for the same reason — the body was sealed under it and is
+    /// still those bytes.
+    /// </para>
+    /// <para>
+    /// <b>It ADDS rather than moves.</b> A push must not cost the pusher its own
+    /// access, or handing a credential to a runner would take it away from the
+    /// laptop that sent it. Decision 8's second holder is this same verb pointed
+    /// at a person.
+    /// </para>
+    /// </remarks>
+    public static SealedCredential Rewrap(
+        SealedCredential envelope, ECDiffieHellman ours, string holder)
+    {
+        ArgumentNullException.ThrowIfNull(envelope);
+        ArgumentNullException.ThrowIfNull(ours);
+        ArgumentException.ThrowIfNullOrEmpty(holder);
+
+        if (SealedCredential.WrappedFor(envelope, holder) is not null)
+        {
+            // ONE WRAPPED KEY PER HOLDER survives a rewrap, or WrappedFor is
+            // choosing between two entries again - which is the decision nothing
+            // in this design should be making.
+            throw new ArgumentException(
+                "This credential is already sealed to that holder.", nameof(holder));
+        }
+
+        // UNWRAPPED FIRST, so a key that cannot open this refuses HERE rather
+        // than producing an envelope that fails later, on the recipient's
+        // machine, with a diagnosis pointing at them.
+        var contentKey = Opened(envelope, ours);
+
+        try
+        {
+            return envelope with
+            {
+                Wrapped =
+                [
+                    .. envelope.Wrapped,
+                    new WrappedContentKey
+                    {
+                        Holder = holder,
+                        Wrapped = Convert.ToBase64String(
+                            RunnerSeal.SealTo(holder, contentKey, WrapLabel)),
+                    },
+                ],
+            };
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(contentKey);
+        }
+    }
+
+    /// <summary>
     /// Opens a credential as one of its holders.
     /// </summary>
     /// <remarks>
@@ -285,14 +354,7 @@ public static class CredentialSeal
             throw new CryptographicException(refused);
         }
 
-        var holder = Convert.ToBase64String(ours.PublicKey.ExportSubjectPublicKeyInfo());
-
-        if (SealedCredential.WrappedFor(envelope, holder) is not { } mine)
-        {
-            throw new CryptographicException(SaidWhenNoHolder(envelope, holder));
-        }
-
-        var contentKey = RunnerSeal.OpenWith(ours, Convert.FromBase64String(mine.Wrapped), WrapLabel);
+        var contentKey = Opened(envelope, ours);
 
         try
         {
@@ -343,4 +405,22 @@ public static class CredentialSeal
 
     private static string? Validate(SealedCredential envelope) =>
         SealedCredential.Validate(envelope);
+
+    /// <summary>
+    /// The content key, for a holder that can get at it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Shared by <see cref="Open"/> and <see cref="Rewrap"/>, because they
+    /// ask the same question.</b> Two copies would be two places for "which
+    /// wrapped key is mine" to drift, and the one that drifted would produce an
+    /// envelope that opens for the sender and not the recipient.
+    /// </remarks>
+    private static byte[] Opened(SealedCredential envelope, ECDiffieHellman ours)
+    {
+        var holder = Convert.ToBase64String(ours.PublicKey.ExportSubjectPublicKeyInfo());
+
+        return SealedCredential.WrappedFor(envelope, holder) is { } mine
+            ? RunnerSeal.OpenWith(ours, Convert.FromBase64String(mine.Wrapped), WrapLabel)
+            : throw new CryptographicException(SaidWhenNoHolder(envelope, holder));
+    }
 }

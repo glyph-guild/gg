@@ -25,6 +25,21 @@ namespace Gg.Client.Tests;
 /// </remarks>
 public class NothingIsHandedToAMaintainerTests
 {
+
+    /// <summary>A key and an envelope, for a test that never gets as far as using either.</summary>
+    /// <remarks>
+    /// The refusal here happens BEFORE an introduction is minted, so nothing is
+    /// ever rewrapped - these exist only to satisfy the signature, which is
+    /// itself the point: there is no overload that takes a plaintext value.
+    /// </remarks>
+    private static System.Security.Cryptography.ECDiffieHellman AKey() =>
+        System.Security.Cryptography.ECDiffieHellman.Create(
+            System.Security.Cryptography.ECCurve.NamedCurves.nistP256);
+
+    private static Gg.Contracts.SealedCredential Sealed() =>
+        Gg.Contracts.CredentialSeal.Seal(
+            "not-a-real-secret",
+            [Convert.ToBase64String(AKey().PublicKey.ExportSubjectPublicKeyInfo())]);
     private const string Maintainer = "01a0632b-e971-7000-8000-000000000000";
 
     private static readonly DateTimeOffset Now = new(2026, 9, 17, 4, 0, 0, TimeSpan.Zero);
@@ -106,7 +121,7 @@ public class NothingIsHandedToAMaintainerTests
         var (control, channel, handler, pins) = Parts();
 
         var sent = await new SendACredential(control, channel).SendAsync(
-            "session", Maintainer, "secret://acme/widgets", "not-a-real-secret", pins, Now);
+            "session", Maintainer, "secret://acme/widgets", Sealed(), AKey(), pins, Now);
 
         await Assert.That(sent.Outcome).IsEqualTo(SendOutcome.Offline)
             .Because("a secret typed for a machine nothing can reach is a secret typed for "

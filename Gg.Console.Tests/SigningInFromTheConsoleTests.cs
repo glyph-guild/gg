@@ -52,6 +52,8 @@ public class SigningInFromTheConsoleTests
 
         public string ProtectionFor(string locator) => "nothing is stored";
         public string PathFor(string locator) => throw new InvalidOperationException("no store here");
+        public void WriteSealed(string locator, Gg.Contracts.SealedCredential envelope) { }
+
         public void Write(string locator, string secret) => throw new InvalidOperationException("no store here");
         public string? Read(string locator) => null;
 

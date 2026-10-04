@@ -25,6 +25,22 @@ namespace Gg.Runner.Tests;
 /// </remarks>
 public class WhatARunnerSaysItTakesIsWhatItTakesTests
 {
+
+    /// <summary>
+    /// A sealed credential, for a test that is about the dispatch rather than
+    /// about cryptography.
+    /// </summary>
+    /// <remarks>
+    /// Sealed to a throwaway key: the arm under test writes what it is handed
+    /// and never opens it, which is slice fifty-nine step 5's whole point.
+    /// </remarks>
+    private static Gg.Contracts.SealedCredential Sealed(string value = "ghp-not-a-real-token") =>
+        Gg.Contracts.CredentialSeal.Seal(
+            value,
+            [Convert.ToBase64String(
+                System.Security.Cryptography.ECDiffieHellman
+                    .Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256)
+                    .PublicKey.ExportSubjectPublicKeyInfo())]);
     private sealed class Quiet : IAnswersAboutItself
     {
         public LogTail Tail(int lines) => new() { Lines = [], Truncated = false };
@@ -38,7 +54,10 @@ public class WhatARunnerSaysItTakesIsWhatItTakesTests
 
     private sealed class AStore : IKeepACredential
     {
-        public bool Keep(string locator, string secret) => true;
+        public bool Keep(string locator, Gg.Contracts.SealedCredential envelope) =>
+            KeepLocallyMinted(locator, envelope.Ciphertext);
+
+        public bool KeepLocallyMinted(string locator, string secret) => true;
     }
 
     private static RunnerAsk Configuring() => new()
@@ -47,7 +66,7 @@ public class WhatARunnerSaysItTakesIsWhatItTakesTests
         ConfigureCredential = new ConfigureCredentialAsk
         {
             Locator = "local:acme/widgets",
-            Secret = "ghp-not-a-real-token-8d10",
+            Envelope = Sealed("ghp-not-a-real-token-8d10"),
         },
     };
 

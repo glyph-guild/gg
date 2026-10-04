@@ -55,6 +55,18 @@ public interface ICredentialStore
     /// <summary>Stores a secret against a locator, replacing whatever was there.</summary>
     void Write(string locator, string secret);
 
+    /// <summary>
+    /// Stores an envelope exactly as it arrived, without opening it.
+    /// </summary>
+    /// <remarks>
+    /// <b>On the PORT rather than reached by a downcast.</b> A keeper that
+    /// tested for the file store and did nothing for anything else would be a
+    /// push that silently failed against whichever adapter arrives next -
+    /// which is the shape of defect this codebase keeps finding, and a
+    /// `written: false` nobody could explain.
+    /// </remarks>
+    void WriteSealed(string locator, SealedCredential envelope);
+
     /// <summary>The secret, or null when this machine does not have it.</summary>
     string? Read(string locator);
 
@@ -247,7 +259,69 @@ public sealed class FileCredentialStore : ICredentialStore
     public string SealedPathFor(string locator) =>
         Path.ChangeExtension(PathFor(locator), SealedExtension);
 
-    public void Write(string locator, string secret)
+    /// <summary>
+    /// The sealed entry for this locator, without opening it.
+    /// </summary>
+    /// <remarks>
+    /// <b>How a push gets something to rewrap.</b> It reads the envelope rather
+    /// than the value, which is the whole of ADR-0037 Decision 3: the machine
+    /// doing the pushing unwraps thirty-two bytes and never the credential.
+    /// Throws for a locator this machine holds only in plaintext, because there
+    /// is no envelope to hand on — reading it would be a decrypt, and the
+    /// caller must know the difference.
+    /// </remarks>
+    public SealedCredential SealedFor(string locator)
+    {
+        var path = SealedPathFor(locator);
+
+        if (!File.Exists(path))
+        {
+            throw new CredentialUnavailableException(
+                $"There is no sealed credential at '{locator}' on this machine. "
+              + "Read it once to reseal it, or add it here.");
+        }
+
+        return Envelope(locator, File.ReadAllText(path));
+    }
+
+    /// <summary>
+    /// Writes an envelope exactly as it arrived.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Unopened, which is what makes a push cost nothing in plaintext at
+    /// EITHER end.</b> The sender rewrapped without decrypting; a receiver that
+    /// opened this to re-seal it under its own store would undo that on arrival
+    /// and leave the credential in the clear on a machine nobody is watching.
+    /// </para>
+    /// <para>
+    /// <b>It takes what it is given rather than judging it.</b> A machine may be
+    /// handed an envelope sealed to somebody else, and refusing would be the
+    /// store deciding what it is allowed to hold. <see cref="Read"/> is where
+    /// rule 9's diagnosis belongs, and it already names the locator and never
+    /// the bytes.
+    /// </para>
+    /// </remarks>
+    public void WriteSealed(string locator, SealedCredential envelope)
+    {
+        ArgumentNullException.ThrowIfNull(envelope);
+
+        WriteEnvelope(locator, envelope);
+    }
+
+    public void Write(string locator, string secret) =>
+        WriteEnvelope(locator, CredentialSeal.Seal(secret, [_key.Value.PublicKey]));
+
+    /// <summary>
+    /// Puts an envelope on disk, locked down, and takes the plaintext with it.
+    /// </summary>
+    /// <remarks>
+    /// <b>One path for a sealed write, whether the envelope was made here or
+    /// handed over.</b> Two would be two places to get the permissions, the
+    /// directory modes and the plaintext delete right, and the one that was
+    /// wrong would be the one nobody exercised.
+    /// </remarks>
+    private void WriteEnvelope(string locator, SealedCredential envelope)
     {
         var path = SealedPathFor(locator);
         var plaintext = PathFor(locator);
@@ -272,10 +346,7 @@ public sealed class FileCredentialStore : ICredentialStore
         RestrictFile(path);
 
         File.WriteAllText(
-            path,
-            JsonSerializer.Serialize(
-                CredentialSeal.Seal(secret, [_key.Value.PublicKey]),
-                SealedCredentialJson.Default.SealedCredential));
+            path, JsonSerializer.Serialize(envelope, SealedCredentialJson.Default.SealedCredential));
 
         RestrictFile(path);
 
@@ -369,26 +440,31 @@ public sealed class FileCredentialStore : ICredentialStore
     /// diagnosis.
     /// </para>
     /// </remarks>
-    private string Open(string locator, string written)
+    /// <summary>The envelope on disk, deserialised and not opened.</summary>
+    /// <remarks>
+    /// <b>Split from <see cref="Open"/> so a push can read what it will rewrap
+    /// without decrypting it.</b> The two used to be one method, which was fine
+    /// while the only reason to read a file was to get the value out of it -
+    /// and is exactly what Decision 3 needs apart.
+    /// </remarks>
+    private static SealedCredential Envelope(string locator, string written)
     {
-        SealedCredential? envelope;
-
         try
         {
-            envelope = JsonSerializer.Deserialize(
-                written, SealedCredentialJson.Default.SealedCredential);
+            return JsonSerializer.Deserialize(written, SealedCredentialJson.Default.SealedCredential)
+                ?? throw new JsonException("null");
         }
         catch (JsonException)
-        {
-            envelope = null;
-        }
-
-        if (envelope is null)
         {
             throw new CredentialUnavailableException(
                 $"The credential at '{locator}' on this machine is not a sealed credential. "
               + "Something truncated or overwrote it; push it here again.");
         }
+    }
+
+    private string Open(string locator, string written)
+    {
+        var envelope = Envelope(locator, written);
 
         try
         {

@@ -42,8 +42,42 @@ public interface IAnswersAboutItself
 /// </remarks>
 public interface IKeepACredential
 {
-    /// <summary>Keeps the secret under the locator. Whether it landed.</summary>
-    bool Keep(string locator, string secret);
+    /// <summary>
+    /// Keeps the sealed credential under the locator. Whether it landed.
+    /// </summary>
+    /// <remarks>
+    /// <b>An ENVELOPE rather than a value, since slice fifty-nine.</b> What
+    /// arrives is sealed to this machine's own key and is written exactly as it
+    /// came — so a runner that takes a push never holds the credential in the
+    /// clear, and neither did the console that sent it. The port's shape is
+    /// what makes that true rather than a promise: there is no longer a
+    /// parameter a plaintext value could be passed in.
+    /// </remarks>
+    bool Keep(string locator, SealedCredential envelope);
+
+    /// <summary>
+    /// Keeps a secret this machine MINTED itself. Whether it landed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Two members, because there are two origins and only one of them is a
+    /// peer.</b> An envelope arrives over the channel, already sealed to this
+    /// machine, and is written as it came. This one is for a value the machine
+    /// produced locally and nobody sent it — the agent-login ceremony runs
+    /// `claude setup-token` as a child process here and reads the token off its
+    /// own stdout, which is why <c>LogAnAgentIn</c> can say the token never
+    /// passes through the console at all.
+    /// </para>
+    /// <para>
+    /// <b>It is NOT reachable from the channel</b>, and that is the property to
+    /// keep. <c>AskDispatch</c>'s configure-credential arm calls
+    /// <see cref="Keep(string, SealedCredential)"/> and nothing else, so a peer
+    /// has no way to hand this method anything. Collapsing the two into one
+    /// value-taking member would put a plaintext parameter back on the path a
+    /// hostile peer can reach, which is what slice fifty-nine step 5 removed.
+    /// </para>
+    /// </remarks>
+    bool KeepLocallyMinted(string locator, string secret);
 }
 
 /// <summary>
@@ -201,7 +235,7 @@ public sealed class AskDispatch(
                         }.Stripped();
                     }
 
-                    var written = _credentials.Keep(given.Locator, given.Secret);
+                    var written = _credentials.Keep(given.Locator, given.Envelope);
                     if (written)
                     {
                         _kept?.Invoke(given.Locator);

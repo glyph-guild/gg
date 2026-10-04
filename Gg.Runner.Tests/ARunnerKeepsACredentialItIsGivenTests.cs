@@ -36,6 +36,22 @@ namespace Gg.Runner.Tests;
 /// </remarks>
 public class ARunnerKeepsACredentialItIsGivenTests
 {
+
+    /// <summary>
+    /// A sealed credential, for a test that is about the dispatch rather than
+    /// about cryptography.
+    /// </summary>
+    /// <remarks>
+    /// Sealed to a throwaway key: the arm under test writes what it is handed
+    /// and never opens it, which is slice fifty-nine step 5's whole point.
+    /// </remarks>
+    private static Gg.Contracts.SealedCredential Sealed(string value = "ghp-not-a-real-token") =>
+        Gg.Contracts.CredentialSeal.Seal(
+            value,
+            [Convert.ToBase64String(
+                System.Security.Cryptography.ECDiffieHellman
+                    .Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256)
+                    .PublicKey.ExportSubjectPublicKeyInfo())]);
     private const string TheSecret = "ghp-not-a-real-token-9f3b2a7c05e8";
 
     /// <summary>A store that remembers, so a test can look.</summary>
@@ -43,7 +59,10 @@ public class ARunnerKeepsACredentialItIsGivenTests
     {
         public Dictionary<string, string> Written { get; } = new(StringComparer.Ordinal);
 
-        public bool Keep(string locator, string secret)
+        public bool Keep(string locator, Gg.Contracts.SealedCredential envelope) =>
+            KeepLocallyMinted(locator, envelope.Ciphertext);
+
+        public bool KeepLocallyMinted(string locator, string secret)
         {
             Written[locator] = secret;
             return true;
@@ -62,10 +81,24 @@ public class ARunnerKeepsACredentialItIsGivenTests
         };
     }
 
-    private static RunnerAsk Configuring(string locator, string secret = TheSecret) => new()
+    /// <summary>The envelope the ask under test carries, kept so a test can compare it.</summary>
+    /// <remarks>
+    /// <b>Built once and remembered, because the assertion is now about the
+    /// ENVELOPE arriving unopened.</b> Sealing twice would produce two different
+    /// ciphertexts for one value - a fresh content key and nonce each time - and
+    /// a test comparing them would fail for a runner doing exactly the right
+    /// thing.
+    /// </remarks>
+    private static SealedCredential TheEnvelope { get; } = Sealed(TheSecret);
+
+    private static RunnerAsk Configuring(string locator, SealedCredential? envelope = null) => new()
     {
         Kind = RunnerAskKinds.ConfigureCredential,
-        ConfigureCredential = new ConfigureCredentialAsk { Locator = locator, Secret = secret },
+        ConfigureCredential = new ConfigureCredentialAsk
+        {
+            Locator = locator,
+            Envelope = envelope ?? TheEnvelope,
+        },
     };
 
     [Test]
@@ -79,7 +112,10 @@ public class ARunnerKeepsACredentialItIsGivenTests
         await Assert.That(said!.Kind).IsEqualTo(RunnerAskKinds.ConfigureCredential);
         await Assert.That(said.Configured!.Locator).IsEqualTo("local:acme/widgets");
         await Assert.That(said.Configured.Written).IsTrue();
-        await Assert.That(store.Written["local:acme/widgets"]).IsEqualTo(TheSecret);
+        // WHAT IT WAS GIVEN, WHICH IS THE ENVELOPE. A runner writing the
+        // credential it was handed never sees the value, so this compares the
+        // ciphertext - there is no plaintext on this path to compare against.
+        await Assert.That(store.Written["local:acme/widgets"]).IsEqualTo(TheEnvelope.Ciphertext);
     }
 
     [Test]

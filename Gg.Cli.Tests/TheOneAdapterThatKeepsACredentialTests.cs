@@ -25,6 +25,20 @@ namespace Gg.Cli.Tests;
 /// </remarks>
 public class TheOneAdapterThatKeepsACredentialTests
 {
+
+    /// <summary>A credential sealed to a throwaway key.</summary>
+    /// <remarks>
+    /// These tests are about the adapter and the dispatch agreeing on a SHAPE,
+    /// not about cryptography: what matters is that an envelope goes in and is
+    /// written as it came.
+    /// </remarks>
+    private static Gg.Contracts.SealedCredential Sealed(string value) =>
+        Gg.Contracts.CredentialSeal.Seal(
+            value,
+            [Convert.ToBase64String(
+                System.Security.Cryptography.ECDiffieHellman
+                    .Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256)
+                    .PublicKey.ExportSubjectPublicKeyInfo())]);
     private const string TheSecret = "ghp-not-a-real-token-4d16-9f3b";
 
     private sealed class ARefusingStore : ICredentialStore
@@ -36,6 +50,9 @@ public class TheOneAdapterThatKeepsACredentialTests
         public string ProtectionFor(string locator) => "nothing, this is a test";
 
         public string PathFor(string locator) => throw new ArgumentException("no");
+
+        public void WriteSealed(string locator, Gg.Contracts.SealedCredential envelope) =>
+            throw new IOException("no");
 
         public void Write(string locator, string secret) =>
             throw new ArgumentException("that locator is not one");
@@ -64,8 +81,11 @@ public class TheOneAdapterThatKeepsACredentialTests
             var store = new FileCredentialStore(root);
             var keeper = new LocalCredentialKeeper(store);
 
-            await Assert.That(keeper.Keep("local:acme/widgets", TheSecret)).IsTrue();
+            await Assert.That(keeper.KeepLocallyMinted("local:acme/widgets", TheSecret)).IsTrue();
             await Assert.That(store.Read("local:acme/widgets")).IsEqualTo(TheSecret);
+
+            // AND AN ENVELOPE ARRIVES THE OTHER WAY, written as it came.
+            await Assert.That(keeper.Keep("local:acme/other", Sealed(TheSecret))).IsTrue();
         }
         finally
         {
@@ -81,7 +101,7 @@ public class TheOneAdapterThatKeepsACredentialTests
     {
         var keeper = new LocalCredentialKeeper(new ARefusingStore());
 
-        await Assert.That(keeper.Keep("local:acme/widgets", TheSecret)).IsFalse()
+        await Assert.That(keeper.Keep("local:acme/widgets", Sealed(TheSecret))).IsFalse()
             .Because("the caller is a dispatch arm on a channel a hostile peer is on the "
                    + "other end of, and an exception there ends the conversation.");
     }

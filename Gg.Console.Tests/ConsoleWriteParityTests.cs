@@ -54,6 +54,8 @@ public class ConsoleWriteParityTests
 
         public string PathFor(string locator) => "(none)";
 
+        public void WriteSealed(string locator, Gg.Contracts.SealedCredential envelope) { }
+
         public void Write(string locator, string secret) { }
 
         public string? Read(string locator) => null;

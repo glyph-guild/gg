@@ -193,30 +193,48 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
         // THE ENVELOPE, NOT THE VALUE. Reading what this machine already holds
         // as a sealed entry is the ordinary case and the one that costs nothing
         // in plaintext: SealedFor deserialises and does not open.
+        var held = false;
+
         try
         {
-            if (store.Holds(locator))
+            held = store.Holds(locator);
+
+            if (held)
             {
+                // READ FIRST, THEN SAY. Saying it before the read promises
+                // something that can still fail - and on a credential directory
+                // carried from another machine it DID, leaving two contradictory
+                // lines in a row. The read also reseals a plaintext entry in
+                // passing, which is what lets SealedFor answer for a machine
+                // that has not migrated yet. The value is dropped immediately.
+                store.Read(locator);
+
                 // THE LOCATOR, NEVER THE VALUE. Which credential is about to be
                 // sent is what a person checks before sending it.
                 say($"sending the credential this machine holds for {locator}");
-
-                // READ FIRST, which reseals a plaintext entry in passing and is
-                // what makes SealedFor able to answer for a machine that has
-                // not migrated yet (step 3). The value is dropped immediately.
-                store.Read(locator);
                 return store.SealedFor(locator);
             }
         }
-        catch (Exception failure) when (
-            failure is ArgumentException or CredentialUnavailableException)
+        catch (ArgumentException)
         {
-            // A MALFORMED LOCATOR OR AN ENVELOPE THIS MACHINE CANNOT OPEN both
-            // mean the same thing here: there is nothing to hand on, and the
-            // prompt below is the honest next step.
+            // A LOCATOR THE STORE REFUSES. Nothing is here under a name that is
+            // not a name, so the ordinary sentence below is the true one.
+            held = false;
+        }
+        catch (CredentialUnavailableException)
+        {
+            // RULE 9, AND THE REASON THIS METHOD WAS WRONG. A credential that
+            // cannot be opened is not one that is absent: this machine HOLDS it
+            // and the key that would open it is somewhere else. Saying "holds
+            // no credential" sends a person to `gg credential add`, which would
+            // seal a second copy beside one that was never the problem.
         }
 
-        say($"this machine holds no credential for {locator}");
+        say(held
+            ? $"this machine holds a credential for {locator} and cannot open it - it was sealed "
+            + "somewhere else. Type the value to send it anyway, or push it here from the machine "
+            + "that holds it."
+            : $"this machine holds no credential for {locator}");
 
         var typed = prompt.ReadSecret(asking ?? $"Secret for {locator} (not echoed): ");
 

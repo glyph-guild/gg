@@ -155,6 +155,15 @@ public sealed record Exposure
                  + "decide.";
         }
 
+        // A SCHEME NOBODY DECLARED is the same shape of mistake as a port nothing can
+        // bind, and refused in the same place: a connector handed a word it cannot dial
+        // writes an ingress nothing answers, and the flight that discovers it is hours
+        // and one machine away from whoever typed it.
+        if (OriginSchemes.Validate(exposure.Inventory.Scheme) is { } scheme)
+        {
+            return $"inventory.scheme: {scheme}";
+        }
+
         // A REFERENCE, NEVER A SECRET - FleetProfile's rule 14, and it belongs
         // here for the same reason. An airspace document is git-tracked and
         // readable by everyone who can read the airspace, so a token pasted

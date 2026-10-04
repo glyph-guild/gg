@@ -2198,6 +2198,13 @@ public static class PlatformToolServer
             "  credentials:      WHERE each slot's secret is, one per slot and carrying {slot} "
           + "for the same reason - never what the secret is.");
         said.AppendLine(
+            "  scheme:           http or https - HOW the connector dials that port, not how a "
+          + "person reaches the address. Optional, and absent means http, which is what every "
+          + "exposure written before this says. Say https when the stack will not answer "
+          + "plaintext: a dev server with TLS configured, or one whose cookies a browser only "
+          + "sets over HTTPS. The certificate is not verified, because it is the environment's "
+          + "own on loopback.");
+        said.AppendLine(
             "  Growing the inventory, moving the hostnames, moving the credentials or changing "
           + "the kind all widen and are reviewed; shrinking the inventory only ever removes "
           + "addresses, so it applies at once.");

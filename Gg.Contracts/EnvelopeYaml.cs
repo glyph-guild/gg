@@ -548,7 +548,7 @@ public static class EnvelopeYaml
         Closed(root, BasedOnKey, "kind", "inventory");
 
         var inventory = RequireMap(Require(root, "inventory"), "inventory");
-        Closed(inventory, "size", "hostnames", "credentials", "port");
+        Closed(inventory, "size", "hostnames", "credentials", "port", "scheme");
 
         return new Exposure
         {
@@ -565,6 +565,14 @@ public static class EnvelopeYaml
                 // says, and what they must go on meaning.
                 Port = inventory.Entries.TryGetValue("port", out var port)
                     ? WholeNumber(port, "inventory.port")
+                    : null,
+
+                // OPTIONAL TOO, and absence means http - what every document written
+                // before this says, and what they must go on meaning. Read as written;
+                // whether the word is one this version can dial is the exposure's own
+                // validation to answer, where the diagnosis can name the document.
+                Scheme = inventory.Entries.TryGetValue("scheme", out var scheme)
+                    ? RequireScalar(scheme, "inventory.scheme")
                     : null,
             },
         };

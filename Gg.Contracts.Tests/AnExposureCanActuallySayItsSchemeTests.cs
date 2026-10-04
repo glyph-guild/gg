@@ -28,7 +28,7 @@ public class AnExposureCanActuallySayItsSchemeTests
         inventory:
           size: 8
           hostnames: "jdapp-{slot}.goodgrief.dev"
-          credentials: "keyvault://v.vault.azure.net/jdapp-{slot}"
+          credentials: "local:exposure/jdapp-{slot}"
           port: 8080
           scheme: https
         """;
@@ -38,7 +38,7 @@ public class AnExposureCanActuallySayItsSchemeTests
         inventory:
           size: 8
           hostnames: "jdapp-{slot}.goodgrief.dev"
-          credentials: "keyvault://v.vault.azure.net/jdapp-{slot}"
+          credentials: "local:exposure/jdapp-{slot}"
           port: 8080
         """;
 

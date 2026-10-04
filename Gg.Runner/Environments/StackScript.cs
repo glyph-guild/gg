@@ -477,7 +477,8 @@ public static class StackScript
     /// bind for no reason.
     /// </para>
     /// </remarks>
-    public static void PlacePreview(System.Diagnostics.ProcessStartInfo info, int? port)
+    public static void PlacePreview(
+        System.Diagnostics.ProcessStartInfo info, int? port, string? url = null)
     {
         ArgumentNullException.ThrowIfNull(info);
 
@@ -486,17 +487,40 @@ public static class StackScript
             info.Environment[PreviewPortVariable] =
                 serving.ToString(System.Globalization.CultureInfo.InvariantCulture);
         }
+
+        // SET ONLY WHEN THERE IS ONE, like the port and for the same reason. A variable
+        // holding an empty string is not the answer "there is no preview": a shell reading
+        // `${GG_PREVIEW_URL:-}` cannot tell that from a preview at nowhere, and the two
+        // want different behaviour from a hook.
+        if (!string.IsNullOrWhiteSpace(url))
+        {
+            info.Environment[PreviewUrlVariable] = url;
+        }
     }
 
     /// <summary>Where a hook reads the port it must serve on.</summary>
     public const string PreviewPortVariable = "GG_PREVIEW_PORT";
+
+    /// <summary>
+    /// Where a hook reads the public address a person will open.
+    /// </summary>
+    /// <remarks>
+    /// <b>A port is where a stack listens; this is where it is reached, and they are
+    /// different facts.</b> A stack that only serves pages needs the first. One that
+    /// builds a URL and hands it to somebody else - an OIDC redirect URI being the case
+    /// this was measured against - needs the second, because a URI built from
+    /// <c>localhost</c> and a port is one an identity provider refuses and a person never
+    /// returns from. The browser is at the tunnel's hostname.
+    /// </remarks>
+    public const string PreviewUrlVariable = "GG_PREVIEW_URL";
 
     public static async Task<Performance> PerformAsync(
         string script, string verb, string workingDirectory, TimeSpan patience,
         CancellationToken cancellationToken = default,
         string? instance = null,
         bool capture = false,
-        int? previewPort = null)
+        int? previewPort = null,
+        string? previewUrl = null)
     {
         var start = new System.Diagnostics.ProcessStartInfo
         {
@@ -515,7 +539,7 @@ public static class StackScript
         // what a Docker client in this hook finds, and the port it must serve on
         // is the one the connector forwards to.
         PlaceInstance(start, instance);
-        PlacePreview(start, previewPort);
+        PlacePreview(start, previewPort, previewUrl);
 
         if (start.FileName == "pwsh")
         {

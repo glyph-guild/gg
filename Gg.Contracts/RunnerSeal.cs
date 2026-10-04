@@ -193,7 +193,7 @@ public static class RunnerSeal
     /// into each other.
     /// </para>
     /// </remarks>
-    internal static byte[] SealUnder(byte[] key, byte[] plaintext)
+    public static byte[] SealUnder(byte[] key, byte[] plaintext)
     {
         ArgumentNullException.ThrowIfNull(plaintext);
 
@@ -219,7 +219,7 @@ public static class RunnerSeal
     }
 
     /// <summary>Opens what <see cref="SealUnder"/> sealed.</summary>
-    internal static byte[] OpenUnder(byte[] key, byte[] sealedBytes)
+    public static byte[] OpenUnder(byte[] key, byte[] sealedBytes)
     {
         ArgumentNullException.ThrowIfNull(sealedBytes);
 

@@ -1377,5 +1377,11 @@
     "surface": "bc006185bc69fb2b1f67a36378f6288c6015f5d51998478a643d6ac0de2b33e6",
     "endpoints": "3547b6338468220a389345aafcb989721e2f55960049650e5134770357e37524",
     "note": "An empty value seals rather than throwing. Behaviour only - the wire surface is 0.269.0's verbatim - and it gets a number because 0.269.0 is already published and good-grief consumes this package by version. CredentialSeal.Seal refused an empty string on arrival, which was a refusal in the wrong place: it made LocalCredentialResolver's own empty-secret arm unreachable, and that arm is Article XI doing its job - 'an empty secret is a secret that fetches nothing and fails much later, in a place with no way back to here'. Found by Gg.Cli.Tests' An_empty_secret_is_refused_as_loudly_as_a_missing_one, which could no longer even set up the state it asserts about. Sealing is about how a value RESTS, not about whether it is a good value, so the envelope takes what it is given and the diagnosis stays where somebody already put it."
+  },
+  {
+    "version": "0.271.0",
+    "surface": "bc006185bc69fb2b1f67a36378f6288c6015f5d51998478a643d6ac0de2b33e6",
+    "endpoints": "3547b6338468220a389345aafcb989721e2f55960049650e5134770357e37524",
+    "note": "RunnerSeal.SealUnder and OpenUnder become public. The wire SURFACE is 0.270.0's verbatim - the fingerprint covers wire TYPES rather than every public member, so it did not move and the ratchet did not fire - but the published package gained API a consumer can call, and 0.270.0 is already published, so it gets a number. Slice fifty-nine step 4 needs the symmetric seal outside Gg.Contracts: a person's key rests wrapped under a passphrase-derived key, which is the same act as sealing a credential body and must not become a second framing that agrees today. Rule 2 of the slice says every primitive comes from RunnerSeal's set, and this is what makes that true rather than aspirational. Note what is NOT exposed: SealTo and OpenWith stay internal, because the asymmetric pair is how a CREDENTIAL is wrapped to a holder and nothing outside this assembly has business doing that directly."
   }
 ]

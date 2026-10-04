@@ -39,6 +39,20 @@ public sealed record ExposureServed
     public required string Slot { get; init; }
 
     /// <summary>
+    /// The port the connector dials, or null when nothing was served.
+    /// </summary>
+    /// <remarks>
+    /// <b>Carried because a stack has to BIND it, and an origin is not bindable.</b>
+    /// <see cref="Origin"/> is the address to ask "is the preview serving"; this
+    /// is the number a hook needs so the stack answers where the connector
+    /// looks. It used to be dropped, which left the one place that knows where
+    /// traffic is forwarded unable to say it in a form a stack could use — and
+    /// parsing it back out of the origin string would be a second source for one
+    /// fact.
+    /// </remarks>
+    public int? Port { get; init; }
+
+    /// <summary>
     /// The origin the connector dials, or null when nothing was served.
     /// </summary>
     /// <remarks>
@@ -166,6 +180,11 @@ public sealed class CloudflareExposureAdapter(IExposureConnector connector)
                 // honest way to ask "is the preview serving" is to ask the
                 // address the preview actually forwards to.
                 Origin = $"http://localhost:{request.Preview.Port}",
+
+                // AND THE NUMBER INSIDE IT, because a stack binds a port rather
+                // than an origin. One read of the grant, so the two cannot
+                // disagree about where traffic goes.
+                Port = request.Preview.Port,
                 Exposure = request.Preview.Exposure,
                 Slot = slot,
             };

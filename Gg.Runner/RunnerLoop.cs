@@ -872,7 +872,8 @@ public sealed class RunnerLoop(
 
     private async Task<Gg.Contracts.StackPerformed?> PerformStackAsync(
         string? stack, WorkspaceResult workspace, string verb,
-        string? instance, CancellationToken cancellationToken, bool capture = false)
+        string? instance, CancellationToken cancellationToken, bool capture = false,
+        int? previewPort = null)
     {
         if (!Environments.StackScript.Runs(stack) || workspace.Trees.Count == 0)
         {
@@ -892,7 +893,7 @@ public sealed class RunnerLoop(
         var performance = await Environments.StackScript.PerformAsync(
             script, Environments.StackScript.ArgumentFor(verb),
             workspace.Trees[0].Path, Environments.StackScript.Patience, cancellationToken,
-            instance, capture);
+            instance, capture, previewPort);
 
         // THE PATH THE KIND NAMED, not the one just performed. That one is
         // resolved against a tree under /srv/env and describes a pool host's
@@ -2602,11 +2603,11 @@ public sealed class RunnerLoop(
         // what is running.
         var prepared = await PerformStackAsync(
             loop.Hooks, workspace, Environments.StackScript.Prepare,
-            loop.Instance, cancellationToken);
+            loop.Instance, cancellationToken, previewPort: _served?.Port);
 
         var broughtUp = await PerformStackAsync(
             loop.Hooks, workspace, Environments.StackScript.Attach,
-            loop.Instance, cancellationToken);
+            loop.Instance, cancellationToken, previewPort: _served?.Port);
 
         // JUDGED NOW, BEFORE THE AGENT. Until slice fifty-eight the outcome was
         // recorded as a fact and the loop carried on, so a stack that failed to
@@ -2621,7 +2622,7 @@ public sealed class RunnerLoop(
         // inferred from an exit code.
         var answered = await PerformStackAsync(
             loop.Hooks, workspace, Environments.StackScript.Ready,
-            loop.Instance, cancellationToken, capture: true);
+            loop.Instance, cancellationToken, capture: true, previewPort: _served?.Port);
 
         var stopped = Refused(Environments.StackScript.Prepare, prepared)
                    ?? Refused(Environments.StackScript.Attach, broughtUp)
@@ -2665,7 +2666,7 @@ public sealed class RunnerLoop(
         // way in is the backstop for both.
         var broughtDown = await PerformStackAsync(
             loop.Hooks, workspace, Environments.StackScript.Detach,
-            loop.Instance, cancellationToken);
+            loop.Instance, cancellationToken, previewPort: _served?.Port);
 
         // THE SAME PREDICATE THE HOLD BELOW USES, read here so the tear-down and
         // the hold cannot disagree about whether anybody is coming to look.

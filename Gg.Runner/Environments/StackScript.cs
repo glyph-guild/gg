@@ -398,11 +398,51 @@ public static class StackScript
         }
     }
 
+    /// <summary>
+    /// Tells a hook which port the connector forwards to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Because the address is fixed and the stack is what moves.</b> The
+    /// connector is brought up on the beat, once per machine, at
+    /// <c>http://localhost:&lt;port&gt;</c> from the exposure document — and
+    /// re-dialling it at whatever a flight reported is forbidden, since two
+    /// connectors on one token are replicas of one tunnel. So gg says where to
+    /// serve and the hook obeys.
+    /// </para>
+    /// <para>
+    /// <b>What <c>PREVIEW_PORT</c> was reaching for.</b> That is an untyped
+    /// string in a tenant document plus a sentence of prose, and nothing in any
+    /// schema knows the name means a port. This is the platform's, placed rather
+    /// than declared, with the <c>GG_</c> prefix <c>GG_IMAGE_DIGEST</c> and
+    /// <c>GG_POOL_ENDPOINT</c> already carry.
+    /// </para>
+    /// <para>
+    /// <b>Nothing is placed without an exposure</b> — every flight that serves
+    /// nobody — because a port with no tunnel behind it is a number a stack would
+    /// bind for no reason.
+    /// </para>
+    /// </remarks>
+    public static void PlacePreview(System.Diagnostics.ProcessStartInfo info, int? port)
+    {
+        ArgumentNullException.ThrowIfNull(info);
+
+        if (port is { } serving)
+        {
+            info.Environment[PreviewPortVariable] =
+                serving.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+    }
+
+    /// <summary>Where a hook reads the port it must serve on.</summary>
+    public const string PreviewPortVariable = "GG_PREVIEW_PORT";
+
     public static async Task<Performance> PerformAsync(
         string script, string verb, string workingDirectory, TimeSpan patience,
         CancellationToken cancellationToken = default,
         string? instance = null,
-        bool capture = false)
+        bool capture = false,
+        int? previewPort = null)
     {
         var start = new System.Diagnostics.ProcessStartInfo
         {
@@ -418,8 +458,10 @@ public static class StackScript
         };
 
         // BEFORE ANYTHING ELSE TOUCHES THE ENVIRONMENT, so the granted socket is
-        // what a Docker client in this hook finds.
+        // what a Docker client in this hook finds, and the port it must serve on
+        // is the one the connector forwards to.
         PlaceInstance(start, instance);
+        PlacePreview(start, previewPort);
 
         if (start.FileName == "pwsh")
         {

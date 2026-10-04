@@ -45,6 +45,16 @@ internal static partial class Sources
               + "rules are in force which are not, and the gate would then refuse a "
               + "document drafted in good faith against them.",
 
+            ["GG_PREVIEW_PORT"] =
+                "gg writes it into a hook's environment, so a stack binds where the "
+              + "connector forwards. A person setting it is the DEFECT this fixes rather "
+              + "than a use of it: the connector is dialled from the exposure document, on "
+              + "the beat, once per machine, and a stack told to serve anywhere else hands "
+              + "a person whatever is already listening there - on this tenant, traefik. "
+              + "What a HOOK AUTHOR reads is the learn-environment kind's instructions, "
+              + "which is a different page from the one somebody configures a machine "
+              + "from, and the whole reason this is not PREVIEW_PORT.",
+
             ["GG_MEMBER_NONCE"] =
                 "a pool maintainer writes it into a member container, single use. A "
               + "person cannot mint one and a stale one is refused.",

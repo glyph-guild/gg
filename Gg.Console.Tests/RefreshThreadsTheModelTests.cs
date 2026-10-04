@@ -155,6 +155,8 @@ public class RefreshThreadsTheModelTests
 
         public string Protection => "nothing is stored";
 
+        public string ProtectionFor(string locator) => "nothing is stored";
+
         public string PathFor(string locator) => throw new InvalidOperationException("no store");
 
         public void Write(string locator, string secret) =>

@@ -395,17 +395,132 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter, IIm
     /// Removes this repository's images that nothing pins and nothing runs.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>NEVER WITH <c>force</c>.</b> Without it the daemon refuses to delete
     /// an image a container is using, which is the guard that matters - a
     /// member that is up cannot lose what it is running even if this is asked
-    /// wrongly. `keep` adds only what the daemon cannot know: the pin, which a
-    /// pool scaled to nothing would leave unused and deletable.
+    /// wrongly. <paramref name="keep"/> adds only what the daemon cannot know:
+    /// the pin, which a pool scaled to nothing would leave unused and
+    /// deletable, and the image just built, which has no container yet.
+    /// </para>
+    /// <para>
+    /// <b>BY TAG, IN THE HOST'S OWN REGISTRY, which is how the proxy can scope
+    /// it.</b> An id is a bare digest and names nothing a routing table can
+    /// check, so a delete by id has to be admitted for every image on the host.
+    /// A delete by <c>127.0.0.1:5000/...</c> is admitted by the same shape as
+    /// the push rule above it: this runner may remove what this runner pushed,
+    /// and nothing else on the host. Removing an image's last tag removes the
+    /// image, which is what makes the narrow spelling sufficient.
+    /// </para>
+    /// <para>
+    /// <b>A dangling image is not this port's business.</b> The reference
+    /// filter does not list one, and no registry-scoped path names it. What
+    /// this reclaims is the one thing that actually accumulates here: a tagged
+    /// image per build, each the size of a member.
+    /// </para>
     /// </remarks>
-    public Task<ImagesReclaimed> ReclaimImagesAsync(
+    public async Task<ImagesReclaimed> ReclaimImagesAsync(
         string repository,
         IReadOnlyCollection<string> keep,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(new ImagesReclaimed { Removed = 0, Freed = 0 });
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repository);
+        ArgumentNullException.ThrowIfNull(keep);
+
+        var filters = Uri.EscapeDataString(
+            $$"""{"reference":[{"{{repository}}":true}]}""");
+
+        using var listed = await _httpClient.GetAsync(
+            $"/images/json?filters={filters}", cancellationToken);
+
+        if (!listed.IsSuccessStatusCode)
+        {
+            // A HOST THAT WILL NOT SHOW ITS IMAGES KEEPS ITS DISK, and keeps
+            // its build: this is housekeeping beside the act somebody asked
+            // for. A pull point refusing /images/ is a configuration this fleet
+            // really had until this slice, and an older proxy still does.
+            return new ImagesReclaimed
+            {
+                Removed = 0,
+                Freed = 0,
+                Refused = $"the daemon would not list images (HTTP {(int)listed.StatusCode}).",
+            };
+        }
+
+        using var catalogue = JsonDocument.Parse(
+            await listed.Content.ReadAsStringAsync(cancellationToken));
+
+        var removed = 0;
+        long freed = 0;
+        string? refused = null;
+
+        foreach (var image in catalogue.RootElement.EnumerateArray())
+        {
+            if (!image.TryGetProperty("Id", out var id) || id.GetString() is not { } digest)
+            {
+                continue;
+            }
+
+            if (keep.Contains(digest, StringComparer.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            // THE REPOSITORY IS CHECKED HERE TOO, not only in the filter. The
+            // daemon's reference filter is a match, not a promise, and a tag
+            // outside this repository is one this runner never pushed.
+            var tags = image.TryGetProperty("RepoTags", out var repoTags)
+                       && repoTags.ValueKind is JsonValueKind.Array
+                ? repoTags.EnumerateArray()
+                    .Select(t => t.GetString())
+                    .Where(t => t is not null
+                             && t.StartsWith(repository + ":", StringComparison.Ordinal))
+                    .Select(t => t!)
+                    .ToArray()
+                : [];
+
+            if (tags.Length is 0)
+            {
+                continue;
+            }
+
+            var size = image.TryGetProperty("Size", out var bytes) ? bytes.GetInt64() : 0;
+            var gone = false;
+
+            foreach (var tag in tags)
+            {
+                // NOT ESCAPED. The repository carries the registry's ':' and
+                // '/' and the proxy matches them literally, exactly as the push
+                // path does - escaping them here would route this to the
+                // catch-all refusal.
+                using var deleted = await _httpClient.DeleteAsync(
+                    $"/images/{tag}", cancellationToken);
+
+                if (deleted.IsSuccessStatusCode)
+                {
+                    gone = true;
+                    continue;
+                }
+
+                // CONFLICT IS THE ORDINARY ANSWER, not a problem: it is the
+                // daemon saying a container is using this, which is exactly the
+                // image this must not take. Anything else is worth saying once.
+                if (deleted.StatusCode is not System.Net.HttpStatusCode.Conflict)
+                {
+                    refused ??= $"the daemon would not remove an image "
+                              + $"(HTTP {(int)deleted.StatusCode}).";
+                }
+            }
+
+            if (gone)
+            {
+                removed++;
+                freed += size;
+            }
+        }
+
+        return new ImagesReclaimed { Removed = removed, Freed = freed, Refused = refused };
+    }
 
     /// <summary>
     /// Pushes a built image to its registry, and returns the digest the registry

@@ -50,6 +50,8 @@ public class ConsoleWriteParityTests
 
         public string Protection => "nothing is stored";
 
+        public string ProtectionFor(string locator) => "nothing is stored";
+
         public string PathFor(string locator) => "(none)";
 
         public void Write(string locator, string secret) { }

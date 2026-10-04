@@ -652,6 +652,8 @@ public class ConsoleStartTests
     {
         public string Root => "(no store)";
         public string Protection => "nothing is stored";
+
+        public string ProtectionFor(string locator) => "nothing is stored";
         public string PathFor(string locator) => throw new InvalidOperationException("no store here");
         public void Write(string locator, string secret) => throw new InvalidOperationException("no store here");
         public string? Read(string locator) => null;

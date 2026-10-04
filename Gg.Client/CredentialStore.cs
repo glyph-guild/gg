@@ -28,6 +28,27 @@ public interface ICredentialStore
     /// </remarks>
     string Protection { get; }
 
+    /// <summary>
+    /// How THIS credential rests here, in one sentence.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Because one sentence for a directory stopped being true of everything
+    /// in it.</b> A machine mid-migration holds sealed credentials and plaintext
+    /// ones at once, and <see cref="Protection"/> is printed verbatim — so
+    /// either it answers per credential or the migration is not allowed to be
+    /// partial. The owner took the first on 2026-10-04: an atomic migration
+    /// turns a locked file or a full disk into a machine that will not run, and
+    /// a cosmetic honesty problem must not become a fleet outage.
+    /// </para>
+    /// <para>
+    /// <b>It opens nothing</b>, for <see cref="Holds"/>'s reason. How a
+    /// credential rests is the file's shape, and a sentence about a credential
+    /// must never be a reason to decrypt one.
+    /// </para>
+    /// </remarks>
+    string ProtectionFor(string locator);
+
     /// <summary>Where a locator's secret is kept. Throws if the locator is not one.</summary>
     string PathFor(string locator);
 
@@ -135,10 +156,64 @@ public sealed class FileCredentialStore : ICredentialStore
 
     public string Root => _root;
 
-    public string Protection =>
-        $"a file per credential under {_root}, mode 0600 in a mode-0700 directory. "
-      + "Anything running as this user can read it; what this protects is that the secret "
-      + "never reaches the control plane.";
+    /// <summary>
+    /// What this store is and how it protects what it holds.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It counts, rather than describing an intention.</b> A machine
+    /// mid-migration holds both shapes, and a sentence that said "sealed"
+    /// over a directory with plaintext in it would be exactly the lie this
+    /// property's own rule forbids.
+    /// </para>
+    /// <para>
+    /// <b>The honesty clause survives the whole slice.</b> The key is a file
+    /// this machine can read, so sealing buys nothing against anything already
+    /// running as this user — what it buys is that a directory which MOVES
+    /// opens nowhere. ADR-0037 requires that distinction keep being said in as
+    /// many words.
+    /// </para>
+    /// </remarks>
+    public string Protection
+    {
+        get
+        {
+            var plaintext = Counted(Extension);
+            var sealedUp = Counted(SealedExtension);
+
+            var said =
+                $"a file per credential under {_root}, mode 0600 in a mode-0700 directory, "
+              + "each sealed to this machine's own key. Anything running as this user can read "
+              + "that key and open them; what sealing adds is that a copy of this directory "
+              + "alone - a backup, a disk image, a support bundle - opens nowhere.";
+
+            return plaintext == 0
+                ? said
+                : said
+                + $" {plaintext} of {plaintext + sealedUp} here are still plaintext from before "
+                + "sealing; each is resealed the next time it is read.";
+        }
+    }
+
+    /// <summary>How many credentials under this root are kept in one shape.</summary>
+    private int Counted(string extension) =>
+        Directory.Exists(_root)
+            ? Directory.EnumerateFiles(_root, "*" + extension, SearchOption.AllDirectories).Count()
+            : 0;
+
+    public string ProtectionFor(string locator)
+    {
+        if (File.Exists(SealedPathFor(locator)))
+        {
+            return "sealed to this machine's own key. Anything running as this user can read that "
+                 + "key and open it; a copy of the file alone opens nowhere.";
+        }
+
+        return File.Exists(PathFor(locator))
+            ? "plaintext, from before this machine sealed anything. Anything that can read the "
+            + "file can read the secret; it is resealed the next time it is read."
+            : $"nothing is stored here for '{locator}'.";
+    }
 
     public string PathFor(string locator)
     {
@@ -225,10 +300,52 @@ public sealed class FileCredentialStore : ICredentialStore
         // A missing secret is a diagnosis the caller makes - doctor reports it,
         // the runner turns it into a flight-log event - not an exception thrown
         // from a file API somewhere down the stack.
-        //
-        // STILL READ, NEVER WRITTEN. A credential written before sealing shipped
-        // opens as it always did; step 3 is what reseals it.
-        return File.Exists(path) ? File.ReadAllText(path) : null;
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        var secret = File.ReadAllText(path);
+        Reseal(locator, secret);
+        return secret;
+    }
+
+    /// <summary>
+    /// Writes a plaintext credential back sealed, if it can.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>On read, rather than by a verb somebody has to run.</b> A migration
+    /// that needs a person reaches the machines whose operator reads release
+    /// notes and no others — on a fleet that means the pool hosts migrate and
+    /// the laptops do not. Reading is the one thing that certainly happens to a
+    /// credential anybody still uses.
+    /// </para>
+    /// <para>
+    /// <b>BEST EFFORT, and that is the half that keeps a fleet up.</b> A
+    /// read-only mount, a full disk, a directory somebody chmodded: none of them
+    /// may turn a credential that resolves perfectly well into a failed flight.
+    /// The value has already been read by the time this runs, and the caller
+    /// gets it whatever happens here.
+    /// </para>
+    /// <para>
+    /// <b>Nothing is said when it fails.</b> There is no caller who could act on
+    /// it — a runner mid-flight cannot fix a disk — and a line per read on a
+    /// machine that cannot write would be a log nobody reads full of a fact
+    /// <c>gg doctor</c> already states calmly, once, on request.
+    /// </para>
+    /// </remarks>
+    private void Reseal(string locator, string secret)
+    {
+        try
+        {
+            Write(locator, secret);
+        }
+        catch (Exception failure) when (
+            failure is IOException or UnauthorizedAccessException or CryptographicException)
+        {
+            // The plaintext stays where it is and reads again next time.
+        }
     }
 
     /// <summary>

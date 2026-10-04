@@ -63,6 +63,24 @@ public sealed class MachineCredentialStore(ICredentialStore local, KeyVaultCrede
       + $" A {KeyVaultReference.Scheme} reference is read from its vault by this machine's managed "
       + "identity, held in memory for the flight that needs it, and never written here.";
 
+    /// <summary>
+    /// How this credential rests, routed by scheme like everything else here.
+    /// </summary>
+    /// <remarks>
+    /// <b>A vault reference rests wherever the vault keeps it, and this machine
+    /// does not know.</b> It must not guess, and it must not borrow the local
+    /// store's sentence: whoever owns the vault decides what protects what is in
+    /// it, and claiming a seal we did not apply is the same lie one scheme over.
+    /// Asking would also mean READING it, which is the reason
+    /// <see cref="Holds"/> answers false for one.
+    /// </remarks>
+    public string ProtectionFor(string locator) =>
+        KeyVaultReference.Names(locator)
+            ? $"in a vault, not on this machine. This machine reads '{locator}' with its managed "
+            + "identity when a flight needs it and never writes it here, so how it rests is the "
+            + "vault's to say."
+            : _local.ProtectionFor(locator);
+
     public string PathFor(string locator) =>
         KeyVaultReference.Names(locator) ? throw NotHere(locator) : _local.PathFor(locator);
 

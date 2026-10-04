@@ -31,6 +31,8 @@ public class ASendSaysWhatItIsAskingForTests
 
         public string Protection => "nothing, this is a test";
 
+        public string ProtectionFor(string locator) => "nothing, this is a test";
+
         public string PathFor(string locator) => "/nowhere/x";
 
         public void Write(string locator, string value) { }

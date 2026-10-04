@@ -33,6 +33,8 @@ public class TheOneAdapterThatKeepsACredentialTests
 
         public string Protection => "nothing, this is a test";
 
+        public string ProtectionFor(string locator) => "nothing, this is a test";
+
         public string PathFor(string locator) => throw new ArgumentException("no");
 
         public void Write(string locator, string secret) =>

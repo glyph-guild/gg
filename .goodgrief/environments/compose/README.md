@@ -85,6 +85,17 @@ question about the instance's network namespace rather than about the stack
 being up. `docker inspect` asks the daemon, which is right either way, and both
 services declare a `HEALTHCHECK` so there is something to ask about.
 
+**This was written as an open risk, and the walk measured it — the other way.**
+Run on a pool host through a granted rootless instance, the published port is
+reachable from outside it: `0.0.0.0:18231` and `[::]:18231` bound in the
+**host's** namespace, and `curl` from the host returning this page. So a preview
+*can* reach a stack inside an instance, and the pessimistic case this paragraph
+hedged against does not arise.
+
+Asking the daemon stays the right design — it is correct either way and does
+not depend on the answer — but the reasoning is now a measurement rather than a
+worry.
+
 The address in `url=` is therefore the port gg handed us — the local address a
 person on that host can open. It is **not** what gg forwards to: `preview.url`
 is gg's own public address out of its own inventory, and a reported
@@ -99,3 +110,21 @@ promise durability nothing can keep.
 
 **It does not pin itself to a gg version**, so it is not a runbook and does not
 move when a release does.
+
+## Walked on a pool host
+
+**2026-10-04, vmlinux001, through granted instance `gg-env-1`** — run as the
+runner's own user with `DOCKER_HOST` on the instance socket, which is how a
+flight invokes a hook.
+
+| point | result |
+|---|---|
+| `prepare` | both images pulled into the instance, exit 0 |
+| `attach` | `db` and `web` healthy, exit 0, no surviving child |
+| `ready` | `ready=yes`, `db=healthy`, `web=healthy`, `url=http://127.0.0.1:18231/` |
+| from the host | **HTTP 200, 697 bytes**, `<title>gg compose environment</title>` |
+| `detach` | instance empty, port free, exit 0 |
+
+That is S58.7-02: the same five words that bring up an eight-service Aspire
+orchestration bring this up too, so the points are not Aspire's lifecycle
+wearing general names.

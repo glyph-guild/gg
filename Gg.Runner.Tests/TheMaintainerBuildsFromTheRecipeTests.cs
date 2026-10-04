@@ -75,7 +75,7 @@ public class TheMaintainerBuildsFromTheRecipeTests
         public List<(string Repository, IReadOnlyCollection<string> Keep)> Reclaims { get; } = [];
 
         public ImagesReclaimed Reclaiming { get; set; } =
-            new() { Removed = 1, Freed = 1_500_000_000 };
+            new() { Removed = ["127.0.0.1:5000/gg-member:5c2997b28ee8"], Freed = 1_500_000_000 };
 
         public Task<ImagesReclaimed> ReclaimImagesAsync(
             string repository, IReadOnlyCollection<string> keep,
@@ -83,6 +83,21 @@ public class TheMaintainerBuildsFromTheRecipeTests
         {
             Reclaims.Add((repository, keep));
             return Task.FromResult(Reclaiming);
+        }
+    }
+
+    private sealed class Registry : IImageRegistry
+    {
+        public List<string> Asked { get; } = [];
+
+        public ManifestRemoved Answer { get; set; } =
+            new() { Digest = "sha256:71e1ec089205aa71cf6b5a70c94e4518f241e1f8fb9cd4272e8c7075abf3d496" };
+
+        public Task<ManifestRemoved> RemoveManifestAsync(
+            string reference, CancellationToken cancellationToken = default)
+        {
+            Asked.Add(reference);
+            return Task.FromResult(Answer);
         }
     }
 
@@ -149,7 +164,8 @@ public class TheMaintainerBuildsFromTheRecipeTests
     };
 
     private static async Task<(PoolAttestation Build, Recipes Recipes, Builder Builder)> RunAsync(
-        PoolAction action, Recipes? recipes = null, Builder? builder = null, bool canBuild = true)
+        PoolAction action, Recipes? recipes = null, Builder? builder = null, bool canBuild = true,
+        Registry? registry = null)
     {
         recipes ??= new Recipes();
         builder ??= new Builder();
@@ -165,7 +181,8 @@ public class TheMaintainerBuildsFromTheRecipeTests
                 return Task.CompletedTask;
             },
             recipes: canBuild ? recipes : null,
-            builder: canBuild ? builder : null);
+            builder: canBuild ? builder : null,
+            registry: registry);
 
         _ = await loop.RunAsync("gg-pool-dev", stop.Token);
 
@@ -335,7 +352,7 @@ public class TheMaintainerBuildsFromTheRecipeTests
         {
             Reclaiming = new ImagesReclaimed
             {
-                Removed = 0,
+                Removed = [],
                 Freed = 0,
                 Refused = "the daemon would not list images (HTTP 403).",
             },
@@ -375,5 +392,70 @@ public class TheMaintainerBuildsFromTheRecipeTests
         var (_, _, _) = await RunAsync(ABuild(), builder: builder);
 
         await Assert.That(builder.Reclaims).IsEmpty();
+    }
+
+    /// <summary>
+    /// THE REGISTRY FOLLOWS THE DAEMON, and only the daemon. An image a
+    /// container is still using is refused locally, and its manifest has to
+    /// survive in the registry too - a reset recreates from the pin, and a
+    /// pinned manifest that had been removed could not be pulled back.
+    /// </summary>
+    [Test]
+    public async Task The_manifests_the_daemon_gave_up_are_removed_from_the_registry()
+    {
+        var registry = new Registry();
+
+        _ = await RunAsync(ABuild(), registry: registry);
+
+        await Assert.That(registry.Asked)
+            .IsEquivalentTo(["127.0.0.1:5000/gg-member:5c2997b28ee8"])
+            .Because("the reclaim names the tags it removed rather than counting them, "
+                   + "precisely so this can mirror them.");
+    }
+
+    [Test]
+    public async Task A_tag_the_daemon_would_not_give_up_keeps_its_manifest()
+    {
+        var builder = new Builder
+        {
+            Reclaiming = new ImagesReclaimed { Removed = [], Freed = 0 },
+        };
+        var registry = new Registry();
+
+        _ = await RunAsync(ABuild(), builder: builder, registry: registry);
+
+        await Assert.That(registry.Asked).IsEmpty()
+            .Because("a daemon that refused the delete is a container still using the image. "
+                   + "Removing its manifest would leave a running member unable to be reset.");
+    }
+
+    [Test]
+    public async Task A_registry_that_refused_does_not_fail_the_build()
+    {
+        var registry = new Registry
+        {
+            Answer = new ManifestRemoved
+            {
+                Refused = "the registry does not allow deletes (HTTP 405).",
+            },
+        };
+
+        var (build, _, _) = await RunAsync(ABuild(), registry: registry);
+
+        await Assert.That(build.Outcome).IsEqualTo(PoolOutcomes.Verified)
+            .Because("a host whose registry has not been reconfigured is a host to fix, not a "
+                   + "build that went wrong.");
+    }
+
+    [Test]
+    public async Task A_runner_with_no_registry_still_reclaims_the_daemons_images()
+    {
+        // The halves are independent on purpose: a pool whose registry is
+        // somewhere this runner cannot reach should still stop filling its own
+        // disk with images.
+        var (build, _, builder) = await RunAsync(ABuild(), registry: null);
+
+        await Assert.That(build.Outcome).IsEqualTo(PoolOutcomes.Verified);
+        await Assert.That(builder.Reclaims).IsNotEmpty();
     }
 }

@@ -441,7 +441,7 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter, IIm
             // really had until this slice, and an older proxy still does.
             return new ImagesReclaimed
             {
-                Removed = 0,
+                Removed = [],
                 Freed = 0,
                 Refused = $"the daemon would not list images (HTTP {(int)listed.StatusCode}).",
             };
@@ -450,7 +450,7 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter, IIm
         using var catalogue = JsonDocument.Parse(
             await listed.Content.ReadAsStringAsync(cancellationToken));
 
-        var removed = 0;
+        var removed = new List<string>();
         long freed = 0;
         string? refused = null;
 
@@ -485,7 +485,7 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter, IIm
             }
 
             var size = image.TryGetProperty("Size", out var bytes) ? bytes.GetInt64() : 0;
-            var gone = false;
+            var gone = new List<string>();
 
             foreach (var tag in tags)
             {
@@ -498,7 +498,7 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter, IIm
 
                 if (deleted.IsSuccessStatusCode)
                 {
-                    gone = true;
+                    gone.Add(tag);
                     continue;
                 }
 
@@ -512,9 +512,9 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter, IIm
                 }
             }
 
-            if (gone)
+            if (gone.Count is not 0)
             {
-                removed++;
+                removed.AddRange(gone);
                 freed += size;
             }
         }

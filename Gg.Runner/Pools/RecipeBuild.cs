@@ -204,4 +204,75 @@ public interface IImageBuilder
     /// among these.
     /// </remarks>
     Task<ImagePushed> PushImageAsync(string repository, string tag, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Remove this repository's images that nothing is pinned to and no
+    /// container is using. Answers what it freed; never throws.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Nothing reclaims, so the host fills.</b> Measured on this fleet's
+    /// pool host three times: 100% of 61 G with 101 MB free, then 22 G
+    /// recovered by hand, then back to 2.2 G eleven days later. Each member
+    /// image is 1.4 G (dev) or 4.2 G (ui), the bake and roll pipeline leaves
+    /// every superseded one behind, and no bound anywhere says how many to
+    /// keep. It also bounds what can ever be baked: an image carrying a real
+    /// application would be 8-10 G a version, which is two bakes.
+    /// </para>
+    /// <para>
+    /// <b>ON THE BUILDER, NOT THE ROLL, and that is the deployment's
+    /// decision rather than a preference.</b> A roll is the moment an image
+    /// becomes superseded, so reclaiming there reads as the obvious place -
+    /// but <see cref="IPoolAdapter"/> is fenced to <c>/containers/</c> on
+    /// purpose. Its own remark says why: "the pull point refuses images,
+    /// volumes, build and networks", and a 403 read as drift resets every
+    /// member every sweep, which is a bill rather than a bug. The builder
+    /// already writes images - it pushes them - so it is the port that may.
+    /// </para>
+    /// <para>
+    /// <b>So a build reclaims what the build before it superseded</b>, which
+    /// is one behind and is enough: the steady state is two images per
+    /// repository rather than every image ever built. It also runs at a
+    /// moment somebody asked for something, where the seconds are affordable.
+    /// </para>
+    /// <para>
+    /// <b>The daemon enforces the important half.</b> A delete without force
+    /// is refused for an image a container is using, so a member that is up
+    /// cannot lose what it is running even if this is asked wrongly. What
+    /// <paramref name="keep"/> adds is the pin itself, which a pool scaled to
+    /// nothing would otherwise leave unused and deletable - and a reset would
+    /// then have nothing to recreate from.
+    /// </para>
+    /// <para>
+    /// <b>Reversible, which is what makes it safe to do unasked.</b> Every
+    /// image here was pushed to the pool host's own registry first, so a
+    /// delete is undone by a pull. A refusal is reported and is never a
+    /// failure: a host that would not let this happen keeps its disk and its
+    /// build.
+    /// </para>
+    /// </remarks>
+    /// <param name="repository">The repository to tidy, e.g. <c>gg-member</c>.</param>
+    /// <param name="keep">Digests that must survive whatever else is true.</param>
+    Task<ImagesReclaimed> ReclaimImagesAsync(
+        string repository,
+        IReadOnlyCollection<string> keep,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>What a reclaim freed, or why it freed nothing.</summary>
+/// <remarks>
+/// <b>An answer rather than a throw, because this is housekeeping beside the
+/// act somebody asked for.</b> A build that failed because the tidy-up after
+/// it was refused would be a worse console than a host with a full disk.
+/// </remarks>
+public sealed record ImagesReclaimed
+{
+    /// <summary>How many images were removed.</summary>
+    public required int Removed { get; init; }
+
+    /// <summary>What the daemon said it freed, in bytes.</summary>
+    public required long Freed { get; init; }
+
+    /// <summary>Why nothing was removed, when nothing was. Null when it worked.</summary>
+    public string? Refused { get; init; }
 }

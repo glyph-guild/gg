@@ -55,6 +55,18 @@ internal static partial class Sources
               + "which is a different page from the one somebody configures a machine "
               + "from, and the whole reason this is not PREVIEW_PORT.",
 
+            ["GG_PREVIEW_URL"] =
+                "gg writes it into a hook's environment beside the port, and for the half "
+              + "the port cannot answer: a stack that builds a URL and hands it to somebody "
+              + "else needs the address a person is AT, not the one it listens on. An OIDC "
+              + "redirect URI is the case this was measured against - built from localhost "
+              + "it is refused by the provider and the person never comes back. A person "
+              + "setting it is the same defect as setting the port, one step further on: "
+              + "the address is derived from the grant's exposure and slot and is the same "
+              + "string the control plane stamps as preview.url, so a second answer here "
+              + "would be a preview telling a person to open somewhere nothing is served. "
+              + "Read by a HOOK, whose page is the learn-environment kind's instructions.",
+
             ["GG_MEMBER_NONCE"] =
                 "a pool maintainer writes it into a member container, single use. A "
               + "person cannot mint one and a stale one is refused.",

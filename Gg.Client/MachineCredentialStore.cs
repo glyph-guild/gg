@@ -44,11 +44,28 @@ public sealed class MachineCredentialStore(ICredentialStore local, KeyVaultCrede
     /// cannot carry a sentence. The sentence goes to the runner's own log, where
     /// the refusal a flight then records points a person.
     /// </remarks>
-    public static string? SecretFor(string locator, TextWriter? said = null)
+    public static string? SecretFor(string locator, TextWriter? said = null) =>
+        SecretFor(ThisMachine(), locator, said);
+
+    /// <summary>
+    /// <see cref="SecretFor(string, TextWriter)"/> against a given store.
+    /// </summary>
+    /// <remarks>
+    /// <b>A seam, and the behaviour it exposes is the one worth pinning.</b>
+    /// This is the single place in the product where "cannot open" becomes
+    /// null — rule 9's exception, taken deliberately because <c>secretFor</c>
+    /// answers a string or nothing and cannot carry a sentence. What must stay
+    /// true is that the sentence goes SOMEWHERE: a preview that silently serves
+    /// nothing is the failure this path was built around, and null with no
+    /// sentence anywhere is that failure exactly.
+    /// </remarks>
+    public static string? SecretFor(ICredentialStore store, string locator, TextWriter? said = null)
     {
+        ArgumentNullException.ThrowIfNull(store);
+
         try
         {
-            return ThisMachine().Read(locator);
+            return store.Read(locator);
         }
         catch (CredentialUnavailableException unavailable)
         {

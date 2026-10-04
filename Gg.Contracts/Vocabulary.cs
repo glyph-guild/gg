@@ -114,6 +114,8 @@ public static class Vocabulary
         typeof(CredentialList),
         typeof(CredentialRemoved),
         typeof(CredentialResolutionFailure),
+        typeof(SealedCredential),
+        typeof(WrappedContentKey),
         typeof(LockHash),
         typeof(ToolVersion),
         typeof(EnvironmentIdentity),

@@ -251,6 +251,32 @@ public static class ProtocolSurface
             Statuses = [200, 401, 403, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
+        // A PERSON'S PUBLIC KEY, under an existing governed prefix rather than a
+        // new one. A new prefix CLOSES: every future route beneath it must then
+        // be declared, which is a commitment worth making deliberately and not
+        // while adding two routes.
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/auth/keys",
+            Audience = Audience.Developer,
+            Request = typeof(PrincipalKeyRegistrationRequest),
+            Response = typeof(PrincipalKeyRegistered),
+            Statuses = [200, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        // READABLE BY THE TENANT, because sealing a credential to somebody means
+        // finding their key - and a key nobody can look up is one nobody can
+        // seal to.
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/auth/keys",
+            Audience = Audience.Developer,
+            Response = typeof(PrincipalKeyList),
+            Statuses = [200, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
         new()
         {
             Method = "GET",
@@ -2120,6 +2146,11 @@ public static class ProtocolSurface
             // type - asserted, not intended - so there is no request body it
             // can enter.
             [typeof(ConfigureCredentialAsk)] = ["envelope", "locator"],
+            [typeof(PrincipalKeyRegistrationRequest)] = ["publicKey"],
+            [typeof(PrincipalKeyRegistered)] = ["keyId", "publicKey", "fingerprint", "registeredAt"],
+            [typeof(PrincipalKeySummary)] =
+                ["keyId", "principal", "publicKey", "fingerprint", "registeredAt", "retiredAt"],
+            [typeof(PrincipalKeyList)] = ["keys"],
             [typeof(ConfiguredCredential)] = ["locator", "written"],
             // THE CODE IS THE OTHER DECLARED MEMBER THAT IS A SECRET, on the
             // same argument: channel-only, asserted, and the runner echoes it

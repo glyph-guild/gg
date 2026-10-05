@@ -29,10 +29,25 @@ namespace Gg.Client.Tests;
 public class AnUnmatchedHolderIsSaidNotDroppedTests
 {
     private static string AKey() =>
-        Convert.ToBase64String(
-            System.Security.Cryptography.ECDiffieHellman
-                .Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256)
-                .PublicKey.ExportSubjectPublicKeyInfo());
+        Disposed(System.Security.Cryptography.ECDiffieHellman.Create(
+            System.Security.Cryptography.ECCurve.NamedCurves.nistP256));
+
+    /// <summary>
+    /// The public half, with the key handle released.
+    /// </summary>
+    /// <remarks>
+    /// <b>Disposed because these tests mint dozens.</b> An undisposed
+    /// <c>ECDiffieHellman</c> holds a platform key handle until a finalizer runs,
+    /// and a suite that leaks them under parallel execution is a suite whose
+    /// failures depend on timing.
+    /// </remarks>
+    private static string Disposed(System.Security.Cryptography.ECDiffieHellman key)
+    {
+        using (key)
+        {
+            return Convert.ToBase64String(key.PublicKey.ExportSubjectPublicKeyInfo());
+        }
+    }
 
     private static PrincipalKeySummary APersonsKey(string principal, string publicKey) => new()
     {

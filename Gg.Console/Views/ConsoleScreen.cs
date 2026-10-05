@@ -42,7 +42,7 @@ public sealed class ConsoleScreen : Window
     private readonly FrameView _queuePane;
     private readonly FrameView _flightPane;
     private readonly FrameView _browsePane;
-    private readonly FrameView _repositoriesPane;
+    private readonly FrameView _credentialsPane;
     private readonly Label _credentials;
     /// <summary>
     /// The airspace working copy, as a tree.
@@ -919,9 +919,9 @@ public sealed class ConsoleScreen : Window
         // THE SAME REGION AGAIN. Four panes now share it and never two at
         // once, which RepositoriesToggled enforces rather than the order these
         // are added in.
-        _repositoriesPane = new FrameView
+        _credentialsPane = new FrameView
         {
-            Title = "repositories",
+            Title = "credentials",
             X = 0,
             Y = 0,
             Width = Dim.Fill(),
@@ -929,7 +929,7 @@ public sealed class ConsoleScreen : Window
             Visible = false,
         };
         _credentials = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
-        _repositoriesPane.Add(_credentials);
+        _credentialsPane.Add(_credentials);
 
         // THE FLEET, AND THIS MACHINE'S RUNNER FIRST. Already in the model from
         // the boot, so this tab is never waiting on a read.
@@ -1144,7 +1144,7 @@ public sealed class ConsoleScreen : Window
         _browsePane.Add(_browseFindBox);
         _browseFind.KeyDown += OnBrowseFindKeyDown;
         _credentialsTable = CollectionViews.Table();
-        _repositoriesPane.Add(_credentialsTable);
+        _credentialsPane.Add(_credentialsTable);
         _runnersTable = CollectionViews.Table();
         _runnersPane.Add(_runnersTable);
 
@@ -2236,7 +2236,7 @@ public sealed class ConsoleScreen : Window
             // TabGoesLeftToRightTests holds the two orders together now.
             (TabId.Runners, Tabbed(_runnersPane)),
             (TabId.Browse, Tabbed(_browsePane)),
-            (TabId.Credentials, Tabbed(_repositoriesPane)),
+            (TabId.Credentials, Tabbed(_credentialsPane)),
             (TabId.Envelope, Tabbed(_envelopePane)),
 
 
@@ -4599,13 +4599,20 @@ public sealed class ConsoleScreen : Window
         Pane(_credentials, TabId.Credentials, PaneText.Repositories(State));
         Pane(_runners, TabId.Runners, PaneText.Runners(State));
 
-        // WHICH ONE IS CHOSEN, IN THE TITLE. It changes what every flight this
-        // console opens will name, so a person glancing at the frame should
-        // learn it without reading the rows.
-        _repositoriesPane.Title = State.ChosenRepositories.Count > 0
-            ? "Repositories — new flights start with "
-            + string.Join(", ", State.ChosenRepositories)
-            : "Repositories";
+        // WHAT THE LIST IS ABOUT, IN THE TITLE, and the old one is gone for a
+        // reason worth recording. It read "Repositories - new flights start with
+        // ..." off State.ChosenRepositories, and NOTHING CAN SET THAT: the only
+        // writer is Reducer.RepositoryChosen, which has no caller anywhere in the
+        // product and had none before this slice either - its own tests are the
+        // only thing that reaches it. So that branch has never rendered and the
+        // mark column beside it was drawing an empty set.
+        //
+        // Found by driving the pane in a pty rather than by any test, which is
+        // also how the title below turned out to still say "Repositories" after a
+        // rename that touched sixteen other places.
+        _credentialsPane.Title = State.Credentials is { } held
+            ? $"credentials — {held.Credentials.Count} registered"
+            : "credentials";
 
         // THE TRACKER IS IN THE TITLE, because a tenant may configure more than
         // one and a list of work items with no attribution is a list nobody can

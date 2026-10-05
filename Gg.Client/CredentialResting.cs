@@ -59,6 +59,18 @@ public static class CredentialResting
     public const string NotHere = "not here";
 
     /// <summary>
+    /// There is no credential, so there is nothing to rest anywhere.
+    /// </summary>
+    /// <remarks>
+    /// <b>Told apart from <see cref="NotHere"/>, which the pty walk showed
+    /// mattering.</b> "not here" says a credential exists and is on another
+    /// machine — a true and useful thing about a colleague's. On a row for a
+    /// repository nobody has registered one for it is a lie in the direction that
+    /// wastes somebody's time: they go looking for the machine that has it.
+    /// </remarks>
+    public const string Nowhere = "—";
+
+    /// <summary>
     /// The locator is not one this machine can place, so there is nowhere to
     /// look.
     /// </summary>
@@ -82,7 +94,7 @@ public static class CredentialResting
 
     /// <summary>Every word, so a reader can enumerate them.</summary>
     public static IReadOnlyList<string> All { get; } =
-        [Sealed, Plaintext, InAVault, NotHere, Unplaceable, NotKnown];
+        [Sealed, Plaintext, InAVault, NotHere, Nowhere, Unplaceable, NotKnown];
 }
 
 /// <summary>

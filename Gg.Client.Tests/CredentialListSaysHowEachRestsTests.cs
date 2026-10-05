@@ -283,6 +283,12 @@ public class CredentialListSaysHowEachRestsTests
             CredentialResting.Plaintext,
             CredentialResting.InAVault,
             CredentialResting.NotHere,
+
+            // ADDED AFTER DRIVING THE PANE, because "not here" read as "it is on
+            // another machine" on a row where no credential exists at all - which
+            // sends somebody looking for the machine that has it.
+            CredentialResting.Nowhere,
+
             CredentialResting.Unplaceable,
             CredentialResting.NotKnown,
         ];

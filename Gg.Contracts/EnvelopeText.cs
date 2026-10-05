@@ -919,6 +919,18 @@ public static class EnvelopeText
             text.Append($"  port: {port}\n");
         }
 
+        // AND THE SCHEME, FOR THE SAME REASON IN BOTH DIRECTIONS. Only when there is
+        // one, because a document that named none must not gain one by being written
+        // back. But it HAS to be written when there is one: the diff compares through
+        // this renderer, so a member dropped here is a member no change to can ever be
+        // seen. Measured on the live tenant - adding `scheme: https` reported "no
+        // changes" for an edit somebody had just made, while a port change reported
+        // "tightening".
+        if (exposure.Inventory.Scheme is { Length: > 0 } scheme)
+        {
+            text.Append($"  scheme: {Scalar(scheme)}\n");
+        }
+
         return text.ToString();
     }
 

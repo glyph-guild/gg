@@ -51,7 +51,7 @@ public class ACredentialRowOpensNothingTests
         string path, string credential = RepositoryCredentialModes.Required) => new()
     {
         Name = path.Replace('/', '-'),
-        Provider = "github",
+        Provider = "forge",
         Id = "R_" + path.GetHashCode(StringComparison.Ordinal),
         Path = path,
         Credential = credential,

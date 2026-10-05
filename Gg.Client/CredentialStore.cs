@@ -77,6 +77,32 @@ public interface ICredentialStore
     /// </remarks>
     string RestingOf(string locator);
 
+    /// <summary>
+    /// Whose keys the credential at this locator is sealed to, or empty.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Public keys, and never the envelope.</b> Handing back a
+    /// <see cref="SealedCredential"/> would put ciphertext in reach of everything
+    /// that asks — including a console model that is written to disk — and a
+    /// holder is a public key, which the contract says a refusal may name because
+    /// saying so gives nothing away. This is the narrow half of that type, and the
+    /// only half anything outside the store needs.
+    /// </para>
+    /// <para>
+    /// <b>Empty is a real answer, three times over:</b> nothing is stored here,
+    /// what is stored is plaintext and therefore sealed to nobody, or the locator
+    /// lives in a vault this machine only reads. <see cref="RestingOf"/> already
+    /// says which, so this does not need to.
+    /// </para>
+    /// <para>
+    /// <b>It opens nothing.</b> Reading an envelope to see whose keys it names is
+    /// not decrypting it, and the ciphertext is not touched — which matters because
+    /// a pane asks this on every refresh.
+    /// </para>
+    /// </remarks>
+    IReadOnlyList<string> HoldersOf(string locator);
+
     /// <summary>Where a locator's secret is kept. Throws if the locator is not one.</summary>
     string PathFor(string locator);
 
@@ -253,6 +279,32 @@ public sealed class FileCredentialStore : ICredentialStore
         File.Exists(SealedPathFor(locator)) ? CredentialResting.Sealed
         : File.Exists(PathFor(locator)) ? CredentialResting.Plaintext
         : CredentialResting.NotHere;
+
+    /// <summary>
+    /// The holders named by the envelope here, or empty when there is none.
+    /// </summary>
+    /// <remarks>
+    /// <b>A damaged envelope names nobody rather than throwing.</b> The bytes came
+    /// from another machine, and a pane that asked this on every refresh would be
+    /// a pane one truncated file takes down. <c>RestingOf</c> still says the
+    /// credential is here, and opening it will say what is wrong with it.
+    /// </remarks>
+    public IReadOnlyList<string> HoldersOf(string locator)
+    {
+        if (!File.Exists(SealedPathFor(locator)))
+        {
+            return [];
+        }
+
+        try
+        {
+            return [.. SealedFor(locator).Wrapped.Select(w => w.Holder)];
+        }
+        catch (CredentialUnavailableException)
+        {
+            return [];
+        }
+    }
 
     // ONE DECISION, TWO LENGTHS. The sentence is a switch over the word rather
     // than a second look at the filesystem, so a reworded sentence cannot come

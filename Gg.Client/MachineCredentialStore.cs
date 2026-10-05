@@ -116,6 +116,18 @@ public sealed class MachineCredentialStore(ICredentialStore local, KeyVaultCrede
             ? CredentialResting.InAVault
             : _local.RestingOf(locator);
 
+    /// <summary>
+    /// Whose keys the credential is sealed to — nobody, for a vault reference.
+    /// </summary>
+    /// <remarks>
+    /// <b>This machine did not seal it and does not know how the vault keeps it.</b>
+    /// Answering with a holder would claim a protection we did not apply, which is
+    /// the same lie <see cref="ProtectionFor"/> refuses one scheme over. The bare
+    /// store cannot even be asked: a <c>keyvault://</c> locator never validates.
+    /// </remarks>
+    public IReadOnlyList<string> HoldersOf(string locator) =>
+        KeyVaultReference.Names(locator) ? [] : _local.HoldersOf(locator);
+
     public string PathFor(string locator) =>
         KeyVaultReference.Names(locator) ? throw NotHere(locator) : _local.PathFor(locator);
 

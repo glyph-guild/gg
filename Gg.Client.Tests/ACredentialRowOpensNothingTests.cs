@@ -67,7 +67,8 @@ public class ACredentialRowOpensNothingTests
         var rows = CredentialRows.For(
             [ACredential("acme/widgets", "local:acme/widgets")],
             [ARepository("acme/widgets")],
-            [new CredentialAtRest("local:acme/widgets", CredentialResting.Sealed)]);
+            [new CredentialAtRest("local:acme/widgets", CredentialResting.Sealed, [])],
+            keys: [], thisMachine: null, pinned: []);
 
         var row = rows.Single();
 
@@ -113,7 +114,8 @@ public class ACredentialRowOpensNothingTests
         var rows = CredentialRows.For(
             [ACredential("acme/widgets", "local:acme/widgets")],
             [],
-            [new CredentialAtRest("local:acme/widgets", CredentialResting.Sealed)]);
+            [new CredentialAtRest("local:acme/widgets", CredentialResting.Sealed, [])],
+            keys: [], thisMachine: null, pinned: []);
 
         await Assert.That(rows.Single().Whose).IsEqualTo("a-directory:ada");
     }
@@ -127,7 +129,8 @@ public class ACredentialRowOpensNothingTests
         var rows = CredentialRows.For(
             [ACredential("", CredentialLocator.ForAgent("claude"))],
             [],
-            [new CredentialAtRest(CredentialLocator.ForAgent("claude"), CredentialResting.Sealed)]);
+            [new CredentialAtRest(CredentialLocator.ForAgent("claude"), CredentialResting.Sealed, [])],
+            keys: [], thisMachine: null, pinned: []);
 
         var row = rows.Single();
 
@@ -144,7 +147,8 @@ public class ACredentialRowOpensNothingTests
         var rows = CredentialRows.For(
             [ACredential("acme/widgets", "local:acme/widgets")],
             [ARepository("acme/widgets")],
-            []);
+            [],
+            keys: [], thisMachine: null, pinned: []);
 
         await Assert.That(rows.Single().Resting).IsEqualTo(CredentialResting.NotKnown);
         await Assert.That(rows.Single().Standing).IsNotEqualTo(CredentialStanding.Here)

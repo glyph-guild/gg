@@ -61,7 +61,8 @@ public class ARepositoryWithNoCredentialIsStillARowTests
         var rows = CredentialRows.For(
             [ACredential("acme/widgets", "local:acme/widgets")],
             [ARepository("acme/widgets"), ARepository("acme/orphan")],
-            [new CredentialAtRest("local:acme/widgets", CredentialResting.Sealed)]);
+            [new CredentialAtRest("local:acme/widgets", CredentialResting.Sealed, [])],
+            keys: [], thisMachine: null, pinned: []);
 
         await Assert.That(rows.Count).IsEqualTo(2)
             .Because("a projection keyed on registered credentials would answer 1 here, and the "
@@ -77,7 +78,8 @@ public class ARepositoryWithNoCredentialIsStillARowTests
         var rows = CredentialRows.For(
             [],
             [ARepository("acme/orphan")],
-            []);
+            [],
+            keys: [], thisMachine: null, pinned: []);
 
         var row = rows.Single();
 
@@ -99,7 +101,8 @@ public class ARepositoryWithNoCredentialIsStillARowTests
         // `missing here` sends somebody to push one from the machine that holds
         // it; `none registered` sends them to `gg credential add`, because there
         // is nothing anywhere to push.
-        var rows = CredentialRows.For([], [ARepository("acme/orphan")], []);
+        var rows = CredentialRows.For([], [ARepository("acme/orphan")], [],
+            keys: [], thisMachine: null, pinned: []);
 
         await Assert.That(rows.Single().Standing).IsEqualTo(CredentialStanding.NoneRegistered);
     }
@@ -115,7 +118,8 @@ public class ARepositoryWithNoCredentialIsStillARowTests
         var rows = CredentialRows.For(
             [],
             [ARepository("acme/public", credential: RepositoryCredentialModes.None)],
-            []);
+            [],
+            keys: [], thisMachine: null, pinned: []);
 
         await Assert.That(rows.Single().Standing).IsEqualTo(CredentialStanding.NotNeeded);
     }
@@ -129,7 +133,8 @@ public class ARepositoryWithNoCredentialIsStillARowTests
         var rows = CredentialRows.For(
             [ACredential("acme/widgets", CredentialLocator.ForRepo("acme/widgets"))],
             [ARepository("acme/widgets")],
-            [new CredentialAtRest(CredentialLocator.ForRepo("acme/widgets"), CredentialResting.Sealed)]);
+            [new CredentialAtRest(CredentialLocator.ForRepo("acme/widgets"), CredentialResting.Sealed, [])],
+            keys: [], thisMachine: null, pinned: []);
 
         await Assert.That(rows.Count).IsEqualTo(1);
         await Assert.That(rows.Single().Locator).IsEqualTo(CredentialLocator.ForRepo("acme/widgets"));

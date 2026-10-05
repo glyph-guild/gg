@@ -95,6 +95,9 @@ public class CredentialListSaysHowEachRestsTests
                 : throw new ArgumentException($"'{locator}' is not a locator.", nameof(locator));
         }
 
+        /// <summary>No envelope in a double; the holder join has its own tests.</summary>
+        public IReadOnlyList<string> HoldersOf(string locator) => [];
+
         public string PathFor(string locator) => "/nowhere/" + locator;
 
         public void Write(string locator, string secret) { }
@@ -125,7 +128,8 @@ public class CredentialListSaysHowEachRestsTests
             AList(
                 ACredential("acme/widgets", "local:acme/widgets"),
                 ACredential("acme/legacy", "local:acme/legacy")).Credentials,
-            store.RestingOf);
+            store.RestingOf,
+            store.HoldersOf);
 
         await Assert.That(CredentialsAtRest.RestingOf(resting, "local:acme/widgets"))
             .IsEqualTo(CredentialResting.Sealed);
@@ -147,7 +151,8 @@ public class CredentialListSaysHowEachRestsTests
 
         _ = CredentialsAtRest.For(
             AList(ACredential("acme/widgets", "local:acme/widgets")).Credentials,
-            store.RestingOf);
+            store.RestingOf,
+            store.HoldersOf);
 
         await Assert.That(store.Opened).IsEmpty()
             .Because("a column saying how a secret rests must not be produced by decrypting it. "
@@ -168,7 +173,8 @@ public class CredentialListSaysHowEachRestsTests
             AList(
                 ACredential("acme/widgets", "local:acme/widgets"),
                 ACredential("acme/odd", "not a locator at all")).Credentials,
-            store.RestingOf);
+            store.RestingOf,
+            store.HoldersOf);
 
         await Assert.That(CredentialsAtRest.RestingOf(resting, "local:acme/widgets"))
             .IsEqualTo(CredentialResting.Sealed)
@@ -199,8 +205,8 @@ public class CredentialListSaysHowEachRestsTests
         var text = VerbOutput.ToText(new VerbResult.Credentials(
             list,
             [
-                new CredentialAtRest("local:acme/widgets", CredentialResting.Sealed),
-                new CredentialAtRest("local:acme/legacy", CredentialResting.Plaintext),
+                new CredentialAtRest("local:acme/widgets", CredentialResting.Sealed, []),
+                new CredentialAtRest("local:acme/legacy", CredentialResting.Plaintext, []),
             ]));
 
         await Assert.That(text).Contains(CredentialResting.Plaintext)

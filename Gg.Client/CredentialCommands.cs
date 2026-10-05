@@ -286,7 +286,8 @@ public sealed class CredentialCommands(
 
         return new VerbResult.Credentials(
             registered,
-            CredentialsAtRest.For(registered.Credentials, _credentials.RestingOf));
+            CredentialsAtRest.For(
+                registered.Credentials, _credentials.RestingOf, _credentials.HoldersOf));
     }
 
     /// <summary>

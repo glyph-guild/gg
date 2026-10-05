@@ -41,11 +41,49 @@ public class TheCredentialRowsCarryNoSecretTests
         typeof(int?), typeof(bool?), typeof(DateTimeOffset?),
     ];
 
-    private static bool IsAllowed(Type type) =>
-        Allowed.Contains(type)
-        || (type.IsGenericType
-            && type.GetGenericTypeDefinition() == typeof(IReadOnlyList<>)
-            && IsAllowed(type.GetGenericArguments()[0]));
+    /// <summary>
+    /// Whether a member's type is one a value could not hide in.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>WIDENED DELIBERATELY for <c>CredentialRow.Holders</c>, which is a list
+    /// of records.</b> The first version allowed only primitives and lists of
+    /// primitives, which is right for a flat row and wrong the moment a row
+    /// carries a sub-row. <c>CredentialContainmentTests</c> permits the same thing
+    /// on the wire — contract types and lists of them — so this is the model
+    /// catching up with the rule the wire already has, not a new exemption.
+    /// </para>
+    /// <para>
+    /// <b>And it is recursive rather than a free pass for records.</b> A record is
+    /// allowed only when every one of ITS members is allowed, so a holder type
+    /// that grew a <c>byte[]</c>, or a member reaching a contract envelope, is
+    /// still refused — one level down or five. "It is a record" must not become
+    /// the sentence that lets a secret into a diagnostics bundle.
+    /// </para>
+    /// </remarks>
+    private static bool IsAllowed(Type type)
+    {
+        if (Allowed.Contains(type))
+        {
+            return true;
+        }
+
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IReadOnlyList<>))
+        {
+            return IsAllowed(type.GetGenericArguments()[0]);
+        }
+
+        // OURS ONLY. A type from another assembly - a contract envelope, say -
+        // is not something this test gets to vouch for by walking it.
+        if (type.Assembly != typeof(CredentialRow).Assembly)
+        {
+            return false;
+        }
+
+        var members = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
+        return members.Length > 0 && members.All(m => IsAllowed(m.PropertyType));
+    }
 
     [Test]
     public async Task No_member_of_a_row_is_named_for_a_secret()
@@ -100,10 +138,25 @@ public class TheCredentialRowsCarryNoSecretTests
         // accepts everything returns, and this file would look diligent either
         // way.
         await Assert.That(IsAllowed(typeof(byte[]))).IsFalse();
-        await Assert.That(IsAllowed(typeof(SealedCredential))).IsFalse();
         await Assert.That(IsAllowed(typeof(string))).IsTrue();
         await Assert.That(IsAllowed(typeof(IReadOnlyList<string>))).IsTrue();
+
+        // THE WIDENING, AND ITS LIMIT. A list of our own flat records passes; a
+        // contract type does not, even though it is also a record, because this
+        // test does not get to vouch for another assembly's shape.
+        await Assert.That(IsAllowed(typeof(IReadOnlyList<CredentialHolder>))).IsTrue();
+        await Assert.That(IsAllowed(typeof(SealedCredential))).IsFalse();
+        await Assert.That(IsAllowed(typeof(IReadOnlyList<SealedCredential>))).IsFalse();
+
+        // AND ONE LEVEL DOWN. "It is a record" must not be the sentence that lets
+        // a secret into a diagnostics bundle.
+        await Assert.That(IsAllowed(typeof(HidesBytesInARecord))).IsFalse()
+            .Because("a record whose own member is a byte[] is exactly what a recursive check "
+                   + "exists to refuse, and a non-recursive one would wave it through.");
     }
+
+    /// <summary>A planted record with a shape a value could hide in.</summary>
+    private sealed record HidesBytesInARecord(string Locator, byte[] Material);
 
     [Test]
     public async Task The_model_carries_the_resting_shapes_and_they_survive_a_dump()
@@ -116,8 +169,8 @@ public class TheCredentialRowsCarryNoSecretTests
         {
             CredentialResting =
             [
-                new CredentialAtRest("local:acme/widgets", CredentialResting.Sealed),
-                new CredentialAtRest("local:acme/legacy", CredentialResting.Plaintext),
+                new CredentialAtRest("local:acme/widgets", CredentialResting.Sealed, []),
+                new CredentialAtRest("local:acme/legacy", CredentialResting.Plaintext, []),
             ],
         };
 

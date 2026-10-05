@@ -69,9 +69,10 @@ public class TheRowsOrderIntoAWorklistTests
                 ARepository("acme/public", credential: RepositoryCredentialModes.None),
             ],
             [
-                new CredentialAtRest(CredentialLocator.ForRepo("acme/held"), CredentialResting.Sealed),
-                new CredentialAtRest(CredentialLocator.ForRepo("acme/elsewhere"), CredentialResting.NotHere),
-            ]);
+                new CredentialAtRest(CredentialLocator.ForRepo("acme/held"), CredentialResting.Sealed, []),
+                new CredentialAtRest(CredentialLocator.ForRepo("acme/elsewhere"), CredentialResting.NotHere, []),
+            ],
+            keys: [], thisMachine: null, pinned: []);
 
         await Assert.That(rows.Select(r => r.For).ToList()).IsEquivalentTo((List<string>)
         [
@@ -90,7 +91,8 @@ public class TheRowsOrderIntoAWorklistTests
         var rows = CredentialRows.For(
             [],
             [ARepository("acme/zebra"), ARepository("acme/apple"), ARepository("acme/mango")],
-            []);
+            [],
+            keys: [], thisMachine: null, pinned: []);
 
         await Assert.That(rows.Select(r => r.For).ToList()).IsEquivalentTo((List<string>)
             ["acme/apple", "acme/mango", "acme/zebra"]);
@@ -106,9 +108,10 @@ public class TheRowsOrderIntoAWorklistTests
             [ACredential("acme/old"), ACredential("acme/new")],
             [ARepository("acme/old"), ARepository("acme/new")],
             [
-                new CredentialAtRest(CredentialLocator.ForRepo("acme/old"), CredentialResting.Plaintext),
-                new CredentialAtRest(CredentialLocator.ForRepo("acme/new"), CredentialResting.Sealed),
-            ]);
+                new CredentialAtRest(CredentialLocator.ForRepo("acme/old"), CredentialResting.Plaintext, []),
+                new CredentialAtRest(CredentialLocator.ForRepo("acme/new"), CredentialResting.Sealed, []),
+            ],
+            keys: [], thisMachine: null, pinned: []);
 
         await Assert.That(rows.Select(r => r.Standing).Distinct().Single())
             .IsEqualTo(CredentialStanding.Here)

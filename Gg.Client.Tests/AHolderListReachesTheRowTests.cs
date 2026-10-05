@@ -28,18 +28,6 @@ namespace Gg.Client.Tests;
 /// </remarks>
 public class AHolderListReachesTheRowTests
 {
-    private static string Disposed(System.Security.Cryptography.ECDiffieHellman key)
-    {
-        using (key)
-        {
-            return Convert.ToBase64String(key.PublicKey.ExportSubjectPublicKeyInfo());
-        }
-    }
-
-    private static string AKey() =>
-        Disposed(System.Security.Cryptography.ECDiffieHellman.Create(
-            System.Security.Cryptography.ECCurve.NamedCurves.nistP256));
-
     private static FileCredentialStore AScratchStore(out MachineKey machine)
     {
         machine = MachineKey.LoadOrCreate(

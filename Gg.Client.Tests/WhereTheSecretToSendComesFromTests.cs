@@ -45,6 +45,8 @@ public class WhereTheSecretToSendComesFromTests
 
         public string RestingOf(string locator) => Gg.Client.CredentialResting.NotHere;
 
+        public IReadOnlyList<string> HoldersOf(string locator) => [];
+
         public string PathFor(string locator) => "/nowhere/x";
 
         public void WriteSealed(string locator, Gg.Contracts.SealedCredential envelope) { }

@@ -800,9 +800,16 @@ public static class ConsoleProjection
             },
             // References, never secrets. There is nothing in a CredentialList
             // to withhold, which is why the flight pane can show it.
+            // BOTH HALVES, because they are one reading. The registry is the
+            // tenant's and the resting shapes are this machine's, gathered in the
+            // same call for AirspaceRepositories' reason: two reads a caller had
+            // to remember to pair are two that eventually disagree about how many
+            // rows there are. Taking only the registry here is what step 1 did,
+            // and it left the one fact about this machine on the floor.
             VerbResult.Credentials credentials => state with
             {
                 Credentials = credentials.Value,
+                CredentialResting = credentials.Resting,
                 Diagnosis = null,
             },
             // A flight LIST is not the queue. It is the raw material the queue

@@ -67,6 +67,36 @@ public static class CredentialStanding
     public const string Unknown = "not known";
 
     /// <summary>
+    /// How near the top a standing puts a row.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Every standing names a different remedy, and only two of them are a
+    /// person's.</b> Missing here and none registered both mean somebody has to
+    /// act, so they come first. Unknown follows, because nothing said is not the
+    /// same as nothing wrong. Held comes after — re-sending is rotation, which is
+    /// real and rarer — and not needed is last, because a repository that
+    /// authenticates to nothing is not pending work.
+    /// </para>
+    /// <para>
+    /// <b>HERE RATHER THAN IN THE CONSOLE, because two screens now rank these.</b>
+    /// The send chooser ordered its rows by this for its own reasons, and the
+    /// credentials list orders by the same question. A second ranking that agreed
+    /// today is the hazard this codebase names repeatedly, and here the two would
+    /// come to disagree about which credential work is urgent — which is worse
+    /// than either order on its own.
+    /// </para>
+    /// </remarks>
+    public static int Rank(string standing) => standing switch
+    {
+        NoneRegistered => 0,
+        MissingHere => 1,
+        Here => 3,
+        NotNeeded => 4,
+        _ => 2,
+    };
+
+    /// <summary>
     /// The standing of one repository.
     /// </summary>
     /// <param name="repository">The registration, which says whether one is needed.</param>

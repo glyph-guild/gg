@@ -258,6 +258,15 @@ public abstract record CliAction
     /// </remarks>
     public sealed record Plan(string? Flight, bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>
+    /// A plan file, checked leg by leg against its planner's menu before anybody flies it.
+    /// </summary>
+    /// <remarks>
+    /// Its own noun rather than a word under <c>plan</c>, which is the checklist. Writes
+    /// nothing anywhere, so it asks nothing of the person beyond the file.
+    /// </remarks>
+    public sealed record ItineraryCheck(string Path, bool Json) : CliAction, IEmitsResult;
+
     /// <summary>gg airspace show: the topology, root first.</summary>
     /// <summary>
     /// The topology, or one applied document when a name is given.
@@ -812,6 +821,7 @@ public static class CliArgs
         // asking is the only way to know one is alive.
         "gg watches                     how each watch is doing: executor, last report, cost",
         "gg plan [flight]               what must hold before a flight can start",
+        "gg itinerary check <file>      what admission would do with each leg of a plan",
         "gg gates                       flights stopped, waiting on somebody",
         // BESIDE GATES, because it is the same question one noun earlier: what
         // is waiting on a person. A gate is a flight that has stopped; a
@@ -1404,6 +1414,11 @@ public static class CliArgs
                 "gg airspace takes show, pull, diff, apply, name, retire or repositories."),
             ["plan"] => new CliAction.Plan(null, json),
             ["plan", var flight] => new CliAction.Plan(flight, json),
+            // A PLAN CHECKED, under its own noun. `gg plan check` would be read
+            // by the arm above as the checklist of a flight called "check".
+            ["itinerary", "check", var file] => new CliAction.ItineraryCheck(file, json),
+            ["itinerary", ..] => Unknown(
+                "gg itinerary takes check and a plan file - gg itinerary check plan.yaml."),
             ["invite"] => new CliAction.Invite(json),
             ["allowance"] => new CliAction.Allowance(json),
             ["allowances"] => new CliAction.Allowances(json),

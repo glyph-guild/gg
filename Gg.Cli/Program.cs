@@ -91,6 +91,8 @@ return await ByName(CliArgs.Parse(args)) switch
         await EmitAsync(strategies.Json, c => c.StrategiesAsync()),
     CliAction.Pools pools => await EmitAsync(pools.Json, c => c.PoolsAsync()),
     CliAction.Plan plan => await EmitAsync(plan.Json, c => c.PlanAsync(plan.Flight)),
+    CliAction.ItineraryCheck check =>
+        await EmitAsync(check.Json, c => c.CheckItineraryAsync(check.Path)),
     CliAction.AirspaceShow airspace =>
         await EmitAsync(airspace.Json, c => c.AirspaceAsync(airspace.Name)),
     // THE WORKING COPY IS WHERE YOU ARE. Nothing configurable, because a flag
@@ -888,6 +890,13 @@ static async Task<int> EmitAsync(bool json, Func<FlightCommands, Task<VerbResult
     {
         // Article XI reaching a person: the diagnosis is the actionable part
         // and collapsing it into "bad request" would throw that away.
+        return Fail(refusal.Message);
+    }
+    catch (ItineraryRefusedException refusal)
+    {
+        // A plan that could not be checked, in the contract's own words - the
+        // file's reading or the control plane's, and a person fixes either the
+        // same way.
         return Fail(refusal.Message);
     }
     catch (RunnerNotFoundException refusal)

@@ -622,6 +622,14 @@ public class TheAgentIsToldHowEnvelopesWorkTests
             ["provenance"] = "assigned by the composer and refused when authored, so "
                            + "naming it as writable would invite exactly the document "
                            + "the parser rejects.",
+            // A PLAN FILE'S KEYS, read by ParseItinerary in the same parser for
+            // its safety properties, and never an airspace document's. Telling
+            // an agent drafting envelopes that `legs:` exists would teach it to
+            // write a plan into a work kind.
+            ["planner"] = "a key of a plan file (gg itinerary check), not of any airspace document.",
+            ["legs"] = "a plan file's list of legs, never an airspace document's.",
+            ["note"] = "a plan file leg's note, never an airspace document's.",
+            ["uri"] = "a plan file intent's link, never an airspace document's.",
         };
 
         return [.. System.Text.RegularExpressions.Regex

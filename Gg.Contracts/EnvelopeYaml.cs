@@ -223,6 +223,20 @@ public sealed record LearningParse
     public string? Diagnosis { get; init; }
 }
 
+/// <summary>What reading an itinerary file produced.</summary>
+/// <remarks>
+/// <b>Not a wire type.</b> The draft it carries is; this is the parse around it, the same shape
+/// the other five results take - the thing read, or why it could not be.
+/// </remarks>
+public sealed record ItineraryParse
+{
+    /// <summary>The draft, or null when there is a diagnosis.</summary>
+    public ItineraryDraft? Draft { get; init; }
+
+    /// <summary>What was wrong, or null when nothing was.</summary>
+    public string? Diagnosis { get; init; }
+}
+
 public static class EnvelopeYaml
 {
     /// <summary>Reads envelope text, or says what is wrong with it.</summary>
@@ -376,6 +390,129 @@ public static class EnvelopeYaml
     /// selection are refused by name rather than parsed and silently dropped
     /// by composition, which is the silent-no-op class this slice deletes.
     /// </remarks>
+    /// <summary>
+    /// Reads an itinerary a person wrote out leg by leg, or says what is wrong with it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A person's document, read strictly.</b> Every key is known or refused, for the
+    /// reason every airspace document's is: a mistyped <c>afer:</c> ignored would check a plan
+    /// nobody wrote, in an order nobody asked for.
+    /// </para>
+    /// <para>
+    /// <b>The contract decides what a valid draft is.</b> The text is mapped onto
+    /// <see cref="ItineraryDraft"/> and its own validator runs, so gg refuses a draft in the
+    /// control plane's words before sending it - the same function, not a second rule.
+    /// </para>
+    /// </remarks>
+    /// <param name="defaultPlanner">The planner when the file names none.</param>
+    public static ItineraryParse ParseItinerary(string text, string defaultPlanner)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        Node document;
+        try
+        {
+            document = Read(text);
+        }
+        catch (EnvelopeSyntaxException refusal)
+        {
+            return new ItineraryParse { Diagnosis = refusal.Message };
+        }
+        catch (YamlException malformed)
+        {
+            return new ItineraryParse
+            {
+                Diagnosis = $"This is not readable as YAML at line {malformed.Start.Line}, "
+                          + $"column {malformed.Start.Column}: {malformed.Message}",
+            };
+        }
+
+        try
+        {
+            var root = RequireMap(document, "");
+
+            Closed(root, "planner", "intent", "legs");
+
+            var legs = Require(root, "legs");
+
+            if (legs is not SeqNode sequence)
+            {
+                throw new EnvelopeSyntaxException(
+                    "'legs' should be a list, each leg a block with its own 'subject', "
+                  + $"'work-kind' and 'reason'; this is {Shape(legs)}.");
+            }
+
+            var nominations = new List<FlightNomination>(sequence.Items.Count);
+
+            foreach (var (item, at) in sequence.Items.Select((item, at) => (item, at)))
+            {
+                if (item is not MapNode leg)
+                {
+                    throw new EnvelopeSyntaxException(
+                        "'legs' should be a list of blocks, each with its own 'subject', "
+                      + $"'work-kind' and 'reason'; leg {at + 1} is {Shape(item)}.");
+                }
+
+                Closed(leg, "subject", "work-kind", "reason", "after", "repository", "environment", "note");
+
+                // EMPTY RATHER THAN NULL for the two a nomination requires, so a leg that
+                // leaves one out is refused by the nomination's own sentence - which says
+                // what the field is FOR - instead of by a parser that only knows it is missing.
+                nominations.Add(new FlightNomination
+                {
+                    WorkKind = Optional(leg, "work-kind") ?? string.Empty,
+                    Reason = Optional(leg, "reason") ?? string.Empty,
+                    Subject = Optional(leg, "subject"),
+                    After = Optional(leg, "after"),
+                    Repository = Optional(leg, "repository"),
+                    Environment = Optional(leg, "environment"),
+                    Note = Optional(leg, "note"),
+                });
+            }
+
+            var draft = new ItineraryDraft
+            {
+                Planner = Optional(root, "planner") ?? defaultPlanner,
+                Intent = ItineraryIntent(Require(root, "intent")),
+                Legs = nominations,
+            };
+
+            return ItineraryDraft.Validate(draft) is { } invalid
+                ? new ItineraryParse { Diagnosis = invalid }
+                : new ItineraryParse { Draft = draft };
+        }
+        catch (EnvelopeSyntaxException refusal)
+        {
+            return new ItineraryParse { Diagnosis = refusal.Message };
+        }
+    }
+
+    /// <summary>
+    /// A plan's intent: a sentence, or a block naming a ticket or a link.
+    /// </summary>
+    /// <remarks>
+    /// Built by <see cref="FlightIntent.Of"/>, the derivation <c>gg fly</c> uses, so a plan
+    /// about a work item is a ticket exactly as a flight about one is.
+    /// </remarks>
+    private static FlightIntent ItineraryIntent(Node node)
+    {
+        if (node is ScalarNode sentence)
+        {
+            return FlightIntent.Of(sentence.Value);
+        }
+
+        var block = RequireMap(node, "intent");
+
+        Closed(block, "text", "uri", "provider", "id");
+
+        return FlightIntent.Of(
+            Optional(block, "text"),
+            Optional(block, "uri"),
+            Optional(block, "provider"),
+            Optional(block, "id"));
+    }
+
     public static EnvelopeNarrowingParse ParseNarrowing(string text)
     {
         ArgumentNullException.ThrowIfNull(text);

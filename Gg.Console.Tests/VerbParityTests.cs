@@ -317,6 +317,14 @@ public class VerbParityTests
             // people whose keys they are. A pane that listed keys beside that
             // would be two places answering one question, which is the drift
             // this console keeps finding one field at a time.
+            // A PLAN CHECKED IS A DECISION, NOT A GAP, and it is the same
+            // decision in all three parity maps. ADR-0038 puts this answer in
+            // the hosted plan session - the panel beside an agent drafting the
+            // plan, its build step 4 - where each leg's verdict redraws as the
+            // draft changes. A console tab reading a file would be a second
+            // place to see it and the wrong one: the console has no draft.
+            ["ItineraryCheck"] = "absent, and a decision for now: ADR-0038 shows this in the "
+                               + "hosted plan session's panel, not a console tab.",
             ["KeyList"] = "absent, and a decision for now: the console reaches these keys as the "
                         + "holder column on a credential in step 3, not as a list of its own.",
             ["CredentialAdd"] = "reachable but partial: scopes are hardcoded to read, and the "

@@ -94,6 +94,12 @@ public class ProjectionParityTests
             // the list now would put state in the model that nothing draws, and
             // the next reader could not tell whether a pane was missing or the
             // state was.
+            // A CHECKED PLAN HAS NO ARM, deliberately: the console holds no
+            // draft for it to be about. ADR-0038's hosted plan session is where
+            // it is drawn, from the tool server's own state, and projecting it
+            // here would put an answer in the model with no question behind it.
+            ["ItineraryChecked"] = "not projected, by decision: ADR-0038 draws it in the hosted "
+                                 + "plan session's panel, where the draft it answers lives.",
             ["Keys"] = "no arm yet, and the arm it gets will not be this shape: step 3 projects "
                      + "holders onto a credential's row, not a key list.",
 

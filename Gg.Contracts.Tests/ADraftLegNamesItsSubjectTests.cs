@@ -48,7 +48,7 @@ public class ADraftLegNamesItsSubjectTests
         await Assert.That(ItineraryDraft.Validate(Draft(
             Leg("implement", "the icon"),
             Leg("implement", "the padding"),
-            Leg("review", "the icon", after: "the icon")))).IsNull();
+            Leg("review", "the icon, reviewed", after: "the icon")))).IsNull();
     }
 
     [Test]
@@ -59,7 +59,7 @@ public class ADraftLegNamesItsSubjectTests
             Leg("implement", null)));
 
         await Assert.That(because).IsNotNull();
-        await Assert.That(because!).Contains("leg 2");
+        await Assert.That(because!).Contains("Leg 2");
         await Assert.That(because!).Contains("'implement'")
             .Because("a refusal has to say which leg, or a person counts by hand.");
     }
@@ -73,7 +73,7 @@ public class ADraftLegNamesItsSubjectTests
             Leg("implement", "the icon")));
 
         await Assert.That(because).IsNotNull();
-        await Assert.That(because!).Contains("legs 1 and 3");
+        await Assert.That(because!).Contains("Legs 1 and 3");
         await Assert.That(because!).Contains("'the icon'");
     }
 

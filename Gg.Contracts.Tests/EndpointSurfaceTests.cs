@@ -551,7 +551,11 @@ public class EndpointSurfaceTests
         // Declared in the version the control plane SERVES them in, which is
         // the lesson 0.218.0 and 0.224.0 taught from opposite directions -
         // late is unreachable for ever, early freezes the consumer's pin.
-            .IsEqualTo("b9a253cd7d64f02bd468a80fb071a3f090ed6c9724bcae66a917be90b8774f69")
+        // AND 0.276.0 ADDS ONE QUESTION: POST /v1/itineraries/check, a plan
+        // checked before anybody flies it (slice sixty-one, ADR-0038 Decision
+        // 9). Under the governed prefix the two reads already closed, and
+        // declared in the version the control plane serves it in.
+            .IsEqualTo("18c5f1de4a6bef0fac701517f54ea1beb182a14b12314fec222b6511691345e5")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

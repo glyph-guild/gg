@@ -284,6 +284,19 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.CredentialRemoved;
     }
 
+    /// <summary>Every public key this tenant's people have registered.</summary>
+    /// <remarks>
+    /// <b>Public keys, which is why this may be printed at all.</b> A credential
+    /// is sealed to the people who may open it, so sealing one means finding
+    /// their key — and a key nobody can look up is a key nobody can seal to.
+    /// There is no private half anywhere near this type; the contract it carries
+    /// has no member one could occupy.
+    /// </remarks>
+    public sealed record Keys(PrincipalKeyList Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.Keys;
+    }
+
     public sealed record RunnerRepinned(Gg.Client.RunnerRepinned Value) : VerbResult
     {
         public override string Kind => VerbResultKinds.RunnerRepinned;
@@ -567,6 +580,8 @@ public static class VerbResultKinds
     public const string Invited = "invited";
     public const string Diagnosis = "diagnosis";
     public const string Credentials = "credentials";
+
+    public const string Keys = "keys";
     public const string CredentialAdded = "credential-added";
     public const string CredentialRemoved = "credential-removed";
     public const string RunnerRetired = "runner-retired";
@@ -673,6 +688,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(RunnerList))]
 [JsonSerializable(typeof(DoctorReport))]
 [JsonSerializable(typeof(CredentialList))]
+[JsonSerializable(typeof(PrincipalKeyList))]
 [JsonSerializable(typeof(CredentialRegistered))]
 [JsonSerializable(typeof(Gg.Contracts.CredentialRemoved))]
 [JsonSerializable(typeof(Gg.Contracts.RunnerRetired))]
@@ -768,6 +784,7 @@ public static class VerbOutput
         VerbResult.Invited r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.InvitationIssued),
         VerbResult.Diagnosis r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.DoctorReport),
         VerbResult.Credentials r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.CredentialList),
+        VerbResult.Keys r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.PrincipalKeyList),
         VerbResult.CredentialAdded r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.CredentialRegistered),
         VerbResult.CredentialRemoved r =>
@@ -876,6 +893,8 @@ public static class VerbOutput
         VerbResultKinds.Credentials => new VerbResult.Credentials(
             Require(JsonSerializer.Deserialize(json, VerbJsonContext.Default.CredentialList)),
             []),
+        VerbResultKinds.Keys => new VerbResult.Keys(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.PrincipalKeyList))),
         VerbResultKinds.CredentialAdded => new VerbResult.CredentialAdded(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.CredentialRegistered))),
         VerbResultKinds.CredentialRemoved => new VerbResult.CredentialRemoved(Require(
@@ -965,6 +984,7 @@ public static class VerbOutput
         VerbResult.Invited r => Invited(r.Value),
         VerbResult.Diagnosis r => Diagnosis(r.Value),
         VerbResult.Credentials r => Credentials(r.Value, r.Resting),
+        VerbResult.Keys r => Keys(r.Value),
         VerbResult.CredentialAdded r => CredentialAdded(r.Value),
         VerbResult.CredentialRemoved r => CredentialRemoved(r.Value),
         VerbResult.RunnerRetired r => RunnerRetiredText(r.Value),
@@ -1470,6 +1490,49 @@ public static class VerbOutput
             text.AppendLine(
                 $"  id  {Clean(credential.CredentialId)}   added {credential.AddedAt:u}   "
               + $"{Clean(CredentialsAtRest.RestingOf(resting, credential.Reference.Locator))}");
+        }
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Whose key is whose, and which of them are still ones to seal to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The fingerprint is the column and the whole key is not.</b> A public
+    /// key is about 120 characters of base64 that mean nothing at a glance; the
+    /// fingerprint is the short name <see cref="PrincipalKeyFingerprint"/>
+    /// derives once on the contract, so that this list and `gg key create` spell
+    /// it identically. Neither is a secret, so the choice is about reading.
+    /// --json carries the key itself.
+    /// </para>
+    /// <para>
+    /// <b>A retired key is listed and SAID to be retired.</b> A credential sealed
+    /// to one last year is still sealed to it, so hiding the row would leave an
+    /// envelope naming a holder nobody can account for — and showing it as live
+    /// would be worse, because "who can open this" would read as a current answer.
+    /// </para>
+    /// </remarks>
+    private static string Keys(PrincipalKeyList list)
+    {
+        if (list.Keys.Count == 0)
+        {
+            return "No keys registered. Run gg key create to mint one, so a credential can be "
+                 + "sealed to you.";
+        }
+
+        var text = new StringBuilder();
+        foreach (var key in list.Keys.OrderBy(k => k.Principal, StringComparer.Ordinal))
+        {
+            text.Append($"{Clean(key.Principal),-24}  {Clean(key.Fingerprint),-34}  ")
+                .Append($"registered {key.RegisteredAt:u}");
+
+            if (key.RetiredAt is { } retired)
+            {
+                text.Append($"   retired {retired:u}");
+            }
+
+            text.AppendLine();
         }
         return text.ToString().TrimEnd();
     }
@@ -3459,7 +3522,8 @@ public static class VerbOutput
           + $"Expected one of: {VerbResultKinds.Flights}, {VerbResultKinds.Flight}, "
           + $"{VerbResultKinds.Launched}, {VerbResultKinds.Log}, {VerbResultKinds.Runners}, "
           + $"{VerbResultKinds.Diagnosis}, {VerbResultKinds.Credentials}, "
-          + $"{VerbResultKinds.CredentialAdded}, {VerbResultKinds.CredentialRemoved}.");
+          + $"{VerbResultKinds.CredentialAdded}, {VerbResultKinds.CredentialRemoved}, "
+          + $"{VerbResultKinds.Keys}.");
 
     private static T Require<T>(T? value) where T : class =>
         value ?? throw new InvalidOperationException("The result document was empty.");

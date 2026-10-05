@@ -87,6 +87,16 @@ public class ProjectionParityTests
             // model a pane draws the BOARD from, which is the two-cursor
             // defect this console has already met: a pane and its title
             // answering one question from different places.
+            // THE KEYS READ HAS NO PANE YET, and the one it will serve is not a
+            // list. Step 3 joins a sealed envelope's holders to the people whose
+            // keys they are, so what reaches the model is a holder column on a
+            // credential rather than a PrincipalKeyList of its own. Projecting
+            // the list now would put state in the model that nothing draws, and
+            // the next reader could not tell whether a pane was missing or the
+            // state was.
+            ["Keys"] = "no arm yet, and the arm it gets will not be this shape: step 3 projects "
+                     + "holders onto a credential's row, not a key list.",
+
             ["NominationDecided"] = "not projected, and not pending an arm: it is a report "
                                   + "about one invocation - a row plus how long gg waited - "
                                   + "and the pane's own refresh is what shows the board "

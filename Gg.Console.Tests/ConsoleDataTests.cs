@@ -150,6 +150,15 @@ public class ConsoleDataTests
         // is exactly why it did not come with them.
         var exempt = (string[])
         [
+            // THE KEYS READ IS A DECISION, NOT A GAP, and it is the same
+            // decision in all three parity maps. A key list on a screen is not
+            // what anybody wants from these keys: the question is "who can open
+            // this credential", which step 3 answers by joining a sealed
+            // envelope's holders to the people whose keys they are. A console
+            // port for the list would be a second way to ask, and the holder
+            // column is the first.
+            "ListKeysAsync",
+
             // THE PANE HAS THE ANSWER ALREADY, which is why neither of these
             // reaches the console. AirspaceDocumentsAsync fetches every
             // document in one request and the estate read keeps them, so the

@@ -290,6 +290,26 @@ public sealed class CredentialCommands(
     }
 
     /// <summary>
+    /// Every public key this tenant's people have registered.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Here rather than beside `gg key create`</b>, which lives in the CLI's
+    /// own composition because it writes a file this assembly does not own. A
+    /// READ of the tenant's keys is the same shape as a read of its credentials —
+    /// one session, one GET, no local state — and the two questions are asked
+    /// together: whose key can this credential be sealed to.
+    /// </para>
+    /// <para>
+    /// <b>Retired keys come back too.</b> That is the control plane's choice and
+    /// this does not filter it: a credential sealed to a key last year is still
+    /// sealed to it, so "who could open this" is a question a retired key answers.
+    /// </para>
+    /// </remarks>
+    public async Task<VerbResult> ListKeysAsync(CancellationToken cancellationToken = default) =>
+        new VerbResult.Keys(await _client.ListKeysAsync(Session(), cancellationToken));
+
+    /// <summary>
     /// Deregisters a credential, then deletes the local secret it named.
     /// </summary>
     /// <remarks>

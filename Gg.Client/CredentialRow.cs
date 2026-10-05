@@ -148,7 +148,10 @@ public static class CredentialRows
                 CredentialId: null,
                 AddedAt: null,
                 Whose: null,
-                Resting: CredentialResting.NotHere,
+                // NOT "not here", WHICH THE PTY SHOWED READING WRONG. That says a
+                // credential exists and is somewhere else; the truth is that none
+                // exists at all, and the credential cell beside it already says so.
+                Resting: CredentialResting.Nowhere,
                 Standing: Needed(repository)
                     ? CredentialStanding.NoneRegistered
                     : CredentialStanding.NotNeeded,

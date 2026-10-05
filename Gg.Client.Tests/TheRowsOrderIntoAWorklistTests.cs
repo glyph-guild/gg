@@ -49,7 +49,7 @@ public class TheRowsOrderIntoAWorklistTests
         string path, string credential = RepositoryCredentialModes.Required) => new()
     {
         Name = path.Replace('/', '-'),
-        Provider = "github",
+        Provider = "forge",
         Id = "R_" + path,
         Path = path,
         Credential = credential,

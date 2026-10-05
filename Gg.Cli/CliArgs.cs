@@ -574,6 +574,16 @@ public abstract record CliAction
     /// </remarks>
     public sealed record KeyCreate(bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>The public keys this tenant's people have registered.</summary>
+    /// <remarks>
+    /// <b>No members but <c>Json</c>, for a different reason than its sibling
+    /// above.</b> A key list is a tenant-wide read and there is nothing to narrow
+    /// it by that a person would want: whose keys they are is the answer, not the
+    /// question, and a filter would make "is mine registered" something you have
+    /// to know your own spelling to ask.
+    /// </remarks>
+    public sealed record KeyList(bool Json) : CliAction, IEmitsResult;
+
     public sealed record CredentialRemove(string CredentialId, bool Json) : CliAction, IEmitsResult;
 
     /// <summary>A redacted diagnostics bundle.</summary>
@@ -839,6 +849,7 @@ public static class CliArgs
         "gg credential send --runner <id|name> --repo <slug>|--agent <name>",
         "                                 put one on a machine that cannot be reached any other way",
         "gg key create                  mint this person's key; the passphrase is prompted for",
+        "gg key list                    the public keys this tenant's people have registered",
         "gg credential list             the references the control plane holds",
         "gg credential rm <id>          forget one, here and there",
         "gg agent login --runner <id|name> [--agent <name>]",
@@ -1603,7 +1614,8 @@ public static class CliArgs
 
             ["agent", "login", .. var login] => AgentLogin(login, runner, json),
             ["key", "create"] => new CliAction.KeyCreate(json),
-            ["key", ..] => Unknown("gg key takes create."),
+            ["key", "list"] => new CliAction.KeyList(json),
+            ["key", ..] => Unknown("gg key takes create or list."),
             ["credential", "list"] => new CliAction.CredentialList(json),
             ["credential", "rm", var credentialId] => new CliAction.CredentialRemove(credentialId, json),
             ["credential", "rm", ..] => Unknown("gg credential rm needs one credential id. Run gg credential list."),

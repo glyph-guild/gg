@@ -310,6 +310,15 @@ public class VerbParityTests
                              + "by wiring or deleting.",
             ["CredentialList"] = "absent, and a gap: the field and the renderer exist and "
                                + "nothing fetches. Step 2.",
+            // SLICE SIXTY STEP 1, AND THE CONSOLE REACHES IT IN STEP 3. A key
+            // list is not a pane of its own: what a person wants from it on a
+            // screen is the holder column on a credential - "who can open this"
+            // - which is step 3's join from a sealed envelope's holders to the
+            // people whose keys they are. A pane that listed keys beside that
+            // would be two places answering one question, which is the drift
+            // this console keeps finding one field at a time.
+            ["KeyList"] = "absent, and a decision for now: the console reaches these keys as the "
+                        + "holder column on a credential in step 3, not as a list of its own.",
             ["CredentialAdd"] = "reachable but partial: scopes are hardcoded to read, and the "
                               + "command line takes a list. Step 5.",
             ["CredentialSend"] = "RUN, from the runner modal, on `c`, while the machine is "

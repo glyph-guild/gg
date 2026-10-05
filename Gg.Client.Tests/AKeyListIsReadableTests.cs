@@ -175,8 +175,20 @@ public class AKeyListIsReadableTests
 
         var result = await Build(stub, temporary.Store).ListKeysAsync();
 
-        await Assert.That(VerbOutput.ToJson(result)).Contains(key.PublicKey);
-        await Assert.That(VerbOutput.ToText(result)).DoesNotContain(key.PublicKey);
+        // RECOVERED RATHER THAN GREPPED, and the difference is a real trap. gg's
+        // --json uses the default JavaScript encoder, which escapes `+` as
+        // + and `/` as / - and a base64 public key is full of both. So
+        // the key is in the payload and a substring search for it fails. Nothing
+        // had met this before because a locator contains neither character.
+        // "Carries" means a consumer can get it back, so that is what is asked.
+        var carried = ((VerbResult.Keys)VerbOutput.Parse(
+            result.Kind, VerbOutput.ToJson(result))).Value;
+
+        await Assert.That(carried.Keys.Single().PublicKey).IsEqualTo(key.PublicKey);
+
+        await Assert.That(VerbOutput.ToText(result)).DoesNotContain(key.PublicKey)
+            .Because("120 characters of base64 mean nothing at a glance, so the column is the "
+                   + "fingerprint and the key is for whatever reads the payload.");
     }
 
     [Test]

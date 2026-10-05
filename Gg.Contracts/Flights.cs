@@ -95,6 +95,27 @@ public sealed record FlightIntent
     public string? Id { get; init; }
 
     /// <summary>
+    /// An intent from whichever payload a person supplied, with the kind derived from it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Derived in one place</b>, so a caller never names a kind that disagrees with what it
+    /// supplied - the exact mismatch <see cref="Validate"/> refuses. <c>gg fly</c> and a plan
+    /// file both build their intent here: a provider or an id is a ticket, a uri is a link, and
+    /// anything else is text.
+    /// </remarks>
+    public static FlightIntent Of(
+        string? text, string? uri = null, string? provider = null, string? id = null) => new()
+    {
+        Kind = provider is { Length: > 0 } || id is { Length: > 0 }
+            ? FlightIntentKinds.Ticket
+            : uri is { Length: > 0 } ? FlightIntentKinds.Uri : FlightIntentKinds.Text,
+        Uri = uri,
+        Text = text,
+        Provider = provider,
+        Id = id,
+    };
+
+    /// <summary>
     /// The diagnosis, or null when there is nothing wrong.
     /// </summary>
     /// <remarks>

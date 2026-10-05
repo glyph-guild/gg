@@ -159,6 +159,12 @@ public class ConsoleDataTests
             // column is the first.
             "ListKeysAsync",
 
+            // A PLAN CHECKED IS A DECISION, NOT A GAP, and the same one the
+            // other two maps record: ADR-0038 shows it in the hosted plan
+            // session's panel beside the draft, and the console has no draft
+            // to check. A port here would answer a question nobody asked it.
+            "CheckItineraryAsync",
+
             // THE PANE HAS THE ANSWER ALREADY, which is why neither of these
             // reaches the console. AirspaceDocumentsAsync fetches every
             // document in one request and the estate read keeps them, so the

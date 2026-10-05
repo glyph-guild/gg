@@ -93,7 +93,7 @@ public class ItineraryCheckVerbTests
         await Assert.That(sent.Planner).IsEqualTo("plan")
             .Because("a file that names no planner is checked against `plan`, the kind that "
                    + "proposes legs today.");
-        await Assert.That(sent.Legs.Select(l => l.Subject)).IsEquivalentTo(["the icon", "the padding"]);
+        await Assert.That(sent.Legs.Select(l => l.Subject ?? "")).IsEquivalentTo(["the icon", "the padding"]);
         await Assert.That(sent.Legs[1].After).IsEqualTo("the icon");
         await Assert.That(sent.Intent.Text).IsEqualTo("three findings in one bug");
 

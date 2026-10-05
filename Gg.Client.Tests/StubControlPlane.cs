@@ -34,6 +34,15 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// <summary>Paths seen, in order.</summary>
     public List<string> ObservedPaths { get; } = [];
 
+    /// <summary>Every draft `gg itinerary check` sent, as the control plane would read it.</summary>
+    public List<ItineraryDraft> ObservedDrafts { get; } = [];
+
+    /// <summary>What the check answers, when a test sets it.</summary>
+    public ItineraryCheck? ItineraryAnswer { get; set; }
+
+    /// <summary>A 400 body for the check, standing in for the control plane refusing a draft.</summary>
+    public string? ItineraryRefusal { get; set; }
+
     /// <summary>How many polls to answer 202 before completing.</summary>
     public int PendingPolls { get; set; }
 
@@ -564,6 +573,20 @@ public sealed class StubControlPlane : IAsyncDisposable
 
             case "/v1/credentials":
                 await WriteJsonAsync(context, 200, new CredentialList { Credentials = [.. Credentials] });
+                return;
+
+            case "/v1/itineraries/check" when context.Request.HttpMethod == "POST":
+                ObservedDrafts.Add(JsonSerializer.Deserialize<ItineraryDraft>(
+                    LastBody, JsonSerializerOptions.Web)!);
+
+                if (ItineraryRefusal is { } itineraryRefusal)
+                {
+                    await WriteAsync(context, 400, itineraryRefusal);
+                    return;
+                }
+
+                await WriteJsonAsync(context, 200, ItineraryAnswer
+                    ?? new ItineraryCheck { Planner = "plan", Legs = [] });
                 return;
 
             case "/v1/auth/keys" when context.Request.HttpMethod == "GET":

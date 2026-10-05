@@ -238,6 +238,12 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.Plan;
     }
 
+    /// <summary>What admission would do with each leg of a plan, checked before it flies.</summary>
+    public sealed record ItineraryChecked(ItineraryCheck Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.ItineraryChecked;
+    }
+
     /// <summary>
     /// The fleet's advertised labels, each with its disposition. The same wire
     /// document as <see cref="Runners"/>, rendered per label - one document,
@@ -609,6 +615,9 @@ public static class VerbResultKinds
 
     public const string Plan = "plan";
 
+    /// <summary>A plan checked leg by leg - deliberately not <see cref="Plan"/>, which is the checklist.</summary>
+    public const string ItineraryChecked = "itinerary-check";
+
     /// <summary>What has been nominated and needs somebody.</summary>
     public const string Board = "board";
 
@@ -714,6 +723,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(OfferedView))]
 [JsonSerializable(typeof(TakeSeed))]
 [JsonSerializable(typeof(Checklist))]
+[JsonSerializable(typeof(ItineraryCheck))]
 [JsonSerializable(typeof(EnvelopeTopology))]
 [JsonSerializable(typeof(RegisteredRepositories))]
 [JsonSerializable(typeof(TreeWritten))]
@@ -825,6 +835,8 @@ public static class VerbOutput
         VerbResult.ConfigOffered r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.OfferedView),
         VerbResult.Plan r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.Checklist),
+        VerbResult.ItineraryChecked r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.ItineraryCheck),
         VerbResult.AirspaceTopology r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeTopology),
         VerbResult.AirspaceRepositories r =>
@@ -940,6 +952,8 @@ public static class VerbOutput
         // invocation's hold, and a payload re-rendered somewhere else holds nothing.
         VerbResultKinds.Plan => new VerbResult.Plan(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.Checklist))),
+        VerbResultKinds.ItineraryChecked => new VerbResult.ItineraryChecked(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.ItineraryCheck))),
         VerbResultKinds.AirspacePulled => new VerbResult.AirspacePulled(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.TreeWritten))),
         VerbResultKinds.AirspaceApplied => new VerbResult.AirspaceApplied(Require(
@@ -1016,6 +1030,7 @@ public static class VerbOutput
         VerbResult.ConfigOffered r => ConfigOfferedText(r.Value),
         VerbResult.Taken r => TakenText(r.Value, r.Notes),
         VerbResult.Plan r => PlanText(r.Value),
+        VerbResult.ItineraryChecked r => ItineraryCheckText(r.Value),
         VerbResult.AirspaceTopology r => AirspaceText(r.Value),
         VerbResult.AirspaceRepositories r => RepositoriesText(r.Value, r.Standings),
         VerbResult.AirspacePulled r => PulledText(r.Value),
@@ -2783,6 +2798,77 @@ public static class VerbOutput
             if (item.WhenUnmet is { } unmet)
             {
                 text.AppendLine($"    {Clean(Reason.Sentence(unmet.Kind, unmet.Params))}");
+            }
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>A plan, leg by leg: the verdict first, then admission's sentence, then what governs it.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The verdict leads each block</b> because it is the word a person scans a plan for, and
+    /// the sentence under it is the reason they act on.
+    /// </para>
+    /// <para>
+    /// <b>The fleet is the checklist's own rendering</b>, indented under its leg - the same words
+    /// <c>gg plan</c> prints, because it is the same derivation.
+    /// </para>
+    /// </remarks>
+    private static string ItineraryCheckText(ItineraryCheck check)
+    {
+        var text = new StringBuilder();
+        var against = check.DestinationId is { Length: > 0 } destination
+            ? $"'{Clean(check.Planner)}' (destination {Clean(destination)})"
+            : $"'{Clean(check.Planner)}'";
+        text.AppendLine($"  checked against {against} - nothing was opened or written");
+
+        if (check.Refused is { Length: > 0 } whole)
+        {
+            text.AppendLine();
+            text.AppendLine("  the whole plan would be refused:");
+            text.AppendLine($"    {Clean(whole)}");
+        }
+
+        foreach (var (leg, at) in check.Legs.Select((leg, at) => (leg, at)))
+        {
+            text.AppendLine();
+            text.AppendLine($"  {at + 1}. {Clean(leg.Subject)}  ({Clean(leg.WorkKind)})");
+            text.AppendLine($"     {Clean(leg.Verdict)}");
+            text.AppendLine($"     {Clean(leg.Reason)}");
+
+            if (leg.EnvelopeDigest is { Length: > 0 } digest)
+            {
+                var layers = leg.EnvelopeLayers.Count > 0
+                    ? $"  ({string.Join(", ", leg.EnvelopeLayers.Select(l => Clean(l)))})"
+                    : string.Empty;
+                text.AppendLine(
+                    $"     envelope {Clean(leg.EnvelopeVersion ?? "-")} {Clean(digest)}{layers}");
+            }
+
+            foreach (var gate in leg.Gates)
+            {
+                text.AppendLine(
+                    $"     waits on {Clean(gate.ObligationId)}"
+                  + (gate.Approver is { Length: > 0 } who ? $" - answered by {Clean(who)}" : ""));
+            }
+
+            foreach (var skipped in leg.PassedOver)
+            {
+                text.AppendLine($"     passes over: {Clean(skipped.Because)}");
+            }
+
+            foreach (var never in leg.Obligations.Where(o => o.Inapplicable is not null))
+            {
+                text.AppendLine($"     never applies: {Clean(never.ObligationId)} - {Clean(never.Because ?? "")}");
+            }
+
+            if (leg.Fleet is { } fleet)
+            {
+                foreach (var line in PlanText(fleet).Split('\n'))
+                {
+                    text.AppendLine($"     {line.TrimStart()}");
+                }
             }
         }
 

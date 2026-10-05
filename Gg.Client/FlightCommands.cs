@@ -21,6 +21,16 @@ public sealed class RunnerNotFoundException(string message) : Exception(message)
 /// <summary>An intent the contract's own rule refused.</summary>
 public sealed class FlightIntentException(string message) : Exception(message);
 
+/// <summary>
+/// A plan that could not be checked: the file was not a draft, or the control plane refused it.
+/// </summary>
+/// <remarks>
+/// <b>One type for both sides of the wire</b>, because a person reads them the same way - a
+/// sentence saying what is wrong with the plan they wrote - and the sentence is the contract's
+/// in both cases.
+/// </remarks>
+public sealed class ItineraryRefusedException(string message) : Exception(message);
+
 /// <summary>No session, so there is nobody to act as.</summary>
 public sealed class NotSignedInException(string message) : Exception(message);
 
@@ -1817,6 +1827,39 @@ public sealed class FlightCommands(
     /// contract's rule, not a second one written here - so a request the
     /// control plane would refuse is not sent at all.
     /// </remarks>
+    /// <summary>
+    /// Checks a plan written out leg by leg: what admission would do with each leg if a plan
+    /// flight proposed it now.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Refused here before it is refused there.</b> The file is read by the product's one
+    /// YAML parser and the draft by the contract's own validator, so a draft the control plane
+    /// would 400 is never sent - and the sentence is the same one.
+    /// </para>
+    /// <para>
+    /// <b><c>plan</c> unless the file says otherwise</b>, because it is the kind that proposes
+    /// legs today, and the menu a plan is bounded by is its planner's.
+    /// </para>
+    /// </remarks>
+    public async Task<VerbResult> CheckItineraryAsync(
+        string path, CancellationToken cancellationToken = default)
+    {
+        var parsed = EnvelopeYaml.ParseItinerary(
+            await File.ReadAllTextAsync(path, cancellationToken), DefaultPlanner);
+
+        if (parsed.Draft is not { } draft)
+        {
+            throw new ItineraryRefusedException($"{path}: {parsed.Diagnosis}");
+        }
+
+        return new VerbResult.ItineraryChecked(
+            await _client.CheckItineraryAsync(Session(), draft, cancellationToken));
+    }
+
+    /// <summary>The planner a plan file is checked against when it names none.</summary>
+    public const string DefaultPlanner = "plan";
+
     public async Task<VerbResult> FlyAsync(
         string? text,
         string? uri,
@@ -1840,19 +1883,10 @@ public sealed class FlightCommands(
     {
         var token = Session();
 
-        // The kind is DERIVED from which payload arrived, here and in one
-        // place, so a caller never names a kind that disagrees with what it
-        // supplied - the exact mismatch Validate refuses two statements below.
-        var intent = new FlightIntent
-        {
-            Kind = provider is { Length: > 0 } || id is { Length: > 0 }
-                ? FlightIntentKinds.Ticket
-                : uri is { Length: > 0 } ? FlightIntentKinds.Uri : FlightIntentKinds.Text,
-            Uri = uri,
-            Text = text,
-            Provider = provider,
-            Id = id,
-        };
+        // The kind is DERIVED from which payload arrived, in one place shared
+        // with a plan file, so a caller never names a kind that disagrees with
+        // what it supplied - the exact mismatch Validate refuses below.
+        var intent = FlightIntent.Of(text, uri, provider, id);
 
         if (FlightIntent.Validate(intent) is { } diagnosis)
         {

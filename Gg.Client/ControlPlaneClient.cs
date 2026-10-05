@@ -85,6 +85,8 @@ namespace Gg.Client;
 [JsonSerializable(typeof(EnvelopeApplied))]
 [JsonSerializable(typeof(FlightFacts))]
 [JsonSerializable(typeof(Checklist))]
+[JsonSerializable(typeof(ItineraryDraft))]
+[JsonSerializable(typeof(ItineraryCheck))]
 [JsonSerializable(typeof(EnvironmentStrategy))]
 [JsonSerializable(typeof(EnvironmentStrategyState))]
 [JsonSerializable(typeof(StrategyList))]
@@ -1891,6 +1893,46 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.PrincipalKeyList, cancellationToken)
             ?? throw new InvalidOperationException("Control plane returned no key list.");
+    }
+
+    /// <summary>
+    /// What admission would do with each leg of a draft, if a plan flight proposed it now.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A question with a body</b>, so a POST - and nothing on the far side is written.
+    /// </para>
+    /// <para>
+    /// <b>Two refusals, both carried through unchanged.</b> A 400 is the control plane's own
+    /// reading of the draft, which it validates on its own terms rather than trusting that gg
+    /// did. An answer carrying a verdict this gg does not know is refused on read: the control
+    /// plane is newer than this client, and printing a word with no meaning would hide that.
+    /// </para>
+    /// </remarks>
+    public async Task<ItineraryCheck> CheckItineraryAsync(
+        string sessionToken, ItineraryDraft draft, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Post, "/v1/itineraries/check", sessionToken);
+        request.Content = JsonContent.Create(draft, ProtocolJsonContext.Default.ItineraryDraft);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            throw new ItineraryRefusedException(
+                await response.Content.ReadAsStringAsync(cancellationToken));
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var check = await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.ItineraryCheck, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane returned no itinerary check.");
+
+        return ItineraryCheck.Validate(check) is { } unknown
+            ? throw new ItineraryRefusedException(unknown)
+            : check;
     }
 
     public async Task<CredentialList> ListCredentialsAsync(

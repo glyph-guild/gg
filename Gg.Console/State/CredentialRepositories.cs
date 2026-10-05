@@ -78,14 +78,14 @@ public static class CredentialRepositories
     /// needed is last, because a repository that authenticates to nothing is
     /// not pending work.
     /// </remarks>
-    private static int Rank(string said) => said switch
-    {
-        Gg.Client.CredentialStanding.NoneRegistered => 0,
-        Gg.Client.CredentialStanding.MissingHere => 1,
-        Gg.Client.CredentialStanding.Here => 3,
-        Gg.Client.CredentialStanding.NotNeeded => 4,
-        _ => 2,
-    };
+    /// <remarks>
+    /// <b>MOVED TO <c>Gg.Client.CredentialStanding</c>, because a second screen
+    /// now ranks these.</b> The reasoning above is kept here because this is where
+    /// it was worked out, but the function is shared — two rankings that agreed
+    /// today would come to disagree about which credential work is urgent, and a
+    /// person reading two lists would get two answers.
+    /// </remarks>
+    private static int Rank(string said) => Gg.Client.CredentialStanding.Rank(said);
 
     /// <summary>What the chooser offers, as the table draws it.</summary>
     /// <remarks>

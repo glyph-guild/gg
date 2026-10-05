@@ -1564,6 +1564,32 @@ public sealed record AppState
     public CredentialList? Credentials { get; init; }
 
     /// <summary>
+    /// How each registered credential rests on THIS machine, or null before the
+    /// read.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The one thing in this pane that is about this machine rather than the
+    /// tenant</b>, which makes it the one thing nobody could reconstruct from the
+    /// control plane if it were missing from a diagnostics bundle.
+    /// </para>
+    /// <para>
+    /// <b>A locator and a word, and nothing else can be in here.</b> It is
+    /// gathered on the read task by <c>CredentialsAtRest</c> — which opens
+    /// nothing — and the shape is asserted by
+    /// <c>TheCredentialRowsCarryNoSecretTests</c>, because this record is written
+    /// to disk under <c>GG_STATE_DUMP</c> and handed to a support bundle.
+    /// </para>
+    /// <para>
+    /// <b>Null and empty are different answers.</b> Null is nobody read it; empty
+    /// is a read that came back with nothing to say, and
+    /// <see cref="Gg.Client.CredentialResting.NotKnown"/> is what a row then
+    /// reports — never that a credential is here.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<Gg.Client.CredentialAtRest>? CredentialResting { get; init; }
+
+    /// <summary>
     /// The live view is OFF by default, and that is a decision rather than a
     /// convenience.
     /// </summary>

@@ -43,7 +43,7 @@ public sealed class ConsoleScreen : Window
     private readonly FrameView _flightPane;
     private readonly FrameView _browsePane;
     private readonly FrameView _repositoriesPane;
-    private readonly Label _repositories;
+    private readonly Label _credentials;
     /// <summary>
     /// The airspace working copy, as a tree.
     /// </summary>
@@ -206,7 +206,7 @@ public sealed class ConsoleScreen : Window
     // once rather than leaving whatever was on it last.
     private bool _flightPaneWantsSaying = true;
     private readonly TableView _browseTable;
-    private readonly TableView _repositoriesTable;
+    private readonly TableView _credentialsTable;
     private readonly FrameView _runnersPane;
     private readonly Label _runners;
     private readonly Label _runnerNotice;
@@ -928,8 +928,8 @@ public sealed class ConsoleScreen : Window
             Height = Dim.Fill(1),
             Visible = false,
         };
-        _repositories = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
-        _repositoriesPane.Add(_repositories);
+        _credentials = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
+        _repositoriesPane.Add(_credentials);
 
         // THE FLEET, AND THIS MACHINE'S RUNNER FIRST. Already in the model from
         // the boot, so this tab is never waiting on a read.
@@ -1143,8 +1143,8 @@ public sealed class ConsoleScreen : Window
         _browseFindBox.Add(_browseFind);
         _browsePane.Add(_browseFindBox);
         _browseFind.KeyDown += OnBrowseFindKeyDown;
-        _repositoriesTable = CollectionViews.Table();
-        _repositoriesPane.Add(_repositoriesTable);
+        _credentialsTable = CollectionViews.Table();
+        _repositoriesPane.Add(_credentialsTable);
         _runnersTable = CollectionViews.Table();
         _runnersPane.Add(_runnersTable);
 
@@ -1170,7 +1170,7 @@ public sealed class ConsoleScreen : Window
         // render puts it back.
         _itinerariesTable.ValueChanged += OnRowPointedAt;
         _browseTable.ValueChanged += OnRowPointedAt;
-        _repositoriesTable.ValueChanged += OnRowPointedAt;
+        _credentialsTable.ValueChanged += OnRowPointedAt;
         _runnersTable.ValueChanged += OnRowPointedAt;
         _airspaceTable.ValueChanged += OnRowPointedAt;
         // AND THE FLEET, on the flights tab's rule: a machine that will take no
@@ -1199,7 +1199,7 @@ public sealed class ConsoleScreen : Window
         // takes the tables wired to OnRowPointedAt - which IS what makes one a
         // tab's rather than a modal's - and requires each to appear here.
         foreach (var table in (TableView[])
-                 [_flightsTable, _boardTable, _browseTable, _repositoriesTable,
+                 [_flightsTable, _boardTable, _browseTable, _credentialsTable,
                   _runnersTable, _airspaceTable, _itinerariesTable])
         {
             table.KeyDown += OnTableEdge;
@@ -2236,7 +2236,7 @@ public sealed class ConsoleScreen : Window
             // TabGoesLeftToRightTests holds the two orders together now.
             (TabId.Runners, Tabbed(_runnersPane)),
             (TabId.Browse, Tabbed(_browsePane)),
-            (TabId.Repositories, Tabbed(_repositoriesPane)),
+            (TabId.Credentials, Tabbed(_repositoriesPane)),
             (TabId.Envelope, Tabbed(_envelopePane)),
 
 
@@ -4481,9 +4481,13 @@ public sealed class ConsoleScreen : Window
             // underneath the table - which was invisible while both said the
             // same two columns, and stops being so the moment the sentence
             // says more than the row.
-            Fill(_repositoriesTable, _repositories, Rows.Repositories(State), Rows.RepositoryColumns,
-                State.RepositorySelected,
-                r => [r.Chosen, r.Path, r.Name, r.Provider, r.Credential, r.Ref, r.Narrowings]);
+            // CREDENTIAL-FIRST, and the repository is the second column. The pane
+            // that used to fill this table led with the repository and carried the
+            // credential as one of seven; the owner's call for slice sixty inverted
+            // it, because the question a person brings here is about a credential.
+            Fill(_credentialsTable, _credentials, Rows.Credentials(State), Rows.CredentialColumns,
+                State.CredentialsSelected,
+                r => [r.Credential, r.For, r.Here, r.Holders]);
 
 
             // OFF THE MODEL, like the other three. This passed a literal 0 and
@@ -4592,7 +4596,7 @@ public sealed class ConsoleScreen : Window
         Pane(_flights, TabId.Flights, PaneText.Flights(State));
         Pane(_board, TabId.Board, PaneText.Board(State));
         Pane(_itineraries, TabId.Itineraries, PaneText.Itineraries(State));
-        Pane(_repositories, TabId.Repositories, PaneText.Repositories(State));
+        Pane(_credentials, TabId.Credentials, PaneText.Repositories(State));
         Pane(_runners, TabId.Runners, PaneText.Runners(State));
 
         // WHICH ONE IS CHOSEN, IN THE TITLE. It changes what every flight this
@@ -6205,7 +6209,7 @@ public sealed class ConsoleScreen : Window
         TabId.Flights => _flightsTable,
         TabId.Board => _boardTable,
         TabId.Browse => _browseTable,
-        TabId.Repositories => _repositoriesTable,
+        TabId.Credentials => _credentialsTable,
         TabId.Runners => _runnersTable,
         TabId.Envelope => _airspaceTable,
         TabId.Itineraries => _itinerariesTable,
@@ -6481,7 +6485,7 @@ public sealed class ConsoleScreen : Window
             TabId.Flights => _flightsTable.Visible ? _flightsTable : _flights,
             TabId.Board => _boardTable.Visible ? _boardTable : _board,
             TabId.Browse => _browseTable.Visible ? _browseTable : _browse,
-            TabId.Repositories => _repositoriesTable.Visible ? _repositoriesTable : _repositories,
+            TabId.Credentials => _credentialsTable.Visible ? _credentialsTable : _credentials,
 
             // THE TABLE, NOT THE BUTTON ABOVE IT. Terminal.Gui would pick the
             // button, because it is the first focusable child - and a tab whose
@@ -6554,7 +6558,7 @@ public sealed class ConsoleScreen : Window
             _runnersTable.KeyDown -= OnTableKeyDown;
 
             foreach (var table in (TableView[])
-                     [_flightsTable, _boardTable, _browseTable, _repositoriesTable,
+                     [_flightsTable, _boardTable, _browseTable, _credentialsTable,
                       _runnersTable, _airspaceTable, _itinerariesTable])
             {
                 table.KeyDown -= OnTableEdge;
@@ -6580,7 +6584,7 @@ public sealed class ConsoleScreen : Window
             _boardTable.ValueChanged -= OnRowPointedAt;
             _itinerariesTable.ValueChanged -= OnRowPointedAt;
             _browseTable.ValueChanged -= OnRowPointedAt;
-            _repositoriesTable.ValueChanged -= OnRowPointedAt;
+            _credentialsTable.ValueChanged -= OnRowPointedAt;
             _runnersTable.ValueChanged -= OnRowPointedAt;
             _flightLog.ValueChanged -= OnLogRowPointedAt;
             _flightLog.ViewportChanged -= OnLogResized;

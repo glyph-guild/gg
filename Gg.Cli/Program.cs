@@ -334,6 +334,24 @@ static AppState LocalFacts(AppState state, ControlPlaneClient client, FileSessio
         // by the screen, for the reason the machine name above it is.
         Cwd = Directory.GetCurrentDirectory(),
 
+        // THIS MACHINE'S OWN PUBLIC KEY, so the credentials pane can say "this
+        // machine" instead of a fingerprint nobody can place. Read here for the
+        // reason the cwd above it is: a screen may not touch the filesystem, and
+        // this never changes while the console is open.
+        //
+        // READ, NEVER MINTED. MachineKey.LoadOrCreate would CREATE one, and
+        // opening a pane must not be what brings a machine's key into existence -
+        // the store does that lazily the first time it seals something. No key yet
+        // means the holder column cannot say "this machine", which is correct.
+        ThisMachinesPublicKey = File.Exists(Gg.Client.MachineKey.DefaultPath())
+            ? Gg.Client.MachineKey.LoadOrCreate().PublicKey
+            : null,
+
+        // AND THE RUNNER KEYS THIS CONSOLE HAS PINNED, which is how the second
+        // holder of a pushed credential gets a name. Pinned at the moment this
+        // console first reached each machine, so they are already on disk.
+        PinnedRunnerKeys = PinnedKeysOrNothing(),
+
         // WHERE THIS MACHINE'S AIRSPACE IS, folded in here for the reason the
         // machine name above it is: it is a file this machine already has, and
         // nothing about it is the control plane's to answer. It sat behind the
@@ -1126,6 +1144,28 @@ static async Task<int> KeyCreatedAsync(bool json)
     }
 }
 
+/// <summary>
+/// The runner keys this console has pinned, or nothing when the file cannot be
+/// read.
+/// </summary>
+/// <remarks>
+/// <b>A pin file that will not parse must not stop the console opening.</b> These
+/// name the holders of a pushed credential - useful rather than load-bearing - and
+/// <c>PinnedKeysUnreadableException</c> is a real state the repin path exists to
+/// fix. Without this the console would refuse to start over a column.
+/// </remarks>
+static IReadOnlyList<Gg.Client.PinnedKey> PinnedKeysOrNothing()
+{
+    try
+    {
+        return [.. new Gg.Client.PinnedRunnerKeys().Read().Values];
+    }
+    catch (Gg.Client.PinnedKeysUnreadableException)
+    {
+        return [];
+    }
+}
+
 static async Task<int> CredentialAsync(bool json, Func<CredentialCommands, Task<VerbResult>> run)
 {
     var baseAddress = ControlPlaneAddress();
@@ -1802,7 +1842,7 @@ static async Task<int> LaunchConsoleAsync()
                     // it; a second reader would be a second answer to "what is
                     // registered" and the two would disagree on whichever
                     // arrived first.
-                    Gg.Console.Command.ToggleRepositories or
+                    Gg.Console.Command.ToggleCredentials or
                     Gg.Console.Command.ChooseCredentialRepository or
                     Gg.Console.Command.AskHowToCompose or
                     Gg.Console.Command.AskHowToFlyByHand =>

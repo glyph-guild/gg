@@ -87,7 +87,14 @@ public static class ConsoleRefresh
                     data,
                     AsManyAsAreShown(on.Board?.Nominations.Count ?? 0),
                     cancellationToken),
-                TabId.Repositories => Apply(await data.RepositoriesAsync(cancellationToken)),
+                // BOTH HALVES, because a credential row is keyed on repositories
+                // UNION credentials. Reading only the credentials draws a list
+                // with every gap missing - a repository nobody has registered one
+                // for - and that gap is the only row here that predicts a flight
+                // failing. Reading only the repositories is what this arm did when
+                // it served the pane that retired into this one.
+                TabId.Credentials => await TheCredentialsAndWhatTheyAreForAsync(
+                    data, cancellationToken),
                 TabId.Envelope => Apply(await data.EnvelopeAsync(cancellationToken)),
                 // SOMETHING MUST ASK, and this is it. Without this arm the
                 // fall-through below answers Nothing, the state member stays
@@ -162,6 +169,61 @@ public static class ConsoleRefresh
     /// caller's diagnosis is the right answer.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Every credential this tenant has, and the repositories they are for.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Two reads, and the pane needs both</b> — the board's argument, for the
+    /// same reason: a row is keyed on repositories ∪ credentials, so folding one in
+    /// alone draws a list that is missing either every gap or every agent token.
+    /// </para>
+    /// <para>
+    /// <b>The registry read has a second consumer, which is why it cannot be
+    /// dropped.</b> <c>CredentialRepositories.Chosen</c> offers a repository when
+    /// somebody sends a credential from the runner modal, and it reads
+    /// <c>state.Repositories</c>. The pane that used to fetch it is the one that
+    /// retired into this tab, so this arm inherits that duty — and a send saying
+    /// "there is no repository to send a credential for" is what losing it looks
+    /// like, two panes away.
+    /// </para>
+    /// <para>
+    /// <b>And the keys, because the holder column is built from them.</b> An
+    /// envelope names its holders as public keys; the registered keys are what turn
+    /// that into names. Without them the column reads "2 nobody here can name" for
+    /// every credential, which is true and useless.
+    /// </para>
+    /// <para>
+    /// <b>No failure empties the model.</b> A read that throws leaves the others
+    /// folded in and the diagnosis says so, which is what the fleet's arm already
+    /// does for its four companions. An older control plane with no keys door is
+    /// exactly this case.
+    /// </para>
+    /// </remarks>
+    private static async Task<Func<AppState, AppState>> TheCredentialsAndWhatTheyAreForAsync(
+        ConsoleData data, CancellationToken cancellationToken)
+    {
+        var joined = new List<VerbResult>();
+
+        foreach (var read in (Func<CancellationToken, Task<VerbResult>>[])
+                 [data.ListCredentialsAsync, data.RepositoriesAsync, data.ListKeysAsync])
+        {
+            try
+            {
+                joined.Add(await read(cancellationToken));
+            }
+            catch (HttpRequestException)
+            {
+                // ONE HALF SHORT IS NOT A FAULT HERE. A control plane with no
+                // credentials door, or a half-failed read, leaves the other half
+                // drawn - and the row's own words already say "not known" rather
+                // than "here" for what nobody reported.
+            }
+        }
+
+        return state => joined.Aggregate(state, (folded, read) => ConsoleProjection.Apply(folded, read));
+    }
+
     private static async Task<Func<AppState, AppState>> TheFleetAndWhatItHasLeftAsync(
         ConsoleData data, CancellationToken cancellationToken)
     {

@@ -100,7 +100,7 @@ public class EveryReadAKeyAsksForIsServedTests
     public async Task The_reader_the_root_wires_answers_the_command_it_is_given()
     {
         // ONE READ FOR THREE COMMANDS. The port takes a Command and the wired
-        // lambda discards it, so ToggleEnvelope and ToggleRepositories both
+        // lambda discards it, so ToggleEnvelope and ToggleCredentials both
         // fetch a flight's story - which short-circuits when no flight is
         // open, so they fetch nothing.
         var root = Read("Gg.Cli", "Program.cs");

@@ -27,12 +27,12 @@ public class TabsTakeTheWholeScreenTests
     [Test]
     public async Task Opening_a_view_makes_it_the_tab_that_is_showing()
     {
-        var state = Reducer.Reduce(new AppState(), Command.ToggleRepositories);
+        var state = Reducer.Reduce(new AppState(), Command.ToggleCredentials);
 
-        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Repositories)
+        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Credentials)
             .Because("a key that opens a view and leaves the queue on screen is a key that "
                    + "did nothing a person can see.");
-        await Assert.That(state.RepositoriesVisible).IsTrue();
+        await Assert.That(state.CredentialsVisible).IsTrue();
     }
 
     [Test]
@@ -40,10 +40,10 @@ public class TabsTakeTheWholeScreenTests
     {
         // THE WHOLE POINT. Under one shared region this was impossible, and the
         // reducer enforced it by clearing the other flags.
-        var state = Reducer.Reduce(new AppState(), Command.ToggleRepositories);
+        var state = Reducer.Reduce(new AppState(), Command.ToggleCredentials);
         state = Reducer.Reduce(state, Command.ToggleBrowse);
 
-        await Assert.That(state.RepositoriesVisible).IsTrue()
+        await Assert.That(state.CredentialsVisible).IsTrue()
             .Because("opening the browser is not a reason to throw away the evidence "
                    + "somebody was reading beside it.");
         await Assert.That(state.BrowseVisible).IsTrue();
@@ -57,7 +57,7 @@ public class TabsTakeTheWholeScreenTests
         // "Takes over all the panes", as the invariant the view is built from
         // rather than as a sentence in a comment. Six panes drawn over one
         // region is what this replaces.
-        var state = Reducer.Reduce(new AppState(), Command.ToggleRepositories);
+        var state = Reducer.Reduce(new AppState(), Command.ToggleCredentials);
         state = Reducer.Reduce(state, Command.ToggleBrowse);
 
         var drawn = Enum.GetValues<TabId>().Where(tab => Tabs.Showing(state, tab)).ToList();
@@ -101,7 +101,7 @@ public class TabsTakeTheWholeScreenTests
         await Assert.That(state.ActiveTab).IsEqualTo(TabId.Browse);
 
         state = Reducer.Reduce(state, Command.FocusNextPane);
-        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Repositories)
+        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Credentials)
             .Because("repositories is the tab after browse on the bar.");
 
         state = Reducer.Reduce(state, Command.FocusNextPane);
@@ -138,10 +138,10 @@ public class TabsTakeTheWholeScreenTests
     [Test]
     public async Task A_views_own_key_closes_it_and_the_queue_comes_back()
     {
-        var state = Reducer.Reduce(new AppState(), Command.ToggleRepositories);
-        state = Reducer.Reduce(state, Command.ToggleRepositories);
+        var state = Reducer.Reduce(new AppState(), Command.ToggleCredentials);
+        state = Reducer.Reduce(state, Command.ToggleCredentials);
 
-        await Assert.That(state.RepositoriesVisible).IsFalse();
+        await Assert.That(state.CredentialsVisible).IsFalse();
         await Assert.That(state.ActiveTab).IsEqualTo(TabId.Queue)
             .Because("closing the tab a person is looking at has to leave them somewhere, and "
                    + "the queue is the one view that is always open.");
@@ -153,12 +153,12 @@ public class TabsTakeTheWholeScreenTests
         // The key means "show me this", and only means "close it" when it is
         // already what you are looking at. Pressing `v` while reading the browse
         // tab should not silently discard the evidence tab.
-        var state = Reducer.Reduce(new AppState(), Command.ToggleRepositories);
+        var state = Reducer.Reduce(new AppState(), Command.ToggleCredentials);
         state = Reducer.Reduce(state, Command.ToggleBrowse);
-        state = Reducer.Reduce(state, Command.ToggleRepositories);
+        state = Reducer.Reduce(state, Command.ToggleCredentials);
 
-        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Repositories);
-        await Assert.That(state.RepositoriesVisible).IsTrue()
+        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Credentials);
+        await Assert.That(state.CredentialsVisible).IsTrue()
             .Because("it was open and somebody asked for it, so it is showing rather than "
                    + "gone.");
         await Assert.That(state.BrowseVisible).IsTrue()
@@ -168,7 +168,7 @@ public class TabsTakeTheWholeScreenTests
     [Test]
     public async Task The_bar_marks_the_one_showing_and_names_the_rest()
     {
-        var state = Reducer.Reduce(new AppState(), Command.ToggleRepositories);
+        var state = Reducer.Reduce(new AppState(), Command.ToggleCredentials);
         state = Reducer.Reduce(state, Command.ToggleBrowse);
 
         // WAS ABOUT A STRING IN THE TITLE, which is what the bar used to be.
@@ -197,11 +197,11 @@ public class TabsTakeTheWholeScreenTests
         var bare = new AppState();
 
         await Assert.That(Tabs.HasRead(bare, TabId.Queue)).IsTrue();
-        await Assert.That(Tabs.HasRead(bare, TabId.Repositories)).IsFalse();
+        await Assert.That(Tabs.HasRead(bare, TabId.Credentials)).IsFalse();
 
-        await Assert.That(Tabs.Title(bare, TabId.Repositories))
+        await Assert.That(Tabs.Title(bare, TabId.Credentials))
             .IsNotEqualTo(Tabs.Title(
-                bare with { RepositoriesVisible = true }, TabId.Repositories))
+                bare with { CredentialsVisible = true }, TabId.Credentials))
             .Because("a tab holding nothing yet and a tab holding something read the same "
                    + "otherwise, and one of them costs a read to visit.");
     }

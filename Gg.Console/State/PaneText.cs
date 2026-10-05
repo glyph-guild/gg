@@ -210,7 +210,7 @@ public static class PaneText
             TabId.Board => Board(state),
             TabId.Runners => Runners(state),
             TabId.Browse => Browse(state),
-            TabId.Repositories => Repositories(state),
+            TabId.Credentials => CredentialsPane(state),
             TabId.Envelope => AirspaceAbsence(state),
             TabId.Allowances => FleetAllowances(state),
             TabId.Itineraries => Itineraries(state),
@@ -276,7 +276,7 @@ public static class PaneText
             TabId.Flights => said && state.Flights is null,
             TabId.Board => said && state.Board is null,
             TabId.Runners => said && state.Runners is null,
-            TabId.Repositories => said && state.Repositories is null,
+            TabId.Credentials => said && state.Repositories is null,
             TabId.Itineraries => said && state.Itineraries is null,
             TabId.Allowances => said && state.Allowances is null,
             TabId.Envelope => said && state.Estate is null,
@@ -2398,6 +2398,49 @@ public static class PaneText
         }
 
         return kept.Count > 0 ? string.Join(" and", kept) : " nothing";
+    }
+
+    /// <summary>
+    /// What the credentials pane says before and instead of its rows.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null and empty are different answers, and the empty one is not "fine".</b>
+    /// Nothing read yet says so. A tenant with nothing registered anywhere is a
+    /// real and ordinary first state with one next step. And a tenant with
+    /// repositories but no credentials is the state this pane exists to make
+    /// visible, so the sentence names it rather than letting a table of gaps speak
+    /// for itself.
+    /// </remarks>
+    public static string CredentialsPane(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Credentials is null && state.Repositories is null)
+        {
+            return "Nothing has been read yet. This pane asks the control plane which "
+                 + "credentials this tenant has registered, and this machine how each one "
+                 + "rests here.";
+        }
+
+        var credentials = state.Credentials?.Credentials.Count ?? 0;
+        var repositories = state.Repositories?.Repositories.Count ?? 0;
+
+        if (credentials == 0 && repositories == 0)
+        {
+            return "This tenant has registered no credentials and nothing to fly against. "
+                 + "Run `gg credential add --repo <slug>` once there is a repository to "
+                 + "register one for.";
+        }
+
+        if (credentials == 0)
+        {
+            return $"{repositories} registered to fly against, and no credential for any of "
+                 + "them. Every row below is a flight that would fail at the forge. Run "
+                 + "`gg credential add --repo <slug>` for each.";
+        }
+
+        return $"{credentials} registered. The `here` column is this machine's answer and "
+             + "nobody else's; `who can open it` is read from each envelope's own holders.";
     }
 
     public static string Repositories(AppState state)

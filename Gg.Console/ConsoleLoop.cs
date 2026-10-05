@@ -865,14 +865,14 @@ public sealed class ConsoleLoop(
                         asked: false);
                     break;
 
-                case Command.ToggleRepositories:
+                case Command.ToggleCredentials:
                     // A READ ON THE WAY IN, browse's and the checklist's shape.
                     // Hiding asks nothing, and re-reading a list already held
                     // would spend a whole session rebuild to show a person what
                     // they were just looking at.
                     state = Reducer.RepositoriesToggled(state);
 
-                    if (state.RepositoriesVisible
+                    if (state.CredentialsVisible
                         && state.Repositories is null
                         && repositories is not null)
                     {

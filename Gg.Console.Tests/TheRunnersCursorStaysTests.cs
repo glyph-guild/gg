@@ -128,7 +128,7 @@ public class TheRunnersCursorStaysTests
     /// neither was watching. Named here so both tests below read the same list.
     /// </remarks>
     private static readonly string[] Driven =
-        ["_flightsTable", "_browseTable", "_repositoriesTable", "_runnersTable",
+        ["_flightsTable", "_browseTable", "_credentialsTable", "_runnersTable",
          "_airspaceTable"];
 
     [Test]

@@ -144,14 +144,14 @@ public class ABrowseAnswerReachesTheStateTests
         var before = new AppState
         {
             SelectedRow = 3,
-            RepositoriesVisible = true,
-            ActiveTab = TabId.Repositories,
+            CredentialsVisible = true,
+            ActiveTab = TabId.Credentials,
         };
 
         var after = Reducer.Browsed(
             before, "a-tracker", new BrowseOutcome.Listed(APage()));
 
         await Assert.That(after.SelectedRow).IsEqualTo(3);
-        await Assert.That(after.ActiveTab).IsEqualTo(TabId.Repositories);
+        await Assert.That(after.ActiveTab).IsEqualTo(TabId.Credentials);
     }
 }

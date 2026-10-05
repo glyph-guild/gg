@@ -185,7 +185,7 @@ public class EnterOpensWhatTheCursorIsOnTests
         // set, which meant SHOWING under one shared region and means OPEN under
         // tabs - so j and k moved the repository cursor while a person was
         // looking at the queue.
-        var state = Listing() with { RepositoriesVisible = true, SelectedRow = 0 };
+        var state = Listing() with { CredentialsVisible = true, SelectedRow = 0 };
 
         var moved = Reducer.Reduce(state, Command.SelectNext);
 

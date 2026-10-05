@@ -48,15 +48,27 @@ public class TheCredentialsTabAsksForItsReadTests
         // BOTH HALVES IN ONE ARM. The rows are keyed on repositories union
         // credentials, so reading only the credentials draws a list with every
         // gap missing - and the gap is the row this pane exists for.
+        // THE ARM DELEGATES, so the reads are in the helper it names rather than
+        // inline - which is the shape the board's and the fleet's arms already use
+        // for the same reason. So the slice to read is the helper's body.
         var source = Source("Gg.Console", "ConsoleRefresh.cs");
-        var arm = Between(source, "TabId.Credentials", "TabId.Envelope");
 
-        await Assert.That(arm).Contains("Credential")
-            .Because("the credentials half has to be in the arm that serves the credentials tab.");
+        await Assert.That(Between(source, "TabId.Credentials =>", "TabId.Envelope"))
+            .Contains("TheCredentialsAndWhatTheyAreForAsync")
+            .Because("the arm has to reach the reads somehow, and naming the helper is how.");
 
-        await Assert.That(arm).Contains("Repositor")
+        var helper = Between(source, "private static async Task<Func<AppState, AppState>> TheCredentials", "TheFleetAndWhatItHasLeftAsync");
+
+        await Assert.That(helper).Contains("ListCredentialsAsync")
+            .Because("the credentials half has to be in the read that serves the credentials tab.");
+
+        await Assert.That(helper).Contains("RepositoriesAsync")
             .Because("and so does the repositories half, or the pane shows no gaps and the send "
                    + "chooser loses the registry it reads.");
+
+        await Assert.That(helper).Contains("ListKeysAsync")
+            .Because("and the keys, or `who can open it` reads \"2 nobody here can name\" for "
+                   + "every credential - true and useless.");
     }
 
     [Test]
@@ -107,8 +119,13 @@ public class TheCredentialsTabAsksForItsReadTests
     private static string Between(string source, string from, string to)
     {
         var start = source.IndexOf(from, StringComparison.Ordinal);
-        var end = source.IndexOf(to, StringComparison.Ordinal);
 
-        return start < 0 || end < 0 || end < start ? "" : source[start..end];
+        // AFTER the start, not the file's first occurrence. The arm and the helper
+        // both name the fleet's helper, so searching from zero found a marker that
+        // precedes the slice and silently returned nothing - which read as "the
+        // reads are missing" when they were there.
+        var end = start < 0 ? -1 : source.IndexOf(to, start, StringComparison.Ordinal);
+
+        return start < 0 || end < 0 ? "" : source[start..end];
     }
 }

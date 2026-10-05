@@ -429,6 +429,20 @@ public sealed class ConsoleData(
         _credentials.ListCredentialsAsync(cancellationToken);
 
     /// <summary>
+    /// The public keys this tenant's people have registered.
+    /// </summary>
+    /// <remarks>
+    /// <b>A PORT AFTER ALL, which corrects what step 1 recorded.</b> That slice put
+    /// <c>ListKeysAsync</c> on <c>ConsoleDataTests</c>' exempt list with the reason
+    /// that the console reaches these keys as the holder column rather than as a
+    /// list of its own. The first half was right and the conclusion was wrong: to
+    /// BUILD that column the console has to have the keys, so it needs this port —
+    /// what it does not need is a pane that lists them.
+    /// </remarks>
+    public Task<VerbResult> ListKeysAsync(CancellationToken cancellationToken = default) =>
+        _credentials.ListKeysAsync(cancellationToken);
+
+    /// <summary>
     /// `gg credential rm`.
     /// </summary>
     /// <remarks>
@@ -810,6 +824,16 @@ public static class ConsoleProjection
             {
                 Credentials = credentials.Value,
                 CredentialResting = credentials.Resting,
+                Diagnosis = null,
+            },
+            // PUBLIC KEYS, and the arm ProjectionParityTests was told to expect.
+            // Step 1 recorded that this result would get no arm because the console
+            // wanted a holder column rather than a key list - which was right about
+            // the pane and wrong about the model, since the column is built FROM
+            // these.
+            VerbResult.Keys keys => state with
+            {
+                Keys = keys.Value,
                 Diagnosis = null,
             },
             // A flight LIST is not the queue. It is the raw material the queue

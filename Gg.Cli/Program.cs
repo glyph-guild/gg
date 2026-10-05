@@ -856,6 +856,26 @@ static async Task<int> EmitAsync(bool json, Func<FlightCommands, Task<VerbResult
         // would leave a person to find them by bisecting their own tree.
         return Fail(refused.Message);
     }
+    catch (StrategyRefusedException refused)
+    {
+        // THE AIRSPACE VERBS RUN THROUGH HERE and the control plane refuses an exposure,
+        // a strategy or an envelope with this. Named for strategies, thrown on more paths
+        // than strategies - and a refusal nobody prints is a person told nothing by a
+        // system that answered them.
+        return Fail(refused.Message);
+    }
+    catch (StrategyUnreadableException unreadable)
+    {
+        return Fail(unreadable.Message);
+    }
+    catch (EnvelopeUnreadableException unreadable)
+    {
+        return Fail(unreadable.Message);
+    }
+    catch (NoEnvelopeException refusal)
+    {
+        return Fail(refusal.Message);
+    }
     catch (FlightReferenceException refusal)
     {
         return Fail(refusal.Message);

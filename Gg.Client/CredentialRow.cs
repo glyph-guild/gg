@@ -43,6 +43,10 @@ namespace Gg.Client;
 /// What is left to do — one of <see cref="CredentialStanding"/>, and the only one
 /// of the two words that can be ranked.
 /// </param>
+/// <param name="Holders">
+/// Who can open the envelope on THIS machine, named where gg can say. Empty where
+/// there is no envelope here, which is not a claim that nobody holds it.
+/// </param>
 public sealed record CredentialRow(
     string? Locator,
     string For,
@@ -52,7 +56,8 @@ public sealed record CredentialRow(
     DateTimeOffset? AddedAt,
     string? Whose,
     string Resting,
-    string Standing);
+    string Standing,
+    IReadOnlyList<CredentialHolder> Holders);
 
 /// <summary>
 /// Building the credentials list out of three readings, and ordering it into a
@@ -82,14 +87,22 @@ public static class CredentialRows
     /// <param name="credentials">What the control plane holds references for.</param>
     /// <param name="repositories">What the tenant has registered, so a gap is visible.</param>
     /// <param name="resting">How each locator rests here, from this machine's store.</param>
+    /// <param name="keys">What this tenant's people have registered, for naming holders.</param>
+    /// <param name="thisMachine">This machine's own public key, when it has one.</param>
+    /// <param name="pinned">The runner keys this console has pinned.</param>
     public static IReadOnlyList<CredentialRow> For(
         IReadOnlyList<CredentialSummary> credentials,
         IReadOnlyList<RepositoryRegistered> repositories,
-        IReadOnlyList<CredentialAtRest> resting)
+        IReadOnlyList<CredentialAtRest> resting,
+        IReadOnlyList<PrincipalKeySummary> keys,
+        string? thisMachine,
+        IReadOnlyList<PinnedKey> pinned)
     {
         ArgumentNullException.ThrowIfNull(credentials);
         ArgumentNullException.ThrowIfNull(repositories);
         ArgumentNullException.ThrowIfNull(resting);
+        ArgumentNullException.ThrowIfNull(keys);
+        ArgumentNullException.ThrowIfNull(pinned);
 
         var rows = new List<CredentialRow>();
         var claimed = new HashSet<string>(StringComparer.Ordinal);
@@ -118,7 +131,9 @@ public static class CredentialRows
                 AddedAt: credential.AddedAt,
                 Whose: credential.ReferencedBySubject,
                 Resting: CredentialsAtRest.RestingOf(resting, locator),
-                Standing: StandingOf(repository, CredentialsAtRest.RestingOf(resting, locator))));
+                Standing: StandingOf(repository, CredentialsAtRest.RestingOf(resting, locator)),
+                Holders: CredentialHolders.Of(
+                    CredentialsAtRest.HoldersOf(resting, locator), keys, thisMachine, pinned)));
         }
 
         // AND A REPOSITORY WITH NO CREDENTIAL IS ALSO A ROW. This is the one the
@@ -136,7 +151,9 @@ public static class CredentialRows
                 Resting: CredentialResting.NotHere,
                 Standing: Needed(repository)
                     ? CredentialStanding.NoneRegistered
-                    : CredentialStanding.NotNeeded));
+                    : CredentialStanding.NotNeeded,
+                // NOBODY, because there is no credential to be sealed to anyone.
+                Holders: []));
         }
 
         // ORDERED BY WHAT IS LEFT TO DO, THEN BY NAME. A list in registry order

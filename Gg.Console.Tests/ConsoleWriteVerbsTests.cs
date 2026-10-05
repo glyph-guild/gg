@@ -294,6 +294,8 @@ public class ConsoleWriteVerbsTests
         public string ProtectionFor(string locator) => "nothing is stored";
 
         public string RestingOf(string locator) => Gg.Client.CredentialResting.NotHere;
+
+        public IReadOnlyList<string> HoldersOf(string locator) => [];
         public string PathFor(string locator) => "(none)";
         public void WriteSealed(string locator, Gg.Contracts.SealedCredential envelope) { }
 

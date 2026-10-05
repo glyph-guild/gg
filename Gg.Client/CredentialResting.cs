@@ -96,7 +96,13 @@ public static class CredentialResting
 /// </remarks>
 /// <param name="Locator">The locator this is about.</param>
 /// <param name="Resting">One of <see cref="CredentialResting"/>.</param>
-public sealed record CredentialAtRest(string Locator, string Resting);
+/// <param name="Holders">
+/// The public keys the envelope here is sealed to, in its own order, or empty when
+/// there is no envelope. Public keys only — a holder is not a secret, which is why
+/// a refusal may name one.
+/// </param>
+public sealed record CredentialAtRest(
+    string Locator, string Resting, IReadOnlyList<string> Holders);
 
 /// <summary>
 /// Asking a store how a tenant's credentials rest here, and reading the answers
@@ -135,12 +141,20 @@ public static class CredentialsAtRest
     /// <param name="restingOf">
     /// The store's answer for one locator — <c>ICredentialStore.RestingOf</c>.
     /// </param>
+    /// <param name="holdersOf">
+    /// Whose keys that locator's envelope names — <c>ICredentialStore.HoldersOf</c>.
+    /// Asked in the same pass, because the word and the holders are two facts about
+    /// one file at one moment, and two lists a caller had to pair are two that come
+    /// to disagree.
+    /// </param>
     public static IReadOnlyList<CredentialAtRest> For(
         IReadOnlyList<CredentialSummary> credentials,
-        Func<string, string> restingOf)
+        Func<string, string> restingOf,
+        Func<string, IReadOnlyList<string>> holdersOf)
     {
         ArgumentNullException.ThrowIfNull(credentials);
         ArgumentNullException.ThrowIfNull(restingOf);
+        ArgumentNullException.ThrowIfNull(holdersOf);
 
         var resting = new List<CredentialAtRest>(credentials.Count);
 
@@ -153,16 +167,19 @@ public static class CredentialsAtRest
             // machine does not get to validate it, only to say what it can and
             // cannot do about each line.
             string answer;
+            IReadOnlyList<string> holders;
             try
             {
                 answer = restingOf(locator);
+                holders = holdersOf(locator);
             }
             catch (ArgumentException)
             {
                 answer = CredentialResting.Unplaceable;
+                holders = [];
             }
 
-            resting.Add(new CredentialAtRest(locator, answer));
+            resting.Add(new CredentialAtRest(locator, answer, holders));
         }
 
         return resting;
@@ -178,8 +195,25 @@ public static class CredentialsAtRest
     {
         ArgumentNullException.ThrowIfNull(resting);
 
-        return resting.FirstOrDefault(
-            r => string.Equals(r.Locator, locator, StringComparison.Ordinal))?.Resting
-            ?? CredentialResting.NotKnown;
+        return Of(resting, locator)?.Resting ?? CredentialResting.NotKnown;
     }
+
+    /// <summary>
+    /// The holder keys recorded for a locator, or empty.
+    /// </summary>
+    /// <remarks>
+    /// <b>Empty where nothing was recorded, which is not a claim that nobody holds
+    /// it.</b> It is what THIS machine's envelope names, and a credential never
+    /// pushed here names nobody here.
+    /// </remarks>
+    public static IReadOnlyList<string> HoldersOf(
+        IReadOnlyList<CredentialAtRest> resting, string locator)
+    {
+        ArgumentNullException.ThrowIfNull(resting);
+
+        return Of(resting, locator)?.Holders ?? [];
+    }
+
+    private static CredentialAtRest? Of(IReadOnlyList<CredentialAtRest> resting, string locator) =>
+        resting.FirstOrDefault(r => string.Equals(r.Locator, locator, StringComparison.Ordinal));
 }

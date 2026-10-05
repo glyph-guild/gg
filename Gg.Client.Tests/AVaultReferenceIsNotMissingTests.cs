@@ -58,7 +58,8 @@ public class AVaultReferenceIsNotMissingTests
         var rows = CredentialRows.For(
             [AVaultCredential()],
             [],
-            [new CredentialAtRest(Vaulted, CredentialResting.InAVault)]);
+            [new CredentialAtRest(Vaulted, CredentialResting.InAVault, [])],
+            keys: [], thisMachine: null, pinned: []);
 
         await Assert.That(rows.Single().Resting).IsEqualTo(CredentialResting.InAVault);
     }
@@ -72,7 +73,8 @@ public class AVaultReferenceIsNotMissingTests
         var rows = CredentialRows.For(
             [AVaultCredential()],
             [],
-            [new CredentialAtRest(Vaulted, CredentialResting.InAVault)]);
+            [new CredentialAtRest(Vaulted, CredentialResting.InAVault, [])],
+            keys: [], thisMachine: null, pinned: []);
 
         await Assert.That(rows.Single().Standing).IsEqualTo(CredentialStanding.Here)
             .Because("the machine reads it with its own identity when a flight needs it, which is "

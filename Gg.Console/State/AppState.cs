@@ -810,8 +810,18 @@ public enum TabId
     /// <summary>The tracker's work items, to fly one.</summary>
     Browse,
 
-    /// <summary>What this tenant may fly against.</summary>
-    Repositories,
+    /// <summary>
+    /// Every credential this tenant has, how each rests here, and who can open it.
+    /// </summary>
+    /// <remarks>
+    /// <b>THE REPOSITORIES PANE RETIRED INTO THIS SLOT</b> rather than being
+    /// removed beside a new one, which is why it keeps the position and the key.
+    /// That pane answered a credential question as one column of seven; the
+    /// owner's call for slice sixty is that the list is credential-first, and the
+    /// repository is context. A repository with no credential is still a row — the
+    /// only row here that predicts a flight failing.
+    /// </remarks>
+    Credentials,
 
     /// <summary>The envelope in force.</summary>
     Envelope,
@@ -1590,6 +1600,47 @@ public sealed record AppState
     public IReadOnlyList<Gg.Client.CredentialAtRest>? CredentialResting { get; init; }
 
     /// <summary>
+    /// The public keys this tenant's people have registered, or null before the
+    /// read.
+    /// </summary>
+    /// <remarks>
+    /// <b>Public keys, which is why a model may hold them.</b> They are what turns
+    /// an envelope's holder list from base64 into names — and a key nobody can look
+    /// up is a key nobody can seal to, which is the same reason the control plane
+    /// serves them at all.
+    /// </remarks>
+    public PrincipalKeyList? Keys { get; init; }
+
+    /// <summary>
+    /// This machine's own public key, or null when it has never sealed anything.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Named for what it is, because the obvious name is a trap.</b> Calling a
+    /// model member <c>MachineKey</c> invites the next reader to put the private
+    /// half in it. This holds the public half and says so.
+    /// </para>
+    /// <para>
+    /// <b>Read, never minted.</b> A machine key is created lazily by the store the
+    /// first time it seals something; opening a pane must not be what brings one
+    /// into existence. Null here means no key yet, and the holder column then
+    /// cannot say "this machine" — which is correct rather than a gap.
+    /// </para>
+    /// </remarks>
+    public string? ThisMachinesPublicKey { get; init; }
+
+    /// <summary>
+    /// The runner keys this console has pinned, or null before they are read.
+    /// </summary>
+    /// <remarks>
+    /// <b>The second holder of every pushed credential.</b> A push rewraps to the
+    /// recipient's identity key, which this console pinned when it first reached
+    /// that machine — so without these the holder list after a successful push
+    /// reads "you, and somebody".
+    /// </remarks>
+    public IReadOnlyList<Gg.Client.PinnedKey>? PinnedRunnerKeys { get; init; }
+
+    /// <summary>
     /// The live view is OFF by default, and that is a decision rather than a
     /// convenience.
     /// </summary>
@@ -1834,7 +1885,7 @@ public sealed record AppState
     public Gg.Contracts.RegisteredRepositories? Repositories { get; init; }
 
     /// <summary>Whether the repositories pane has the region.</summary>
-    public bool RepositoriesVisible { get; init; }
+    public bool CredentialsVisible { get; init; }
 
     /// <summary>Which repository row the cursor is on.</summary>
     /// <remarks>
@@ -1842,6 +1893,17 @@ public sealed record AppState
     /// person's place in a list they were not looking at.
     /// </remarks>
     public int RepositorySelected { get; init; }
+
+    /// <summary>Which credential the cursor is on in the credentials pane.</summary>
+    /// <remarks>
+    /// <b>Its own cursor, not the registry's.</b> <c>RepositorySelected</c> is the
+    /// compose flow's — which repository a flight is being pointed at — and sharing
+    /// one would mean moving in this pane changed what the next flight flies
+    /// against. An <c>int</c> rather than <c>int?</c>, because a table's cursor is a
+    /// row index and zero is a real row; the absence a nullable would express is
+    /// already the empty list.
+    /// </remarks>
+    public int CredentialsSelected { get; init; }
 
     /// <summary>Which row the credential chooser's cursor is on.</summary>
     /// <remarks>

@@ -183,7 +183,7 @@ public class TheRepositoryForACredentialIsPickedTests
     [Test]
     public async Task Opening_it_asks_for_the_registry_rather_than_asking_a_person()
     {
-        // THE READ THAT MAKES THE PROMPT UNNECESSARY. ToggleRepositories is
+        // THE READ THAT MAKES THE PROMPT UNNECESSARY. ToggleCredentials is
         // already in Reads for the pane; this wants the same registry for the
         // same reason, and a background read folds in without the session
         // ending - so the list fills itself instead of a person filling it.

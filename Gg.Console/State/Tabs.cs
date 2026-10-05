@@ -87,7 +87,7 @@ public static class Tabs
             // and is not - so it says "not read yet" until both have answered.
             TabId.Board => state.Board is not null && state.Watches is not null,
             TabId.Browse => state.BrowseVisible,
-            TabId.Repositories => state.RepositoriesVisible,
+            TabId.Credentials => state.CredentialsVisible,
             TabId.Envelope => state.EnvelopeVisible,
             // WHETHER THE LIST HAS ARRIVED, not whether the pane is open. The
             // boot and the runners refresh both fetch it, so this usually has
@@ -132,7 +132,7 @@ public static class Tabs
         TabId.Queue => KeyStroke.Char(','),
         TabId.Flights => KeyStroke.Char('.'),
         TabId.Browse => KeyStroke.Char('b'),
-        TabId.Repositories => KeyStroke.Char('r'),
+        TabId.Credentials => KeyStroke.Char('r'),
         // `u' because every letter that reads is taken: r is repositories, n is
         // new flight, e is envelope and s says nothing about runners. It is in
         // the word, it is free, and a key chosen for its mnemonic that silently
@@ -178,7 +178,7 @@ public static class Tabs
         TabId.Queue => Command.ShowQueueTab,
         TabId.Flights => Command.ShowFlightsTab,
         TabId.Browse => Command.ToggleBrowse,
-        TabId.Repositories => Command.ToggleRepositories,
+        TabId.Credentials => Command.ToggleCredentials,
         // NOT A SHELL COMMAND, unlike the four below it. Showing this reads
         // nothing: the fleet is already in the model, fetched at boot.
         TabId.Runners => Command.ToggleRunners,
@@ -270,7 +270,7 @@ public static class Tabs
         TabId.Queue => "queue",
         TabId.Flights => "flights",
         TabId.Browse => "browse",
-        TabId.Repositories => "repositories",
+        TabId.Credentials => "credentials",
         TabId.Runners => "runners",
         // NOT "Envelope", WHICH IS THE ONE DOCUMENT IN IT. This tab is what
         // the `gg airspace` verbs act on, and a tab named for the composed

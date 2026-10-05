@@ -233,7 +233,7 @@ public class KeymapTests
             .IsEqualTo("browse");
         await Assert.That(Toggle(new(UiMode.Normal, TabId.Browse), Command.ToggleBrowse))
             .IsEqualTo("close browse");
-        await Assert.That(Toggle(new(UiMode.Normal, TabId.Repositories), Command.ToggleBrowse))
+        await Assert.That(Toggle(new(UiMode.Normal, TabId.Credentials), Command.ToggleBrowse))
             .IsEqualTo("browse")
             .Because("the browse tab is still there behind this one, and b goes to it.");
 

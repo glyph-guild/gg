@@ -144,7 +144,7 @@ public class TheSignInModalReadsTests
     {
         // ShellHandledTests' shape, for the same class of defect one type over.
         // The screen's hand-built context has dropped THREE members already -
-        // Takeable, HandedBackable and RepositoriesVisible - so the help page
+        // Takeable, HandedBackable and CredentialsVisible - so the help page
         // advertises keys the screen would not resolve and a hint reads "show"
         // for a pane that is already showing. Neither is visible today because
         // nothing in production sets the first two; both become visible the day
@@ -183,7 +183,7 @@ public class TheSignInModalReadsTests
             Screening = true,
             BrowseVisible = true,
             EnvelopeVisible = true,
-            RepositoriesVisible = true,
+            CredentialsVisible = true,
             TakeableTree = "/somewhere",
             TakenOver = true,
             SignIn = Started().SignIn,

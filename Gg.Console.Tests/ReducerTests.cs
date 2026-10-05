@@ -97,7 +97,7 @@ public class ReducerTests
     [Test]
     public async Task TabReachesAViewOnceItIsOpen()
     {
-        var state = new AppState { RepositoriesVisible = true, LiveVisible = true };
+        var state = new AppState { CredentialsVisible = true, LiveVisible = true };
         var seen = new List<TabId>();
 
         // ONE PRESS PER TAB, DERIVED. It was the literal 8, which is the tab
@@ -109,7 +109,7 @@ public class ReducerTests
             seen.Add(state.ActiveTab);
         }
 
-        await Assert.That(seen).Contains(TabId.Repositories);
+        await Assert.That(seen).Contains(TabId.Credentials);
         await Assert.That(seen).Contains(TabId.Queue)
             .Because("and the queue is in the ring, because it is a tab like the others.");
     }

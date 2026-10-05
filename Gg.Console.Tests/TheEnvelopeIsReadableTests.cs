@@ -121,7 +121,7 @@ public class TheEnvelopeIsReadableTests
         var crowded = new AppState
         {
             LiveVisible = true, BrowseVisible = true,
-            RepositoriesVisible = true,
+            CredentialsVisible = true,
         };
 
         var shown = Reducer.EnvelopeToggled(crowded);

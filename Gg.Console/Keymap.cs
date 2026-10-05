@@ -2036,8 +2036,8 @@ public static class Keymap
             // looks for the key they half remember.
             new(KeyStroke.Control('g'), Command.ShowScreensaver, "show the mark")
                 { OffTheHintLine = true },
-            new(KeyStroke.Char('r'), Command.ToggleRepositories,
-                Closes(context, TabId.Repositories, "repositories")) { OffTheHintLine = true },
+            new(KeyStroke.Char('r'), Command.ToggleCredentials,
+                Closes(context, TabId.Credentials, "repositories")) { OffTheHintLine = true },
             // `p` for plan, which is the verb it calls.
             // `e` for envelope, which is the noun and the verb it calls.
             new(KeyStroke.Char('e'), Command.ToggleEnvelope,

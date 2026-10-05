@@ -137,8 +137,8 @@ public class WhatThisTenantCanFlyAgainstTests
         // where the cursor keys go is the tab a person is looking at.
         var browsing = Listed() with
         {
-            RepositoriesVisible = true,
-            ActiveTab = TabId.Repositories,
+            CredentialsVisible = true,
+            ActiveTab = TabId.Credentials,
             SelectedRow = 2,
             BrowseSelected = 3,
         };
@@ -157,24 +157,28 @@ public class WhatThisTenantCanFlyAgainstTests
         var normal = new KeymapContext(UiMode.Normal);
 
         await Assert.That(Keymap.Resolve(KeyStroke.Char('r'), normal))
-            .IsEqualTo(Command.ToggleRepositories);
+            .IsEqualTo(Command.ToggleCredentials);
 
         // ADVERTISED ON ITS TAB rather than on the hint line, which is one line
         // and now keeps only the keys with nowhere else to be. The claim is
         // unchanged - a bound key a person cannot find is a key that does not
         // exist - and EveryTabIsOnTheBarTests checks the tab offers the key the
         // keymap resolves.
-        await Assert.That(Tabs.Title(new AppState(), TabId.Repositories))
-            .Contains("repositories", StringComparison.OrdinalIgnoreCase);
-        await Assert.That(Tabs.Title(new AppState(), TabId.Repositories))
+        // THE WORD CHANGED AND THE KEY DID NOT. Slice sixty retired this pane into
+        // the credentials pane - the same slot, the same `r`, a credential-first
+        // list that still carries every repository - so the claim this test makes
+        // about the key is untouched and only the tab's word moved.
+        await Assert.That(Tabs.Title(new AppState(), TabId.Credentials))
+            .Contains("credentials", StringComparison.OrdinalIgnoreCase);
+        await Assert.That(Tabs.Title(new AppState(), TabId.Credentials))
             .Contains("r", StringComparison.Ordinal);
         // THE SHELL'S NO LONGER, AND THE RULE IS UNCHANGED. "Showing them is a
         // read, and a session may not make one" is right - and ending the whole
         // session was one way to honour it, at the cost of a screen taken away
         // and given back. `Reads` honours the same rule by making the request
         // beside the console rather than instead of it.
-        await Assert.That(ShellCommands.Handled.Contains(Command.ToggleRepositories)).IsFalse();
-        await Assert.That(ShellCommands.Reads).Contains(Command.ToggleRepositories)
+        await Assert.That(ShellCommands.Handled.Contains(Command.ToggleCredentials)).IsFalse();
+        await Assert.That(ShellCommands.Reads).Contains(Command.ToggleCredentials)
             .Because("showing them is a read, and a session still does not make one - it "
                    + "folds one that arrived.");
     }
@@ -188,13 +192,13 @@ public class WhatThisTenantCanFlyAgainstTests
         var state = Reducer.RepositoriesToggled(
             new AppState { BrowseVisible = true, LiveVisible = true });
 
-        await Assert.That(state.RepositoriesVisible).IsTrue();
+        await Assert.That(state.CredentialsVisible).IsTrue();
         await Assert.That(state.BrowseVisible).IsTrue()
             .Because("the items somebody was browsing are still open behind this.");
 
         var drawn = Enum.GetValues<TabId>().Where(tab => Tabs.Showing(state, tab)).ToList();
 
-        await Assert.That(drawn).IsEquivalentTo((TabId[])[TabId.Repositories])
+        await Assert.That(drawn).IsEquivalentTo((TabId[])[TabId.Credentials])
             .Because("one screen, one view. Found: " + string.Join(", ", drawn));
     }
 }

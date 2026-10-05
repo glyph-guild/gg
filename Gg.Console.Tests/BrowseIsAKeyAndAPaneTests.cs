@@ -13,7 +13,7 @@ namespace Gg.Console.Tests;
 /// process. <c>CLAUDE.md</c> is unambiguous: a UI session may read a local file
 /// and nothing else — <i>"it may not make a network call, resolve a credential,
 /// or spawn a process"</i>. So this cannot be an in-session toggle like
-/// <c>ToggleRepositories</c>. It has to end the session and let the loop do the
+/// <c>ToggleCredentials</c>. It has to end the session and let the loop do the
 /// reading, which is exactly what <c>ShellCommands.Handled</c> is for.
 /// </para>
 /// <para>
@@ -161,10 +161,10 @@ public class BrowseIsAKeyAndAPaneTests
         // OPEN at once is the point and only one of them draws. The claim this
         // test exists for is the same claim; the field it reads moved.
         var state = Reducer.BrowseToggled(
-            new AppState { RepositoriesVisible = true, LiveVisible = true });
+            new AppState { CredentialsVisible = true, LiveVisible = true });
 
         await Assert.That(state.BrowseVisible).IsTrue();
-        await Assert.That(state.RepositoriesVisible).IsTrue()
+        await Assert.That(state.CredentialsVisible).IsTrue()
             .Because("what somebody was reading is still open behind the tab they opened.");
 
         var drawn = Enum.GetValues<TabId>().Where(tab => Tabs.Showing(state, tab)).ToList();

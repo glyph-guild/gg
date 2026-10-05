@@ -471,7 +471,7 @@ public enum Command
 
     /// <summary>Show or hide what this tenant can fly against.</summary>
     /// <remarks>The shell's: showing them is a read, and a session may not make one.</remarks>
-    ToggleRepositories,
+    ToggleCredentials,
 
     /// <summary>
     /// Start a runner on this machine.
@@ -1132,7 +1132,7 @@ public static class ShellCommands
         // a pane and then fetched what to put in it is a request nobody asked
         // for.
         Command.ToggleEnvelope,
-        Command.ToggleRepositories,
+        Command.ToggleCredentials,
 
         // THE FACTS TAB, for the same reason one press over: the pane is
         // already open and the flight already on it, so ending the session to

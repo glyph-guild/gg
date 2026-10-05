@@ -150,15 +150,6 @@ public class ConsoleDataTests
         // is exactly why it did not come with them.
         var exempt = (string[])
         [
-            // THE KEYS READ IS A DECISION, NOT A GAP, and it is the same
-            // decision in all three parity maps. A key list on a screen is not
-            // what anybody wants from these keys: the question is "who can open
-            // this credential", which step 3 answers by joining a sealed
-            // envelope's holders to the people whose keys they are. A console
-            // port for the list would be a second way to ask, and the holder
-            // column is the first.
-            "ListKeysAsync",
-
             // A PLAN CHECKED IS A DECISION, NOT A GAP, and the same one the
             // other two maps record: ADR-0038 shows it in the hosted plan
             // session's panel beside the draft, and the console has no draft

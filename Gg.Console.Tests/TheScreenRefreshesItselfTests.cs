@@ -161,7 +161,7 @@ public class TheScreenRefreshesItselfTests
         var (refresh, reads, _) = Screen();
 
         var asked = Reducer.Reduce(
-            new AppState { ActiveTab = TabId.Repositories }, Command.Refresh);
+            new AppState { ActiveTab = TabId.Credentials }, Command.Refresh);
 
         await Assert.That(asked.Refresh.Wanted).IsTrue()
             .Because("the reducer is pure, so pressing the key can only say that one is "
@@ -169,7 +169,7 @@ public class TheScreenRefreshesItselfTests
 
         var state = refresh.Advance(asked);
 
-        await Assert.That(reads.Asked).IsEquivalentTo(new[] { TabId.Repositories });
+        await Assert.That(reads.Asked).IsEquivalentTo(new[] { TabId.Credentials });
         await Assert.That(state.Refresh.Wanted).IsFalse()
             .Because("asked and answered, or the next tick asks again for ever.");
     }

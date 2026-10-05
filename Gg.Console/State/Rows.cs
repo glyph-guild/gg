@@ -511,6 +511,26 @@ public static class Rows
         ["", "path", "name", "provider", "credential", "ref", "narrowings"];
 
     /// <summary>
+    /// The credentials pane's columns: the credential first, then what it is for.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Credential-first, which is the owner's call and a real inversion.</b> The
+    /// pane that retired into this slot led with the repository and carried the
+    /// credential as one column of seven. The question a person brings here is
+    /// about a credential; the repository is context, and it is optional — an
+    /// agent's token and a vault reference serve no repository at all.
+    /// </para>
+    /// <para>
+    /// <b>`who can open it` is the column this pane is worth building for.</b>
+    /// Everything else was readable somewhere already; a holder list resolved to
+    /// names was readable nowhere.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<string> CredentialColumns { get; } =
+        ["credential", "for", "here", "who can open it"];
+
+    /// <summary>
     /// One filter tab's columns: the mark, and the value.
     /// </summary>
     /// <remarks>
@@ -1326,6 +1346,94 @@ public static class Rows
 
         /// <summary>Whether the credential it needs is here.</summary>
         public string Credential { get; init; } = "";
+    }
+
+    /// <summary>One credential's row, as the pane draws it.</summary>
+    /// <remarks>
+    /// <b>Four cells and no secret.</b> This is a projection of
+    /// <c>Gg.Client.CredentialRow</c>, which already carries nothing a value could
+    /// hide in — and the shape is asserted there rather than trusted here.
+    /// </remarks>
+    public sealed record CredentialPaneRow(string Credential, string For, string Here, string Holders);
+
+    /// <summary>
+    /// Every credential this tenant has, with the gaps, ordered as a worklist.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Built where both halves are in hand.</b> The registry comes from the
+    /// control plane and the resting shapes from this machine's store, and the
+    /// builder joins them by locator rather than by position — because two lists
+    /// indexed alongside each other label every row with somebody else's answer the
+    /// moment they disagree about length.
+    /// </para>
+    /// <para>
+    /// <b>Null and empty are different answers.</b> No credentials read yet draws
+    /// nothing; a read that came back empty on a tenant with repositories still
+    /// draws a row per repository, each one a gap.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<CredentialPaneRow> Credentials(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Credentials is null && state.Repositories is null)
+        {
+            return [];
+        }
+
+        var rows = Gg.Client.CredentialRows.For(
+            state.Credentials?.Credentials ?? [],
+            state.Repositories?.Repositories ?? [],
+            state.CredentialResting ?? [],
+            state.Keys?.Keys ?? [],
+            state.ThisMachinesPublicKey,
+            state.PinnedRunnerKeys ?? []);
+
+        return
+        [
+            .. rows.Select(r => new CredentialPaneRow(
+                // AN ABSENCE IS RENDERED RATHER THAN BLANKED, which this file
+                // already insists on one projection down: an empty cell reads as a
+                // column that failed to load, and here it would hide the one row
+                // that predicts a flight failing.
+                r.Locator is { Length: > 0 } locator ? locator : "(none registered)",
+                r.For,
+                r.Resting,
+                Holders(r.Holders))),
+        ];
+    }
+
+    /// <summary>
+    /// Who can open it, in one cell.
+    /// </summary>
+    /// <remarks>
+    /// <b>Named where gg can and counted where it cannot.</b> A holder nobody can
+    /// name is still somebody who can read the secret, so it is said rather than
+    /// dropped — and a cell that listed four fingerprints would be unreadable, so
+    /// the unnamed ones are a count with the detail a keystroke away.
+    /// </remarks>
+    private static string Holders(IReadOnlyList<Gg.Client.CredentialHolder> holders)
+    {
+        if (holders.Count == 0)
+        {
+            return "—";
+        }
+
+        var named = holders
+            .Where(h => h.Kind != Gg.Client.CredentialHolderKinds.Unknown)
+            .Select(h => h.Kind == Gg.Client.CredentialHolderKinds.ThisMachine
+                ? "this machine"
+                : h.Named ?? h.Kind)
+            .ToList();
+
+        var unnamed = holders.Count - named.Count;
+
+        return unnamed == 0
+            ? string.Join(", ", named)
+            : named.Count == 0
+                ? $"{unnamed} nobody here can name"
+                : string.Join(", ", named) + $", and {unnamed} more";
     }
 
     /// <summary>What this tenant may fly against.</summary>

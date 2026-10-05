@@ -202,7 +202,7 @@ public static class Reducer
             // than this: a toggle that shut a pane and then fetched what to put
             // in it is a request nobody asked for.
             Command.ToggleEnvelope => EnvelopeToggled(state) with { ReadInFlight = true },
-            Command.ToggleRepositories => RepositoriesToggled(state) with { ReadInFlight = true },
+            Command.ToggleCredentials => RepositoriesToggled(state) with { ReadInFlight = true },
 
             // THE NEXT PAGE, WHICH CHANGES NOTHING EXCEPT THAT IT IS COMING.
             // The rows are added by the patch when they land; what this arm is
@@ -835,7 +835,7 @@ public static class Reducer
     {
         ActiveTab = open ? tab : TabId.Queue,
         BrowseVisible = tab == TabId.Browse ? open : state.BrowseVisible,
-        RepositoriesVisible = tab == TabId.Repositories ? open : state.RepositoriesVisible,
+        CredentialsVisible = tab == TabId.Credentials ? open : state.CredentialsVisible,
         EnvelopeVisible = tab == TabId.Envelope ? open : state.EnvelopeVisible,
         AllowancesVisible = tab == TabId.Allowances ? open : state.AllowancesVisible,
     });
@@ -1251,7 +1251,7 @@ public static class Reducer
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return Toggled(state, TabId.Repositories);
+        return Toggled(state, TabId.Credentials);
     }
 
     /// <summary>
@@ -1575,7 +1575,7 @@ public static class Reducer
             ? PickItineraryLeg(state, state.ItineraryLegSelected + by)
             : state.ActiveTab switch
             {
-                TabId.Repositories => PickRepository(state, state.RepositorySelected + by),
+                TabId.Credentials => PickRepository(state, state.RepositorySelected + by),
                 TabId.Browse => PickWork(state, state.BrowseSelected + by),
                 TabId.Flights => PickFlight(state, state.FlightSelected + by),
                 TabId.Board => PickBoardRow(state, state.BoardSelected + by),
@@ -1800,7 +1800,7 @@ public static class Reducer
 
         return state.ActiveTab switch
         {
-            TabId.Repositories => PickRepository(state, row),
+            TabId.Credentials => PickRepository(state, row),
             TabId.Browse => PickWork(state, row),
             TabId.Flights => PickFlight(state, row),
             TabId.Board => PickBoardRow(state, row),

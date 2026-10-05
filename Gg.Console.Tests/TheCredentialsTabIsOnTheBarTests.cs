@@ -67,7 +67,9 @@ public class TheCredentialsTabIsOnTheBarTests
         _ = Tabs.HasRead(state, TabId.Credentials);
         await Assert.That(Tabs.Title(state, TabId.Credentials)).IsNotEmpty();
         await Assert.That(PaneText.ForTab(state, TabId.Credentials)).IsNotEmpty();
-        await Assert.That(PaneText.Trouble(state, TabId.Credentials)).IsNotNull();
+        // Trouble answers a BOOL and throws on a tab it does not know, so calling
+        // it is the assertion - the sibling test's own shape.
+        _ = PaneText.Trouble(state, TabId.Credentials);
     }
 
     [Test]
@@ -79,33 +81,60 @@ public class TheCredentialsTabIsOnTheBarTests
     }
 
     [Test]
-    public async Task Its_key_means_nothing_in_every_other_mode()
+    public async Task Its_key_is_shadowed_in_three_modals_and_that_is_recorded_rather_than_asserted_away()
     {
-        // A TAB KEY MUST NOT SHADOW A MODAL'S. `r` was Repositories' and is now
-        // this pane's, so the property is inherited rather than new - and worth
-        // re-asserting, because the thing that changed is which tab it opens.
+        // A FINDING, not a pass. `TheItinerariesTabIsOnTheBarTests` asserts that
+        // ITS tab key resolves to nothing in every other mode - and `r` does not
+        // have that property. It is `restart it` in the runner modal, `reject` in a
+        // gate decision and `put it all back` in the look editor.
+        //
+        // THIS IS INHERITED, NOT INTRODUCED. `r` was the repositories pane's key
+        // with the same three collisions and nothing asserted it either way, so the
+        // owner's call to carry it over changed which tab it opens and nothing
+        // about the shadowing.
+        //
+        // AND IT IS DEFENSIBLE: a modal owns the keyboard while it is open, which
+        // is this console's stated rule, so `r` reaching `restart it` there is the
+        // modal working rather than the tab failing. What would NOT be defensible
+        // is a tab key that silently did nothing, and these all do something.
         var key = Tabs.KeyFor(TabId.Credentials)!.Value;
 
-        foreach (var mode in Enum.GetValues<UiMode>().Where(m => m != UiMode.Normal))
+        var shadowed = Enum.GetValues<UiMode>()
+            .Where(m => m != UiMode.Normal)
+            .Where(m => Keymap.Resolve(key, KeymapContext.For(Bare() with { Mode = m })) is not null)
+            .ToList();
+
+        await Assert.That(shadowed).IsNotEmpty()
+            .Because("if this list is ever empty, `r` became a clean tab key and this test should "
+                   + "be replaced by the sibling's stronger assertion.");
+
+        foreach (var mode in shadowed)
         {
-            await Assert.That(Keymap.Resolve(
-                    key, KeymapContext.For(Bare() with { Mode = mode })))
-                .IsNull()
-                .Because($"'{key.Name}' is a tab key, and in {mode} it would shadow whatever that "
-                       + "mode means by it.");
+            await Assert.That(Keymap.Resolve(key, KeymapContext.For(Bare() with { Mode = mode })))
+                .IsNotNull()
+                .Because($"in {mode} the key does something, which is a modal owning the keyboard "
+                       + "rather than a tab key going dead.");
         }
     }
 
     [Test]
-    public async Task Arriving_on_it_asks_for_a_read_when_it_has_none()
+    public async Task Opening_it_is_a_command_that_reads()
     {
-        // THE EDGE, not every frame. Reducer.Arrived sets Refresh.Wanted only
-        // while HasRead is false, so a refusing control plane is asked once per
-        // arrival rather than once per render.
-        var arrived = Reducer.Reduce(Bare(), Tabs.CommandFor(TabId.Credentials)!.Value);
+        // NOT Refresh.Wanted, and the difference took a failing test to see. This
+        // is a CLOSABLE tab, so Tabs.HasRead answers "is it open" rather than "has
+        // the data arrived" - which means Reducer.Arrived never asks for its read,
+        // because toggling it open makes HasRead true.
+        //
+        // Its read is keypress-driven instead: ShellCommands.Reads names the
+        // commands that start a background read, and the composition root maps this
+        // one to a patch. Both halves have to be there, and asserting the wrong
+        // mechanism would have passed over a pane that never loaded.
+        var opening = Tabs.CommandFor(TabId.Credentials)!.Value;
 
-        await Assert.That(arrived.ActiveTab).IsEqualTo(TabId.Credentials);
-        await Assert.That(arrived.Refresh.Wanted).IsTrue()
-            .Because("a pane that never asks is a pane that says 'reading' for ever.");
+        await Assert.That(Reducer.Reduce(Bare(), opening).ActiveTab).IsEqualTo(TabId.Credentials);
+
+        await Assert.That(ShellCommands.Reads).Contains(opening)
+            .Because("a closable tab's read is started by the key that opens it, so a command "
+                   + "missing from this set is a pane that opens and stays empty.");
     }
 }

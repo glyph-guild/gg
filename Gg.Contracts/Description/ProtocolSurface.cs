@@ -894,6 +894,37 @@ public static class ProtocolSurface
             RequiredHeaders = [SessionHeader],
         },
 
+        // AND A PLAN, CHECKED BEFORE ANYBODY FLIES IT. Slice sixty-one, ADR-0038
+        // Decision 9: what admission would do with each leg if a plan flight
+        // proposed it now - and nothing is written, so the answer is a question
+        // that cannot have a consequence.
+        //
+        // A POST BECAUSE THE QUESTION HAS A BODY, not because anything changes.
+        // A draft is a list of legs, too large and too structured for a query
+        // string, and nothing about it is kept.
+        //
+        // NOT /v1/itineraries/{ref}: that is a GET, so the two cannot be
+        // confused, and a literal `check` there would read as a reference
+        // naming no itinerary.
+        //
+        // 400 for a draft the contract refuses - a leg with no subject, two legs
+        // that are one piece of work. A plan the RULES refuse is a 200 whose
+        // Refused says why: that is an answer to the question asked, not a
+        // malformed one.
+        //
+        // DECLARED IN THE VERSION THE CONTROL PLANE SERVES IT IN, the rule
+        // 0.218.0 and 0.224.0 taught from opposite directions.
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/itineraries/check",
+            Audience = Audience.Developer,
+            Request = typeof(ItineraryDraft),
+            Response = typeof(ItineraryCheck),
+            Statuses = [200, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+
         // The flight read surface. Developer audience throughout: a runner that
         // could read the flight list could enumerate a tenant's work from a
         // credential meant only to let it hold one lease at a time.
@@ -2151,6 +2182,18 @@ public static class ProtocolSurface
             [typeof(PrincipalKeySummary)] =
                 ["keyId", "principal", "publicKey", "fingerprint", "registeredAt", "retiredAt"],
             [typeof(PrincipalKeyList)] = ["keys"],
+            // A PLAN, CHECKED. The draft's legs are FlightNominations and its
+            // intent a FlightIntent, both declared already; what is new is the
+            // envelope around them and the answer.
+            [typeof(ItineraryDraft)] = ["planner", "intent", "legs"],
+            [typeof(ItineraryCheck)] = ["planner", "destinationId", "refused", "legs"],
+            [typeof(LegCheck)] =
+            [
+                "subject", "workKind", "verdict", "reason", "envelopeVersion", "envelopeDigest",
+                "envelopeLayers", "obligations", "gates", "passedOver", "fleet",
+            ],
+            [typeof(LegGate)] = ["obligationId", "approver"],
+            [typeof(PassedOverRequirement)] = ["destinationId", "obligationId", "because"],
             [typeof(ConfiguredCredential)] = ["locator", "written"],
             // THE CODE IS THE OTHER DECLARED MEMBER THAT IS A SECRET, on the
             // same argument: channel-only, asserted, and the runner echoes it

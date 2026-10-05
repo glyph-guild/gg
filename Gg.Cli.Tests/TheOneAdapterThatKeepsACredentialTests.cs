@@ -49,6 +49,8 @@ public class TheOneAdapterThatKeepsACredentialTests
 
         public string ProtectionFor(string locator) => "nothing, this is a test";
 
+        public string RestingOf(string locator) => Gg.Client.CredentialResting.NotHere;
+
         public string PathFor(string locator) => throw new ArgumentException("no");
 
         public void WriteSealed(string locator, Gg.Contracts.SealedCredential envelope) =>

@@ -49,6 +49,34 @@ public interface ICredentialStore
     /// </remarks>
     string ProtectionFor(string locator);
 
+    /// <summary>
+    /// How THIS credential rests here, in one word from
+    /// <see cref="CredentialResting"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The same answer as <see cref="ProtectionFor"/>, short enough for a
+    /// column.</b> That one is a sentence — the sealed one runs to about 180
+    /// characters — which is right where it is printed once and impossible
+    /// printed once per credential. `gg credential list` needs a column and so
+    /// does the pane after it.
+    /// </para>
+    /// <para>
+    /// <b>Here rather than derived by a caller, and that is the point.</b> A
+    /// reader working the word out of the sentence — looking for "sealed" inside
+    /// it — passes today and starts lying about whether a secret is encrypted the
+    /// first time somebody rewords the sentence. Both answers come out of one
+    /// decision in each implementation, so they cannot disagree.
+    /// </para>
+    /// <para>
+    /// <b>It opens nothing</b>, for <see cref="Holds"/>'s reason, and it throws
+    /// for a locator this store cannot place — the same contract
+    /// <see cref="PathFor"/> has, because it is the same question about the same
+    /// path.
+    /// </para>
+    /// </remarks>
+    string RestingOf(string locator);
+
     /// <summary>Where a locator's secret is kept. Throws if the locator is not one.</summary>
     string PathFor(string locator);
 
@@ -213,19 +241,32 @@ public sealed class FileCredentialStore : ICredentialStore
             ? Directory.EnumerateFiles(_root, "*" + extension, SearchOption.AllDirectories).Count()
             : 0;
 
-    public string ProtectionFor(string locator)
-    {
-        if (File.Exists(SealedPathFor(locator)))
-        {
-            return "sealed to this machine's own key. Anything running as this user can read that "
-                 + "key and open it; a copy of the file alone opens nowhere.";
-        }
+    /// <summary>
+    /// The shape on disk, which is the one decision both answers come from.
+    /// </summary>
+    /// <remarks>
+    /// <b>The extension IS the answer</b>, so this opens nothing —
+    /// <see cref="Holds"/>'s guarantee, and the reason a sentence about a
+    /// credential is never a reason to decrypt one.
+    /// </remarks>
+    public string RestingOf(string locator) =>
+        File.Exists(SealedPathFor(locator)) ? CredentialResting.Sealed
+        : File.Exists(PathFor(locator)) ? CredentialResting.Plaintext
+        : CredentialResting.NotHere;
 
-        return File.Exists(PathFor(locator))
-            ? "plaintext, from before this machine sealed anything. Anything that can read the "
-            + "file can read the secret; it is resealed the next time it is read."
-            : $"nothing is stored here for '{locator}'.";
-    }
+    // ONE DECISION, TWO LENGTHS. The sentence is a switch over the word rather
+    // than a second look at the filesystem, so a reworded sentence cannot come
+    // to disagree with the column beside it about whether a secret is encrypted.
+    public string ProtectionFor(string locator) => RestingOf(locator) switch
+    {
+        CredentialResting.Sealed =>
+            "sealed to this machine's own key. Anything running as this user can read that "
+          + "key and open it; a copy of the file alone opens nowhere.",
+        CredentialResting.Plaintext =>
+            "plaintext, from before this machine sealed anything. Anything that can read the "
+          + "file can read the secret; it is resealed the next time it is read.",
+        _ => $"nothing is stored here for '{locator}'.",
+    };
 
     public string PathFor(string locator)
     {

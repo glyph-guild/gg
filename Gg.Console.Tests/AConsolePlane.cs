@@ -440,6 +440,8 @@ internal sealed class AConsolePlane : HttpMessageHandler
 
         public string ProtectionFor(string locator) => "nothing is stored";
 
+        public string RestingOf(string locator) => Gg.Client.CredentialResting.NotHere;
+
         public string PathFor(string locator) => throw new InvalidOperationException("no store");
 
         public void WriteSealed(string locator, Gg.Contracts.SealedCredential envelope) { }

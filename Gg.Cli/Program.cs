@@ -1101,10 +1101,22 @@ static async Task<int> CredentialAsync(bool json, Func<CredentialCommands, Task<
     var baseAddress = ControlPlaneAddress();
     using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
 
+    // THE VAULT-AWARE STORE, because these verbs are now asked about a tenant's
+    // WHOLE registry rather than only about what this machine wrote. A bare
+    // FileCredentialStore cannot be asked about a keyvault:// reference at all -
+    // the locator never validates, so PathFor throws - which made `list` report
+    // a credential that resolves perfectly every flight as one it could not
+    // place, and made `rm` worse than that: it deregisters first and then threw
+    // ArgumentException out of Remove, past a catch that does not name it. The
+    // reference was gone, the command crashed, and the person was told nothing
+    // useful. Decorated, each verb gets the sentence that belongs to a vault.
+    //
+    // It costs nothing to construct: the vault is asked only when something
+    // READS a secret, and none of these do.
     var commands = new CredentialCommands(
         new ControlPlaneClient(http),
         new FileSessionStore(),
-        new FileCredentialStore(),
+        MachineCredentialStore.ThisMachine(),
         // The only way a secret enters this process, and it is a terminal.
         new ConsoleSecretPrompt());
 

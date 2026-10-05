@@ -449,7 +449,7 @@ public class CredentialVerbOutputTests
     [Test]
     public async Task A_credential_list_renders_and_round_trips()
     {
-        var result = new VerbResult.Credentials(new CredentialList { Credentials = [ASummary()] });
+        var result = new VerbResult.Credentials(new CredentialList { Credentials = [ASummary()] }, []);
 
         var json = VerbOutput.ToJson(result);
         var again = VerbOutput.Parse(result.Kind, json);
@@ -463,7 +463,7 @@ public class CredentialVerbOutputTests
     [Test]
     public async Task An_empty_credential_list_says_so_rather_than_printing_nothing()
     {
-        var text = VerbOutput.ToText(new VerbResult.Credentials(new CredentialList { Credentials = [] }));
+        var text = VerbOutput.ToText(new VerbResult.Credentials(new CredentialList { Credentials = [] }, []));
 
         await Assert.That(text).IsNotEmpty()
             .Because("nothing found and nothing printed look identical, and one of them is a bug.");
@@ -476,7 +476,7 @@ public class CredentialVerbOutputTests
         // at their terminal, so a --json payload has to be enough to re-render.
         VerbResult[] results =
         [
-            new VerbResult.Credentials(new CredentialList { Credentials = [ASummary()] }),
+            new VerbResult.Credentials(new CredentialList { Credentials = [ASummary()] }, []),
             new VerbResult.CredentialAdded(new CredentialRegistered
             {
                 CredentialId = ASummary().CredentialId,
@@ -503,7 +503,7 @@ public class CredentialVerbOutputTests
         // There is nothing in the result to print, which is the point - but the
         // renderer is the last code before a screen, and a screen is a place
         // people screenshot into tickets.
-        var rendered = VerbOutput.ToText(new VerbResult.Credentials(new CredentialList { Credentials = [ASummary()] }));
+        var rendered = VerbOutput.ToText(new VerbResult.Credentials(new CredentialList { Credentials = [ASummary()] }, []));
 
         await Assert.That(rendered).DoesNotContain("secret");
         await Assert.That(rendered).Contains("local:acme/widgets")

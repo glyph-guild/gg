@@ -35,6 +35,8 @@ public partial class AMemberCanBeReachedAndConfiguredTests
 
         public string ProtectionFor(string locator) => "nothing, this is a test";
 
+        public string RestingOf(string locator) => Gg.Client.CredentialResting.NotHere;
+
         public string PathFor(string locator) => "/nowhere/x";
 
         public void WriteSealed(string locator, Gg.Contracts.SealedCredential envelope) { }

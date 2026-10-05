@@ -196,12 +196,12 @@ public class CredentialListSaysHowEachRestsTests
             ACredential("acme/widgets", "local:acme/widgets"),
             ACredential("acme/legacy", "local:acme/legacy"));
 
-        var text = new VerbResult.Credentials(
+        var text = VerbOutput.ToText(new VerbResult.Credentials(
             list,
             [
                 new CredentialAtRest("local:acme/widgets", CredentialResting.Sealed),
                 new CredentialAtRest("local:acme/legacy", CredentialResting.Plaintext),
-            ]).ToText();
+            ]));
 
         await Assert.That(text).Contains(CredentialResting.Plaintext)
             .Because("the row that is still readable on disk is the one a person is looking for.");

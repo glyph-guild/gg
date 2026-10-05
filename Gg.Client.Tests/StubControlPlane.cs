@@ -306,6 +306,9 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// <summary>The credential references this stub is holding.</summary>
     public List<CredentialSummary> Credentials { get; } = [];
 
+    /// <summary>The public keys this tenant's people have registered.</summary>
+    public List<PrincipalKeySummary> Keys { get; } = [];
+
     /// <summary>When set, credential registration answers 400 with this diagnosis.</summary>
     public string? RefuseCredential { get; set; }
 
@@ -561,6 +564,10 @@ public sealed class StubControlPlane : IAsyncDisposable
 
             case "/v1/credentials":
                 await WriteJsonAsync(context, 200, new CredentialList { Credentials = [.. Credentials] });
+                return;
+
+            case "/v1/auth/keys" when context.Request.HttpMethod == "GET":
+                await WriteJsonAsync(context, 200, new PrincipalKeyList { Keys = [.. Keys] });
                 return;
 
             case var _ when path.StartsWith("/v1/credentials/", StringComparison.Ordinal)

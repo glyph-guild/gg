@@ -462,7 +462,7 @@ public class ConsoleDataTests
                         AddedAt = DateTimeOffset.UnixEpoch,
                     },
                 ],
-            }));
+            }, []));
 
         state = ConsoleProjection.Apply(state, new VerbResult.Flight(Flight("a", "needs a token")));
 
@@ -654,6 +654,8 @@ public class ConsoleStartTests
         public string Protection => "nothing is stored";
 
         public string ProtectionFor(string locator) => "nothing is stored";
+
+        public string RestingOf(string locator) => Gg.Client.CredentialResting.NotHere;
         public string PathFor(string locator) => throw new InvalidOperationException("no store here");
         public void WriteSealed(string locator, Gg.Contracts.SealedCredential envelope) { }
 

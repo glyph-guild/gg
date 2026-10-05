@@ -253,7 +253,23 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.Diagnosis;
     }
 
-    public sealed record Credentials(CredentialList Value) : VerbResult
+    /// <summary>The references the control plane holds, and how each rests here.</summary>
+    /// <remarks>
+    /// <b>The resting shapes ride with the list rather than being fetched beside
+    /// it</b>, which is <see cref="AirspaceRepositories"/>' argument: they are one
+    /// answer about the same credentials at the same moment, and two reads a
+    /// caller had to remember to pair are two that eventually disagree about how
+    /// many rows there are.
+    /// </remarks>
+    /// <param name="Value">The registry, exactly as the control plane answered.</param>
+    /// <param name="Resting">
+    /// How each one rests on THIS machine. Empty is a real state — see
+    /// <see cref="CredentialResting.NotKnown"/> — and never means every
+    /// credential is here.
+    /// </param>
+    public sealed record Credentials(
+        CredentialList Value,
+        IReadOnlyList<CredentialAtRest> Resting) : VerbResult
     {
         public override string Kind => VerbResultKinds.Credentials;
     }
@@ -852,8 +868,14 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.InvitationIssued))),
         VerbResultKinds.Diagnosis => new VerbResult.Diagnosis(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.DoctorReport))),
-        VerbResultKinds.Credentials => new VerbResult.Credentials(Require(
-            JsonSerializer.Deserialize(json, VerbJsonContext.Default.CredentialList))),
+        // THE WIRE SHAPE IS WHAT --json EMITS AND THEREFORE WHAT COMES BACK, so a
+        // round trip carries the registry and not this machine's reading of it.
+        // AirspaceRepositories does the same with its standings: a resting shape
+        // is true of the machine that looked, and a result parsed somewhere else
+        // has not looked.
+        VerbResultKinds.Credentials => new VerbResult.Credentials(
+            Require(JsonSerializer.Deserialize(json, VerbJsonContext.Default.CredentialList)),
+            []),
         VerbResultKinds.CredentialAdded => new VerbResult.CredentialAdded(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.CredentialRegistered))),
         VerbResultKinds.CredentialRemoved => new VerbResult.CredentialRemoved(Require(
@@ -942,7 +964,7 @@ public static class VerbOutput
         VerbResult.Runners r => Runners(r.Value),
         VerbResult.Invited r => Invited(r.Value),
         VerbResult.Diagnosis r => Diagnosis(r.Value),
-        VerbResult.Credentials r => Credentials(r.Value),
+        VerbResult.Credentials r => Credentials(r.Value, r.Resting),
         VerbResult.CredentialAdded r => CredentialAdded(r.Value),
         VerbResult.CredentialRemoved r => CredentialRemoved(r.Value),
         VerbResult.RunnerRetired r => RunnerRetiredText(r.Value),
@@ -1427,7 +1449,8 @@ public static class VerbOutput
     /// know which file <c>gg doctor</c> is talking about. There is no value
     /// here to withhold, which is the whole point of the row.
     /// </remarks>
-    private static string Credentials(CredentialList list)
+    private static string Credentials(
+        CredentialList list, IReadOnlyList<CredentialAtRest> resting)
     {
         if (list.Credentials.Count == 0)
         {
@@ -1441,7 +1464,12 @@ public static class VerbOutput
                 $"{Clean(credential.Repo),-28}  {Clean(credential.Reference.Identity),-16}  "
               + $"{Clean(string.Join(',', credential.Reference.Scopes)),-8}  "
               + $"{Clean(credential.Reference.Locator)}");
-            text.AppendLine($"  id  {Clean(credential.CredentialId)}   added {credential.AddedAt:u}");
+
+            // HOW IT RESTS, ON THE ID LINE RATHER THAN A THIRD. The store's word
+            // is short by construction, and a line per credential is already two.
+            text.AppendLine(
+                $"  id  {Clean(credential.CredentialId)}   added {credential.AddedAt:u}   "
+              + $"{Clean(CredentialsAtRest.RestingOf(resting, credential.Reference.Locator))}");
         }
         return text.ToString().TrimEnd();
     }

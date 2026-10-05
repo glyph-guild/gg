@@ -99,6 +99,23 @@ public sealed class MachineCredentialStore(ICredentialStore local, KeyVaultCrede
             + "vault's to say."
             : _local.ProtectionFor(locator);
 
+    /// <summary>
+    /// The word for how this rests, with a vault reference told from a missing
+    /// one.
+    /// </summary>
+    /// <remarks>
+    /// <b>The branch that keeps a column honest.</b> <see cref="Holds"/> answers
+    /// false for every vault reference on purpose, so a column built on presence
+    /// reports a credential that resolves perfectly every flight as one nobody
+    /// ever added. And the local store cannot even be asked: a
+    /// <c>keyvault://</c> locator never validates, so it would throw rather than
+    /// answer.
+    /// </remarks>
+    public string RestingOf(string locator) =>
+        KeyVaultReference.Names(locator)
+            ? CredentialResting.InAVault
+            : _local.RestingOf(locator);
+
     public string PathFor(string locator) =>
         KeyVaultReference.Names(locator) ? throw NotHere(locator) : _local.PathFor(locator);
 

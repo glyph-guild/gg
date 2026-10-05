@@ -261,9 +261,33 @@ public sealed class CredentialCommands(
         }
     }
 
-    /// <summary>Every credential reference this tenant has registered.</summary>
-    public async Task<VerbResult> ListCredentialsAsync(CancellationToken cancellationToken = default) =>
-        new VerbResult.Credentials(await _client.ListCredentialsAsync(Session(), cancellationToken));
+    /// <summary>
+    /// Every credential reference this tenant has registered, and how each one
+    /// rests on this machine.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Both in one answer</b>, for <c>VerbResult.AirspaceRepositories</c>'
+    /// reason: they are one reading of the same credentials at the same moment,
+    /// and two reads a caller had to remember to pair are two that eventually
+    /// disagree about how many rows there are.
+    /// </para>
+    /// <para>
+    /// <b>Nothing here opens one.</b> `gg doctor`'s credentials row answers a
+    /// near-identical question with <c>Read</c>, which decrypts every credential
+    /// on this machine and reseals the plaintext ones on the way past. A list is
+    /// read far more often than a doctor, and one that decrypted would pull every
+    /// secret on the machine into a process whose job is to print four columns.
+    /// </para>
+    /// </remarks>
+    public async Task<VerbResult> ListCredentialsAsync(CancellationToken cancellationToken = default)
+    {
+        var registered = await _client.ListCredentialsAsync(Session(), cancellationToken);
+
+        return new VerbResult.Credentials(
+            registered,
+            CredentialsAtRest.For(registered.Credentials, _credentials.RestingOf));
+    }
 
     /// <summary>
     /// Deregisters a credential, then deletes the local secret it named.

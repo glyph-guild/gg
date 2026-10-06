@@ -322,3 +322,72 @@ public sealed record ItineraryMenu
         return null;
     }
 }
+
+/// <summary>
+/// A plan a person proposes: the draft, and which agent acted for them. Slice sixty-five,
+/// ADR-0038 Decision 5.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Nothing else, and that is the point.</b> The conversation that produced a plan is not kept
+/// (Decision 5): governance happens at the gate. A type with nowhere to put a transcript is the
+/// strongest form of that, so a member added here is a diff somebody has to justify.
+/// </para>
+/// <para>
+/// <b>Who proposed it is not here either</b>: the control plane takes the person from the
+/// session, never from a body.
+/// </para>
+/// </remarks>
+[PinnedId("f966327e-e6ba-42c0-bcb9-3aa163f4a4f1")]
+public sealed record ItineraryProposal
+{
+    /// <summary>The longest <see cref="Via"/> may be: a label, not a place prose could travel.</summary>
+    public const int MaxVia = 128;
+
+    /// <summary>The plan, as <c>POST /v1/itineraries/check</c> takes it.</summary>
+    public required ItineraryDraft Draft { get; init; }
+
+    /// <summary>
+    /// Which agent acted for the person - <c>claude-code (gg-itinerary)</c> - or null when they
+    /// proposed by hand. A label that is recorded and printed, and grants nothing.
+    /// </summary>
+    public string? Via { get; init; }
+
+    /// <summary>The diagnosis, or null when the proposal is well formed.</summary>
+    public static string? Validate(ItineraryProposal proposal)
+    {
+        ArgumentNullException.ThrowIfNull(proposal);
+
+        if (proposal.Draft is null)
+        {
+            return "A proposal carries the plan it proposes, and this one carries none.";
+        }
+
+        if (ItineraryDraft.Validate(proposal.Draft) is { } draft)
+        {
+            return draft;
+        }
+
+        if (proposal.Via is { Length: > MaxVia })
+        {
+            return $"'via' names the agent that acted, in at most {MaxVia} characters, and this is "
+                 + $"{proposal.Via.Length}. It is a label: the conversation is not kept.";
+        }
+
+        return null;
+    }
+}
+
+/// <summary>A proposed plan, waiting for its gate: its number, its pass, and who answers.</summary>
+[PinnedId("5ac34a00-af4a-4a55-9ed4-583666e78097")]
+public sealed record ItineraryProposed
+{
+    /// <summary>The plan's number, <c>ITN-n</c>.</summary>
+    public required string Itinerary { get; init; }
+
+    /// <summary>The pass flight that holds the plan's gate, <c>GG-n</c>. It is never leased.</summary>
+    public required string Pass { get; init; }
+
+    /// <summary>The human obligations the plan waits on, and who the envelope names to answer each.</summary>
+    public required IReadOnlyList<LegGate> Gates { get; init; }
+}

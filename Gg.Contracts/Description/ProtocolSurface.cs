@@ -914,6 +914,22 @@ public static class ProtocolSurface
         //
         // DECLARED IN THE VERSION THE CONTROL PLANE SERVES IT IN, the rule
         // 0.218.0 and 0.224.0 taught from opposite directions.
+        // AND A PLAN A PERSON PROPOSES (slice sixty-five, ADR-0038 Decision 5): the draft the
+        // check takes, which becomes a pass flight that is never leased and waits on its human
+        // gate. A POST on the collection, so it cannot be mistaken for the {ref} read. 202 with
+        // the plan's number and gates; 400 for a draft the check would refuse or a planner with
+        // no human gate. DECLARED IN THE VERSION THE CONTROL PLANE SERVES IT IN.
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/itineraries",
+            Audience = Audience.Developer,
+            Request = typeof(ItineraryProposal),
+            Response = typeof(ItineraryProposed),
+            Statuses = [202, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+
         // AND WHAT A LEG MAY NAME, before the first leg exists. Slice sixty-three: the planning
         // tool server's three enums, answered from admission's own bounds so the menu cannot
         // offer what the check then refuses. A GET with the planner in the query string - there
@@ -2203,6 +2219,8 @@ public static class ProtocolSurface
             [typeof(ItineraryDraft)] = ["planner", "intent", "legs"],
             [typeof(ItineraryCheck)] = ["planner", "destinationId", "refused", "legs"],
             [typeof(ItineraryMenu)] = ["planner", "destinationId", "workKinds", "repositories", "environments", "refused"],
+            [typeof(ItineraryProposal)] = ["draft", "via"],
+            [typeof(ItineraryProposed)] = ["itinerary", "pass", "gates"],
             [typeof(LegCheck)] =
             [
                 "subject", "workKind", "verdict", "reason", "envelopeVersion", "envelopeDigest",

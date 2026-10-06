@@ -123,6 +123,8 @@ public static class Vocabulary
         typeof(ItineraryDraft),
         typeof(ItineraryCheck),
         typeof(ItineraryMenu),
+        typeof(ItineraryProposal),
+        typeof(ItineraryProposed),
         typeof(LegCheck),
         typeof(LegGate),
         typeof(PassedOverRequirement),

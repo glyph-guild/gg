@@ -559,7 +559,10 @@ public class EndpointSurfaceTests
         // before the first leg exists (slice sixty-three). The planning tool
         // server's three enums, answered from admission's own bounds; a read of
         // its own because the check refuses a draft with no legs.
-            .IsEqualTo("59f8cefe565d107b52303ee0813de8689ccb9828d9bde8685e5bf5a3526fe2b2")
+        // AND 0.280.0 ADDS THE COLLECTION'S ONE WRITE: POST /v1/itineraries, a plan a person
+        // proposes (slice sixty-five, ADR-0038 Decision 5). It becomes a pass flight that is
+        // never leased and waits on its human gate.
+            .IsEqualTo("c4354ab0e30bb5198cc062eee565b2ca68c373b2c9f9c223b1c66ced3c54ab5f")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

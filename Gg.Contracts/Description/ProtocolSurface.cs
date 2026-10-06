@@ -914,6 +914,20 @@ public static class ProtocolSurface
         //
         // DECLARED IN THE VERSION THE CONTROL PLANE SERVES IT IN, the rule
         // 0.218.0 and 0.224.0 taught from opposite directions.
+        // AND WHAT A LEG MAY NAME, before the first leg exists. Slice sixty-three: the planning
+        // tool server's three enums, answered from admission's own bounds so the menu cannot
+        // offer what the check then refuses. A GET with the planner in the query string - there
+        // is nothing else to send - and DECLARED IN THE VERSION THE CONTROL PLANE SERVES IT IN.
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/itineraries/menu",
+            Audience = Audience.Developer,
+            Request = null,
+            Response = typeof(ItineraryMenu),
+            Statuses = [200, 400, 401, 403, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
         new()
         {
             Method = "POST",
@@ -2188,6 +2202,7 @@ public static class ProtocolSurface
             // envelope around them and the answer.
             [typeof(ItineraryDraft)] = ["planner", "intent", "legs"],
             [typeof(ItineraryCheck)] = ["planner", "destinationId", "refused", "legs"],
+            [typeof(ItineraryMenu)] = ["planner", "destinationId", "workKinds", "repositories", "environments", "refused"],
             [typeof(LegCheck)] =
             [
                 "subject", "workKind", "verdict", "reason", "envelopeVersion", "envelopeDigest",

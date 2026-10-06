@@ -555,7 +555,11 @@ public class EndpointSurfaceTests
         // checked before anybody flies it (slice sixty-one, ADR-0038 Decision
         // 9). Under the governed prefix the two reads already closed, and
         // declared in the version the control plane serves it in.
-            .IsEqualTo("18c5f1de4a6bef0fac701517f54ea1beb182a14b12314fec222b6511691345e5")
+        // AND 0.279.0 ADDS ONE READ: GET /v1/itineraries/menu, what a leg may name
+        // before the first leg exists (slice sixty-three). The planning tool
+        // server's three enums, answered from admission's own bounds; a read of
+        // its own because the check refuses a draft with no legs.
+            .IsEqualTo("59f8cefe565d107b52303ee0813de8689ccb9828d9bde8685e5bf5a3526fe2b2")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

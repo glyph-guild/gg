@@ -98,7 +98,10 @@ public class TwoItineraryReadsAreDeclaredTests
         // AND ONE QUESTION, since 0.276.0: a plan checked before anybody flies
         // it (slice sixty-one). A POST, so it cannot be mistaken for the
         // {ref} read, and it writes nothing.
+        // AND THE MENU, since 0.279.0: what a leg may name before the first one
+        // exists (slice sixty-three). A read, like the two above it.
         await Assert.That(underPrefix).IsEquivalentTo((string[])
-            ["GET /v1/itineraries", "GET /v1/itineraries/{ref}", "POST /v1/itineraries/check"]);
+            ["GET /v1/itineraries", "GET /v1/itineraries/{ref}", "POST /v1/itineraries/check",
+             "GET /v1/itineraries/menu"]);
     }
 }

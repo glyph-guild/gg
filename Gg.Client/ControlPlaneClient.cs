@@ -87,6 +87,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(Checklist))]
 [JsonSerializable(typeof(ItineraryDraft))]
 [JsonSerializable(typeof(ItineraryCheck))]
+[JsonSerializable(typeof(ItineraryMenu))]
 [JsonSerializable(typeof(EnvironmentStrategy))]
 [JsonSerializable(typeof(EnvironmentStrategyState))]
 [JsonSerializable(typeof(StrategyList))]
@@ -1893,6 +1894,37 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.PrincipalKeyList, cancellationToken)
             ?? throw new InvalidOperationException("Control plane returned no key list.");
+    }
+
+    /// <summary>
+    /// What a leg of a plan under <paramref name="planner"/> may name: the planning tool server's
+    /// three menus. Slice sixty-three.
+    /// </summary>
+    /// <remarks>
+    /// Answered by the control plane from admission's own bounds, so a menu never offers what
+    /// <see cref="CheckItineraryAsync"/> then refuses. Validated on the way in: a menu that both
+    /// refuses and offers is not one a client may offer from.
+    /// </remarks>
+    public async Task<ItineraryMenu> ItineraryMenuAsync(
+        string sessionToken, string planner, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(planner);
+
+        using var request = Request(
+            HttpMethod.Get,
+            "/v1/itineraries/menu" + "?planner=" + Uri.EscapeDataString(planner),
+            sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        var menu = await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.ItineraryMenu, cancellationToken)
+            ?? throw new InvalidOperationException("The control plane answered no menu.");
+
+        return ItineraryMenu.Validate(menu) is { } unusable
+            ? throw new InvalidOperationException(unusable)
+            : menu;
     }
 
     /// <summary>

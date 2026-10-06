@@ -420,6 +420,18 @@ internal static class ConsoleDoubles
             return refusing ? "Nothing was written." : "your key is at a path";
         }
 
+        /// <summary>
+        /// How many times this machine was asked to be made a holder, and nothing
+        /// about the passphrase.
+        /// </summary>
+        public int Trusted { get; private set; }
+
+        public string TrustThisMachine()
+        {
+            Trusted++;
+            return refusing ? "Nothing changed." : "this machine can now open it";
+        }
+
         public string Invite()
         {
             Invited++;

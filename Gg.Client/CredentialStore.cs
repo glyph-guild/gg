@@ -110,6 +110,53 @@ public interface ICredentialStore
     void Write(string locator, string secret);
 
     /// <summary>
+    /// A person registers a credential, sealed to that person and to nobody else.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A DIFFERENT ACT FROM <see cref="Write"/>, not a flag on it</b>, and the
+    /// reason is a call graph rather than taste. <c>Write</c> is reached by the
+    /// pre-sealing plaintext migration on every read, and by a runner minting its
+    /// own agent token — both of which must seal to the MACHINE, because neither
+    /// has a person anywhere near it. One method that guessed which it was would
+    /// guess wrong on a pool member and brick a credential silently.
+    /// </para>
+    /// <para>
+    /// <b>It takes a public key rather than a key</b> (ADR-0037 Decision 2), so
+    /// registering costs no passphrase: sealing TO somebody needs only their public
+    /// half. What costs a passphrase is <see cref="TrustThisMachine"/>, which
+    /// unwraps. A prompt here would derive nothing, and a prompt that protects
+    /// nothing teaches that typing one is what makes a credential safe.
+    /// </para>
+    /// </remarks>
+    /// <param name="holder">
+    /// The person's public half, SubjectPublicKeyInfo in base64 — what
+    /// <c>PersonKey.PublicHalfOf</c> returns.
+    /// </param>
+    void Register(string locator, string secret, string holder);
+
+    /// <summary>
+    /// Makes this machine a holder of a credential, on the authority of somebody
+    /// who already is one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The one act in the step that genuinely costs a passphrase</b>, because it
+    /// is a rewrap: the content key is unwrapped under the person's key and wrapped
+    /// again for this machine. It is Decision 8's second holder pointed at a
+    /// machine, and it ADDS — the person who registered it stays a holder, or they
+    /// could never push it anywhere else.
+    /// </para>
+    /// <para>
+    /// <b>Asking twice leaves it trusted rather than broken.</b> <c>Rewrap</c>
+    /// refuses a holder it already has, which is right for a caller deciding
+    /// something and wrong to surface to somebody who asked for a state that
+    /// already obtains.
+    /// </para>
+    /// </remarks>
+    void TrustThisMachine(string locator, IAgreeAsAHolder person);
+
+    /// <summary>
     /// Stores an envelope exactly as it arrived, without opening it.
     /// </summary>
     /// <remarks>
@@ -246,19 +293,96 @@ public sealed class FileCredentialStore : ICredentialStore
         {
             var plaintext = Counted(Extension);
             var sealedUp = Counted(SealedExtension);
+            var elsewhere = SealedToSomebodyElse();
+            var mine = sealedUp - elsewhere;
 
-            var said =
-                $"a file per credential under {_root}, mode 0600 in a mode-0700 directory, "
-              + "each sealed to this machine's own key. Anything running as this user can read "
-              + "that key and open them; what sealing adds is that a copy of this directory "
-              + "alone - a backup, a disk image, a support bundle - opens nowhere.";
+            var said = $"a file per credential under {_root}, mode 0600 in a mode-0700 directory. ";
+
+            // COUNTED, NOT CLAIMED, and now in two kinds rather than one. Before
+            // step 2 everything here was sealed to this machine, so one clause was
+            // true of the whole directory. A credential sealed to a PERSON is not
+            // openable by anything on this machine - a stronger property than the
+            // machine-sealed one - and a sentence that named only the majority
+            // would be the lie this property's own rule forbids.
+            if (mine > 0)
+            {
+                said += $"{mine} sealed to this machine's own key: anything running as this user "
+                      + "can read that key and open them, and what sealing adds is that a copy of "
+                      + "this directory alone - a backup, a disk image, a support bundle - opens "
+                      + "nowhere. ";
+            }
+
+            if (elsewhere > 0)
+            {
+                said += $"{elsewhere} sealed to somebody else - this machine cannot open them at "
+                      + "all, with or without its own key. `gg credential list` names who can, and "
+                      + "`gg credential trust-this-machine <locator>` is how a holder adds this "
+                      + "machine. ";
+            }
+
+            if (mine == 0 && elsewhere == 0 && plaintext == 0)
+            {
+                said += "Nothing is here yet. ";
+            }
 
             return plaintext == 0
-                ? said
+                ? said.TrimEnd()
                 : said
-                + $" {plaintext} of {plaintext + sealedUp} here are still plaintext from before "
+                + $"{plaintext} of {plaintext + sealedUp} here are still plaintext from before "
                 + "sealing; each is resealed the next time it is read.";
         }
+    }
+
+    /// <summary>
+    /// How many sealed credentials here this machine is not a holder of.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It opens nothing</b>, which is what makes the sentence safe to print
+    /// anywhere. Whether this machine is a holder is a question about the wrapped
+    /// keys in an envelope, and <c>WrappedFor</c> answers it by comparing public
+    /// keys — so <c>gg doctor</c> needs no passphrase, and a diagnostic that needed
+    /// one would be a diagnostic nobody runs.
+    /// </para>
+    /// <para>
+    /// <b>An unreadable envelope counts as not-mine.</b> A file that will not parse
+    /// is one this machine certainly cannot open, and the plaintext clause beside
+    /// this is where a damaged store gets described. Throwing from a sentence about
+    /// a directory would take `gg doctor` down over exactly the machine it is most
+    /// needed on.
+    /// </para>
+    /// </remarks>
+    private int SealedToSomebodyElse()
+    {
+        if (!Directory.Exists(_root))
+        {
+            return 0;
+        }
+
+        var mine = _key.Value.PublicKey;
+        var count = 0;
+
+        foreach (var file in Directory.EnumerateFiles(
+                     _root, "*" + SealedExtension, SearchOption.AllDirectories))
+        {
+            try
+            {
+                var envelope = JsonSerializer.Deserialize(
+                    File.ReadAllText(file), SealedCredentialJson.Default.SealedCredential);
+
+                if (envelope is null || SealedCredential.WrappedFor(envelope, mine) is null)
+                {
+                    count++;
+                }
+            }
+            catch (Exception failure) when (
+                failure is JsonException or IOException or UnauthorizedAccessException)
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     /// <summary>How many credentials under this root are kept in one shape.</summary>
@@ -404,6 +528,43 @@ public sealed class FileCredentialStore : ICredentialStore
 
     public void Write(string locator, string secret) =>
         WriteEnvelope(locator, CredentialSeal.Seal(secret, [_key.Value.PublicKey]));
+
+    public void Register(string locator, string secret, string holder)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(holder);
+
+        WriteEnvelope(locator, CredentialSeal.Seal(secret, [holder]));
+    }
+
+    public void TrustThisMachine(string locator, IAgreeAsAHolder person)
+    {
+        ArgumentNullException.ThrowIfNull(person);
+
+        var envelope = SealedFor(locator);
+
+        if (SealedCredential.WrappedFor(envelope, _key.Value.PublicKey) is not null)
+        {
+            // ALREADY TRUSTED, WHICH IS NOT A FAILURE. Somebody who cannot
+            // remember whether they ran this has asked for a state that already
+            // obtains, and Rewrap's refusal - right for a caller choosing a
+            // recipient - would read here as "something is wrong".
+            return;
+        }
+
+        try
+        {
+            WriteSealed(locator, CredentialSeal.Rewrap(envelope, person, _key.Value.PublicKey));
+        }
+        catch (CryptographicException refused)
+        {
+            // NOT SEALED TO YOU IS NOT CORRUPT, reaching the local act. The inner
+            // sentence names the holders and never the bytes, and sends somebody
+            // to ask for a push rather than to suspect the file.
+            throw new CredentialUnavailableException(
+                $"The credential at '{locator}' cannot be opened by that key, so this machine "
+              + "cannot be made a holder of it. " + refused.Message);
+        }
+    }
 
     /// <summary>
     /// Puts an envelope on disk, locked down, and takes the plaintext with it.
@@ -568,9 +729,18 @@ public sealed class FileCredentialStore : ICredentialStore
             // THE INNER SENTENCE IS ALREADY SAFE. CredentialSeal says which
             // holders an envelope is for - public keys, and the fact somebody
             // needs to work out who can push it to them - and never the bytes.
+            //
+            // AND THE ACT THAT WOULD FIX IT IS NAMED, because after step 2 the
+            // ordinary state of a credential on the machine that registered it is
+            // present-and-unopenable-here. "It will not open" sends somebody
+            // looking for a damaged file; naming the verb sends them to one
+            // command. This is never "absent": Read returns null for that, and
+            // conflating the two is an afternoon spent on a file that was fine.
             throw new CredentialUnavailableException(
                 $"The credential at '{locator}' is on this machine and will not open here. "
-              + refused.Message);
+              + refused.Message
+              + $" If it is sealed to you rather than to this machine, "
+              + $"`gg credential trust-this-machine {locator}` makes this machine a holder too.");
         }
     }
 

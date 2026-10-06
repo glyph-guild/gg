@@ -52,6 +52,10 @@ public class AnAgentLoginIsAMachinesDecisionTests
 
         public void Write(string locator, string value) { }
 
+        public void Register(string locator, string value, string holder) { }
+
+        public void TrustThisMachine(string locator, Gg.Contracts.IAgreeAsAHolder person) { }
+
         public string? Read(string locator) => null;
 
         public bool Holds(string locator) => false;

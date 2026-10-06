@@ -335,6 +335,29 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.KeyCreated;
     }
 
+    /// <summary>
+    /// What trusting this machine with a credential produced: the locator, and who
+    /// can now open it.
+    /// </summary>
+    /// <remarks>
+    /// <b>A LOCAL RECORD, for <see cref="KeyMinted"/>'s reason.</b> Nothing about
+    /// this crosses a wire — the control plane is not a party to a rewrap and holds
+    /// no opinion about which machines can open a credential — so a contract type
+    /// would be a promise about something that never leaves this disk.
+    /// </remarks>
+    /// <param name="Holders">
+    /// How many holders the credential now has. A COUNT rather than the keys: the
+    /// keys are public and safe to print, and <c>gg credential list</c> is where
+    /// somebody goes to read them, so repeating them in the result of an act is a
+    /// second place for them to be stale.
+    /// </param>
+    public sealed record MachineTrusted(string Locator, int Holders, bool AlreadyWas);
+
+    public sealed record CredentialTrusted(MachineTrusted Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.CredentialTrusted;
+    }
+
     public sealed record RunnerRepinned(Gg.Client.RunnerRepinned Value) : VerbResult
     {
         public override string Kind => VerbResultKinds.RunnerRepinned;
@@ -622,6 +645,7 @@ public static class VerbResultKinds
     public const string Keys = "keys";
 
     public const string KeyCreated = "key-created";
+    public const string CredentialTrusted = "credential-trusted";
     public const string CredentialAdded = "credential-added";
     public const string CredentialRemoved = "credential-removed";
     public const string RunnerRetired = "runner-retired";
@@ -733,6 +757,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(CredentialList))]
 [JsonSerializable(typeof(PrincipalKeyList))]
 [JsonSerializable(typeof(VerbResult.KeyMinted))]
+[JsonSerializable(typeof(VerbResult.MachineTrusted))]
 [JsonSerializable(typeof(CredentialRegistered))]
 [JsonSerializable(typeof(Gg.Contracts.CredentialRemoved))]
 [JsonSerializable(typeof(Gg.Contracts.RunnerRetired))]
@@ -831,6 +856,8 @@ public static class VerbOutput
         VerbResult.Credentials r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.CredentialList),
         VerbResult.Keys r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.PrincipalKeyList),
         VerbResult.KeyCreated r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.KeyMinted),
+        VerbResult.CredentialTrusted r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.MachineTrusted),
         VerbResult.CredentialAdded r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.CredentialRegistered),
         VerbResult.CredentialRemoved r =>
@@ -945,6 +972,8 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.PrincipalKeyList))),
         VerbResultKinds.KeyCreated => new VerbResult.KeyCreated(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.KeyMinted))),
+        VerbResultKinds.CredentialTrusted => new VerbResult.CredentialTrusted(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.MachineTrusted))),
         VerbResultKinds.CredentialAdded => new VerbResult.CredentialAdded(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.CredentialRegistered))),
         VerbResultKinds.CredentialRemoved => new VerbResult.CredentialRemoved(Require(
@@ -1038,6 +1067,7 @@ public static class VerbOutput
         VerbResult.Credentials r => Credentials(r.Value, r.Resting),
         VerbResult.Keys r => Keys(r.Value),
         VerbResult.KeyCreated r => KeyCreated(r.Value),
+        VerbResult.CredentialTrusted r => CredentialTrusted(r.Value),
         VerbResult.CredentialAdded r => CredentialAdded(r.Value),
         VerbResult.CredentialRemoved r => CredentialRemoved(r.Value),
         VerbResult.RunnerRetired r => RunnerRetiredText(r.Value),
@@ -1612,6 +1642,15 @@ public static class VerbOutput
         $"Registered {Clean(registered.Reference.Identity)} for "
       + $"{Clean(string.Join(',', registered.Reference.Scopes))}. "
       + $"The control plane holds {Clean(registered.Reference.Locator)}; the value stays here.";
+
+    private static string CredentialTrusted(VerbResult.MachineTrusted trusted) =>
+        trusted.AlreadyWas
+            ? $"This machine was already a holder of {Clean(trusted.Locator)}. Nothing changed."
+            : $"This machine can now open {Clean(trusted.Locator)}, so a flight here resolves it "
+            + "with nobody present. "
+            + $"It has {trusted.Holders} holders; `gg credential list` names them. "
+            + "You are still one of them - trusting a machine adds a holder rather than handing "
+            + "the credential over.";
 
     private static string CredentialRemoved(Gg.Contracts.CredentialRemoved removed) =>
         $"Removed {Clean(removed.CredentialId)}. "
@@ -3665,6 +3704,7 @@ public static class VerbOutput
           + $"{VerbResultKinds.Launched}, {VerbResultKinds.Log}, {VerbResultKinds.Runners}, "
           + $"{VerbResultKinds.Diagnosis}, {VerbResultKinds.Credentials}, "
           + $"{VerbResultKinds.CredentialAdded}, {VerbResultKinds.CredentialRemoved}, "
+          + $"{VerbResultKinds.CredentialTrusted}, "
           + $"{VerbResultKinds.Keys}.");
 
     private static T Require<T>(T? value) where T : class =>

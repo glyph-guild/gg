@@ -402,6 +402,14 @@ public enum Command
     /// </remarks>
     MintPersonKey,
 
+    /// <summary>Let this machine open a credential sealed to the person here.</summary>
+    /// <remarks>
+    /// <b>The act the holder column asks for.</b> On the machine a person registered
+    /// a credential from, that column reads "you, and not this machine" — which is
+    /// correct, and without this is something a person can read and not act on.
+    /// </remarks>
+    TrustThisMachine,
+
     /// <summary>Ask whether to retire the names the tree no longer holds.</summary>
     /// <remarks>
     /// Reduced in session - it opens a question and nothing else. `x` inside
@@ -1416,6 +1424,11 @@ public static class ShellCommands
         // AND SO DOES MINTING A KEY, for the same reason twice over: a passphrase
         // read with the echo off, asked for twice because gg keeps no copy of it.
         Command.MintPersonKey,
+
+        // AND TRUSTING THIS MACHINE, which reads the same passphrase once. It is the
+        // one act in slice sixty-four step 2 that unwraps a content key, so the
+        // person has to be at the keyboard for it by construction.
+        Command.TrustThisMachine,
 
         // TAKES THE TERMINAL TO PRINT A URL AND READ A CODE, which is the
         // send's reason with a person's browser in the middle of it. The

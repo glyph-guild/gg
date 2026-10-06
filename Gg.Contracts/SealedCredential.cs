@@ -349,11 +349,54 @@ public static class CredentialSeal
     /// Opens a credential as one of its holders.
     /// </summary>
     /// <remarks>
-    /// <b>Takes the machine's own key.</b> A person's key is never typed as an
-    /// <see cref="ECDiffieHellman"/> outside its own adapter (ADR-0037), because
-    /// a token-backed key is not one and that is the line keeping hardware
-    /// possible. This overload is the MACHINE path, whose key is a file on the
-    /// machine by necessity.
+    /// <para>
+    /// <b>The holder performs its own agreement</b>, so this is the overload a
+    /// person's key reaches — and a card-backed one later. It arrived in step 2,
+    /// when a credential started being sealed to a person: before that nothing
+    /// but a machine ever opened one, so the machine overload below was the only
+    /// one there was.
+    /// </para>
+    /// <para>
+    /// <b>Opening is not the same act as moving</b>, and both exist on purpose. A
+    /// person opens a credential to read it; a person REWRAPS one to move it, and
+    /// <see cref="Rewrap"/> never decrypts the body. A caller reaching for this
+    /// when it meant to push is asking for the plaintext, which is the thing
+    /// Decision 3 keeps out of a push path.
+    /// </para>
+    /// </remarks>
+    public static string Open(SealedCredential envelope, IAgreeAsAHolder ours)
+    {
+        ArgumentNullException.ThrowIfNull(envelope);
+        ArgumentNullException.ThrowIfNull(ours);
+
+        if (Validate(envelope) is { } refused)
+        {
+            throw new CryptographicException(refused);
+        }
+
+        var contentKey = Opened(envelope, ours);
+
+        try
+        {
+            return Encoding.UTF8.GetString(
+                RunnerSeal.OpenUnder(contentKey, Convert.FromBase64String(envelope.Ciphertext)));
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(contentKey);
+        }
+    }
+
+    /// <summary>
+    /// Opens a credential with a key this process holds.
+    /// </summary>
+    /// <remarks>
+    /// <b>The MACHINE path, whose key is a file on the machine by necessity.</b> A
+    /// person's key is never typed as an <see cref="ECDiffieHellman"/> outside its
+    /// own adapter (ADR-0037), because a token-backed key is not one and that is
+    /// the line keeping hardware possible. Kept beside the holder overload rather
+    /// than folded into it so that a runner opening its own store reads as what it
+    /// is.
     /// </remarks>
     public static string Open(SealedCredential envelope, ECDiffieHellman ours)
     {

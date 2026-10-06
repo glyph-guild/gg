@@ -102,6 +102,10 @@ public class CredentialListSaysHowEachRestsTests
 
         public void Write(string locator, string secret) { }
 
+        public void Register(string locator, string secret, string holder) { }
+
+        public void TrustThisMachine(string locator, IAgreeAsAHolder person) { }
+
         public void WriteSealed(string locator, SealedCredential envelope) { }
 
         public string? Read(string locator)

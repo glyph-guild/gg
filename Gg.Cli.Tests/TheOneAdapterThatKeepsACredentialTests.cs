@@ -1,3 +1,4 @@
+using Gg.Contracts;
 using Gg.Client;
 using Gg.Cli;
 
@@ -59,6 +60,12 @@ public class TheOneAdapterThatKeepsACredentialTests
             throw new IOException("no");
 
         public void Write(string locator, string secret) =>
+            throw new ArgumentException("that locator is not one");
+
+        public void Register(string locator, string secret, string holder) =>
+            throw new ArgumentException("that locator is not one");
+
+        public void TrustThisMachine(string locator, IAgreeAsAHolder person) =>
             throw new ArgumentException("that locator is not one");
 
         public string? Read(string locator) => null;

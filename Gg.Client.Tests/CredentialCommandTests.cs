@@ -197,12 +197,37 @@ public class CredentialCommandTests
         PrincipalDisplay = "stub-principal",
     };
 
+    /// <summary>A person's key, in a temporary place, for these tests to seal to.</summary>
+    /// <remarks>
+    /// <b>NOT THE DEFAULT PATH, and that is the point.</b> A credential is sealed to
+    /// the person who registers it (ADR-0037 Decision 2), so these tests need a key
+    /// — and reading the real one would make them pass on a developer's machine and
+    /// fail on a runner that has never minted one. Measured, not feared: wiring
+    /// `Register` without this seam turned the add test green here and would have
+    /// gone red in CI.
+    /// </remarks>
+    private const string ThePassphrase = "correct horse battery staple";
+
+    private static string APersonsKey()
+    {
+        var path = Path.Combine(
+            Path.GetTempPath(), "gg-cc-" + Guid.NewGuid().ToString("N"), "person-key");
+
+        PersonKey.Create(path, ThePassphrase);
+        return path;
+    }
+
     private static CredentialCommands Build(
-        StubControlPlane stub, FileCredentialStore store, ISecretPrompt prompt, ISessionStore? sessions = null) =>
+        StubControlPlane stub,
+        FileCredentialStore store,
+        ISecretPrompt prompt,
+        ISessionStore? sessions = null,
+        string? personKeyPath = null) =>
         new(new ControlPlaneClient(new HttpClient { BaseAddress = new Uri(stub.BaseAddress) }),
             sessions ?? new HeldSessionStore(ASession()),
             store,
-            prompt);
+            prompt,
+            personKeyPath ?? APersonsKey());
 
     [Test]
     public async Task Add_prompts_for_the_secret_stores_it_locally_and_registers_a_reference()
@@ -211,8 +236,10 @@ public class CredentialCommandTests
         using var temporary = new TemporaryStore();
         var store = temporary.Store;
         var prompt = new ScriptedPrompt(TheSecret);
+        var keyPath = APersonsKey();
 
-        var result = await Build(stub, store, prompt).AddAsync("acme/widgets", [CredentialScopes.Read]);
+        var result = await Build(stub, store, prompt, personKeyPath: keyPath)
+            .AddAsync("acme/widgets", [CredentialScopes.Read]);
 
         await Assert.That(prompt.Prompts).IsNotEmpty()
             .Because("the secret is prompted for. There is no other way in.");
@@ -221,8 +248,49 @@ public class CredentialCommandTests
         await Assert.That(registered.Reference.Kind).IsEqualTo(CredentialKinds.Local);
         await Assert.That(registered.Reference.Scopes).IsEquivalentTo((string[])[CredentialScopes.Read]);
 
-        await Assert.That(store.Read(registered.Reference.Locator)).IsEqualTo(TheSecret)
-            .Because("the runner resolves the secret from the store, so the store is where it has to be.");
+        // SEALED TO THE PERSON, NOT TO THIS MACHINE, which is what slice sixty-four
+        // step 2 changed and what this assertion used to say the opposite of. It
+        // read `store.Read(...) == TheSecret` - true while every credential was
+        // sealed to the machine key, and the thing that made a passphrase on a push
+        // theatre.
+        await Assert.That(store.HoldersOf(registered.Reference.Locator))
+            .IsEquivalentTo(new[] { PersonKey.PublicHalfOf(keyPath) })
+            .Because("one holder, and it is the person who typed it: `gg credential "
+                   + "trust-this-machine` is how a machine is added, deliberately.");
+
+        await Assert.That(CredentialSeal.Open(
+                store.SealedFor(registered.Reference.Locator),
+                PersonKey.Unlock(keyPath, ThePassphrase)))
+            .IsEqualTo(TheSecret)
+            .Because("the value still has to be in the store and still has to come back out - "
+                   + "sealed to somebody means openable by them.");
+    }
+
+    [Test]
+    public async Task Add_refuses_when_there_is_no_key_to_seal_it_to()
+    {
+        // BEFORE THE SECRET IS ASKED FOR, deliberately. A person told "there is no
+        // key" after typing a real token would type it again somewhere else, which
+        // is one more place it has been.
+        await using var stub = new StubControlPlane();
+        using var temporary = new TemporaryStore();
+        var prompt = new ScriptedPrompt(TheSecret);
+
+        var absent = Path.Combine(
+            Path.GetTempPath(), "gg-nokey-" + Guid.NewGuid().ToString("N"), "person-key");
+
+        var refused = await Assert.That(async () =>
+                await Build(stub, temporary.Store, prompt, personKeyPath: absent)
+                    .AddAsync("acme/widgets", [CredentialScopes.Read]))
+            .Throws<CredentialRefusedException>();
+
+        await Assert.That(refused!.Message).Contains("gg key create")
+            .Because("the act that fixes it is one command.");
+
+        await Assert.That(prompt.Prompts).IsEmpty()
+            .Because("not even the identity question: every answer would have been thrown away, "
+                   + "and the check costs one file read. Asked: "
+                   + string.Join(" | ", prompt.Prompts));
     }
 
     [Test]

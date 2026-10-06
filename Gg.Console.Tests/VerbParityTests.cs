@@ -359,6 +359,17 @@ public class VerbParityTests
                            + "CredentialSend, because it reads a code with the echo off. Until "
                            + "then the verb is the command line's: `gg agent login --runner "
                            + "<id>`.",
+            ["CredentialTrustThisMachine"] = "RUN, from the credential actions modal on `t`, "
+                                           + "and built in the same step as the verb rather "
+                                           + "than deferred - because the credentials tab's "
+                                           + "holder column is where somebody READS that this "
+                                           + "machine cannot open a credential they registered, "
+                                           + "so it is where they would look for the act. A "
+                                           + "column that states a problem with no key beside "
+                                           + "it is evidence assembled and discarded. It takes "
+                                           + "the terminal, like CredentialSend and "
+                                           + "MintPersonKey, because it reads a passphrase with "
+                                           + "the echo off.",
             ["CredentialRemove"] = "absent, and a gap: a dead wrapper with no key. Step 5, "
                                  + "and it is the half of credential management that matters "
                                  + "when one leaks.",

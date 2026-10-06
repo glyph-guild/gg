@@ -1,3 +1,4 @@
+using Gg.Contracts;
 using Gg.Client;
 using Gg.Cli;
 using Gg.Local;
@@ -44,6 +45,10 @@ public partial class AMemberCanBeReachedAndConfiguredTests
         public void WriteSealed(string locator, Gg.Contracts.SealedCredential envelope) { }
 
         public void Write(string locator, string secret) { }
+
+        public void Register(string locator, string secret, string holder) { }
+
+        public void TrustThisMachine(string locator, IAgreeAsAHolder person) { }
 
         public string? Read(string locator) => null;
 

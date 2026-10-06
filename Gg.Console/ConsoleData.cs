@@ -454,6 +454,10 @@ public sealed class ConsoleData(
     public Task<VerbResult> CreateKeyAsync(CancellationToken cancellationToken = default) =>
         _credentials.CreateKeyAsync(cancellationToken);
 
+    public Task<VerbResult> TrustThisMachineAsync(
+        string locator, CancellationToken cancellationToken = default) =>
+        _credentials.TrustThisMachineAsync(locator, cancellationToken);
+
     /// <summary>
     /// `gg credential rm`.
     /// </summary>

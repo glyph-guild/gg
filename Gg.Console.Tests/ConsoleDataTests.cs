@@ -668,6 +668,8 @@ public class ConsoleStartTests
         public void WriteSealed(string locator, Gg.Contracts.SealedCredential envelope) { }
 
         public void Write(string locator, string secret) => throw new InvalidOperationException("no store here");
+        public void Register(string locator, string secret, string holder) => throw new InvalidOperationException("no store here");
+        public void TrustThisMachine(string locator, IAgreeAsAHolder person) => throw new InvalidOperationException("no store here");
         public string? Read(string locator) => null;
 
         // Presence without resolving; this double holds nothing to resolve.

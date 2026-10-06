@@ -1221,6 +1221,12 @@ public static class Keymap
             // their key is registered, so this is the act that has to happen before
             // the holder column can name a person at all.
             new(KeyStroke.Char('m'), Command.MintPersonKey, "mint your key"),
+
+            // THE ACT THE HOLDER COLUMN ASKS FOR. That column says who can open each
+            // credential, and on the machine a person registered one from the answer
+            // is "you, and not this machine" - which is correct and, without this
+            // key, something a person could read and not act on.
+            new(KeyStroke.Char('t'), Command.TrustThisMachine, "let this machine open one"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 

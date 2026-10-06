@@ -168,12 +168,27 @@ public sealed class CredentialCommands(
     ControlPlaneClient client,
     ISessionStore sessions,
     ICredentialStore credentials,
-    ISecretPrompt prompt)
+    ISecretPrompt prompt,
+    string? personKeyPath = null)
 {
     private readonly ControlPlaneClient _client = client;
     private readonly ISessionStore _sessions = sessions;
     private readonly ICredentialStore _credentials = credentials;
     private readonly ISecretPrompt _prompt = prompt;
+
+    /// <summary>
+    /// Where this person's key lives, when the default is not wanted.
+    /// </summary>
+    /// <remarks>
+    /// <b>A TEST THAT READS THE REAL USER'S KEY IS A TEST THAT PASSES HERE AND
+    /// FAILS IN CI</b>, which is exactly what happened the first time
+    /// <c>Register</c> was wired: the add test went green on this machine because
+    /// the developer running it had a key, and would have gone red on a runner that
+    /// does not. It is the same hazard <c>FileCredentialStore</c>'s lazy key already
+    /// names — a test that passed a temporary root and would then have written a key
+    /// into the real user's configuration directory.
+    /// </remarks>
+    private readonly string? _personKeyPath = personKeyPath;
 
     /// <summary>
     /// Prompts for the secret, stores it locally, and registers a reference.
@@ -205,6 +220,14 @@ public sealed class CredentialCommands(
         ArgumentNullException.ThrowIfNull(scopes);
 
         var token = Session();
+
+        // THE KEY IS FOUND BEFORE ANYTHING IS ASKED FOR. A credential is sealed to
+        // the person who registers it (ADR-0037 Decision 2), so with no key there is
+        // nothing to seal it to and the whole verb is going to refuse. Asking the
+        // identity question first - let alone the secret - means a person answers
+        // questions whose answers are thrown away, and the natural next move after
+        // typing a token into a process that then refused is to type it again.
+        var holder = APersonsPublicHalf();
 
         var wider = scopes.Where(s => !CredentialScopes.All.Contains(s)).ToList();
         if (wider.Count > 0)
@@ -239,9 +262,15 @@ public sealed class CredentialCommands(
             throw new CredentialRefusedException(diagnosis);
         }
 
+        // SEALED TO THE PERSON WHO REGISTERED IT, not to this machine (ADR-0037
+        // Decision 2, slice sixty-four step 2). The public half is all sealing
+        // needs, so this costs no passphrase - what costs one is MOVING the
+        // credential, which is the act that needs a human.
+        //
         // The one place a secret enters this process. It goes to the store and
         // nowhere else; nothing below this line reads it again.
-        _credentials.Write(locator, _prompt.ReadSecret($"Secret for {repo} (not echoed): "));
+        _credentials.Register(
+            locator, _prompt.ReadSecret($"Secret for {repo} (not echoed): "), holder);
 
         try
         {
@@ -414,6 +443,31 @@ public sealed class CredentialCommands(
     /// sealed to it, so "who could open this" is a question a retired key answers.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// The public half of this person's key, or a refusal naming the one command
+    /// that makes one.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asked BEFORE the secret is prompted for.</b> A person with no key who was
+    /// asked for a token first would type a real credential into a process that then
+    /// refused — and the natural next move is to type it again, which is one more
+    /// place it has been.
+    /// </remarks>
+    private string APersonsPublicHalf()
+    {
+        try
+        {
+            return PersonKey.PublicHalfOf(_personKeyPath);
+        }
+        catch (CredentialUnavailableException absent)
+        {
+            throw new CredentialRefusedException(
+                absent.Message
+              + " A credential is sealed to the person who registers it, so there has to be a key "
+              + "to seal it to before there can be a credential.");
+        }
+    }
+
     public async Task<VerbResult> ListKeysAsync(CancellationToken cancellationToken = default) =>
         new VerbResult.Keys(await _client.ListKeysAsync(Session(), cancellationToken));
 
@@ -427,6 +481,48 @@ public sealed class CredentialCommands(
     /// stalls for a reason nobody can see. The other way round leaves an unused
     /// file, which is visible, harmless and removable.
     /// </remarks>
+    /// <summary>
+    /// Makes this machine a holder of a credential sealed to the person running it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The one act in this step that costs a passphrase</b>, because it unwraps:
+    /// the content key comes out under the person's key and goes back in wrapped for
+    /// this machine. Registering needs only a public half and asks for nothing
+    /// (ADR-0037 Decision 2), so this is where a prompt means something.
+    /// </para>
+    /// <para>
+    /// <b>Nothing is sent anywhere.</b> No session, no control-plane call, no
+    /// network: who can open a credential on this disk is not a fact the control
+    /// plane holds or may hold. That is also why the result is a local record rather
+    /// than a contract type.
+    /// </para>
+    /// <para>
+    /// <b>Not async in anything it does</b>, and kept async anyway so the verb
+    /// dispatches like every other one. A method shaped differently from its
+    /// neighbours is one somebody wires differently.
+    /// </para>
+    /// </remarks>
+    public Task<VerbResult> TrustThisMachineAsync(
+        string locator, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var before = _credentials.HoldersOf(locator).Count;
+
+        var person = PersonKey.Unlock(
+            _personKeyPath,
+            passphrase: _prompt.ReadSecret(
+                "Passphrase for your key, so this machine can be given a copy (not echoed): "));
+
+        _credentials.TrustThisMachine(locator, person);
+
+        var after = _credentials.HoldersOf(locator);
+
+        return Task.FromResult<VerbResult>(new VerbResult.CredentialTrusted(
+            new VerbResult.MachineTrusted(locator, after.Count, AlreadyWas: after.Count == before)));
+    }
+
     public async Task<VerbResult> RemoveCredentialAsync(
         string credentialId, CancellationToken cancellationToken = default)
     {

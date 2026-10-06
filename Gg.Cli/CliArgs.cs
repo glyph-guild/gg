@@ -614,6 +614,26 @@ public abstract record CliAction
 
     public sealed record CredentialRemove(string CredentialId, bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>
+    /// Makes this machine a holder of a credential sealed to the person running it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Named for what it decides rather than what it does</b> (ADR-0037, slice
+    /// sixty-four step 2). The mechanism is a rewrap; the decision is that this
+    /// machine may open the credential with nobody present, which is a thing about
+    /// the machine and not about the cryptography. Somebody typing it should be
+    /// deciding the second.
+    /// </para>
+    /// <para>
+    /// <b>A LOCATOR, not a credential id.</b> The id names the registration in the
+    /// control plane; the locator names the envelope on this disk, which is what is
+    /// being rewrapped — and the control plane is not a party to this at all.
+    /// </para>
+    /// </remarks>
+    public sealed record CredentialTrustThisMachine(string Locator, bool Json)
+        : CliAction, IEmitsResult;
+
     /// <summary>A redacted diagnostics bundle.</summary>
     public sealed record Bundle(bool Json) : CliAction, IEmitsResult;
 
@@ -884,6 +904,9 @@ public static class CliArgs
         "gg key list                    the public keys this tenant's people have registered",
         "gg credential list             the references the control plane holds",
         "gg credential rm <id>          forget one, here and there",
+        "gg credential trust-this-machine <locator>",
+        "                                 let THIS machine open a credential sealed to you, so a",
+        "                                 flight here can resolve it with nobody present",
         "gg agent login --runner <id|name> [--agent <name>]",
         "                                 log a runner's agent in from here: it runs the ceremony,",
         "                                 you visit the URL and bring back the code",
@@ -1676,7 +1699,13 @@ public static class CliArgs
             // globally with its value - the same route `gg fly` takes it by. What
             // reaches here is the rest of the line.
             ["credential", "send", .. var sending] => CredentialSend(sending, runner, json),
-            ["credential", ..] => Unknown("gg credential takes add, send, list or rm."),
+            ["credential", "trust-this-machine", var trusted] =>
+                new CliAction.CredentialTrustThisMachine(trusted, json),
+            ["credential", "trust-this-machine", ..] => Unknown(
+                "gg credential trust-this-machine needs one locator, as `gg credential list` "
+              + "prints it: gg credential trust-this-machine local:acme/widgets."),
+            ["credential", ..] => Unknown(
+                "gg credential takes add, send, list, rm or trust-this-machine."),
 
             ["show"] => Unknown("gg show needs a flight: gg show GG-42, or the id."),
             ["log"] => Unknown("gg log needs a flight: gg log GG-42, or the id."),

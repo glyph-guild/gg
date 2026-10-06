@@ -88,6 +88,28 @@ public static class NominationTool
     public const string After = "after";
 
     /// <summary>
+    /// The itinerary this nomination belongs to, where it belongs to one that
+    /// already exists.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Absent mints, present revises</b> - the contract member's own rule,
+    /// and the reason this argument has to exist at all. Everything behind it
+    /// was built and tested in slice fifty-three: a pass naming an itinerary
+    /// supersedes, replaces or drops the legs standing under it, and
+    /// <c>NominationEndings.Dropped</c> exists for the one it no longer names.
+    /// None of it could be reached, because nothing offered an agent a way to
+    /// name an itinerary and nothing read one back out of a transcript.
+    /// </para>
+    /// <para>
+    /// The contract's own spelling, for <see cref="After"/>'s reason: two
+    /// spellings of one argument is a nomination an agent writes and the
+    /// platform drops.
+    /// </para>
+    /// </remarks>
+    public const string Itinerary = "itinerary";
+
+    /// <summary>
     /// The flag <c>gg runner tools</c> is started with when this flight's
     /// destination expects SEVERAL nominations, so the one thing that tells
     /// them apart is required rather than suggested.

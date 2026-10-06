@@ -1425,6 +1425,36 @@ public static class TranscriptDigest
             After = Argument(input, NominationTool.After) is { } after
                 ? Bound(after, Gg.Contracts.FlightNomination.MaxSubject, prose: false)
                 : null,
+            // WHICH PLAN THIS CALL REVISES, and reading it here is the whole of
+            // what makes revision reachable at all. The contract has carried the
+            // member since 0.245.0 and the control plane implements `absent
+            // mints, present revises` on one code path with four passing test
+            // classes behind it; the only assignment to it anywhere in this
+            // repository was a contract test, so every fact the fleet has ever
+            // shipped carried it null and no plan could be revised. Third time
+            // in this file - see `subject` in slice fifty-three and `after` in
+            // fifty-seven.
+            //
+            // CARRIED WITHOUT A SUBJECT, and this is the combination that is the
+            // POINT rather than a tolerated edge: an unplanned flight joins a
+            // plan by nominating under it and has no subject of its own, so
+            // requiring one here would make rejoining impossible. That is the
+            // opposite of `version` two members down, which refuses to invent
+            // the subject it would be a version OF.
+            //
+            // BOUNDED, AND THE BOUND IS PROVED RATHER THAN PICKED. Cutting prose
+            // loses words; cutting a REFERENCE could name a DIFFERENT itinerary
+            // and revise somebody else's plan. It cannot here, and the reason is
+            // arithmetic: a reference is `ITN-` plus digits read by int.TryParse
+            // with NumberStyles.None, which overflows past ten digits, or a Guid
+            // read by TryParseExact "D", which is exactly 36 characters. A cut at
+            // 128 is too long to be either, so a truncated value always REFUSES
+            // and never resolves - which is the honest outcome, because the pass
+            // is then told by name which value was wrong instead of silently
+            // minting a second plan.
+            Itinerary = Argument(input, NominationTool.Itinerary) is { } itinerary
+                ? Bound(itinerary, Gg.Contracts.FlightNomination.MaxWorkKind, prose: false)
+                : null,
             // ONLY BESIDE A SUBJECT. The contract refuses a version with none
             // and so does the server, and this extractor may not invent the
             // subject it would be a version OF - so it carries neither rather

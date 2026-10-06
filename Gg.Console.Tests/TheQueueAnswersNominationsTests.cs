@@ -78,10 +78,13 @@ public class TheQueueAnswersNominationsTests
         var queue = QueueOf(board);
         var at = under is { } id ? queue.ToList().FindIndex(r => r.NominationId == id) : 0;
 
+        // NO BOARD, which is the console as booted: the board tab's page is
+        // read only once somebody opens that tab. The first build passed every
+        // test here with a board in this fixture and did nothing on a real one.
         return new AppState
         {
             ActiveTab = TabId.Queue,
-            Board = board,
+            Standing = board,
             Queue = queue,
             SelectedRow = Math.Max(at, 0),
         };
@@ -148,9 +151,48 @@ public class TheQueueAnswersNominationsTests
 
         await Assert.That(opened.Mode).IsEqualTo(UiMode.BoardDetail);
         await Assert.That(Rows.StandingUnder(opened)?.NominationId).IsEqualTo(FailedTwice)
-            .Because("the modal answers the row the BOARD cursor is on, so opening it from the "
-                   + "queue has to put that cursor on the same row - or `d` declines a row "
-                   + "nobody is looking at.");
+            .Because("the modal's `d` declines whatever row it is about, so from the queue "
+                   + "that has to be the queue's row - or `d` declines a row nobody is "
+                   + "looking at.");
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('d'), KeymapContext.For(opened)))
+            .IsEqualTo(Command.DeclineNomination);
+        await Assert.That(PaneText.Modal(opened)).Contains("jdx-triage")
+            .Because("the modal has to be about the row, not a box saying there is none.");
+    }
+
+    [Test]
+    public async Task The_question_is_about_the_queues_row_even_with_a_board_tab_loaded()
+    {
+        // THE BOARD TAB'S PAGE, with its cursor on a different row. The
+        // modal opened from the queue must not answer that one.
+        var state = Queue(under: FailedTwice) with
+        {
+            Board = ABoard(RealWork()),
+            BoardSelected = 0,
+        };
+
+        var opened = Reducer.Reduce(state, Command.ShowQueueNomination);
+
+        await Assert.That(Rows.StandingUnder(opened)?.NominationId).IsEqualTo(FailedTwice);
+    }
+
+    [Test]
+    public async Task Answering_from_the_queue_closes_the_question()
+    {
+        var opened = Reducer.Reduce(Queue(under: FailedTwice), Command.ShowQueueNomination);
+        var actions = new ConsoleDoubles.Records();
+
+        var final = new ConsoleLoop(
+                new ConsoleDoubles.TypesKeys(Command.DeclineNomination),
+                new ConsoleDoubles.Writes("the credential is fixed"),
+                actions: actions)
+            .Run(opened);
+
+        await Assert.That(actions.Answered.Single().Nomination).IsEqualTo(FailedTwice.ToString());
+        await Assert.That(final.Mode).IsEqualTo(UiMode.Normal)
+            .Because("the answered row leaves the queue on the reload and the cursor lands on "
+                   + "the next one; a modal left open would be asking about a row nobody "
+                   + "chose, with both answers live on it.");
     }
 
     [Test]
@@ -187,6 +229,16 @@ public class TheQueueAnswersNominationsTests
 
         var unmarked = Reducer.Reduce(marked, Command.ToggleMark);
         await Assert.That(unmarked.Marked).IsEmpty();
+    }
+
+    [Test]
+    public async Task The_line_names_space_as_space()
+    {
+        // FOUND BY WALKING IT: the hint line read "·   mark ·", because a key
+        // was named by its character and this one's character is a blank.
+        var hints = Keymap.Hints(KeymapContext.For(Queue(under: FailedOnce)));
+
+        await Assert.That(hints).Contains("space mark");
     }
 
     [Test]

@@ -217,6 +217,18 @@ public interface IConsoleActions
     string MintPersonKey();
 
     /// <summary>
+    /// Lets this machine open a credential that is sealed to the person at the
+    /// keyboard.
+    /// </summary>
+    /// <remarks>
+    /// <b>It reads a passphrase, so it takes the terminal</b> — the same shape as
+    /// minting a key, and for the same reason: what is typed must not pass through a
+    /// type this project can hold, because <c>AppState</c> is serialized to disk
+    /// under <c>GG_STATE_DUMP</c>.
+    /// </remarks>
+    string TrustThisMachine();
+
+    /// <summary>
     /// Issues an invitation and places the link, returning WHERE it went.
     /// </summary>
     /// <remarks>

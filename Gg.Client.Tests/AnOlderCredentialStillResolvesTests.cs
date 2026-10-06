@@ -41,7 +41,13 @@ public class AnOlderCredentialStillResolvesTests
 {
     private const string Older = "local:acme/older";
     private const string Plain = "local:acme/pre-sealing";
-    private const string Minted = "agent:anthropic/claude-code";
+    // A `local:` LOCATOR, THOUGH THIS IS AN AGENT'S TOKEN, because `local:` is the
+    // only kind CredentialLocator.Validate admits - which is the asymmetry step 4
+    // of this slice exists to close. `gg credential send` takes --agent and the
+    // store cannot name one, so a locally minted agent token is kept under a
+    // repository-shaped locator today. Written here as what it is, so the day step
+    // 4 lands this line is a reminder rather than a puzzle.
+    private const string Minted = "local:anthropic/claude-code";
     private const string Secret = "ghp-not-a-real-token";
     private const string Passphrase = "correct horse battery staple";
 

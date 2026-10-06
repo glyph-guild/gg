@@ -107,6 +107,12 @@ public class ProjectionParityTests
             // under GG_STATE_DUMP and handed to a diagnostics bundle; a local
             // filesystem path has no business in either, and projecting this would
             // put one there for no reader.
+            ["CredentialTrusted"] = "not projected, by decision, and for KeyCreated's reason: "
+                                  + "it reports one act - a locator, a holder count - and the "
+                                  + "state it CHANGES is the credentials tab's holder column, "
+                                  + "which the next refresh reads from the store. Projecting the "
+                                  + "result as well would be a second copy of the same fact, and "
+                                  + "the stale one would be the one a person was looking at.",
             ["KeyCreated"] = "not projected, by decision: it reports one act - a path, a public "
                            + "half and whether registering landed - and the tenant's key LIST is "
                            + "the state, which has its own arm.",

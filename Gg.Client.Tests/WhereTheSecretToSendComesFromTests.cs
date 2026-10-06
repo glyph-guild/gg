@@ -53,6 +53,10 @@ public class WhereTheSecretToSendComesFromTests
 
         public void Write(string locator, string value) { }
 
+        public void Register(string locator, string value, string holder) { }
+
+        public void TrustThisMachine(string locator, Gg.Contracts.IAgreeAsAHolder person) { }
+
         public string? Read(string locator) => secret;
 
         // Presence without resolving: this double has one secret or none.

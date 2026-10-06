@@ -456,6 +456,42 @@ public sealed class VerbConsoleActions(
         }
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// <b>The locator is asked for as a fact, and the passphrase is not asked for
+    /// here at all.</b> `gg credential list` — and the credentials tab, which is the
+    /// screen somebody is looking at when they press this — prints locators, so one
+    /// can be typed. The passphrase is read by <c>CredentialCommands</c> with the
+    /// echo off, so no frame in this project ever holds it.
+    /// </remarks>
+    public string TrustThisMachine()
+    {
+        try
+        {
+            var locator = _prompt.ReadLine(
+                "Which credential should this machine be able to open? ").Trim();
+
+            if (locator.Length == 0)
+            {
+                return "Nothing changed: no credential was named.";
+            }
+
+            return _data.TrustThisMachineAsync(locator).GetAwaiter().GetResult()
+                       is VerbResult.CredentialTrusted trusted
+                ? VerbOutput.ToText(trusted)
+                : "Nothing changed: this machine was not made a holder.";
+        }
+        catch (Exception refused) when (
+            refused is CredentialUnavailableException or CredentialRefusedException
+                or InvalidOperationException or ArgumentException or HttpRequestException)
+        {
+            // ALREADY SENTENCES A PERSON CAN ACT ON - a wrong passphrase, a key this
+            // machine has not got, a credential sealed to somebody else - each worded
+            // by the verb or by CredentialSeal. Nothing is reworded here.
+            return refused.Message;
+        }
+    }
+
     public string ForgetCredential()
     {
         try

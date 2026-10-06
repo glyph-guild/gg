@@ -451,6 +451,12 @@ internal sealed class AConsolePlane : HttpMessageHandler
         public void Write(string locator, string secret) =>
             throw new InvalidOperationException("no store");
 
+        public void Register(string locator, string secret, string holder) =>
+            throw new InvalidOperationException("no store");
+
+        public void TrustThisMachine(string locator, IAgreeAsAHolder person) =>
+            throw new InvalidOperationException("no store");
+
         public string? Read(string locator) => null;
 
         // Presence without resolving; this double holds nothing to resolve.

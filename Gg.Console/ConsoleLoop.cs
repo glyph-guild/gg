@@ -464,6 +464,24 @@ public sealed class ConsoleLoop(
                         asked: false);
                     break;
 
+                case Command.TrustThisMachine:
+                    // THE SAME SHAPE AS MINTING, one case up: a passphrase read
+                    // inside the action so nothing here holds it, and a re-read
+                    // because what changed is on a pane. The holder column is the
+                    // state this act exists to change, so a console still saying
+                    // this machine cannot open the credential is showing the world
+                    // from before the thing the person just did.
+                    state = Reloaded(
+                        state with
+                        {
+                            LastCredential = actions is null
+                                ? "This console is not configured to trust this machine."
+                                : actions.TrustThisMachine(),
+                        },
+                        reload,
+                        asked: false);
+                    break;
+
                 case Command.StartRunner:
                     // A CHILD, so the session ends first. The runner is treated
                     // as hostile and the OS is what keeps it apart from the

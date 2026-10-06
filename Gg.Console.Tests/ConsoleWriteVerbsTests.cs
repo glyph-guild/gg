@@ -300,6 +300,8 @@ public class ConsoleWriteVerbsTests
         public void WriteSealed(string locator, Gg.Contracts.SealedCredential envelope) { }
 
         public void Write(string locator, string secret) { }
+        public void Register(string locator, string secret, string holder) { }
+        public void TrustThisMachine(string locator, IAgreeAsAHolder person) { }
         public string? Read(string locator) => null;
 
         // Presence without resolving; this double holds nothing to resolve.

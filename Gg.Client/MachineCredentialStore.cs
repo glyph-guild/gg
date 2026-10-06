@@ -141,6 +141,34 @@ public sealed class MachineCredentialStore(ICredentialStore local, KeyVaultCrede
         _local.Write(locator, secret);
     }
 
+    public void Register(string locator, string secret, string holder)
+    {
+        if (KeyVaultReference.Names(locator))
+        {
+            throw NotHere(locator);
+        }
+
+        _local.Register(locator, secret, holder);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// <b>A vault reference has no envelope to rewrap</b>, so there is nothing here
+    /// to make this machine a holder OF. The vault decides who may read it, by an
+    /// identity rather than a key — which is the whole difference the
+    /// <c>keyvault://</c> path carries, and the reason <c>Holds</c> answers false
+    /// for one rather than guessing.
+    /// </remarks>
+    public void TrustThisMachine(string locator, IAgreeAsAHolder person)
+    {
+        if (KeyVaultReference.Names(locator))
+        {
+            throw NotHere(locator);
+        }
+
+        _local.TrustThisMachine(locator, person);
+    }
+
     /// <summary>
     /// Writes an envelope to the file store, or refuses for a vault reference.
     /// </summary>

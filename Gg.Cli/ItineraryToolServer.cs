@@ -158,6 +158,25 @@ public static class ItineraryToolServer
         }
     }
 
+    /// <summary>
+    /// The answer, after leaving its text beside the draft (slice sixty-six rule 3): the mux panel
+    /// reads it there, because the panel may not call the control plane itself.
+    /// </summary>
+    private static string Kept(ItineraryDrafts drafts, string draft, string answer)
+    {
+        using var parsed = JsonDocument.Parse(answer);
+        if (parsed.RootElement.TryGetProperty("result", out var result)
+            && result.TryGetProperty("content", out var content)
+            && content.GetArrayLength() > 0
+            && content[0].TryGetProperty("text", out var text)
+            && text.GetString() is { } said)
+        {
+            drafts.KeepResult(draft, said);
+        }
+
+        return answer;
+    }
+
     /// <summary>What this server learned when it was opened.</summary>
     private sealed class Session
     {
@@ -179,8 +198,8 @@ public static class ItineraryToolServer
         {
             "initialize" => Initialized(id, message, session),
             "tools/list" => Listed(id, menu.Offered),
-            "tools/call" => await CalledAsync(
-                id, message, drafts, draft, menu, reads, proposals, session, cancellationToken),
+            "tools/call" => Kept(drafts, draft, await CalledAsync(
+                id, message, drafts, draft, menu, reads, proposals, session, cancellationToken)),
             _ => Error(id, -32601,
                 $"'{method}' is not a method this server has. It has initialize, tools/list "
               + "and tools/call."),

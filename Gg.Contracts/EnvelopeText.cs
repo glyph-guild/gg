@@ -291,6 +291,81 @@ public static class EnvelopeText
     /// a review practice gets abandoned. So an absent bound, an absent cap and
     /// absent active hours emit nothing at all.
     /// </remarks>
+    public static string Render(ItineraryDraft draft)
+    {
+        ArgumentNullException.ThrowIfNull(draft);
+
+        return RenderItinerary(draft.Planner, draft.Intent, draft.Legs);
+    }
+
+    /// <summary>
+    /// A plan file, finished or not: the form <c>gg itinerary check</c> reads and a drafting
+    /// tool server keeps (slice sixty-three).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The intent is always a block</b>, never the one-line sentence form a person may type.
+    /// A block carries every kind the same way, and a sentence with a line break in it would
+    /// otherwise be the one shape that reads back differently from how it was written.
+    /// </para>
+    /// <para>
+    /// <b>An absent member writes nothing</b>, for the reason the watch emitter gives: a line
+    /// nobody wrote is a diff nobody made. An unfinished draft writes <c>legs: []</c> and no
+    /// intent at all, and <see cref="EnvelopeYaml.ReadItinerary"/> reads that back as it was.
+    /// </para>
+    /// </remarks>
+    public static string RenderItinerary(
+        string planner, FlightIntent? intent, IReadOnlyList<FlightNomination> legs)
+    {
+        ArgumentNullException.ThrowIfNull(planner);
+        ArgumentNullException.ThrowIfNull(legs);
+
+        var text = new StringBuilder();
+        text.Append($"planner: {Scalar(planner)}\n");
+
+        if (intent is not null)
+        {
+            text.Append("intent:\n");
+            Line(text, Indent, "text", intent.Text);
+            Line(text, Indent, "uri", intent.Uri);
+            Line(text, Indent, "provider", intent.Provider);
+            Line(text, Indent, "id", intent.Id);
+            Line(text, Indent, "repository", intent.Repository);
+            Line(text, Indent, "path", intent.Path);
+            Line(text, Indent, "ref", intent.Ref);
+        }
+
+        if (legs.Count == 0)
+        {
+            text.Append("legs: []\n");
+            return text.ToString();
+        }
+
+        text.Append("legs:\n");
+        foreach (var leg in legs)
+        {
+            // THE FIRST KEY CARRIES THE DASH, and every key after it sits under it.
+            text.Append($"{Indent}- subject: {Scalar(leg.Subject ?? string.Empty)}\n");
+            var under = Indent + Indent;
+            Line(text, under, "work-kind", leg.WorkKind);
+            Line(text, under, "reason", leg.Reason);
+            Line(text, under, "after", leg.After);
+            Line(text, under, "repository", leg.Repository);
+            Line(text, under, "environment", leg.Environment);
+            Line(text, under, "note", leg.Note);
+        }
+
+        return text.ToString();
+    }
+
+    private static void Line(StringBuilder text, string indent, string key, string? value)
+    {
+        if (value is not null)
+        {
+            text.Append($"{indent}{key}: {Scalar(value)}\n");
+        }
+    }
+
     public static string Render(WatchDocument watch)
     {
         ArgumentNullException.ThrowIfNull(watch);

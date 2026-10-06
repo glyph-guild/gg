@@ -1,4 +1,5 @@
 using Gg.Contracts;
+using Gg.Contracts.Authoring;
 
 namespace Gg.Client.Tests;
 

@@ -228,6 +228,22 @@ public sealed record LearningParse
 /// <b>Not a wire type.</b> The draft it carries is; this is the parse around it, the same shape
 /// the other five results take - the thing read, or why it could not be.
 /// </remarks>
+public sealed record ItineraryRead
+{
+    /// <summary>The planning kind the file names, or the default it was read with.</summary>
+    public required string Planner { get; init; }
+
+    /// <summary>What the plan is about, or null when the file does not say yet.</summary>
+    public FlightIntent? Intent { get; init; }
+
+    /// <summary>The legs so far, in the file's order. Empty, never null.</summary>
+    public required IReadOnlyList<FlightNomination> Legs { get; init; }
+
+    /// <summary>Why the file could not be read, or null when it could.</summary>
+    public string? Diagnosis { get; init; }
+}
+
+/// <summary>A plan file judged: the draft, or why it is refused.</summary>
 public sealed record ItineraryParse
 {
     /// <summary>The draft, or null when there is a diagnosis.</summary>
@@ -427,6 +443,13 @@ public static class EnvelopeYaml
                           + $"column {malformed.Start.Column}: {malformed.Message}",
             };
         }
+        catch (InvalidOperationException broken)
+        {
+            // THE SCANNER'S OWN STATE ERROR, which YamlDotNet throws rather than a YamlException
+            // on some unclosed flow collections (`[unclosed` followed by a plain line). A file
+            // somebody typed is answered, never crashed on.
+            return new ItineraryParse { Diagnosis = Unscannable(broken) };
+        }
 
         try
         {
@@ -434,42 +457,7 @@ public static class EnvelopeYaml
 
             Closed(root, "planner", "intent", "legs");
 
-            var legs = Require(root, "legs");
-
-            if (legs is not SeqNode sequence)
-            {
-                throw new EnvelopeSyntaxException(
-                    "'legs' should be a list, each leg a block with its own 'subject', "
-                  + $"'work-kind' and 'reason'; this is {Shape(legs)}.");
-            }
-
-            var nominations = new List<FlightNomination>(sequence.Items.Count);
-
-            foreach (var (item, at) in sequence.Items.Select((item, at) => (item, at)))
-            {
-                if (item is not MapNode leg)
-                {
-                    throw new EnvelopeSyntaxException(
-                        "'legs' should be a list of blocks, each with its own 'subject', "
-                      + $"'work-kind' and 'reason'; leg {at + 1} is {Shape(item)}.");
-                }
-
-                Closed(leg, "subject", "work-kind", "reason", "after", "repository", "environment", "note");
-
-                // EMPTY RATHER THAN NULL for the two a nomination requires, so a leg that
-                // leaves one out is refused by the nomination's own sentence - which says
-                // what the field is FOR - instead of by a parser that only knows it is missing.
-                nominations.Add(new FlightNomination
-                {
-                    WorkKind = Optional(leg, "work-kind") ?? string.Empty,
-                    Reason = Optional(leg, "reason") ?? string.Empty,
-                    Subject = Optional(leg, "subject"),
-                    After = Optional(leg, "after"),
-                    Repository = Optional(leg, "repository"),
-                    Environment = Optional(leg, "environment"),
-                    Note = Optional(leg, "note"),
-                });
-            }
+            var nominations = ItineraryLegs(Require(root, "legs"));
 
             var draft = new ItineraryDraft
             {
@@ -486,6 +474,113 @@ public static class EnvelopeYaml
         {
             return new ItineraryParse { Diagnosis = refusal.Message };
         }
+    }
+
+    /// <summary>
+    /// A plan file read for its shape only: what it says, with nothing judged but its syntax.
+    /// </summary>
+    /// <remarks>
+    /// <b>For a draft being built</b> (slice sixty-three). <see cref="ParseItinerary"/> refuses a
+    /// plan with no intent or no legs, rightly, because somebody is about to check it. A draft
+    /// in progress is allowed to be unfinished, and the tool server says what is missing rather
+    /// than refusing to hold it. The same keys and the same leg reading, so a draft that is
+    /// finished is exactly a plan.
+    /// </remarks>
+    public static ItineraryRead ReadItinerary(string text, string defaultPlanner)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return new ItineraryRead { Planner = defaultPlanner, Legs = [] };
+        }
+
+        Node document;
+        try
+        {
+            document = Read(text);
+        }
+        catch (EnvelopeSyntaxException refusal)
+        {
+            return new ItineraryRead { Planner = defaultPlanner, Legs = [], Diagnosis = refusal.Message };
+        }
+        catch (YamlException malformed)
+        {
+            return new ItineraryRead
+            {
+                Planner = defaultPlanner,
+                Legs = [],
+                Diagnosis = $"This is not readable as YAML at line {malformed.Start.Line}, "
+                          + $"column {malformed.Start.Column}: {malformed.Message}",
+            };
+        }
+        catch (InvalidOperationException broken)
+        {
+            return new ItineraryRead { Planner = defaultPlanner, Legs = [], Diagnosis = Unscannable(broken) };
+        }
+
+        try
+        {
+            var root = RequireMap(document, "");
+
+            Closed(root, "planner", "intent", "legs");
+
+            return new ItineraryRead
+            {
+                Planner = Optional(root, "planner") ?? defaultPlanner,
+                Intent = root.Entries.TryGetValue("intent", out var intent) ? ItineraryIntent(intent) : null,
+                Legs = root.Entries.TryGetValue("legs", out var legs) ? ItineraryLegs(legs) : [],
+            };
+        }
+        catch (EnvelopeSyntaxException refusal)
+        {
+            return new ItineraryRead { Planner = defaultPlanner, Legs = [], Diagnosis = refusal.Message };
+        }
+    }
+
+    private static string Unscannable(InvalidOperationException broken) =>
+        "This is not readable as YAML: the scanner stopped partway, which is usually a '[' or "
+      + $"'{{' that is never closed. ({broken.Message})";
+
+    /// <summary>A plan's legs, each a nomination, read the one way both readers read them.</summary>
+    private static List<FlightNomination> ItineraryLegs(Node legs)
+    {
+        if (legs is not SeqNode sequence)
+        {
+            throw new EnvelopeSyntaxException(
+                "'legs' should be a list, each leg a block with its own 'subject', "
+              + $"'work-kind' and 'reason'; this is {Shape(legs)}.");
+        }
+
+        var nominations = new List<FlightNomination>(sequence.Items.Count);
+
+        foreach (var (item, at) in sequence.Items.Select((item, at) => (item, at)))
+        {
+            if (item is not MapNode leg)
+            {
+                throw new EnvelopeSyntaxException(
+                    "'legs' should be a list of blocks, each with its own 'subject', "
+                  + $"'work-kind' and 'reason'; leg {at + 1} is {Shape(item)}.");
+            }
+
+            Closed(leg, "subject", "work-kind", "reason", "after", "repository", "environment", "note");
+
+            // EMPTY RATHER THAN NULL for the two a nomination requires, so a leg that
+            // leaves one out is refused by the nomination's own sentence - which says
+            // what the field is FOR - instead of by a parser that only knows it is missing.
+            nominations.Add(new FlightNomination
+            {
+                WorkKind = Optional(leg, "work-kind") ?? string.Empty,
+                Reason = Optional(leg, "reason") ?? string.Empty,
+                Subject = Optional(leg, "subject"),
+                After = Optional(leg, "after"),
+                Repository = Optional(leg, "repository"),
+                Environment = Optional(leg, "environment"),
+                Note = Optional(leg, "note"),
+            });
+        }
+
+        return nominations;
     }
 
     /// <summary>

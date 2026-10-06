@@ -1,7 +1,25 @@
 name: CI
 
+# MERGE_GROUP BESIDE PULL_REQUEST, because a queue asks a different ref the same
+# question. A merge queue builds main-plus-the-entries on its own
+# `gh-readonly-queue/` ref and waits for the required check THERE; a workflow
+# that never fires on `merge_group` never answers, so every entry sits in the
+# queue until it is timed out and thrown back. The trigger is the whole of what
+# enabling a queue costs this file.
+#
+# AND THAT IS A PROPERTY OF THIS FILE RATHER THAN LUCK. No job here reads
+# `github.event.pull_request`, so each one is already event-agnostic, and the
+# aggregating `CI` job - the one context branch protection requires - reports
+# under that name on whichever event ran it. A workflow that diffs
+# `pull_request.base.sha` against `head.sha` does not have this property: both
+# are empty on a merge_group event.
+#
+# PUSH STAYS. main-failed.yml watches `workflow_run` on `branches: [main]`, and
+# a queue's run is on the readonly-queue ref rather than on main - so without
+# the push trigger here, nothing would be watching main at all.
 on:
   pull_request:
+  merge_group:
   push:
     branches: [main]
 

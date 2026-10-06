@@ -319,8 +319,27 @@ public sealed class CredentialCommands(
     /// the person was told nothing about.
     /// </para>
     /// </remarks>
-    public async Task<VerbResult> CreateKeyAsync(CancellationToken cancellationToken = default)
+    /// <param name="keyPath">
+    /// Where to write it, or null for this machine's usual place. A seam for tests,
+    /// so asserting that NO key was written does not mean writing one over the
+    /// developer's own.
+    /// </param>
+    public async Task<VerbResult> CreateKeyAsync(
+        CancellationToken cancellationToken = default, string? keyPath = null)
     {
+        // THE SESSION FIRST, WHICH IS AddAsync's RULE AND THIS VERB BROKE IT.
+        // "The session is checked FIRST, before the prompt, because asking somebody
+        // for a token and then telling them to log in has taken a secret into a
+        // process for nothing."
+        //
+        // AND MINTING DID WORSE THAN WASTE A PROMPT. It wrote the key before
+        // finding out, and an unregistered key is a dead end: this verb refuses to
+        // overwrite one and nothing else registers a public half, so the only way
+        // forward was deleting it - the very act that refusal exists to prevent.
+        // Checked here rather than inside the registration, which runs after the
+        // key is on disk and cannot unwrite it.
+        _ = Session();
+
         var passphrase = _prompt.ReadSecret("Passphrase for this key (not echoed): ");
 
         if (string.IsNullOrEmpty(passphrase))
@@ -336,10 +355,10 @@ public sealed class CredentialCommands(
               + "passphrase, which is why it asks twice.");
         }
 
-        var key = PersonKey.Create(passphrase: passphrase);
+        var key = PersonKey.Create(path: keyPath, passphrase: passphrase);
 
         return new VerbResult.KeyCreated(new VerbResult.KeyMinted(
-            At: PersonKey.DefaultPath(),
+            At: keyPath ?? PersonKey.DefaultPath(),
             PublicKey: key.PublicKey,
             Registration: await RegisteredAsync(key.PublicKey, cancellationToken)));
     }

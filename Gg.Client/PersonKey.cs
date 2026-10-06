@@ -123,9 +123,21 @@ public sealed class PersonKey
 
         if (File.Exists(at))
         {
+            // AND IT SAYS WHAT TO DO, because without that it is a dead end. A key
+            // minted while nobody was signed in cannot be registered afterwards -
+            // this verb is the only thing that registers a public half and it
+            // refuses to run - so the only route forward was the destructive act
+            // this sentence warns against, with no hint that it was allowed.
+            //
+            // The condition is stated rather than the remedy assumed: whether
+            // anything is sealed to this key is a question `gg credential list`
+            // answers, and a sentence that said "just delete it" would be advice
+            // about a tenant it cannot see.
             throw new InvalidOperationException(
                 $"There is already a key at '{at}'. Replacing it would make every credential "
-              + "sealed to it unopenable, and gg keeps no copy that could bring one back.");
+              + "sealed to it unopenable, and gg keeps no copy that could bring one back. "
+              + "If nothing is sealed to it - `gg credential list` names who can open each one "
+              + "- then removing that file and running this again is safe.");
         }
 
         var made = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);

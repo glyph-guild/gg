@@ -114,7 +114,7 @@ public class WhereTheSecretToSendComesFromTests
         var found = SendACredential.EnvelopeFor(store, key, "local:acme/widgets", prompt, _ => { });
 
         await Assert.That(found).IsNotNull();
-        await Assert.That(CredentialSeal.Open(found!, key.ForOpeningWhatThisMachineSealed()))
+        await Assert.That(CredentialSeal.Open(found!.Envelope, found.Opener))
             .IsEqualTo(Stored);
         await Assert.That(prompt.Asked).IsEqualTo(0)
             .Because("asking for a token gg already holds sends somebody to go and find it "
@@ -132,7 +132,7 @@ public class WhereTheSecretToSendComesFromTests
         var found = SendACredential.EnvelopeFor(store, key, "local:acme/widgets", prompt, _ => { });
 
         await Assert.That(found).IsNotNull();
-        await Assert.That(CredentialSeal.Open(found!, key.ForOpeningWhatThisMachineSealed()))
+        await Assert.That(CredentialSeal.Open(found!.Envelope, found.Opener))
             .IsEqualTo(Typed);
         await Assert.That(prompt.Asked).IsEqualTo(1)
             .Because("a credential only a pool member needs was never added here, and "
@@ -161,7 +161,7 @@ public class WhereTheSecretToSendComesFromTests
                 .Because("both arms answer with an envelope here; a null would make the next "
                        + "assertion pass by having nothing to look for.");
 
-            var value = CredentialSeal.Open(found!, key.ForOpeningWhatThisMachineSealed());
+            var value = CredentialSeal.Open(found!.Envelope, found.Opener);
 
             await Assert.That(all).DoesNotContain(value, StringComparison.Ordinal);
             await Assert.That(all).Contains("local:acme/widgets", StringComparison.Ordinal)

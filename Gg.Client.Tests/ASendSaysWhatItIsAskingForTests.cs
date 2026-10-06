@@ -92,8 +92,12 @@ public class ASendSaysWhatItIsAskingForTests
             asking: "Long-lived token for claude, from `claude setup-token` on this machine (not echoed): ");
 
         await Assert.That(envelope).IsNotNull();
+        // OPENED WITH THE OPENER EnvelopeFor HANDED BACK, which is the pair that has
+        // to agree (slice sixty-four step 3). A typed value is sealed to this machine
+        // in memory, so the opener here is the machine - and asserting it through the
+        // returned opener rather than the key is what would catch the two drifting.
         await Assert.That(Gg.Contracts.CredentialSeal.Open(
-                envelope!, key.ForOpeningWhatThisMachineSealed()))
+                envelope!.Envelope, envelope.Opener))
             .IsEqualTo(Typed);
         await Assert.That(prompt.Asked).Contains("claude setup-token")
             .Because("the person has to know which command mints the thing they are being "

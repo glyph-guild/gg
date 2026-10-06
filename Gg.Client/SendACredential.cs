@@ -176,9 +176,27 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
     /// is said about it do not.
     /// </para>
     /// </remarks>
-    public static SealedCredential? EnvelopeFor(
+    /// <summary>
+    /// A credential ready to move, and the holder that can open it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>TOGETHER, because they have to agree.</b> A rewrap unwraps the content key
+    /// under <see cref="Opener"/> and wraps it for the recipient, so an envelope
+    /// handed back with the wrong opener fails at the push — on the SENDER's machine
+    /// if you are lucky, and otherwise producing something that opens nowhere. Two
+    /// returns that a caller pairs up by hand is two chances to pair them wrongly.
+    /// </para>
+    /// <para>
+    /// <b>The opener is a holder, not a key</b> (ADR-0037, slice sixty-four step 1),
+    /// which is why a person's can be one at all.
+    /// </para>
+    /// </remarks>
+    public sealed record ToSend(SealedCredential Envelope, IAgreeAsAHolder Opener);
+
+    public static ToSend? EnvelopeFor(
         FileCredentialStore store, MachineKey key, string locator, ISecretPrompt prompt,
-        Action<string>? saying, string? asking = null)
+        Action<string>? saying, string? asking = null, string? personKeyPath = null)
     {
         ArgumentNullException.ThrowIfNull(key);
 
@@ -194,6 +212,7 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
         // as a sealed entry is the ordinary case and the one that costs nothing
         // in plaintext: SealedFor deserialises and does not open.
         var held = false;
+        SealedCredential? mine = null;
 
         try
         {
@@ -201,18 +220,22 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
 
             if (held)
             {
-                // READ FIRST, THEN SAY. Saying it before the read promises
-                // something that can still fail - and on a credential directory
-                // carried from another machine it DID, leaving two contradictory
-                // lines in a row. The read also reseals a plaintext entry in
-                // passing, which is what lets SealedFor answer for a machine
-                // that has not migrated yet. The value is dropped immediately.
-                store.Read(locator);
+                // A PLAINTEXT ENTRY IS RESEALED FIRST, which is what lets
+                // SealedFor answer for a machine that has not migrated yet. Read
+                // is what performs that, and the value is dropped immediately.
+                //
+                // ONLY FOR A PLAINTEXT ONE, THOUGH, and that is the line step 2
+                // changed. Read used to be called unconditionally; after step 2 it
+                // THROWS for a credential sealed to a person, which is the
+                // ordinary state of one on the machine that registered it - so the
+                // old call made the normal case look like a failure and fell
+                // through to "type the value instead".
+                if (store.RestingOf(locator) == CredentialResting.Plaintext)
+                {
+                    store.Read(locator);
+                }
 
-                // THE LOCATOR, NEVER THE VALUE. Which credential is about to be
-                // sent is what a person checks before sending it.
-                say($"sending the credential this machine holds for {locator}");
-                return store.SealedFor(locator);
+                mine = store.SealedFor(locator);
             }
         }
         catch (ArgumentException)
@@ -230,6 +253,23 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
             // seal a second copy beside one that was never the problem.
         }
 
+        // THE OPENER IS CHOSEN OUTSIDE THAT TRY, DELIBERATELY. It can refuse for a
+        // reason a person must see - they typed their passphrase wrongly - and a
+        // CredentialUnavailableException caught by the block above would turn that
+        // into "type the value instead", which reads as gg losing the credential.
+        // Null means something different and quieter: nothing HERE can open it, so
+        // the offer below is the honest next move.
+        if (held && mine is not null)
+        {
+            if (OpenerFor(store, key, locator, mine, prompt, personKeyPath, say) is { } opener)
+            {
+                // THE LOCATOR, NEVER THE VALUE. Which credential is about to be
+                // sent is what a person checks before sending it.
+                say($"sending the credential this machine holds for {locator}");
+                return new ToSend(mine, opener);
+            }
+        }
+
         say(held
             ? $"this machine holds a credential for {locator} and cannot open it - it was sealed "
             + "somewhere else. Type the value to send it anyway, or push it here from the machine "
@@ -242,9 +282,93 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
         // credential only a pool member needs should not have to keep a copy on
         // their laptop to do it - the file store's own remark about why a prompt
         // exists at all.
+        // SEALED TO THIS MACHINE AND OPENED BY IT, with no passphrase anywhere near
+        // it. Somebody who typed the value HAS the value; a passphrase in front of
+        // that would guard a secret the person just supplied.
         return typed is { Length: > 0 }
-            ? CredentialSeal.Seal(typed, [key.PublicKey])
+            ? new ToSend(CredentialSeal.Seal(typed, [key.PublicKey]), key)
             : null;
+    }
+
+    /// <summary>
+    /// Who opens the credential about to be moved: this machine if it is a holder,
+    /// otherwise the person at the keyboard.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>WHO HOLDS IT DECIDES, not where the envelope came from.</b> "A stored
+    /// credential costs a passphrase, a typed one does not" sounds right and is
+    /// wrong: a credential sealed to THIS MACHINE — one pushed here, one from before
+    /// step 2, one this machine minted for its own agent — is already openable by the
+    /// machine with nobody present, so a passphrase to move it would be asking for a
+    /// control the machine key renders void. It also keeps S64.2-05's no-flag-day
+    /// promise true of sends: everything in the field pushes exactly as it does today.
+    /// </para>
+    /// <para>
+    /// <b>And it means a trusted machine can push onward without one</b>, which is
+    /// what trusting it bought and the price Decision 5 names: <i>"a push to a host is
+    /// a decision about that host"</i>.
+    /// </para>
+    /// <para>
+    /// <b>Two refusals, in this order, and NEITHER prompts first.</b> No key at all
+    /// sends somebody to <c>gg key create</c>; a key that is not a holder sends them
+    /// to ask for a push. Asking for a passphrase before either would have a person
+    /// type one, be refused, and reasonably conclude they typed it wrong. Reading the
+    /// public half answers both questions and unlocks nothing, so the prompt comes
+    /// last.
+    /// </para>
+    /// <para>
+    /// <b>No fallback to the machine key.</b> It would work on every machine, refuse
+    /// nobody, be indistinguishable from the behaviour step 2 removed — and produce an
+    /// envelope that opens nowhere, because a machine that is not a holder cannot
+    /// unwrap the content key either.
+    /// </para>
+    /// </remarks>
+    private static IAgreeAsAHolder? OpenerFor(
+        FileCredentialStore store,
+        MachineKey key,
+        string locator,
+        SealedCredential envelope,
+        ISecretPrompt prompt,
+        string? personKeyPath,
+        Action<string> say)
+    {
+        if (store.HoldersOf(locator).Contains(key.PublicKey, StringComparer.Ordinal))
+        {
+            return key;
+        }
+
+        // NO KEY ON THIS MACHINE IS THE SAME SITUATION as a key that holds nothing:
+        // the remedy is a push or a typed value, never a new key. Read rather than
+        // unlocked, so finding out costs no passphrase.
+        string mine;
+
+        try
+        {
+            mine = PersonKey.PublicHalfOf(personKeyPath);
+        }
+        catch (CredentialUnavailableException)
+        {
+            return null;
+        }
+
+        if (SealedCredential.WrappedFor(envelope, mine) is null)
+        {
+            // NOBODY HERE HOLDS IT, which is not an error and not a reason to mint a
+            // key. A NEW key cannot open a credential sealed to an old one, so
+            // `gg key create` would be advice that does not work - and on a machine
+            // that already has a key it would invite somebody to overwrite the one
+            // their other credentials are sealed to. The caller's existing offer -
+            // type the value, or be pushed a copy - names the two things that do
+            // work, so this hands back nothing and lets it be said.
+            return null;
+        }
+
+        say($"{locator} is sealed to you rather than to this machine, so moving it needs your key");
+
+        return PersonKey.Unlock(
+            personKeyPath,
+            prompt.ReadSecret("Passphrase for your key, to move this credential (not echoed): "));
     }
 
     /// <summary>Introduces, reaches, and hands the credential over.</summary>

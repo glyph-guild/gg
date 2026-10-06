@@ -2333,8 +2333,12 @@ static string SendFromTheConsole(string runnerId, string? chosen)
             session.SessionToken,
             runnerId,
             locator,
-            envelope,
-            machineKey,
+            // THE ENVELOPE AND THE HOLDER THAT OPENS IT, which EnvelopeFor decides
+            // together: this machine if it is a holder, otherwise the person whose
+            // passphrase it just read (ADR-0037 Decision 2, slice sixty-four step 3).
+            // Passing machineKey here was the whole of what made a push cost nothing.
+            envelope.Envelope,
+            envelope.Opener,
             new PinnedRunnerKeys(),
             DateTimeOffset.UtcNow,
             saying: line => Console.WriteLine($"gg: {line}"))
@@ -2511,8 +2515,12 @@ static async Task<int> SendUnderLocatorAsync(string runnerId, string locator, st
             session.SessionToken,
             runnerId,
             locator,
-            envelope,
-            machineKey,
+            // THE ENVELOPE AND THE HOLDER THAT OPENS IT, which EnvelopeFor decides
+            // together: this machine if it is a holder, otherwise the person whose
+            // passphrase it just read (ADR-0037 Decision 2, slice sixty-four step 3).
+            // Passing machineKey here was the whole of what made a push cost nothing.
+            envelope.Envelope,
+            envelope.Opener,
             new PinnedRunnerKeys(),
             DateTimeOffset.UtcNow,
             // TO STDERR, because it is progress rather than output. The connect

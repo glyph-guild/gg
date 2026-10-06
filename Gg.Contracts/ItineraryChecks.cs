@@ -266,3 +266,59 @@ public sealed record ItineraryCheck
         return null;
     }
 }
+
+/// <summary>
+/// What a planner's destination would accept for a leg: the planning tool server's three menus.
+/// Slice sixty-three.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Answered from admission's own bounds</b>, so a menu never offers what the check then
+/// refuses: the destination's <c>opens</c>, the registered repositories its repository bound
+/// permits, and the charted environments its environment bound permits.
+/// </para>
+/// <para>
+/// <b>A read of its own</b> rather than an empty check, because the check refuses a draft with
+/// no legs and the menu is needed before the first leg exists.
+/// </para>
+/// </remarks>
+[PinnedId("6a724446-a699-43d9-831f-e92090a2d2bf")]
+public sealed record ItineraryMenu
+{
+    /// <summary>The planning kind the menu is for.</summary>
+    public required string Planner { get; init; }
+
+    /// <summary>The planner's flight destination, or null when it composes none.</summary>
+    public string? DestinationId { get; init; }
+
+    /// <summary>The work kinds a leg may name: the destination's <c>opens</c>.</summary>
+    public required IReadOnlyList<string> WorkKinds { get; init; }
+
+    /// <summary>The registered repositories, by name, a leg may name.</summary>
+    public required IReadOnlyList<string> Repositories { get; init; }
+
+    /// <summary>The charted environments a leg may name.</summary>
+    public required IReadOnlyList<string> Environments { get; init; }
+
+    /// <summary>
+    /// Admission's sentence when the planner can open nothing - no destination, or one that
+    /// opens no kind - or null when it can. A refusing menu offers nothing.
+    /// </summary>
+    public string? Refused { get; init; }
+
+    /// <summary>The diagnosis, or null when the menu is one a client can offer from.</summary>
+    public static string? Validate(ItineraryMenu menu)
+    {
+        ArgumentNullException.ThrowIfNull(menu);
+
+        if (menu.Refused is { Length: > 0 }
+            && (menu.WorkKinds is { Count: > 0 } || menu.Repositories is { Count: > 0 }
+                || menu.Environments is { Count: > 0 }))
+        {
+            return "A menu that refuses offers nothing, and this one both refuses and offers - "
+                 + "a client could offer a kind the control plane just said nothing opens.";
+        }
+
+        return null;
+    }
+}

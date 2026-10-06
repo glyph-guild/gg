@@ -122,6 +122,7 @@ public static class Vocabulary
         typeof(PrincipalKeyList),
         typeof(ItineraryDraft),
         typeof(ItineraryCheck),
+        typeof(ItineraryMenu),
         typeof(LegCheck),
         typeof(LegGate),
         typeof(PassedOverRequirement),

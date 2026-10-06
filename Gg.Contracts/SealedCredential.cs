@@ -290,9 +290,20 @@ public static class CredentialSeal
     /// laptop that sent it. Decision 8's second holder is this same verb pointed
     /// at a person.
     /// </para>
+    /// <para>
+    /// <b>It takes an AGREEMENT, not a key, and that is Decision 2 becoming
+    /// reachable.</b> While this demanded an <see cref="ECDiffieHellman"/> it
+    /// could only be performed by a key in this process's memory, so a person's
+    /// key — which never leaves its adapter, because a card-backed one cannot —
+    /// was shut out of the one act the ADR says belongs to it, and slice
+    /// fifty-nine reached for the machine key instead. The machine still performs
+    /// a rewrap: its key wears <see cref="IAgreeAsAHolder"/> too, which is what
+    /// makes Decision 5's host-to-member recursion the same verb rather than a
+    /// second path.
+    /// </para>
     /// </remarks>
     public static SealedCredential Rewrap(
-        SealedCredential envelope, ECDiffieHellman ours, string holder)
+        SealedCredential envelope, IAgreeAsAHolder ours, string holder)
     {
         ArgumentNullException.ThrowIfNull(envelope);
         ArgumentNullException.ThrowIfNull(ours);
@@ -354,7 +365,7 @@ public static class CredentialSeal
             throw new CryptographicException(refused);
         }
 
-        var contentKey = Opened(envelope, ours);
+        var contentKey = Opened(envelope, RunnerSeal.AsAHolder(ours));
 
         try
         {
@@ -415,9 +426,9 @@ public static class CredentialSeal
     /// wrapped key is mine" to drift, and the one that drifted would produce an
     /// envelope that opens for the sender and not the recipient.
     /// </remarks>
-    private static byte[] Opened(SealedCredential envelope, ECDiffieHellman ours)
+    private static byte[] Opened(SealedCredential envelope, IAgreeAsAHolder ours)
     {
-        var holder = Convert.ToBase64String(ours.PublicKey.ExportSubjectPublicKeyInfo());
+        var holder = ours.PublicKey;
 
         return SealedCredential.WrappedFor(envelope, holder) is { } mine
             ? RunnerSeal.OpenWith(ours, Convert.FromBase64String(mine.Wrapped), WrapLabel)

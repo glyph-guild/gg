@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Gg.Contracts;
 
 namespace Gg.Client;
 
@@ -33,7 +34,7 @@ namespace Gg.Client;
 /// stolen disk.
 /// </para>
 /// </remarks>
-public sealed class MachineKey
+public sealed class MachineKey : IAgreeAsAHolder
 {
     private readonly ECDiffieHellman _key;
 
@@ -75,4 +76,32 @@ public sealed class MachineKey
     /// distinction is only coherent while these two stay separate.
     /// </remarks>
     public ECDiffieHellman ForOpeningWhatThisMachineSealed() => _key;
+
+    /// <summary>
+    /// Derives the labelled key this machine shares with another holder, and
+    /// returns the bytes.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The same seam a person's key offers, which is the point</b> (ADR-0037,
+    /// slice sixty-four step 1). A rewrap asks a holder to perform its own half of
+    /// the agreement; this machine performs it with a file, a person may one day
+    /// perform it with a card, and the sealing code cannot tell them apart. A
+    /// second overload taking the key would leave every existing caller on the old
+    /// path, so there is one.
+    /// </para>
+    /// <para>
+    /// <b>This does NOT replace <see cref="ForOpeningWhatThisMachineSealed"/>.</b>
+    /// That one stays because a machine opening its own store is a different act
+    /// from a machine moving a credential on, and only the second needs to be
+    /// performable by something that is not a key.
+    /// </para>
+    /// </remarks>
+    public byte[] AgreeWith(string theirPublicKey, string label)
+    {
+        using var peer = ECDiffieHellman.Create();
+        peer.ImportSubjectPublicKeyInfo(Convert.FromBase64String(theirPublicKey), out _);
+
+        return RunnerSeal.AgreementOver(_key.DeriveRawSecretAgreement(peer.PublicKey), label);
+    }
 }

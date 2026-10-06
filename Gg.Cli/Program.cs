@@ -2332,7 +2332,7 @@ static string SendFromTheConsole(string runnerId, string? chosen)
             runnerId,
             locator,
             envelope,
-            machineKey.ForOpeningWhatThisMachineSealed(),
+            machineKey,
             new PinnedRunnerKeys(),
             DateTimeOffset.UtcNow,
             saying: line => Console.WriteLine($"gg: {line}"))
@@ -2510,7 +2510,7 @@ static async Task<int> SendUnderLocatorAsync(string runnerId, string locator, st
             runnerId,
             locator,
             envelope,
-            machineKey.ForOpeningWhatThisMachineSealed(),
+            machineKey,
             new PinnedRunnerKeys(),
             DateTimeOffset.UtcNow,
             // TO STDERR, because it is progress rather than output. The connect

@@ -165,12 +165,74 @@ public static class RunnerSeal
             plaintext);
     }
 
-    /// <summary>Opens what <see cref="SealTo"/> sealed, with the holder's own key.</summary>
-    internal static byte[] OpenWith(ECDiffieHellman ours, byte[] sealedBytes, string label)
+    /// <summary>Opens what <see cref="SealTo"/> sealed, as one of its holders.</summary>
+    /// <remarks>
+    /// <b>Takes the agreement rather than the key</b> (ADR-0037, slice sixty-four
+    /// step 1), so a holder whose private half this process cannot hold — a card,
+    /// a TPM — satisfies it. The machine's own key reaches the same code through
+    /// <see cref="AsAHolder"/>, which is the one place an
+    /// <see cref="ECDiffieHellman"/> is adapted into this shape.
+    /// </remarks>
+    internal static byte[] OpenWith(IAgreeAsAHolder ours, byte[] sealedBytes, string label)
     {
         ArgumentNullException.ThrowIfNull(ours);
 
-        return Open(sealedBytes, theirs => Agree(ours, theirs, label));
+        return Open(
+            sealedBytes,
+            theirs => ours.AgreeWith(Convert.ToBase64String(theirs), label));
+    }
+
+    /// <summary>A key this process holds, in the shape the sealing code asks for.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The MACHINE path, and the only adapter of its kind.</b> A machine's key
+    /// is a file on the machine by necessity — a runner resolves a credential with
+    /// nobody present — so wrapping one in a holder is honest. A person's key is
+    /// never adapted this way, because it is never typed as an
+    /// <see cref="ECDiffieHellman"/> in the first place.
+    /// </para>
+    /// <para>
+    /// <b>It exists so there is ONE derivation.</b> Before it, a second
+    /// implementation of the agreement sat in the client with its own copy of the
+    /// hash, the length and the labelled info. Two that agree today is how an
+    /// envelope ends up opening for whoever sealed it and nobody else.
+    /// </para>
+    /// </remarks>
+    public static IAgreeAsAHolder AsAHolder(ECDiffieHellman key)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+
+        return new KeyHeldHere(key);
+    }
+
+    /// <summary>
+    /// The derivation itself, for a holder that has done its own raw agreement.
+    /// </summary>
+    /// <remarks>
+    /// <b>Declared here so it is declared once.</b> The raw ECDH secret is the
+    /// only part an implementation of <see cref="IAgreeAsAHolder"/> must do for
+    /// itself, because it is the only part that needs the private half; everything
+    /// after it — the hash, the length, the labelled info — is this one line, and
+    /// a copy of it elsewhere is a copy that can drift.
+    /// </remarks>
+    public static byte[] AgreementOver(byte[] rawSecretAgreement, string label)
+    {
+        ArgumentNullException.ThrowIfNull(rawSecretAgreement);
+
+        return HKDF.DeriveKey(
+            HashAlgorithmName.SHA256,
+            rawSecretAgreement,
+            KeyBytes,
+            info: System.Text.Encoding.UTF8.GetBytes(label));
+    }
+
+    /// <summary>An <see cref="ECDiffieHellman"/> wearing the holder's interface.</summary>
+    private sealed class KeyHeldHere(ECDiffieHellman key) : IAgreeAsAHolder
+    {
+        public string PublicKey => Convert.ToBase64String(key.ExportSubjectPublicKeyInfo());
+
+        public byte[] AgreeWith(string theirPublicKey, string label) =>
+            Agree(key, theirPublicKey, label);
     }
 
     /// <summary>
@@ -258,11 +320,10 @@ public static class RunnerSeal
         // HKDF WITH A LABEL RATHER THAN THE RAW SECRET. Two directions share one
         // agreement, and using it directly would make the offer's key and the
         // answer's key the same - so a replayed offer would open as an answer.
-        return HKDF.DeriveKey(
-            HashAlgorithmName.SHA256,
-            ours.DeriveRawSecretAgreement(peer.PublicKey),
-            KeyBytes,
-            info: System.Text.Encoding.UTF8.GetBytes(label));
+        //
+        // THROUGH AgreementOver, so this is not a second copy of it. Every holder
+        // derives by the same line, whatever holds its private half.
+        return AgreementOver(ours.DeriveRawSecretAgreement(peer.PublicKey), label);
     }
 
     private static byte[] Seal(byte[] key, byte[] framedPublicKey, byte[] plaintext)

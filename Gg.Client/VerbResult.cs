@@ -1580,7 +1580,7 @@ public static class VerbOutput
         foreach (var credential in list.Credentials)
         {
             text.AppendLine(
-                $"{Clean(credential.Repo),-28}  {Clean(credential.Reference.Identity),-16}  "
+                $"{Clean(credential.For),-28}  {Clean(credential.Reference.Identity),-16}  "
               + $"{Clean(string.Join(',', credential.Reference.Scopes)),-8}  "
               + $"{Clean(credential.Reference.Locator)}");
 

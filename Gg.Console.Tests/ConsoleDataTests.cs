@@ -461,7 +461,7 @@ public class ConsoleDataTests
                     new CredentialSummary
                     {
                         CredentialId = "019fe815-6136-7518-bb57-b06d6d3f411a",
-                        Repo = "acme/widgets",
+                        For = "acme/widgets",
                         Reference = new CredentialReference
                         {
                             Kind = CredentialKinds.Local,

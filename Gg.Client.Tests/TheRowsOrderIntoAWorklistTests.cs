@@ -34,7 +34,7 @@ public class TheRowsOrderIntoAWorklistTests
     private static CredentialSummary ACredential(string repo) => new()
     {
         CredentialId = "id-" + repo,
-        Repo = repo,
+        For = repo,
         AddedAt = DateTimeOffset.UnixEpoch,
         Reference = new CredentialReference
         {

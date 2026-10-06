@@ -838,11 +838,17 @@ public sealed class Doctor(
                 // verb nobody runs. A warn says so without stopping anybody.
                 Blocking = false,
                 Fixable = true,
+                // THE VERB THAT FITS THE THING. This sentence said `--repo` about a
+                // TRACKER and then explained how - take the locator, strip the prefix -
+                // so somebody following it faithfully produced a repository-shaped
+                // locator for a tracker. This fleet's local:jdx/jdnext is that sentence
+                // being obeyed. A diagnosis that hands over a wrong command is worse
+                // than one that says nothing, because it is trusted.
                 Fix = "Run `gg config set intent-hosts <key=host|reference>` for the tracker "
                     + "this machine should read - e.g. "
-                    + "`my-tracker=https://tracker.example/acme|local:acme/board` - and "
-                    + "`gg credential add --repo <slug>` for the reference it names, where "
-                    + "the slug is the locator without its 'local:' prefix.",
+                    + $"`my-tracker=https://tracker.example/acme|local:{CredentialLocator.TrackerSegment}/board` "
+                    + "- and `gg credential add --tracker <key>` for the reference it names, "
+                    + "where the key is the last segment of the locator.",
             };
         }
 
@@ -1121,7 +1127,7 @@ public sealed class Doctor(
         var unresolvable = registered.Credentials
             .Where(c => IsYours(c, yours))
             .Where(c => Missing(c.Reference.Locator))
-            .Select(c => $"{c.Reference.Locator} ({c.Repo}, as {c.Reference.Identity})")
+            .Select(c => $"{c.Reference.Locator} ({c.For}, as {c.Reference.Identity})")
             .ToList();
 
         return unresolvable.Count == 0

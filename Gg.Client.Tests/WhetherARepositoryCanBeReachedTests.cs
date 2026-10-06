@@ -50,7 +50,7 @@ public class WhetherARepositoryCanBeReachedTests
     private static CredentialSummary Registered(string repo) => new()
     {
         CredentialId = "cred-1",
-        Repo = repo,
+        For = repo,
         Reference = new CredentialReference
         {
             Kind = "local",

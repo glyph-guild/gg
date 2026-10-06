@@ -32,7 +32,7 @@ public class ARepositoryWithNoCredentialIsStillARowTests
     private static CredentialSummary ACredential(string repo, string locator) => new()
     {
         CredentialId = "01a0a21c-a32c-76e1-a716-ccbb19dda796",
-        Repo = repo,
+        For = repo,
         AddedAt = DateTimeOffset.UnixEpoch,
         Reference = new CredentialReference
         {

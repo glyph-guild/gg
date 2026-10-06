@@ -21,7 +21,7 @@ namespace Gg.Client.Tests;
 /// <b>That sentence is about a TRACKER and it says <c>--repo</c>.</b> Worse, it
 /// explains how: take the locator and strip the prefix. Somebody following it
 /// faithfully produces exactly what this fleet has — <c>local:jdx/jdnext</c>, a
-/// repository-shaped locator for an Azure DevOps tracker — and the product told them
+/// repository-shaped locator for a hosted tracker — and the product told them
 /// to. A diagnosis that hands over a wrong command is worse than one that says
 /// nothing, because it is trusted.
 /// </para>
@@ -103,7 +103,14 @@ public class TheDoctorNamesTheRightVerbTests
             .Where(l => l.Line.Contains("my-tracker=", StringComparison.Ordinal)
                      || (l.Line.Contains("tracker.example", StringComparison.Ordinal)
                       && l.Line.Contains("local:", StringComparison.Ordinal)))
-            .Where(l => !l.Line.Contains($"local:{CredentialLocator.TrackerSegment}/", StringComparison.Ordinal))
+            // EITHER SPELLING COUNTS, and the interpolated one is the better code: a
+            // literal "local:tracker/" in a sentence is a second place the segment is
+            // named, and the one that goes stale. This test originally accepted only
+            // the literal and failed on the fix that used the constant - a scan over
+            // source cannot see through an interpolation, which is a limit worth
+            // writing down rather than working around by hard-coding the string.
+            .Where(l => !l.Line.Contains($"local:{CredentialLocator.TrackerSegment}/", StringComparison.Ordinal)
+                     && !l.Line.Contains("local:{CredentialLocator.TrackerSegment}/", StringComparison.Ordinal))
             .Select(l => $"Doctor.cs:{l.At}: {l.Line.Trim()}")
             .ToList();
 

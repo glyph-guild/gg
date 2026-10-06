@@ -108,7 +108,13 @@ public class ConsoleWriteParityTests
         // S28.5-03. The console could grant read and nothing else, so a runner
         // that must land work needed a credential registered from somewhere
         // this console is not.
-        var prompt = new Asked("acme/widgets", "write", "a-bot");
+        var prompt = new Asked(
+            // A RETURN, FIRST. The console now asks what the credential is FOR before
+            // asking its name (slice sixty-four step 4), and return means a repository -
+            // so this is what a person types for the ordinary case. Without it every
+            // scripted answer here shifts by one and the repository slug is read as a
+            // subject, which is how these tests failed when the question was added.
+            "", "acme/widgets", "write", "a-bot");
         var actions = new VerbConsoleActions(Unreachable(prompt), prompt);
 
         _ = actions.AddCredential();
@@ -123,7 +129,7 @@ public class ConsoleWriteParityTests
     {
         // Not silently narrowed to read. A person who typed `admin` and got a
         // read credential would find out at the push, one flight later.
-        var prompt = new Asked("acme/widgets", "admin", "a-bot");
+        var prompt = new Asked("", "acme/widgets", "admin", "a-bot");
         var actions = new VerbConsoleActions(Unreachable(prompt), prompt);
 
         var said = actions.AddCredential();
@@ -139,7 +145,7 @@ public class ConsoleWriteParityTests
     {
         // The narrow answer is the default, and pressing return is how a person
         // says "the ordinary one".
-        var prompt = new Asked("acme/widgets", "", "a-bot");
+        var prompt = new Asked("", "acme/widgets", "", "a-bot");
         var actions = new VerbConsoleActions(Unreachable(prompt), prompt);
 
         var said = actions.AddCredential();
@@ -156,7 +162,7 @@ public class ConsoleWriteParityTests
             .Because("it talks to the control plane, so its effect belongs where the "
                    + "terminal is free.");
 
-        var prompt = new Asked("acme/widgets");
+        var prompt = new Asked("", "acme/widgets");
         var actions = new VerbConsoleActions(Unreachable(prompt), prompt);
 
         var said = actions.ForgetCredential();
@@ -214,7 +220,7 @@ public class ConsoleWriteParityTests
         // Rule 7. The failure path, because a diagnostic is where a secret
         // leaks: every call below fails, and the sentence it returns is the one
         // a person is shown and a bundle records.
-        var prompt = new Asked("acme/widgets", "write", "a-bot");
+        var prompt = new Asked("", "acme/widgets", "write", "a-bot");
         var actions = new VerbConsoleActions(Unreachable(prompt), prompt);
 
         foreach (var said in (string[])[actions.AddCredential(), actions.ForgetCredential()])

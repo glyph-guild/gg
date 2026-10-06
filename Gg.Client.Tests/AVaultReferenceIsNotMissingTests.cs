@@ -36,7 +36,7 @@ public class AVaultReferenceIsNotMissingTests
     private static CredentialSummary AVaultCredential() => new()
     {
         CredentialId = "01a0fe55-cefc-75d0-ae6a-5e65958a0a60",
-        Repo = "jdapp-01",
+        For = "jdapp-01",
         AddedAt = DateTimeOffset.UnixEpoch,
         Reference = new CredentialReference
         {

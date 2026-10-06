@@ -155,14 +155,19 @@ public class CredentialContainmentTests
     }
 
     [Test]
-    public async Task The_registration_request_carries_exactly_the_reference_and_the_repository()
+    public async Task The_registration_request_carries_exactly_the_reference_and_what_it_is_for()
     {
         // The closed-set assertion, and the one that fails on ANY new field
         // rather than only on a badly named one. Adding a member here is meant
         // to be a deliberate, reviewable act - that is the whole mechanism.
+        //
+        // `Repo` BECAME `For` IN SLICE SIXTY-FOUR STEP 4, and the test's own name had
+        // to move with it: a method called ..._and_the_repository asserting a member
+        // that no longer claims to be one would be the next reader's wrong answer to
+        // "what does this type carry". The set is still exactly two.
         var members = MembersOf(typeof(CredentialRegistrationRequest)).Select(p => p.Name).OrderBy(n => n).ToList();
 
-        await Assert.That(members).IsEquivalentTo((string[])["Reference", "Repo"]);
+        await Assert.That(members).IsEquivalentTo((string[])["For", "Reference"]);
     }
 
     [Test]

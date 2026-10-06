@@ -13,6 +13,77 @@ public class AuthCommandTests
         public string All => string.Join("\n", Lines);
     }
 
+    /// <summary>A writer that says it is a terminal, as the real one does on a tty.</summary>
+    private sealed class TerminalWriter : IConsoleWriter
+    {
+        public List<string> Lines { get; } = [];
+        public void WriteLine(string line = "") => Lines.Add(line);
+        public bool Hyperlinks => true;
+        public string All => string.Join("\n", Lines);
+    }
+
+    private static Task<int> LoginTo(StubControlPlane stub, IConsoleWriter output) =>
+        new AuthCommands(
+            new ControlPlaneClient(new HttpClient { BaseAddress = new Uri(stub.BaseAddress) }),
+            new MemorySessionStore(), output,
+            new FixedClock(DateTimeOffset.UtcNow), new RecordedDelays().Delay).LoginAsync("test-device");
+
+    private const string Complete = "https://control-plane.invalid/activate?code=WXYZ-1234";
+
+    [Test]
+    public async Task LoginLinksTheAddressWithTheCodeInIt()
+    {
+        await using var stub = new StubControlPlane { VerificationUriComplete = Complete };
+        var output = new TerminalWriter();
+
+        await LoginTo(stub, output);
+
+        await Assert.That(output.All).Contains($"  Open:  \u001b]8;;{Complete}\u001b\\{Complete}\u001b]8;;\u001b\\")
+            .Because("one click should land on a page that already has the code, with nothing to copy.");
+        await Assert.That(output.All).Contains("  Code:  WXYZ-1234")
+            .Because("the page asks a person to confirm the code, so they still need to see it.");
+    }
+
+    [Test]
+    public async Task LoginWithoutACompleteAddressLinksTheBareOne()
+    {
+        await using var stub = new StubControlPlane();
+        var output = new TerminalWriter();
+
+        await LoginTo(stub, output);
+
+        await Assert.That(output.All).Contains("\u001b]8;;https://control-plane.invalid/activate\u001b\\")
+            .Because("a control plane that predates the field still gets a clickable address.");
+    }
+
+    [Test]
+    public async Task LoginToAPipeWritesNoEscapes()
+    {
+        await using var stub = new StubControlPlane { VerificationUriComplete = Complete };
+        var output = new RecordingWriter();
+
+        await LoginTo(stub, output);
+
+        await Assert.That(output.All).Contains($"  Open:  {Complete}");
+        await Assert.That(output.All).DoesNotContain("\u001b")
+            .Because("a pipe or a log shows an escape as junk around the address.");
+    }
+
+    [Test]
+    public async Task ACompleteAddressCannotCloseTheLinkItIsIn()
+    {
+        await using var stub = new StubControlPlane
+        {
+            VerificationUriComplete = "https://control-plane.invalid/a\u001b]8;;\u001b\\https://elsewhere.invalid",
+        };
+        var output = new TerminalWriter();
+
+        await LoginTo(stub, output);
+
+        await Assert.That(output.All.Split('\u001b').Length - 1).IsEqualTo(4)
+            .Because("only the four escapes of our own link may reach the terminal.");
+    }
+
     private sealed class FixedClock(DateTimeOffset now) : IClock
     {
         public DateTimeOffset UtcNow { get; set; } = now;

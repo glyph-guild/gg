@@ -24,7 +24,7 @@ public class AnIntentReadIsAFactTests
         Path = "docs/plans/18291.md",
         RequestedRef = "develop",
         Commit = Commit,
-        BlobSha = Blob,
+        FileSha = Blob,
         ByteSize = 2048,
     };
 
@@ -57,11 +57,11 @@ public class AnIntentReadIsAFactTests
     }
 
     [Test]
-    public async Task The_commit_and_the_blob_are_object_ids()
+    public async Task The_commit_and_the_file_are_object_ids()
     {
         await Assert.That(IntentRead.Validate(Read() with { Commit = "develop" })).IsNotNull()
             .Because("a ref here would be the very name that moves, which the fact exists to pin.");
-        await Assert.That(IntentRead.Validate(Read() with { BlobSha = "not-a-sha" })).IsNotNull();
+        await Assert.That(IntentRead.Validate(Read() with { FileSha = "not-a-sha" })).IsNotNull();
     }
 
     [Test]

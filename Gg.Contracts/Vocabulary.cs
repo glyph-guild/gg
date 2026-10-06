@@ -129,6 +129,7 @@ public static class Vocabulary
         typeof(ToolVersion),
         typeof(EnvironmentIdentity),
         typeof(SourceProvenance),
+        typeof(IntentRead),
         typeof(FactEnvelope),
         typeof(RecordedFact),
         typeof(FlightFacts),

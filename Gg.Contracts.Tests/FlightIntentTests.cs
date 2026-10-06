@@ -122,6 +122,10 @@ public class FlightIntentTests
                     new FlightIntent { Kind = kind, Uri = "https://example.invalid/x" },
                 FlightIntentKinds.Ticket =>
                     new FlightIntent { Kind = kind, Provider = "tracker", Id = "x" },
+                // AND A FOURTH AT SLICE SIXTY-TWO, two fields again: a file is a
+                // repository and a path.
+                FlightIntentKinds.File =>
+                    FlightIntent.ForFile("acme/app", "docs/plan.md", null),
                 _ => new FlightIntent { Kind = kind, Text = "x" },
             };
 

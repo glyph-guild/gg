@@ -36,8 +36,20 @@ public static class FlightIntentKinds
     /// </remarks>
     public const string Ticket = "ticket";
 
+    /// <summary>
+    /// A file in a registered repository, carried in <see cref="FlightIntent.Repository"/>,
+    /// <see cref="FlightIntent.Path"/> and an optional <see cref="FlightIntent.Ref"/>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not a uri</b>: a uri is read by the agent, through a tool, as whatever it points at
+    /// today. A file is read by the runner before the loop starts and pinned by an
+    /// <c>intent.read</c> fact, so everything carried from the flight reads the same words.
+    /// Slice sixty-two.
+    /// </remarks>
+    public const string File = "file";
+
     /// <summary>Every kind validation accepts.</summary>
-    public static IReadOnlyList<string> All { get; } = [Text, Uri, Ticket];
+    public static IReadOnlyList<string> All { get; } = [Text, Uri, Ticket, File];
 }
 
 /// <summary>
@@ -93,6 +105,33 @@ public sealed record FlightIntent
     /// a vanity host.
     /// </remarks>
     public string? Id { get; init; }
+
+    /// <summary>The registered repository a file intent's file is in.</summary>
+    public string? Repository { get; init; }
+
+    /// <summary>The file's path inside <see cref="Repository"/>, never leaving it.</summary>
+    public string? Path { get; init; }
+
+    /// <summary>
+    /// What to read the file at, or null for the repository's default branch. A runner
+    /// resolves it to a commit and records which one.
+    /// </summary>
+    public string? Ref { get; init; }
+
+    /// <summary>The most a file intent's path may be.</summary>
+    public const int MaxPath = 1024;
+
+    /// <summary>The most a file intent's ref may be.</summary>
+    public const int MaxRef = 255;
+
+    /// <summary>A file intent: one file, in one registered repository, at an optional ref.</summary>
+    public static FlightIntent ForFile(string repository, string path, string? @ref) => new()
+    {
+        Kind = FlightIntentKinds.File,
+        Repository = repository,
+        Path = path,
+        Ref = @ref,
+    };
 
     /// <summary>
     /// An intent from whichever payload a person supplied, with the kind derived from it.
@@ -155,7 +194,14 @@ public sealed record FlightIntent
         var hasId = !string.IsNullOrWhiteSpace(intent.Id);
         var hasTicket = hasProvider || hasId;
 
-        var payloads = (hasText ? 1 : 0) + (hasUri ? 1 : 0) + (hasTicket ? 1 : 0);
+        // A FILE IS ONE PAYLOAD CARRIED IN TWO FIELDS, on the ticket's argument above:
+        // counted once whether one half or both are present, so a half-written file
+        // reference is diagnosed for its missing half rather than as no payload at all.
+        var hasRepository = !string.IsNullOrWhiteSpace(intent.Repository);
+        var hasPath = !string.IsNullOrWhiteSpace(intent.Path);
+        var hasFile = hasRepository || hasPath;
+
+        var payloads = (hasText ? 1 : 0) + (hasUri ? 1 : 0) + (hasTicket ? 1 : 0) + (hasFile ? 1 : 0);
 
         if (payloads > 1)
         {
@@ -163,7 +209,7 @@ public sealed record FlightIntent
             // a second one - two sentences saying the same thing is how the
             // readers in two repositories come to disagree.
             return "A flight intent carries one payload. This one has "
-                 + string.Join(" and ", Carried(hasText, hasUri, hasTicket))
+                 + string.Join(" and ", Carried(hasText, hasUri, hasTicket, hasFile))
                  + ", and which of them wins would be decided by whichever reader saw it first.";
         }
 
@@ -172,8 +218,8 @@ public sealed record FlightIntent
             // "Neither" was accurate while there were two. Saying it with three
             // would be the wording quietly going stale behind a passing test,
             // which is a small instance of the thing this slice is about.
-            return "A flight intent carries one payload - text, a uri, or a ticket. This one "
-                 + "has none of them.";
+            return "A flight intent carries one payload - text, a uri, a ticket or a file. This "
+                 + "one has none of them.";
         }
 
         if (hasTicket)
@@ -198,6 +244,46 @@ public sealed record FlightIntent
             }
         }
 
+        // A REF WITH NO FILE is a pin on nothing. Refused rather than ignored, because a
+        // person who wrote one meant something by it and would be told nothing.
+        if (!hasFile && !string.IsNullOrWhiteSpace(intent.Ref))
+        {
+            return "A flight intent names a ref and no file. A ref says which commit to read a "
+                 + "file at, so it belongs to a file intent: name the repository and the path.";
+        }
+
+        if (hasFile)
+        {
+            if (!hasRepository)
+            {
+                return "A file intent names the registered repository its file is in, and this "
+                     + "one names none.";
+            }
+
+            if (!hasPath)
+            {
+                return $"A file intent names a path inside '{intent.Repository}', and this one "
+                     + "names none.";
+            }
+
+            if (intent.Path!.Length > MaxPath)
+            {
+                return $"A file intent's path is at most {MaxPath} characters and this one is "
+                     + $"{intent.Path.Length}.";
+            }
+
+            if (RepositoryPaths.Refused(intent.Path) is { } outside)
+            {
+                return outside;
+            }
+
+            if (intent.Ref is { Length: > MaxRef } longRef)
+            {
+                return $"A file intent's ref is at most {MaxRef} characters and this one is "
+                     + $"{longRef.Length}.";
+            }
+        }
+
         // The kind and the populated fields must agree, or a consumer renders a
         // uri as prose, tries to fetch free text, or resolves a work item that
         // was never declared as one.
@@ -210,12 +296,16 @@ public sealed record FlightIntent
             FlightIntentKinds.Ticket when !hasTicket =>
                 $"Intent kind '{FlightIntentKinds.Ticket}' carries its payload in provider and id, "
               + "and both are empty.",
+            FlightIntentKinds.File when !hasFile =>
+                $"Intent kind '{FlightIntentKinds.File}' carries its payload in repository and "
+              + "path, and both are empty.",
             _ => null,
         };
     }
 
     /// <summary>What this intent is actually carrying, for the refusal above.</summary>
-    private static IEnumerable<string> Carried(bool hasText, bool hasUri, bool hasTicket)
+    private static IEnumerable<string> Carried(
+        bool hasText, bool hasUri, bool hasTicket, bool hasFile)
     {
         if (hasText)
         {
@@ -230,6 +320,11 @@ public sealed record FlightIntent
         if (hasTicket)
         {
             yield return "a ticket";
+        }
+
+        if (hasFile)
+        {
+            yield return "a file";
         }
     }
 

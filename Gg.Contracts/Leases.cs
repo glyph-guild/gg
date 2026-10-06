@@ -786,6 +786,24 @@ public sealed record LeaseGranted
     public string? IntentText { get; init; }
 
     /// <summary>
+    /// The registered repository a file intent's file is in, when the intent is a file.
+    /// </summary>
+    /// <remarks>
+    /// The runner reads the file at <see cref="IntentRef"/> before the loop starts and reports
+    /// what it read as an <c>intent.read</c> fact. Slice sixty-two.
+    /// </remarks>
+    public string? IntentRepository { get; init; }
+
+    /// <summary>The file's path inside <see cref="IntentRepository"/>.</summary>
+    public string? IntentPath { get; init; }
+
+    /// <summary>
+    /// What to read the file at: the intent's ref, or the commit a plan read when this flight is
+    /// one of its legs. Null for the repository's default branch.
+    /// </summary>
+    public string? IntentRef { get; init; }
+
+    /// <summary>
     /// What the agent that nominated this flight told whoever picks it up, or
     /// null when nobody nominated it.
     /// </summary>

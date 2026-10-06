@@ -393,7 +393,7 @@ internal static class ConsoleDoubles
             Answered.Add((nomination, open, reason));
 
             return refusing
-                ? new Opening("Nothing was answered — the control plane could not be reached.")
+                ? new Opening("Nothing was answered — the control plane could not be reached.", Refused: true)
                 : open ? new Opening("opened", opens) : new Opening("declined");
         }
 

@@ -965,6 +965,15 @@ public sealed class ConsoleLoop(
                         asked: false);
                     break;
 
+                case Command.DeclineMarked:
+                    // THE ONE-ROW ANSWER'S SHAPE, ONCE PER MARKED ROW, with the
+                    // sentence asked for once. Re-read after, for rule 4.
+                    state = Reloaded(
+                        DeclinedMarked(state, actions, editor),
+                        reload,
+                        asked: false);
+                    break;
+
                 case Command.FlyByHand:
                     // THE SAME TERMINAL-RELEASE SHAPE as the takeover beside it,
                     // and for a longer stretch: a person holds the screen for as
@@ -1443,6 +1452,95 @@ public sealed class ConsoleLoop(
     /// has not opened a flight - which is the whole of this key's confirmation.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// What a watch's failure rows are declined with unless somebody writes
+    /// otherwise.
+    /// </summary>
+    public const string FailuresDeclinedBecause =
+        "A watch's own failure report, not work - cleared from the queue. "
+      + "What broke is fixed on the watch, not here.";
+
+    /// <summary>
+    /// Every marked nomination declined, with one sentence.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The sentence is still required, and it is written once.</b> The door
+    /// refuses a decline that says nothing and so does this: an empty buffer
+    /// sends nothing and unmarks nothing.
+    /// </para>
+    /// <para>
+    /// <b>Written in advance only when every marked row is a watch's
+    /// failure.</b> Clearing those is the same sentence every time, and saving
+    /// it unchanged is still a decision made in an editor. A real nomination
+    /// among them gets an empty buffer, because declining somebody's work is
+    /// the decision the sentence exists for.
+    /// </para>
+    /// <para>
+    /// <b>A row the door refuses stays marked</b>, so pressing `d` again is how
+    /// it is retried - and the first refusal's own words are what is shown,
+    /// because they are the only thing anybody can act on.
+    /// </para>
+    /// </remarks>
+    private static AppState DeclinedMarked(
+        AppState state, IConsoleActions? actions, IEditorSession editor)
+    {
+        var marked = QueueMarks.Live(state);
+
+        if (actions is null || marked.Count == 0)
+        {
+            return state with
+            {
+                LastNomination = actions is null
+                    ? "This console is not configured to answer nominations."
+                    : "Nothing is marked.",
+            };
+        }
+
+        var failures = QueueMarks.Failures(state).ToHashSet();
+        var reason = editor.Edit(marked.All(failures.Contains) ? FailuresDeclinedBecause : "")
+            .Trim();
+
+        if (reason.Length == 0)
+        {
+            return state with
+            {
+                LastNomination = "Nothing was sent. A decision must say why - it is the only "
+                               + "thing that survives to tell a later reader why a person "
+                               + "declined work somebody had nominated.",
+            };
+        }
+
+        var declined = new List<Guid>();
+        string? refusal = null;
+
+        // IN THE QUEUE'S ORDER, which is the order a person sees - so the row a
+        // refusal names is one they can find.
+        foreach (var id in state.Queue
+                     .Select(r => r.NominationId)
+                     .OfType<Guid>()
+                     .Where(marked.Contains))
+        {
+            var answered = actions.AnswerNomination(id.ToString(), open: false, reason);
+
+            if (answered.Refused)
+            {
+                refusal ??= answered.Said;
+            }
+            else
+            {
+                declined.Add(id);
+            }
+        }
+
+        return state with
+        {
+            Marked = state.Marked.Except(declined),
+            LastNomination = $"Declined {declined.Count} of {marked.Count}."
+                           + (refusal is null ? "" : $" {refusal}"),
+        };
+    }
+
     private static AppState Answered(
         AppState state, IConsoleActions? actions, IEditorSession editor, bool open)
     {
@@ -1475,7 +1573,17 @@ public sealed class ConsoleLoop(
         // ends in the request, so the re-read that follows is right about it;
         // the flight an opening started is projected seconds later, and only
         // the id finds it.
-        return Expect(state with { LastNomination = answered.Said }, answered);
+        // AND FROM THE QUEUE THE MODAL CLOSES. The reload drops the answered
+        // row from the standing page, the queue's cursor lands on the next
+        // one, and a modal left open would be asking about a row nobody chose
+        // - with both answers live on it.
+        return Expect(
+            state with
+            {
+                LastNomination = answered.Said,
+                Mode = state.ActiveTab == TabId.Queue ? UiMode.Normal : state.Mode,
+            },
+            answered);
     }
 
     /// <summary>

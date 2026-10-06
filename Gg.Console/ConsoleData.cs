@@ -1086,8 +1086,14 @@ public static class ConsoleProjection
         // about. The board carries no agent's reason on a summary - a queue
         // line of provenance is mostly provenance - so the work kind is the
         // name, and what governed it is asked for by id.
-        Name = nomination.WorkKind,
-        Reason = QueueReason.NominationStanding,
+        //
+        // AND A WATCH'S FAILURE IS NAMED AS ONE. Its work kind is `sweep` like
+        // every other row the watch stands, so the name a person can act on -
+        // which watch, and whether it failed or went quiet - is the subject.
+        Name = WatchFailures.Named(nomination.Subject) ?? nomination.WorkKind,
+        Reason = WatchFailures.Named(nomination.Subject) is null
+            ? QueueReason.NominationStanding
+            : QueueReason.WatchFailing,
         // HOW LONG IT HAS STOOD, and it is the only urgency signal a nomination
         // has. The default sort orders on exactly this.
         Since = nomination.MadeAt,

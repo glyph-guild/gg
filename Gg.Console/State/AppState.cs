@@ -961,6 +961,19 @@ public enum QueueReason
     /// this row there is none: what they answer is whether there should be.
     /// </remarks>
     NominationStanding,
+
+    /// <summary>
+    /// A watch stood a row about itself: a sweep failed, or none came back.
+    /// </summary>
+    /// <remarks>
+    /// <b>A nomination in the board's terms and not in a person's.</b> The
+    /// control plane stands a gated row so a failing watch is seen, and the
+    /// queue drew it as <see cref="NominationStanding"/> - a request to open
+    /// work, on a row with no work in it. What a person does with one is fix
+    /// the watch and decline the row, so it says which watch and that it is
+    /// failing.
+    /// </remarks>
+    WatchFailing,
 }
 
 /// <summary>One row of the queue.</summary>
@@ -2353,6 +2366,52 @@ public sealed record AppState
     /// reading about the wrong thing.
     /// </remarks>
     public string? LastNomination { get; init; }
+
+    /// <summary>
+    /// The standing nominations the queue was built from, as of the last load.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Not <see cref="Board"/>, which is the board TAB's page.</b> That one
+    /// is read when the tab is opened - endings included, paged newest first -
+    /// and is null on a console nobody has pointed at the board. The queue's
+    /// nominations come from a read of their own on every load, and this is
+    /// it, kept: the queue's enter opens the board's question about one of its
+    /// rows, and the question has to be able to find the row.
+    /// </para>
+    /// <para>
+    /// <b>Found by walking it, not by a test.</b> The first build moved the
+    /// board's cursor onto the row instead, and every test passed because every
+    /// fixture held a board. On the dev tenant the board was null and enter
+    /// did nothing at all.
+    /// </para>
+    /// </remarks>
+    public BoardPage? Standing { get; init; }
+
+    /// <summary>
+    /// The queue's nominations marked to be declined together.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Ids, not positions.</b> The queue is re-read after every write and
+    /// re-sorted on every load, so a row's index is not a name for it; a mark
+    /// kept by position would move onto whatever row slid into the gap.
+    /// </para>
+    /// <para>
+    /// <b>Held as marked, read through <see cref="QueueMarks.Live"/>.</b> A row
+    /// somebody answered elsewhere leaves the queue on the next load while its
+    /// id stays here - and a mark on a row nobody can see must not be declined,
+    /// counted or advertised. Pruning on every load would be a second place
+    /// the queue is written; reading through one filter is not.
+    /// </para>
+    /// <para>
+    /// <b>An immutable set, for the record's equality.</b> A fresh
+    /// <c>HashSet</c> per model would make two empty models unequal, and the
+    /// reducer's "this answer changes nothing" assertions compare models.
+    /// </para>
+    /// </remarks>
+    public System.Collections.Immutable.ImmutableHashSet<Guid> Marked { get; init; } =
+        System.Collections.Immutable.ImmutableHashSet<Guid>.Empty;
 
     /// <summary>What came of the last flight this console opened.</summary>
     public string? LastFlightOpened { get; init; }

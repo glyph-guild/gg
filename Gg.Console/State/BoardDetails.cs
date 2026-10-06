@@ -33,11 +33,62 @@ public static class BoardDetails
     /// <summary>One labelled scalar of a board row.</summary>
     public sealed record BoardField(string Label, string Value);
 
+    /// <summary>
+    /// The board as the open modal sees it: the board tab's, or - opened from
+    /// the queue - the standing page the queue was built from, with the cursor
+    /// on the queue's row.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Which cursor the modal answers is the tab it was opened from.</b> The
+    /// board tab's page is read only once that tab is opened, it is paged, and
+    /// nothing re-reads it after a write made from the queue - so the queue's
+    /// enter cannot borrow it. The standing page is read on every load, which
+    /// is what makes a decline from the queue show at once.
+    /// </para>
+    /// <para>
+    /// <b>Everybody's rows, from the queue.</b> The queue lists every gated row
+    /// standing, a personal watch's included; the door decides who may answer
+    /// one, and a filter here would make a listed row unopenable.
+    /// </para>
+    /// <para>
+    /// <b>Every reader in this file and <see cref="Rows.StandingUnder"/> goes
+    /// through this</b>, so the modal, its keys and the loop's answer cannot be
+    /// about two different rows.
+    /// </para>
+    /// </remarks>
+    public static AppState Seen(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.ActiveTab != TabId.Queue
+            || QueueMarks.Under(state) is not { } id
+            || state.Standing is not { } standing)
+        {
+            return state;
+        }
+
+        var looking = state with
+        {
+            Board = standing,
+            Watches = null,
+            BoardShowsEverybody = true,
+        };
+
+        var key = id.ToString();
+
+        return looking with
+        {
+            BoardSelected = Rows.Board(looking).ToList().FindIndex(r => r.Key == key),
+        };
+    }
+
     /// <summary>The row under the cursor, whichever kind it is.</summary>
     public static BoardRow? Under(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        state = Seen(state);
         var rows = Rows.Board(state);
 
         return state.BoardSelected >= 0 && state.BoardSelected < rows.Count
@@ -53,6 +104,8 @@ public static class BoardDetails
     /// </remarks>
     public static NominationSummary? NominationUnder(AppState state)
     {
+        state = Seen(state);
+
         if (Under(state) is not { } row
             || !string.Equals(row.What, BoardRow.Nomination, StringComparison.Ordinal))
         {
@@ -95,6 +148,8 @@ public static class BoardDetails
     /// <summary>The watch under the cursor.</summary>
     public static WatchStanding? WatchUnder(AppState state)
     {
+        state = Seen(state);
+
         if (Under(state) is not { } row
             || !string.Equals(row.What, BoardRow.Sweep, StringComparison.Ordinal))
         {
@@ -261,9 +316,19 @@ public static class BoardDetails
         return text.ToString();
     }
 
-    /// <summary>The row's own sentence: a nominator's reason, or a diagnosis.</summary>
+    /// <summary>The row's own sentences: a nominator's reason, or a diagnosis.</summary>
+    /// <remarks>
+    /// <b>Every sentence a nomination carries, in the order it gained them.</b>
+    /// This read only the ENDING's, so a standing row - the one somebody is
+    /// being asked about - showed none: not what the nominator said, and not
+    /// why it was left for a person, which for a watch's failure is the
+    /// runner's own diagnosis and the only thing anybody can act on.
+    /// </remarks>
     private static string Because(AppState state) =>
         NominationUnder(state) is { } nomination
-            ? nomination.Because ?? ""
+            ? string.Join(
+                Environment.NewLine + Environment.NewLine,
+                ((string?[])[nomination.Reason, nomination.GatedBecause, nomination.Because])
+                    .Where(said => !string.IsNullOrWhiteSpace(said)))
             : WatchUnder(state)?.Diagnosis ?? "";
 }

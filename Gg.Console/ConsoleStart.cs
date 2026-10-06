@@ -504,6 +504,12 @@ public static class ConsoleStart
             {
                 Queue = queue,
                 Gates = gates,
+
+                // AND THE STANDING PAGE THE QUEUE'S NOMINATIONS CAME FROM, kept
+                // because the queue answers them. The board tab reads its own
+                // page, with endings, only once somebody opens it - so a modal
+                // over a queue row has nothing else to read the row from.
+                Standing = board,
                 Diagnosis = partial.Count == 0 ? null : string.Join("; ", partial),
 
                 // The logs the round above already fetched, kept rather than

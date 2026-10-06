@@ -217,7 +217,8 @@ public sealed class VerbConsoleActions(
             // has to say what an unparseable one means. It cannot happen from a
             // row this console drew, which is exactly why it is worth a
             // sentence rather than an exception nobody sees.
-            return new Opening($"'{nomination}' is not a nomination this console can answer.");
+            return new Opening(
+                $"'{nomination}' is not a nomination this console can answer.", Refused: true);
         }
 
         try
@@ -238,7 +239,7 @@ public sealed class VerbConsoleActions(
         }
         catch (Exception refusal) when (Expected(refusal))
         {
-            return new Opening($"Nothing was answered — {refusal.Message}");
+            return new Opening($"Nothing was answered — {refusal.Message}", Refused: true);
         }
     }
 

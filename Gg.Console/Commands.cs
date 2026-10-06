@@ -161,6 +161,34 @@ public enum Command
     /// <summary>Decline it, with a reason. Posts; decides nothing locally.</summary>
     DeclineNomination,
 
+    /// <summary>
+    /// Open the board's question about the nomination under the queue's
+    /// cursor.
+    /// </summary>
+    /// <remarks>
+    /// <b>The queue's enter, over a row that is not a flight.</b> It opened the
+    /// flight actions, which have nothing to say about a row with no flight;
+    /// the question this row asks is the board's, and it already has a modal.
+    /// </remarks>
+    ShowQueueNomination,
+
+    /// <summary>Mark the queue's nomination under the cursor, or unmark it.</summary>
+    ToggleMark,
+
+    /// <summary>Mark every watch failure in the queue, or unmark them all.</summary>
+    MarkFailures,
+
+    /// <summary>
+    /// Decline every marked nomination with one reason. Posts; decides nothing
+    /// locally.
+    /// </summary>
+    /// <remarks>
+    /// <b>Decline only - there is no bulk open.</b> Opening starts a flight, and
+    /// seventy of them on one keypress is what the one-row answer's sentence
+    /// exists to prevent.
+    /// </remarks>
+    DeclineMarked,
+
     /// <summary>Re-read everything the boot read.</summary>
     /// <remarks>
     /// <b>A shell command, because a read is not a session's business.</b> Rule
@@ -1312,6 +1340,11 @@ public static class ShellCommands
         // put it in this set.
         Command.OpenNomination,
         Command.DeclineNomination,
+
+        // AND ALL THE MARKED ONES AT ONCE, for the same two reasons: it posts,
+        // once per row, and it hands the terminal to $EDITOR first for the
+        // one sentence they share.
+        Command.DeclineMarked,
 
         // The three the parity guard used to exempt. Writes, so the shell does them.
         Command.OpenFlight,

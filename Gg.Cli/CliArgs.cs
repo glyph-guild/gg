@@ -274,6 +274,12 @@ public abstract record CliAction
     /// </remarks>
     public sealed record ItineraryCheck(string Path, bool Json) : CliAction, IEmitsResult;
 
+    /// <summary>
+    /// gg itinerary tools: the planning tool server, drafting the plan named
+    /// <paramref name="Draft"/> under the state root. Slice sixty-three.
+    /// </summary>
+    public sealed record ItineraryTools(string Draft) : CliAction;
+
     /// <summary>gg airspace show: the topology, root first.</summary>
     /// <summary>
     /// The topology, or one applied document when a name is given.
@@ -1425,8 +1431,14 @@ public static class CliArgs
             // A PLAN CHECKED, under its own noun. `gg plan check` would be read
             // by the arm above as the checklist of a flight called "check".
             ["itinerary", "check", var file] => new CliAction.ItineraryCheck(file, json),
+            // THE PLANNING TOOL SERVER (slice sixty-three), one draft per registration.
+            ["itinerary", "tools"] => new CliAction.ItineraryTools("draft"),
+            ["itinerary", "tools", "--draft", var draft] => Gg.Client.ItineraryDrafts.Refused(draft) is { } badName
+                ? Unknown(badName)
+                : new CliAction.ItineraryTools(draft),
             ["itinerary", ..] => Unknown(
-                "gg itinerary takes check and a plan file - gg itinerary check plan.yaml."),
+                "gg itinerary takes check and a plan file - gg itinerary check plan.yaml - or "
+              + "tools, the drafting tool server: gg itinerary tools [--draft <name>]."),
             ["invite"] => new CliAction.Invite(json),
             ["allowance"] => new CliAction.Allowance(json),
             ["allowances"] => new CliAction.Allowances(json),

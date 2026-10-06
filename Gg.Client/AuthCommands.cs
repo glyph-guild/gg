@@ -6,12 +6,27 @@ namespace Gg.Client;
 public interface IConsoleWriter
 {
     void WriteLine(string line = "");
+
+    /// <summary>
+    /// Whether a line may carry an OSC 8 hyperlink.
+    /// </summary>
+    /// <remarks>
+    /// False unless a writer knows better: a pipe or a log file shows the
+    /// escape as junk around the address, where a terminal shows a link.
+    /// </remarks>
+    bool Hyperlinks => false;
 }
 
 /// <summary>Writes to standard output.</summary>
 public sealed class StandardConsoleWriter : IConsoleWriter
 {
     public void WriteLine(string line = "") => System.Console.WriteLine(line);
+
+    // A terminal that does not know OSC 8 ignores it and prints the text, so
+    // the only thing to rule out is no terminal at all.
+    public bool Hyperlinks =>
+        !System.Console.IsOutputRedirected
+        && System.Environment.GetEnvironmentVariable("TERM") is not "dumb";
 }
 
 /// <summary>
@@ -80,11 +95,32 @@ public sealed class AuthCommands(
         // control plane's, and these lines go to a terminal that acts on escape
         // sequences with no renderer in between - the console's PaneText cleans
         // as a last line of defence and there is no PaneText on this path.
+        //
+        // THE COMPLETE ADDRESS WHEN THERE IS ONE, because following it leaves
+        // nothing to type. The code is printed regardless: the page asks a
+        // person to confirm it matches, and an older control plane sends no
+        // complete address at all.
+        var open = Gg.Contracts.ControlText.Strip(
+            started.VerificationUriComplete is { Length: > 0 } complete ? complete : started.VerificationUri);
+
         output.WriteLine();
-        output.WriteLine($"  Open:  {Gg.Contracts.ControlText.Strip(started.VerificationUri)}");
+        output.WriteLine($"  Open:  {(output.Hyperlinks ? Hyperlink(open) : open)}");
         output.WriteLine($"  Code:  {Gg.Contracts.ControlText.Strip(started.UserCode)}");
         output.WriteLine();
     }
+
+    /// <summary>
+    /// An OSC 8 hyperlink whose text is its own address.
+    /// </summary>
+    /// <remarks>
+    /// <b>Built from stripped text only.</b> These are the only escapes on this
+    /// path, and they are ours: the address inside was cleaned first, so a
+    /// control plane cannot close the link early and write its own sequence
+    /// after it. The text IS the address, so a terminal that ignores OSC 8
+    /// still shows something a person can follow.
+    /// </remarks>
+    public static string Hyperlink(string address) =>
+        $"\u001b]8;;{address}\u001b\\{address}\u001b]8;;\u001b\\";
 
     /// <summary>
     /// Waits for a person to approve what was started, and stores the session.

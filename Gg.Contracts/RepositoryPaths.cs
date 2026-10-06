@@ -41,6 +41,12 @@ public static class RepositoryPaths
             return outside + " - it names a drive.";
         }
 
+        if (path.Any(char.IsControl))
+        {
+            return outside + " - it carries a control character, which no file name needs and "
+                 + "a terminal or a log would render as something else.";
+        }
+
         if (path.Split('/').Any(segment => segment is ".." or "." or ""))
         {
             return outside + " - it has an empty, '.' or '..' segment, so where it ends up "

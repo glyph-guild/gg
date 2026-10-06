@@ -83,12 +83,19 @@ public class AFileIntentIsOnePayloadTests
     }
 
     [Test]
-    public async Task The_lease_carries_the_three_members()
+    public async Task The_lease_carries_the_file_and_the_forge_it_is_on()
     {
         var granted = typeof(LeaseGranted).GetProperties().Select(p => p.Name).ToList();
 
         await Assert.That(granted).Contains("IntentRepository");
         await Assert.That(granted).Contains("IntentPath");
         await Assert.That(granted).Contains("IntentRef");
+
+        // THE PROVIDER TOO, found while building the reader. A slug does not say which forge
+        // it is on - `JDX/JDNext` reads the same on any of them - and the runner picks its
+        // adapter by provider. IntentProvider is a TRACKER's key and a different namespace
+        // (`agentic-backlog` beside `ado` on one runner), so reusing it would conflate two.
+        await Assert.That(granted).Contains("IntentRepositoryProvider")
+            .Because("the reader cannot choose an adapter from a slug alone.");
     }
 }

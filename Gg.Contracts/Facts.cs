@@ -41,6 +41,12 @@ public static class FactKinds
     /// </remarks>
     public const string SourceProvenance = "source.provenance";
 
+    /// <summary>
+    /// The file a flight's intent named, as the runner read it: where, at which commit, which
+    /// blob. Slice sixty-two.
+    /// </summary>
+    public const string IntentRead = "intent.read";
+
     /// <summary>What changed between the base and the head that was examined.</summary>
     public const string ChangeManifest = "change.manifest";
 
@@ -283,7 +289,7 @@ public static class FactKinds
     /// loudly, which is the failure this list exists to prevent.
     /// </remarks>
     public static IReadOnlyList<string> All { get; } =
-        [EnvironmentIdentity, SourceProvenance, ChangeManifest, LoopOutcome, LoopTranscript,
+        [EnvironmentIdentity, SourceProvenance, IntentRead, ChangeManifest, LoopOutcome, LoopTranscript,
          LoopSession, DocumentProposal,
          EnvironmentReclaimed,
          StackPerformed,
@@ -495,7 +501,7 @@ public static class FactVocabulary
     /// control-plane-side and travels outward, and no runner ships one inside a
     /// fact - so the seventh ending moves the contract number and leaves this
     /// one alone. Two ledgers, and the split is doing its job.
-    public const string Version = "0.41.0";
+    public const string Version = "0.42.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>
@@ -769,6 +775,77 @@ public sealed record SourceProvenance
 }
 
 /// <summary>What happened to one path.</summary>
+/// <summary>
+/// The file a flight's intent named, as the runner read it before the loop started.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The only place the commit is known.</b> The control plane reads no repository bytes and
+/// hands the runner a ref; the runner resolves it and reads the file there. This fact is that
+/// answer, and a leg opened from the flight reads <see cref="Commit"/> rather than the ref, so
+/// a plan's legs work from the words the plan was made from.
+/// </para>
+/// <para>
+/// <b>Names and ids, never the text.</b> What the file says reaches the agent on the
+/// customer's machine and nothing here.
+/// </para>
+/// </remarks>
+[PinnedId("18a64f3f-aff3-4d58-9a98-5c81d62f7ce3")]
+[FactKind(FactKinds.IntentRead)]
+public sealed record IntentRead
+{
+    /// <summary>The registered repository the file is in.</summary>
+    public required string Repository { get; init; }
+
+    /// <summary>The file's path inside it.</summary>
+    public required string Path { get; init; }
+
+    /// <summary>What the intent asked for, or null for the default branch.</summary>
+    public string? RequestedRef { get; init; }
+
+    /// <summary>The commit the ref named when it was read.</summary>
+    public required string Commit { get; init; }
+
+    /// <summary>A hash of the file's bytes at that commit - the git object id, so a person can find exactly what was read.</summary>
+    public required string FileSha { get; init; }
+
+    /// <summary>The file's size in bytes.</summary>
+    public required long ByteSize { get; init; }
+
+    /// <summary>The diagnosis, or null when there is nothing wrong.</summary>
+    public static string? Validate(IntentRead read)
+    {
+        ArgumentNullException.ThrowIfNull(read);
+
+        if (string.IsNullOrWhiteSpace(read.Repository) || string.IsNullOrWhiteSpace(read.Path))
+        {
+            return "An intent read names the repository and the path it read.";
+        }
+
+        if (RepositoryPaths.Refused(read.Path) is { } outside)
+        {
+            return outside;
+        }
+
+        // AN OBJECT ID, NEVER A NAME THAT MOVES. A ref here would be the very thing this fact
+        // exists to pin, recorded as though it had been.
+        if (!GitObjectIds.IsOne(read.Commit))
+        {
+            return $"An intent read records the commit it read at, as an object id, and "
+                 + $"'{read.Commit}' is not one.";
+        }
+
+        if (!GitObjectIds.IsOne(read.FileSha))
+        {
+            return $"An intent read records the file's object id, and '{read.FileSha}' is not one.";
+        }
+
+        return read.ByteSize < 0
+            ? $"An intent read's size is a count of bytes, and {read.ByteSize} is not one."
+            : null;
+    }
+}
+
 [VocabularyOf(VocabularyFingerprints.Fact)]
 public static class ChangeKinds
 {
@@ -1097,6 +1174,9 @@ public sealed record FactEnvelope
     /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.SourceProvenance"/>.</summary>
     public SourceProvenance? Source { get; init; }
 
+    /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.IntentRead"/>.</summary>
+    public IntentRead? IntentRead { get; init; }
+
     /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.ChangeManifest"/>.</summary>
     public ChangeManifest? Change { get; init; }
 
@@ -1269,6 +1349,12 @@ public sealed record FactEnvelope
             return badQuestion;
         }
 
+        if (envelope.IntentRead is { } intentRead
+            && IntentRead.Validate(intentRead) is { } badIntentRead)
+        {
+            return badIntentRead;
+        }
+
         if (envelope.Proposal is { } proposal
             && WorkItemProposal.Validate(proposal) is { } badProposal)
         {
@@ -1345,6 +1431,7 @@ public sealed record FactEnvelope
     [
         (FactKinds.EnvironmentIdentity, envelope.Environment is not null),
         (FactKinds.SourceProvenance, envelope.Source is not null),
+        (FactKinds.IntentRead, envelope.IntentRead is not null),
         (FactKinds.ChangeManifest, envelope.Change is not null),
         (FactKinds.LoopOutcome, envelope.Loop is not null),
         (FactKinds.LoopTranscript, envelope.Transcript is not null),

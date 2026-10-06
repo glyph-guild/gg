@@ -2247,7 +2247,7 @@ public static class ProtocolSurface
             [typeof(LeaseGranted)] =
                 ["leaseId", "generation", "flightId", "flightNumber", "repos", "credentials",
                  "unresolvedRepos", "classificationCeiling", "classificationRules", "expiresAt",
-                 "renewWithinSeconds", "intentUri", "intentProvider", "intentId", "intentText",
+                 "renewWithinSeconds", "intentUri", "intentProvider", "intentId", "intentText", "intentRepository", "intentPath", "intentRef",
                  "nominationNote", "menu", "loop", "feedback", "attended",
                  // AND WHETHER THIS DESTINATION EXPECTS SEVERAL. Declared here
                  // rather than derived, which is the point of this table: the
@@ -2259,7 +2259,7 @@ public static class ProtocolSurface
             [typeof(LeaseRenewed)] = ["expiresAt", "generation"],
             [typeof(LeaseReleaseRequest)] = ["generation", "disposition", "detail", "credentialFailure"],
             [typeof(LeaseReleased)] = ["flightId", "disposition"],
-            [typeof(FlightIntent)] = ["kind", "uri", "text", "provider", "id"],
+            [typeof(FlightIntent)] = ["kind", "uri", "text", "provider", "id", "repository", "path", "ref"],
             [typeof(FlightLaunchRequest)] =
                 ["name", "intent", "workKind", "environment", "repository", "repositories",
                  "runner", "attended"],
@@ -2423,11 +2423,13 @@ public static class ProtocolSurface
             [typeof(EnvironmentIdentity)] =
                 ["hostFingerprint", "imageDigest", "locks", "tools", "provenance",
                  "moveEnforcement", "movesProbed", "probedAt"],
+            [typeof(IntentRead)] =
+                ["repository", "path", "requestedRef", "commit", "fileSha", "byteSize"],
             [typeof(SourceProvenance)] =
                 ["provider", "slug", "requestedRef", "resolvedRef", "headCommit",
                  "headIsFork", "forkSlug", "fileCount", "bytes"],
             [typeof(FactEnvelope)] =
-                ["idempotencyKey", "kind", "digest", "observedAt", "environment", "source", "change",
+                ["idempotencyKey", "kind", "digest", "observedAt", "environment", "source", "intentRead", "change",
                  "loop", "transcript", "session", "document", "landed", "pushed", "loopDigest", "human",
                  "nomination", "question", "attended", "proposal", "landing", "preview",
                  "reclaimed", "performed"],

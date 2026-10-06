@@ -1419,5 +1419,11 @@
     "surface": "e7ec3508752ae9fe38092625189487f173a73076715de5b6ed4d8194fa31d5c4",
     "endpoints": "18c5f1de4a6bef0fac701517f54ea1beb182a14b12314fec222b6511691345e5",
     "note": "A sign-in link carries its code. DeviceAuthorizationStarted gains an optional verificationUriComplete - RFC 8628's verification_uri_complete, the verification address with the user code already in it - so a person who follows the link `gg login` prints, or presses the console's open key, lands on a page with nothing to type. Optional because a control plane that predates it sends none, and a client then shows the bare address as it always did. The code is still printed either way: the page asks a person to confirm it matches what their terminal shows, which is the defence against being handed somebody else's link."
+  },
+  {
+    "version": "0.278.0",
+    "surface": "0306e046d91fcf4995ea420d02e15ca856ceeb3446c9eda79e07920ba0994f4f",
+    "endpoints": "18c5f1de4a6bef0fac701517f54ea1beb182a14b12314fec222b6511691345e5",
+    "note": "An intent can be a file in a repository. Slice sixty-two step 1, ADR-0038 Decision 3: FlightIntentKinds gains `file`, carried in three new FlightIntent members - Repository (a registered slug), Path (inside it) and an optional Ref - and counted as one payload beside text, a uri and a ticket, so a file with any of them is refused as two. RepositoryPaths.Refused is the one rule for a path inside a repository, used by FlightIntent.Validate here and by the runner's reader before it fetches anything: a backslash, a leading slash, a drive or an empty, '.' or '..' segment is refused by shape, never resolved. LeaseGranted gains IntentRepository, IntentPath and IntentRef so a runner can read the file. A new fact kind, intent.read (fact vocabulary 0.42.0), records what the runner read - repository, path, requested ref, the commit it resolved and the file's object id and size - and never the text: the control plane reads no repository bytes, so this fact is the only place the commit is known, and a leg opened from the flight reads that commit rather than the ref. The hash member is FileSha rather than BlobSha because the contract refuses member names that read as file contents. No route moves; the endpoint fingerprint is unchanged."
   }
 ]

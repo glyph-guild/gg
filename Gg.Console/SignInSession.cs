@@ -176,7 +176,12 @@ public sealed class SignInSession(
             Pending = new PendingSignIn
             {
                 UserCode = ControlText.Strip(started.UserCode),
-                VerificationUri = ControlText.Strip(started.VerificationUri),
+                // The complete address when the control plane sends one, so
+                // the modal's open key lands on a page with the code filled in.
+                VerificationUri = ControlText.Strip(
+                    started.VerificationUriComplete is { Length: > 0 } complete
+                        ? complete
+                        : started.VerificationUri),
                 ExpiresAt = started.ExpiresAt,
             },
             Said = "Waiting for you to approve it.",

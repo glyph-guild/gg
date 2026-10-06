@@ -58,6 +58,10 @@ return await ByName(CliArgs.Parse(args)) switch
     // nothing on this path may print - including the credential resolution,
     // which fails as a tool error the agent can read rather than as a line.
     CliAction.RunnerRead read => await RunnerReadAsync(read),
+    // THE PLANNING TOOL SERVER, registered by a person in their own Claude Code. Stdout is the
+    // protocol, so nothing on this path prints.
+    CliAction.ItineraryTools itinerary => await ItineraryToolServer.RunAsync(
+        System.Console.In, System.Console.Out, ItineraryDrafts.ForThisMachine(), itinerary.Draft),
     CliAction.RunnerUp or CliAction.RunnerServe => await RunnerUpAsync(),
     CliAction.RunnerMaintain maintain => await RunnerMaintainAsync(maintain.Pool),
     CliAction.RunnerSweep sweeping => await RunnerSweepAsync(sweeping.Watch),

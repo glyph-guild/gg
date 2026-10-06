@@ -41,7 +41,7 @@ internal sealed class ItineraryServerHarness : IDisposable
     internal async Task<IReadOnlyList<JsonElement>> RunAsync(string draft = "draft")
     {
         using var input = new StringReader(string.Join('\n', _requests) + "\n");
-        using var output = new StringWriter();
+        await using var output = new StringWriter();
 
         await ItineraryToolServer.RunAsync(input, output, Drafts, draft);
 

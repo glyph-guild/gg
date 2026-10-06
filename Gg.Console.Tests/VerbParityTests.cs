@@ -381,6 +381,11 @@ public class VerbParityTests
                             + "it made, which arrive on the board.",
             ["RunnerTools"] = "a tool server spoken over stdio by an agent, never by a person.",
             ["RunnerRead"] = "a tool server spoken over stdio by an agent, never by a person.",
+            // A PERSON REGISTERS IT, AND AN AGENT SPEAKS IT (slice sixty-three). The console's
+            // half is ADR-0038 build step 4 - the hosted plan session, whose panel reads this
+            // server's draft file - and is a slice of its own, not a gap in this one.
+            ["ItineraryTools"] = "a tool server spoken over stdio by an agent, never by a person; "
+                               + "the console's plan session (ADR-0038 step 4) will host it.",
             // MOVED, AND THE OLD REASON WAS FALSE ABOUT THIS PRODUCT. It read
             // "the console needs a session to start, so signing in from inside
             // it is a bootstrap problem rather than a parity gap" - and the

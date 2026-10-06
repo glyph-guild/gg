@@ -1,5 +1,5 @@
 using Gg.Contracts;
-using Gg.Local;
+using Gg.Runner.Vcs;
 
 namespace Gg.Runner.Tests;
 

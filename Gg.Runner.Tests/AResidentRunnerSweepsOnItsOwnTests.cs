@@ -176,7 +176,7 @@ public class AResidentRunnerSweepsOnItsOwnTests
 
     private static SweepLoop Loop(ISweepProtocol protocol) => new(
         protocol,
-        new SkillReader(
+        new RepositoryFileReader(
             [],
             Path.Combine(Path.GetTempPath(), "gg-sweep-cache", Guid.NewGuid().ToString("n")),
             secretFor: _ => Task.FromResult<string?>(null)),

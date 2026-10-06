@@ -127,7 +127,7 @@ public class AnEmptySweepStillAttestsTests
         RecordingExecutor executor) =>
         new(
             protocol,
-            new SkillReader(
+            new RepositoryFileReader(
                 [new LocalVcsAdapter(repository.Directory)],
                 Path.Combine(Path.GetTempPath(), "gg-sweep-cache", Guid.NewGuid().ToString("n")),
                 secretFor: _ => Task.FromResult<string?>(null)),

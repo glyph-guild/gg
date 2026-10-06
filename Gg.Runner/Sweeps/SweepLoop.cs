@@ -92,7 +92,7 @@ public interface ISweepExecutor
 /// </param>
 public sealed class SweepLoop(
     ISweepProtocol protocol,
-    SkillReader skills,
+    RepositoryFileReader skills,
     ISweepExecutor executor,
     IClock clock,
     string transcripts,
@@ -101,7 +101,7 @@ public sealed class SweepLoop(
     IReadOnlyList<Gg.Local.ServedTracker>? trackers = null)
 {
     private readonly ISweepProtocol _protocol = protocol;
-    private readonly SkillReader _skills = skills;
+    private readonly RepositoryFileReader _skills = skills;
     private readonly ISweepExecutor _executor = executor;
     private readonly IClock _clock = clock;
     private readonly string _transcripts = transcripts;
@@ -300,11 +300,12 @@ public sealed class SweepLoop(
                 PinnedRef = action.Skill.PinnedRef,
             },
             action.Document.Skill,
+            "this watch's skill",
             cancellationToken);
 
-        if (read is not SkillRead.Read { Skill: var skill, Commit: var commit })
+        if (read is not FileRead.Read { File: var skill, Commit: var commit })
         {
-            return Unreachable(action, ((SkillRead.Unreadable)read).Diagnosis);
+            return Unreachable(action, ((FileRead.Unreadable)read).Diagnosis);
         }
 
         var ran = await _executor.RunAsync(

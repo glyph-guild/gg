@@ -120,7 +120,7 @@ public class ThePairNamesItsAccountTests
 
         var loop = new SweepLoop(
             protocol,
-            new SkillReader(
+            new RepositoryFileReader(
                 [new LocalVcsAdapter(repository.Directory)],
                 Path.Combine(Path.GetTempPath(), "gg-account-cache", Guid.NewGuid().ToString("n")),
                 secretFor: _ => Task.FromResult<string?>(null)),

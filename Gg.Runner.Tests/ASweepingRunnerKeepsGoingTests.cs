@@ -86,7 +86,7 @@ public class ASweepingRunnerKeepsGoingTests
 
         var loop = new SweepLoop(
             protocol,
-            new SkillReader(
+            new RepositoryFileReader(
                 [],
                 Path.Combine(Path.GetTempPath(), "gg-sweep-cache", Guid.NewGuid().ToString("n")),
                 secretFor: _ => Task.FromResult<string?>(null)),

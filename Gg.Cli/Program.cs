@@ -4028,7 +4028,7 @@ static Gg.Runner.Sweeps.SweepLoop SweepLoopFor(
         // follows are fetched by this machine, with this machine's credential.
         // The ref is resolved first and the cache is keyed by the commit it
         // lands on, because a ref moves and a commit's bytes never change.
-        new Gg.Runner.Sweeps.SkillReader(
+        new Gg.Runner.RepositoryFileReader(
             Gg.Runner.Vcs.VcsConfiguration.FromEnvironment(
                 Settings.Value(Gg.Runner.Vcs.VcsConfiguration.HostsVariable, inForce)),
             Gg.Local.LocalPaths.Skills(),

@@ -50,7 +50,12 @@ public class TheQueueAnswersNominationsTests
         "flight:01a0edc2-ecc0-767c-9fc7-9bdae5c48109", 300);
 
     private static NominationSummary SweepFailed(Guid id, int minutesOld) => ANomination(
-        id, WatchFailures.Unreachable + "jdx-triage", "sweep", "watch:jdx-triage", minutesOld);
+        id, WatchFailures.Unreachable + "jdx-triage", "sweep", "watch:jdx-triage", minutesOld)
+        with
+        {
+            GatedBecause = "'jdx-triage' could not sweep: 'refs/heads/main' could not be "
+                         + "resolved in JDX/agile-cortex.",
+        };
 
     private static NominationSummary Quiet() => ANomination(
         WentQuiet, WatchFailures.Missed + "jdx-triage", "sweep", "watch:jdx-triage", 30);
@@ -158,6 +163,19 @@ public class TheQueueAnswersNominationsTests
             .IsEqualTo(Command.DeclineNomination);
         await Assert.That(PaneText.Modal(opened)).Contains("jdx-triage")
             .Because("the modal has to be about the row, not a box saying there is none.");
+    }
+
+    [Test]
+    public async Task The_question_says_why_the_watch_failed()
+    {
+        // FOUND BY WALKING IT: the modal showed subject, nominator, kind and
+        // age, and not the one sentence anybody can act on. The runner's
+        // diagnosis is on the row as GatedBecause, which `gg board` prints and
+        // nothing in this console read.
+        var opened = Reducer.Reduce(Queue(under: FailedTwice), Command.ShowQueueNomination);
+
+        await Assert.That(PaneText.Modal(opened))
+            .Contains("could not be resolved in JDX/agile-cortex");
     }
 
     [Test]

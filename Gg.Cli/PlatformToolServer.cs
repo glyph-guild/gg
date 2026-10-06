@@ -647,6 +647,22 @@ public static class PlatformToolServer
           + "nominating, if it has one. Leave it out and re-proposing the same piece of "
           + "work unchanged is recognised as the same proposal rather than a new one.");
         writer.WriteEndObject();
+        // WHICH PLAN THIS REVISES OR JOINS. Declared rather than left to a work
+        // kind's prose, which is how `after` reaches an agent today: an argument
+        // nobody is offered has to be explained twice and is explained nowhere
+        // for every kind that forgets. Offered on BOTH shapes of this tool,
+        // because joining a plan is not proposing one - an unplanned flight
+        // rejoining its itinerary was never told it may open several.
+        writer.WriteStartObject(NominationTool.Itinerary);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "Optional. The itinerary this belongs to, when it belongs to one that already "
+          + "exists - the number you were shown, like ITN-7, or the id underneath it. Give "
+          + "it to REVISE a plan you proposed before: the legs you name now replace the ones "
+          + "standing under it, and a leg you no longer name is dropped. Give it also when "
+          + "this flight is joining a plan it did not propose. Leave it out and a new "
+          + "itinerary is started, which is what a first plan wants.");
+        writer.WriteEndObject();
         writer.WriteEndObject();
 
         writer.WriteStartArray("required");

@@ -489,11 +489,14 @@ public static class EnvelopeYaml
     }
 
     /// <summary>
-    /// A plan's intent: a sentence, or a block naming a ticket or a link.
+    /// A plan's intent: a sentence, or a block naming a ticket, a link or a file.
     /// </summary>
     /// <remarks>
     /// Built by <see cref="FlightIntent.Of"/>, the derivation <c>gg fly</c> uses, so a plan
-    /// about a work item is a ticket exactly as a flight about one is.
+    /// about a work item is a ticket exactly as a flight about one is. A file is
+    /// <c>repository</c>, <c>path</c> and an optional <c>ref</c>, and is never read here: the
+    /// runner reads it at a commit it records (slice sixty-two). Anything beside it is kept on
+    /// the intent so the contract refuses the pair as two payloads.
     /// </remarks>
     private static FlightIntent ItineraryIntent(Node node)
     {
@@ -504,13 +507,21 @@ public static class EnvelopeYaml
 
         var block = RequireMap(node, "intent");
 
-        Closed(block, "text", "uri", "provider", "id");
+        Closed(block, "text", "uri", "provider", "id", "repository", "path", "ref");
 
-        return FlightIntent.Of(
-            Optional(block, "text"),
-            Optional(block, "uri"),
-            Optional(block, "provider"),
-            Optional(block, "id"));
+        var repository = Optional(block, "repository");
+        var path = Optional(block, "path");
+        var text = Optional(block, "text");
+        var uri = Optional(block, "uri");
+        var provider = Optional(block, "provider");
+        var id = Optional(block, "id");
+
+        return repository is not null || path is not null
+            ? FlightIntent.ForFile(repository ?? "", path ?? "", Optional(block, "ref")) with
+            {
+                Text = text, Uri = uri, Provider = provider, Id = id,
+            }
+            : FlightIntent.Of(text, uri, provider, id) with { Ref = Optional(block, "ref") };
     }
 
     public static EnvelopeNarrowingParse ParseNarrowing(string text)

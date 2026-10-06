@@ -119,7 +119,9 @@ internal sealed class AConsolePlane : HttpMessageHandler
         return (
             new ConsoleData(
                 new FlightCommands(client, sessions),
-                new CredentialCommands(client, sessions, new NoStore(), new NeverAsked()),
+                new CredentialCommands(
+                    client, sessions, new NoStore(), new NeverAsked(),
+                    ConsoleDoubles.APersonsKey()),
                 new TakeCommands(client, sessions),
                 new IdentityCommands(client, sessions),
                 new EnvelopeCommands(client, sessions)),

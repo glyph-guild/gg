@@ -13,6 +13,9 @@ internal sealed class ItineraryServerHarness : IDisposable
 
     internal ItineraryDrafts Drafts => new(Root);
 
+    /// <summary>The control plane's planning reads, as this test wants them answered.</summary>
+    internal FakePlanningReads Reads { get; } = new();
+
     internal ItineraryServerHarness Call(string tool, object? arguments = null)
     {
         _requests.Add(JsonSerializer.Serialize(new Dictionary<string, object?>
@@ -43,7 +46,7 @@ internal sealed class ItineraryServerHarness : IDisposable
         using var input = new StringReader(string.Join('\n', _requests) + "\n");
         await using var output = new StringWriter();
 
-        await ItineraryToolServer.RunAsync(input, output, Drafts, draft);
+        await ItineraryToolServer.RunAsync(input, output, Drafts, draft, Reads);
 
         return [.. output.ToString()
             .Split('\n', StringSplitOptions.RemoveEmptyEntries)

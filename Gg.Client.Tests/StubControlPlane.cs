@@ -59,6 +59,9 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// <summary>When set, polls answer 410 instead of ever completing.</summary>
     public bool Declined { get; set; }
 
+    /// <summary>The address with the code in it; null is a control plane that predates it.</summary>
+    public string? VerificationUriComplete { get; set; }
+
     /// <summary>When set, every request is refused with 426.</summary>
     public string? ProtocolFloorMessage { get; set; }
 
@@ -477,6 +480,7 @@ public sealed class StubControlPlane : IAsyncDisposable
                     DeviceCode = "stub-device-code",
                     UserCode = "WXYZ-1234",
                     VerificationUri = "https://control-plane.invalid/activate",
+                    VerificationUriComplete = VerificationUriComplete,
                     PollIntervalSeconds = 1,
                     ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(10),
                 });

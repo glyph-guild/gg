@@ -2118,7 +2118,8 @@ public static class ProtocolSurface
             [typeof(ProtocolHello)] = ["protocolVersion", "component", "componentVersion"],
             [typeof(DeviceAuthorizationRequest)] = ["deviceLabel"],
             [typeof(DeviceAuthorizationStarted)] =
-                ["deviceCode", "userCode", "verificationUri", "pollIntervalSeconds", "expiresAt"],
+                ["deviceCode", "userCode", "verificationUri", "verificationUriComplete",
+                 "pollIntervalSeconds", "expiresAt"],
             [typeof(DeviceTokenRequest)] = ["deviceCode"],
             [typeof(SessionIssued)] = ["sessionToken", "expiresAt", "principalDisplay", "tenantId"],
             [typeof(WhoAmI)] =

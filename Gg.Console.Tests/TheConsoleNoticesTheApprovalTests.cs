@@ -81,6 +81,36 @@ public class TheConsoleNoticesTheApprovalTests
     }
 
     [Test]
+    public async Task The_modal_offers_the_address_that_already_holds_the_code()
+    {
+        var session = new SignInSession(
+            () => Authorization() with
+            {
+                VerificationUriComplete = "https://example.test/device?code=WDJB-MJHT",
+            },
+            _ => new SignInResult { SignedIn = true, Said = "Signed in as somebody." },
+            new HeldRunner().Run);
+
+        var step = session.Start();
+
+        await Assert.That(step.Pending?.VerificationUri).IsEqualTo("https://example.test/device?code=WDJB-MJHT")
+            .Because("the open key should land on a page with nothing left to type.");
+        await Assert.That(step.Pending?.UserCode).IsEqualTo("WDJB-MJHT")
+            .Because("the page asks a person to confirm the code, so the modal still shows it.");
+    }
+
+    [Test]
+    public async Task An_older_control_plane_still_offers_the_bare_address()
+    {
+        var session = new SignInSession(
+            Authorization,
+            _ => new SignInResult { SignedIn = true, Said = "Signed in as somebody." },
+            new HeldRunner().Run);
+
+        await Assert.That(session.Start().Pending?.VerificationUri).IsEqualTo("https://example.test/device");
+    }
+
+    [Test]
     public async Task Asking_before_it_lands_answers_nothing_rather_than_waiting()
     {
         var runner = new HeldRunner();

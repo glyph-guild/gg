@@ -16,6 +16,9 @@ internal sealed class ItineraryServerHarness : IDisposable
     /// <summary>The control plane's planning reads, as this test wants them answered.</summary>
     internal FakePlanningReads Reads { get; } = new();
 
+    /// <summary>The control plane's proposal door, as this test wants it answered.</summary>
+    internal FakePlanningProposals Proposals { get; } = new();
+
     internal ItineraryServerHarness Call(string tool, object? arguments = null)
     {
         _requests.Add(JsonSerializer.Serialize(new Dictionary<string, object?>
@@ -28,14 +31,20 @@ internal sealed class ItineraryServerHarness : IDisposable
         return this;
     }
 
-    internal ItineraryServerHarness Method(string method)
+    internal ItineraryServerHarness Method(string method, string? client = null)
     {
+        var parameters = new Dictionary<string, object?> { ["protocolVersion"] = "2024-11-05" };
+        if (client is not null)
+        {
+            parameters["clientInfo"] = new Dictionary<string, object?> { ["name"] = client, ["version"] = "1.0.0" };
+        }
+
         _requests.Add(JsonSerializer.Serialize(new Dictionary<string, object?>
         {
             ["jsonrpc"] = "2.0",
             ["id"] = _next++,
             ["method"] = method,
-            ["params"] = new Dictionary<string, object?> { ["protocolVersion"] = "2024-11-05" },
+            ["params"] = parameters,
         }));
         return this;
     }
@@ -46,7 +55,7 @@ internal sealed class ItineraryServerHarness : IDisposable
         using var input = new StringReader(string.Join('\n', _requests) + "\n");
         await using var output = new StringWriter();
 
-        await ItineraryToolServer.RunAsync(input, output, Drafts, draft, Reads);
+        await ItineraryToolServer.RunAsync(input, output, Drafts, draft, Reads, Proposals);
 
         return [.. output.ToString()
             .Split('\n', StringSplitOptions.RemoveEmptyEntries)

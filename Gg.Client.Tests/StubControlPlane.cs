@@ -40,6 +40,12 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// <summary>What the check answers, when a test sets it.</summary>
     public ItineraryCheck? ItineraryAnswer { get; set; }
 
+    /// <summary>Every proposal sent to POST /v1/itineraries, in order.</summary>
+    public List<ItineraryProposal> ObservedProposals { get; } = [];
+
+    /// <summary>What POST /v1/itineraries answers; ItineraryRefusal, when set, refuses instead.</summary>
+    public ItineraryProposed? ProposalAnswer { get; set; }
+
     /// <summary>A 400 body for the check, standing in for the control plane refusing a draft.</summary>
     public string? ItineraryRefusal { get; set; }
 
@@ -577,6 +583,20 @@ public sealed class StubControlPlane : IAsyncDisposable
 
             case "/v1/credentials":
                 await WriteJsonAsync(context, 200, new CredentialList { Credentials = [.. Credentials] });
+                return;
+
+            case "/v1/itineraries" when context.Request.HttpMethod == "POST":
+                ObservedProposals.Add(JsonSerializer.Deserialize<ItineraryProposal>(
+                    LastBody, JsonSerializerOptions.Web)!);
+
+                if (ItineraryRefusal is { } proposalRefusal)
+                {
+                    await WriteAsync(context, 400, proposalRefusal);
+                    return;
+                }
+
+                await WriteJsonAsync(context, 202, ProposalAnswer
+                    ?? new ItineraryProposed { Itinerary = "ITN-1", Pass = Guid.NewGuid().ToString(), Gates = [] });
                 return;
 
             case "/v1/itineraries/check" when context.Request.HttpMethod == "POST":

@@ -33,8 +33,10 @@ public class TheItineraryToolServerListsItsToolsTests
         var names = answers[0].GetProperty("result").GetProperty("tools").EnumerateArray()
             .Select(t => t.GetProperty("name").GetString()).ToList();
 
+        // SIX SINCE SLICE SIXTY-FIVE: `propose`, the server's one write, whose own criterion is
+        // TheToolServerProposesOnceTests.
         await Assert.That(names).IsEquivalentTo(
-            (string?[])["set_intent", "draft_leg", "revise_leg", "drop_leg", "show_plan"]);
+            (string?[])["set_intent", "draft_leg", "revise_leg", "drop_leg", "show_plan", "propose"]);
     }
 
     [Test]

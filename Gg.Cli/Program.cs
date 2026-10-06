@@ -2152,6 +2152,12 @@ static async Task<int> LaunchConsoleAsync()
                 path: null, typed: current.AirspacePathTyped),
         },
 
+        planSession: current => current with
+        {
+            LastNomination = new Gg.Console.PtyPlanSession(
+                Settings.Value("GG_TAKE_COMMAND", InForce.Configuration)).Run(),
+        },
+
         draftEstate: current => current with
         {
             LastEstate = new Gg.Console.PtyDraftSession(

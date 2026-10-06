@@ -31,7 +31,7 @@ public class ModalButtonTests
         var buttons = Keymap.Buttons(In(UiMode.ComposeChoice));
 
         await Assert.That(buttons.Select(b => b.Command))
-            .IsEquivalentTo((Command[])[Command.ComposeInEditor, Command.ComposeWithAgent]);
+            .IsEquivalentTo((Command[])[Command.ComposeInEditor, Command.ComposeWithAgent, Command.PlanWithAgent]);
     }
 
     [Test]

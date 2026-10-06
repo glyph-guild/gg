@@ -11,6 +11,18 @@ public enum HostedView
 
     /// <summary>What was handed back, once anything was.</summary>
     Intent,
+
+    /// <summary>The plan being drafted, and the agent's last verdicts on it. Slice sixty-six.</summary>
+    Plan,
+}
+
+/// <summary>An edit the plan view asks for; the session applies it, because the bar is pure.</summary>
+public enum PlanEdit
+{
+    None,
+    MoveUp,
+    MoveDown,
+    Drop,
 }
 
 /// <summary>
@@ -65,7 +77,8 @@ public enum HostedGesture
 /// <summary>What gg is showing, and how far down it.</summary>
 /// <param name="Showing">Which view, if any, is open.</param>
 /// <param name="Offset">How many lines of the body have scrolled past the top.</param>
-public readonly record struct HostedPanel(HostedView Showing, int Offset);
+/// <param name="Leg">The leg chosen in the plan view, counted from the top. Slice sixty-six.</param>
+public readonly record struct HostedPanel(HostedView Showing, int Offset, int Leg = 0);
 
 public static class HostedBar
 {
@@ -159,7 +172,8 @@ public static class HostedBar
         ReadOnlySpan<byte> typed,
         string? body = null,
         int most = 0,
-        int columns = 0)
+        int columns = 0,
+        HostedView opensOn = HostedView.Envelope)
     {
         if (panel.Showing == HostedView.Closed)
         {
@@ -168,7 +182,7 @@ public static class HostedBar
             // force — whether the agent actually got the instructions is the
             // question they cannot answer any other way.
             return Takes(panel, gesture, typed)
-                ? new HostedPanel(HostedView.Envelope, 0)
+                ? new HostedPanel(opensOn, 0)
                 : panel;
         }
 
@@ -178,6 +192,21 @@ public static class HostedBar
         if (gesture == HostedGesture.Pressed)
         {
             return new HostedPanel(HostedView.Closed, 0);
+        }
+
+        // IN THE PLAN VIEW, j AND k CHOOSE A LEG - the console's own letters for moving through a
+        // list - and the edit letters are taken and left for Edit to name.
+        if (panel.Showing == HostedView.Plan && gesture == HostedGesture.Typed && typed.Length == 1)
+        {
+            switch (typed[0])
+            {
+                case (byte)'j':
+                    return panel with { Leg = panel.Leg + 1 };
+                case (byte)'k':
+                    return panel with { Leg = Math.Max(panel.Leg - 1, 0) };
+                case (byte)'J' or (byte)'K' or (byte)'x':
+                    return panel;
+            }
         }
 
         if (Scrolled(gesture, typed) is { } by)
@@ -204,9 +233,30 @@ public static class HostedBar
             // nobody has read the start of.
             (byte)'e' => new HostedPanel(HostedView.Envelope, 0),
             (byte)'i' => new HostedPanel(HostedView.Intent, 0),
+            (byte)'p' => new HostedPanel(HostedView.Plan, 0),
             _ => panel,
         };
     }
+
+    /// <summary>
+    /// The edit a key asks for in the plan view, or <see cref="PlanEdit.None"/> - pure, as the bar
+    /// is; the session applies it. Slice sixty-six.
+    /// </summary>
+    /// <remarks>
+    /// <b>Only in the plan view</b>: a drop key anywhere else would delete a leg nobody can see.
+    /// <b>The console's letters</b>: <c>x</c> removes, <c>J</c>/<c>K</c> move as <c>j</c>/<c>k</c>
+    /// do, held.
+    /// </remarks>
+    public static PlanEdit Edit(HostedPanel panel, HostedGesture gesture, ReadOnlySpan<byte> typed) =>
+        panel.Showing == HostedView.Plan && gesture == HostedGesture.Typed && typed.Length == 1
+            ? typed[0] switch
+            {
+                (byte)'x' => PlanEdit.Drop,
+                (byte)'J' => PlanEdit.MoveDown,
+                (byte)'K' => PlanEdit.MoveUp,
+                _ => PlanEdit.None,
+            }
+            : PlanEdit.None;
 
     /// <summary>How far this moves the body, or null when it does not.</summary>
     /// <remarks>
@@ -368,7 +418,9 @@ public static class HostedBar
         // row: a header that grew and a body that did not notice would push
         // rows past the budget, and the painter drops those onto the child.
         var rows = new List<string>(Wrapped(
-            $"{status}  ·  {Name(showing)}  ·  e envelope · i intent · esc close",
+            showing == HostedView.Plan
+                ? $"{status}  ·  {Name(showing)}  ·  j/k choose · J/K move · x drop · e envelope · esc close"
+                : $"{status}  ·  {Name(showing)}  ·  e envelope · i intent · esc close",
             columns,
             Math.Max(most - 1, 1)));
 
@@ -626,6 +678,7 @@ public static class HostedBar
     {
         HostedView.Envelope => "the rules in force",
         HostedView.Intent => "what was handed back",
+        HostedView.Plan => "the plan being drafted",
         _ => "",
     };
 
@@ -635,6 +688,8 @@ public static class HostedBar
             "No envelope has been read, so nothing here says what governs this flight.",
         HostedView.Intent =>
             "Nothing has been handed back yet. An agent submits once you and it are happy.",
+        HostedView.Plan =>
+            "No plan has been drafted yet. Ask the agent to start one.",
         _ => "",
     };
 }

@@ -202,6 +202,9 @@ public sealed class ConsoleLoop(
     /// that invocation would be a console that can act as a runner.
     /// </remarks>
     Func<AppState, AppState>? draftEstate = null,
+    // A PLAN DRAFTED WITH AN AGENT IN THE MUX (slice sixty-six). Like draftEstate, the composition
+    // root builds the session; the loop runs it between sessions with the terminal free.
+    Func<AppState, AppState>? planSession = null,
 
     /// <summary>
     /// Writes the path the airspace field collected into the configuration.
@@ -617,6 +620,20 @@ public sealed class ConsoleLoop(
                                     "This console is not configured to set the airspace.",
                             }
                             : setAirspace(Closed(state)),
+                        reload,
+                        asked: false);
+                    break;
+
+                case Command.PlanWithAgent:
+                    // CLOSED, RUN, RE-READ: a proposal the agent made is a plan on the board now,
+                    // and the itineraries tab only knows it once it reads again.
+                    state = Reloaded(
+                        planSession is null
+                            ? Closed(state) with
+                            {
+                                LastNomination = "This console is not configured to plan with an agent.",
+                            }
+                            : planSession(Closed(state)),
                         reload,
                         asked: false);
                     break;

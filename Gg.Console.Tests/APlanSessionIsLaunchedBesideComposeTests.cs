@@ -1,20 +1,20 @@
 namespace Gg.Console.Tests;
 
 /// <summary>
-/// <b>S66.2-01</b> - <c>n</c> then <c>i</c> in the compose choice starts the plan session; it is a
+/// <b>S66.2-01</b> - <c>n</c> then <c>l</c> in the compose choice starts the plan session; it is a
 /// shell command the reducer leaves alone.
 /// </summary>
 /// <remarks>
-/// <b>Beside compose</b> (slice sixty-six rule 1): Normal mode has no free letter, and a plan is
+/// <b>Beside compose</b> (slice sixty-six rule 1): <c>l</c> (for legs) is free in Normal mode, so pressing it one keypress early does nothing else, and a plan is
 /// new work as an intent is. Help naming the key is HelpNamesEveryKeyTests' to hold.
 /// </remarks>
 public class APlanSessionIsLaunchedBesideComposeTests
 {
     [Test]
-    public async Task I_in_the_compose_choice_plans_with_an_agent()
+    public async Task L_in_the_compose_choice_plans_with_an_agent()
     {
         var resolved = Keymap.Resolve(
-            new AppState { Mode = UiMode.ComposeChoice }, KeyStroke.Char('i'));
+            KeyStroke.Char('l'), new KeymapContext(UiMode.ComposeChoice, TabId.Flights));
 
         await Assert.That(resolved).IsEqualTo(Command.PlanWithAgent);
     }

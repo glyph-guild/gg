@@ -33,9 +33,18 @@ internal static class ConsoleDoubles
     /// registers it (ADR-0037 Decision 2, slice sixty-four step 2), so registering one
     /// needs a key — and with no path given, <c>CredentialCommands</c> reads
     /// <c>~/.config/good-grief/person-key</c>. On a developer's machine that file
-    /// exists and the test passes; on a GitHub runner it does not, and
+    /// exists and the test passes; on a CI runner it does not, and
     /// <c>ConsoleWriteParityTests</c> went red with <i>"There is no key at
     /// '/home/runner/.config/good-grief/person-key'"</i> having been green here.
+    /// </para>
+    /// <para>
+    /// <b>And the sentence above once named the forge whose runner it was</b>, which
+    /// <c>ProviderNeutralityTests</c> refused — it scans every file in the public
+    /// projects for a provider name and does not care that this one was in a comment
+    /// about a test fixture. That is the ratchet working: gg talks to the control
+    /// plane and a provider name in a public binary means that boundary leaked, and a
+    /// scan that made an exception for prose would be a scan somebody routes around
+    /// with a comment.
     /// </para>
     /// <para>
     /// <b>It is the hazard <c>FileCredentialStore</c>'s lazy key already names</b> —

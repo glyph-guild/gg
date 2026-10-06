@@ -144,6 +144,33 @@ public class FlightCommandTests
     }
 
     [Test]
+    public async Task Fly_sends_a_file_as_a_file_intent()
+    {
+        // S62.4-01, the client half. The file is NOT read here: the runner reads it at a commit
+        // it records, and a copy read on this machine would be a second, unrecorded version.
+        await using var stub = new StubControlPlane();
+
+        await Build(stub).FlyAsync(
+            text: null, uri: null,
+            fileRepository: "JDX/JDNext", filePath: "docs/plans/18291.md", fileRef: "develop");
+
+        await Assert.That(stub.LastBody).Contains("\"kind\":\"file\"");
+        await Assert.That(stub.LastBody).Contains("docs/plans/18291.md");
+        await Assert.That(stub.LastBody).Contains("\"ref\":\"develop\"");
+    }
+
+    [Test]
+    public async Task Fly_refuses_a_file_path_outside_the_repository_before_sending()
+    {
+        await using var stub = new StubControlPlane();
+
+        await Assert.That(async () => await Build(stub).FlyAsync(
+                text: null, uri: null, fileRepository: "JDX/JDNext", filePath: "../outside.md"))
+            .Throws<FlightIntentException>();
+        await Assert.That(stub.ObservedPaths).IsEmpty();
+    }
+
+    [Test]
     public async Task Fly_refuses_an_intent_the_contract_would_refuse()
     {
         // Validated by the contract's own rule, so gg and the control plane

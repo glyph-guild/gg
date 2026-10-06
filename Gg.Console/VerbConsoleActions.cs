@@ -430,6 +430,32 @@ public sealed class VerbConsoleActions(
     /// and says which names would have worked.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Mints this person's key, and says where it went and whether it registered.
+    /// </summary>
+    /// <remarks>
+    /// <b>The passphrase is read inside the verb, twice, and never reaches here.</b>
+    /// This adapter holds a prompt for the acts that need one; minting does its own
+    /// asking, because what it reads must not pass through a type this project can
+    /// hold — <c>AppState</c> is serialized to disk under <c>GG_STATE_DUMP</c>.
+    /// </remarks>
+    public string MintPersonKey()
+    {
+        try
+        {
+            return _data.CreateKeyAsync().GetAwaiter().GetResult() is VerbResult.KeyCreated minted
+                ? VerbOutput.ToText(minted)
+                : "Nothing was written: the key could not be minted.";
+        }
+        catch (Exception refused) when (refused is InvalidOperationException or HttpRequestException)
+        {
+            // THE REFUSALS ARE SENTENCES A PERSON CAN ACT ON - an empty passphrase,
+            // two that did not match, a key already on this machine - and each is
+            // already worded by the verb. Nothing is reworded here.
+            return refused.Message;
+        }
+    }
+
     public string ForgetCredential()
     {
         try

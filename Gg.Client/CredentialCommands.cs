@@ -291,6 +291,94 @@ public sealed class CredentialCommands(
     }
 
     /// <summary>
+    /// Mints this person's key, wraps it with a passphrase, and registers its
+    /// public half.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>HERE RATHER THAN IN THE CLI'S COMPOSITION ROOT, which is where it was.</b>
+    /// `gg key create` owned this inline, so the console could not reach it: a pane
+    /// may only load through a verb, and there was no verb. Two surfaces sharing one
+    /// implementation is the rule this file states — <i>"different renderers over
+    /// one result type, never a second way to get the data"</i> — and minting was
+    /// the one credential act with only one way in.
+    /// </para>
+    /// <para>
+    /// <b>The passphrase is read here and kept nowhere.</b> It is typed twice,
+    /// because gg keeps no copy of it and a mistyped one means re-minting every
+    /// credential it protected. Neither the value nor the private half is returned,
+    /// held in a field, or reachable from the result.
+    /// </para>
+    /// <para>
+    /// <b>Registering is part of the act, not a follow-up.</b> A key nobody can look
+    /// up is a key nobody can seal to, so minting without registering leaves
+    /// somebody holding something no colleague can address — and that failure
+    /// arrives much later as "I cannot find your key" rather than here, where it can
+    /// be fixed. A registration that does not land is SAID and does not fail the
+    /// act: the key is written either way, and refusing would leave a file on disk
+    /// the person was told nothing about.
+    /// </para>
+    /// </remarks>
+    public async Task<VerbResult> CreateKeyAsync(CancellationToken cancellationToken = default)
+    {
+        var passphrase = _prompt.ReadSecret("Passphrase for this key (not echoed): ");
+
+        if (string.IsNullOrEmpty(passphrase))
+        {
+            throw new CredentialRefusedException(
+                "A key is wrapped by a passphrase, and this one is empty. Nothing was written.");
+        }
+
+        if (!string.Equals(passphrase, _prompt.ReadSecret("Again: "), StringComparison.Ordinal))
+        {
+            throw new CredentialRefusedException(
+                "Those did not match, so nothing was written. gg keeps no copy of this "
+              + "passphrase, which is why it asks twice.");
+        }
+
+        var key = PersonKey.Create(passphrase: passphrase);
+
+        return new VerbResult.KeyCreated(new VerbResult.KeyMinted(
+            At: PersonKey.DefaultPath(),
+            PublicKey: key.PublicKey,
+            Registration: await RegisteredAsync(key.PublicKey, cancellationToken)));
+    }
+
+    /// <summary>
+    /// Registers the public half, and says what happened either way.
+    /// </summary>
+    /// <remarks>
+    /// <b>It never throws.</b> The key is already on disk by the time this runs, so
+    /// a failure here is a sentence about what is left to do rather than a reason to
+    /// pretend nothing happened.
+    /// </remarks>
+    private async Task<string> RegisteredAsync(
+        string publicKey, CancellationToken cancellationToken)
+    {
+        if (_sessions.Read() is not { } session)
+        {
+            return "It is not registered yet - this machine is not signed in. Run `gg login` and "
+                 + "then `gg key create` on a machine that is, or register this one later; until "
+                 + "then nobody can look your key up to seal a credential to it.";
+        }
+
+        try
+        {
+            var registered = await _client.RegisterKeyAsync(
+                session.SessionToken,
+                new PrincipalKeyRegistrationRequest { PublicKey = publicKey },
+                cancellationToken);
+
+            return $"Registered as {registered.Fingerprint}, so a credential can be sealed to you.";
+        }
+        catch (Exception failure) when (failure is HttpRequestException or InvalidOperationException)
+        {
+            return $"Your key is written, and registering it did not work: {failure.Message} "
+                 + "Nobody can seal a credential to you until it is registered.";
+        }
+    }
+
+    /// <summary>
     /// Every public key this tenant's people have registered.
     /// </summary>
     /// <remarks>

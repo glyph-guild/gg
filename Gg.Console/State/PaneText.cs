@@ -3090,6 +3090,7 @@ public static class PaneText
         UiMode.Help => "keys",
         UiMode.FlightActions => "what can be done",
         UiMode.AirspaceActions => "what can be done to the airspace",
+        UiMode.CredentialActions => "what can be done about credentials",
         UiMode.FlightDetail => "this flight",
         UiMode.Watching => "watching",
         UiMode.HandFlight => "nothing was created",
@@ -3430,6 +3431,7 @@ public static class PaneText
             UiMode.Runner => Runner(state),
             UiMode.FlightActions => Actions(state),
             UiMode.AirspaceActions => AirspaceActions(state),
+            UiMode.CredentialActions => CredentialActions(state),
             UiMode.ConfirmFlight => ConfirmFlight(state),
             UiMode.ConfirmGround => ConfirmGround(state),
             UiMode.ConfirmApply => ConfirmApply(state),
@@ -4095,6 +4097,7 @@ public static class PaneText
         UiMode.Help => "while this page is open",
         UiMode.FlightActions => "while the actions list is open",
         UiMode.AirspaceActions => "while the airspace actions are open",
+        UiMode.CredentialActions => "while the credential actions are open",
         UiMode.ConfirmFlight => "when asked whether to open a second flight",
         UiMode.ConfirmGround => "when asked whether to ground a flight",
         UiMode.ConfirmOwnership => "when asked who may claim a machine",
@@ -4129,6 +4132,21 @@ public static class PaneText
       + "  s  apply the airspace - submit each changed document as a flight\n"
       + "  m  draft with an agent - hand the tree to an agent to edit\n"
       + "  o  what would change, and what the last apply came to\n";
+
+    /// <summary>
+    /// The three acts, each with the sentence a hint line had no room for.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two of these were bound in Normal and advertised nowhere.</b> `c` and `x`
+    /// carried <c>OffTheHintLine</c>, so this console's credential writes existed
+    /// and could not be found — against its own rule that a bound key a person
+    /// cannot find is a key that does not exist. Here they have words.
+    /// </remarks>
+    private static string CredentialActions(AppState state) =>
+        $"  {Clean(CredentialsPane(state))}\n\n"
+      + "  c  register a credential - names the account, then reads the secret\n"
+      + "  x  forget one - asks which repository, and checks the list again first\n"
+      + "  m  mint your key - nobody can seal a credential to you until you have one\n";
 
     private static string Actions(AppState state) =>
         state.Selected is not { } row

@@ -443,6 +443,18 @@ public sealed class ConsoleData(
         _credentials.ListKeysAsync(cancellationToken);
 
     /// <summary>
+    /// `gg key create` — mints this person's key and registers its public half.
+    /// </summary>
+    /// <remarks>
+    /// <b>A port because the act moved into the verb layer.</b> It lived in the
+    /// CLI's composition root, which is exactly why the console could not offer it:
+    /// a pane loads through a verb and there was no verb. The passphrase is read
+    /// inside <c>CredentialCommands</c> and never crosses this boundary.
+    /// </remarks>
+    public Task<VerbResult> CreateKeyAsync(CancellationToken cancellationToken = default) =>
+        _credentials.CreateKeyAsync(cancellationToken);
+
+    /// <summary>
     /// `gg credential rm`.
     /// </summary>
     /// <remarks>

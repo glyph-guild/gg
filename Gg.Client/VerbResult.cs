@@ -290,6 +290,32 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.CredentialRemoved;
     }
 
+    /// <summary>
+    /// What minting a person's key produced: where it is, its public half, and
+    /// whether registering it landed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A LOCAL RECORD, NOT A CONTRACT TYPE, and the distinction is the one the
+    /// CLI wrote down.</b> `gg key create` built its JSON by hand to avoid
+    /// <i>"inventing a contract record so --json had something to reflect over
+    /// would put a local filesystem path into the audited surface."</i> That is
+    /// right about <c>Gg.Contracts</c> and it does not forbid this: a
+    /// <c>VerbResult</c> is gg's own output shape, and
+    /// <see cref="VerbResult.Diagnosis"/> already carries a <c>DoctorReport</c> full
+    /// of local paths.
+    /// </para>
+    /// <para>
+    /// <b>No private half and no passphrase, and there is nowhere to put one.</b>
+    /// Three strings, all of them things a person may read: a path, a public key,
+    /// and a sentence.
+    /// </para>
+    /// </remarks>
+    /// <param name="At">Where the wrapped key was written.</param>
+    /// <param name="PublicKey">The half a credential is sealed to.</param>
+    /// <param name="Registration">What happened when the public half was registered.</param>
+    public sealed record KeyMinted(string At, string PublicKey, string Registration);
+
     /// <summary>Every public key this tenant's people have registered.</summary>
     /// <remarks>
     /// <b>Public keys, which is why this may be printed at all.</b> A credential
@@ -301,6 +327,12 @@ public abstract record VerbResult
     public sealed record Keys(PrincipalKeyList Value) : VerbResult
     {
         public override string Kind => VerbResultKinds.Keys;
+    }
+
+    /// <summary>This person's key, minted and registered.</summary>
+    public sealed record KeyCreated(KeyMinted Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.KeyCreated;
     }
 
     public sealed record RunnerRepinned(Gg.Client.RunnerRepinned Value) : VerbResult
@@ -588,6 +620,8 @@ public static class VerbResultKinds
     public const string Credentials = "credentials";
 
     public const string Keys = "keys";
+
+    public const string KeyCreated = "key-created";
     public const string CredentialAdded = "credential-added";
     public const string CredentialRemoved = "credential-removed";
     public const string RunnerRetired = "runner-retired";
@@ -698,6 +732,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(DoctorReport))]
 [JsonSerializable(typeof(CredentialList))]
 [JsonSerializable(typeof(PrincipalKeyList))]
+[JsonSerializable(typeof(VerbResult.KeyMinted))]
 [JsonSerializable(typeof(CredentialRegistered))]
 [JsonSerializable(typeof(Gg.Contracts.CredentialRemoved))]
 [JsonSerializable(typeof(Gg.Contracts.RunnerRetired))]
@@ -795,6 +830,7 @@ public static class VerbOutput
         VerbResult.Diagnosis r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.DoctorReport),
         VerbResult.Credentials r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.CredentialList),
         VerbResult.Keys r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.PrincipalKeyList),
+        VerbResult.KeyCreated r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.KeyMinted),
         VerbResult.CredentialAdded r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.CredentialRegistered),
         VerbResult.CredentialRemoved r =>
@@ -907,6 +943,8 @@ public static class VerbOutput
             []),
         VerbResultKinds.Keys => new VerbResult.Keys(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.PrincipalKeyList))),
+        VerbResultKinds.KeyCreated => new VerbResult.KeyCreated(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.KeyMinted))),
         VerbResultKinds.CredentialAdded => new VerbResult.CredentialAdded(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.CredentialRegistered))),
         VerbResultKinds.CredentialRemoved => new VerbResult.CredentialRemoved(Require(
@@ -999,6 +1037,7 @@ public static class VerbOutput
         VerbResult.Diagnosis r => Diagnosis(r.Value),
         VerbResult.Credentials r => Credentials(r.Value, r.Resting),
         VerbResult.Keys r => Keys(r.Value),
+        VerbResult.KeyCreated r => KeyCreated(r.Value),
         VerbResult.CredentialAdded r => CredentialAdded(r.Value),
         VerbResult.CredentialRemoved r => CredentialRemoved(r.Value),
         VerbResult.RunnerRetired r => RunnerRetiredText(r.Value),
@@ -1551,6 +1590,23 @@ public static class VerbOutput
         }
         return text.ToString().TrimEnd();
     }
+
+    /// <summary>
+    /// What `gg key create` has always printed, now from one place.
+    /// </summary>
+    /// <remarks>
+    /// <b>The public half is printed and the path is named</b>, because both are
+    /// things a person needs: the path so they know what to back up, and the key so
+    /// they can hand it to somebody whose control plane cannot be reached.
+    /// </remarks>
+    private static string KeyCreated(VerbResult.KeyMinted minted) =>
+        $"Your key is at {Clean(minted.At)}."
+      + Environment.NewLine
+      + "Its public half, which is what a credential is sealed to:"
+      + Environment.NewLine
+      + Clean(minted.PublicKey)
+      + Environment.NewLine
+      + Clean(minted.Registration);
 
     private static string CredentialAdded(CredentialRegistered registered) =>
         $"Registered {Clean(registered.Reference.Identity)} for "

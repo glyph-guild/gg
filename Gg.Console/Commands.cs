@@ -369,6 +369,39 @@ public enum Command
     /// </remarks>
     ToggleAirspaceActions,
 
+    /// <summary>What may be done to this tenant's credentials, and to your key.</summary>
+    /// <remarks>
+    /// <b>A MODE CHANGE AND NOTHING ELSE</b>, like the airspace actions it is
+    /// modelled on. What the keys inside it do is what two of them always did; this
+    /// decides whether they are findable at all, because `c` and `x` were bound in
+    /// Normal and advertised nowhere.
+    /// </remarks>
+    ToggleCredentialActions,
+
+    /// <summary>
+    /// Mints this person's key, with the passphrase typed twice.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The act ADR-0037 most depends on, and it had no console path at all.</b>
+    /// A credential is sealed to the people who may open it, so nobody can be sent
+    /// one until their key is registered — and until somebody mints one, a
+    /// credential's holder column can only ever say "this machine".
+    /// </para>
+    /// <para>
+    /// <b>It takes the terminal, for <see cref="SendCredential"/>'s reason.</b>
+    /// `gg key create` reads a passphrase twice with the echo off, and a
+    /// Terminal.Gui session cannot turn the echo off at all. gg keeps no copy of
+    /// that passphrase, which is why it asks twice.
+    /// </para>
+    /// <para>
+    /// <b>Here rather than on the runners tab</b>, because this is the pane where
+    /// somebody discovers they need one: the holder column is where a person reads
+    /// that a credential can be opened by this machine and by nobody they can name.
+    /// </para>
+    /// </remarks>
+    MintPersonKey,
+
     /// <summary>Ask whether to retire the names the tree no longer holds.</summary>
     /// <remarks>
     /// Reduced in session - it opens a question and nothing else. `x` inside
@@ -1379,6 +1412,10 @@ public static class ShellCommands
         // has to be off and a Terminal.Gui session cannot turn it off, so this
         // needs the terminal back exactly as the editor does.
         Command.SendCredential,
+
+        // AND SO DOES MINTING A KEY, for the same reason twice over: a passphrase
+        // read with the echo off, asked for twice because gg keeps no copy of it.
+        Command.MintPersonKey,
 
         // TAKES THE TERMINAL TO PRINT A URL AND READ A CODE, which is the
         // send's reason with a person's browser in the middle of it. The

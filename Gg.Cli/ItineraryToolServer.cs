@@ -38,6 +38,42 @@ public static class ItineraryToolServer
     public const string DropLeg = "drop_leg";
     public const string ShowPlan = "show_plan";
 
+    /// <summary>
+    /// The <c>claude mcp add</c> line that registers this server for <paramref name="draft"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b><c>gg</c> when it is on the path</b>, so a person who runs <c>gg update</c> is not left
+    /// registered to a binary that moved. The absolute path otherwise, which is the one thing
+    /// that certainly runs.
+    /// </para>
+    /// <para>
+    /// <b>One key per draft</b>: two drafts are two registrations, and two under one key would
+    /// replace each other. The default draft keeps the bare key.
+    /// </para>
+    /// </remarks>
+    public static string Registration(string draft, string? ggOnPath, Gg.Local.SelfInvocation? self)
+    {
+        ArgumentNullException.ThrowIfNull(draft);
+
+        var key = draft == "draft" ? Server : $"{Server}-{draft}";
+        var verb = draft == "draft" ? "itinerary tools" : $"itinerary tools --draft {draft}";
+
+        if (ggOnPath is not null)
+        {
+            return $"claude mcp add {key} -- gg {verb}";
+        }
+
+        if (self is null)
+        {
+            return "This gg cannot name its own executable, so there is no line to print. Put gg "
+                 + $"on your PATH and run: claude mcp add {key} -- gg {verb}";
+        }
+
+        var lead = string.Join(' ', self.Arguments.Take(self.Arguments.Count - 2).Prepend(self.Command));
+        return $"claude mcp add {key} -- {lead} {verb}";
+    }
+
     public static async Task<int> RunAsync(
         TextReader input,
         TextWriter output,

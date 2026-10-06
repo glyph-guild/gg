@@ -61,6 +61,7 @@ return await ByName(CliArgs.Parse(args)) switch
     // THE PLANNING TOOL SERVER, registered by a person in their own Claude Code. Stdout is the
     // protocol, so nothing on this path prints.
     CliAction.ItineraryTools itinerary => await ItineraryToolsAsync(itinerary),
+    CliAction.ItineraryRegistration registration => PrintRegistration(registration),
     CliAction.RunnerUp or CliAction.RunnerServe => await RunnerUpAsync(),
     CliAction.RunnerMaintain maintain => await RunnerMaintainAsync(maintain.Pool),
     CliAction.RunnerSweep sweeping => await RunnerSweepAsync(sweeping.Watch),
@@ -2162,6 +2163,17 @@ static async Task<int> LaunchConsoleAsync()
     {
         File.WriteAllText(dumpPath, AppStateJson.Serialize(final));
     }
+    return 0;
+}
+
+/// <summary>
+/// `gg itinerary tools --print-registration`: the line to run in your own Claude Code. Printed,
+/// never applied - gg writes no other tool's config.
+/// </summary>
+static int PrintRegistration(CliAction.ItineraryRegistration registration)
+{
+    Console.WriteLine(ItineraryToolServer.Registration(
+        registration.Draft, Gg.Local.OnPath.Find("gg"), Gg.Local.SelfInvocation.Current));
     return 0;
 }
 

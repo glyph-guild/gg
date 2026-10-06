@@ -386,6 +386,8 @@ public class VerbParityTests
             // server's draft file - and is a slice of its own, not a gap in this one.
             ["ItineraryTools"] = "a tool server spoken over stdio by an agent, never by a person; "
                                + "the console's plan session (ADR-0038 step 4) will host it.",
+            ["ItineraryRegistration"] = "a line a person pastes into their own Claude Code; the "
+                                      + "console's plan session hosts the server and needs none.",
             // MOVED, AND THE OLD REASON WAS FALSE ABOUT THIS PRODUCT. It read
             // "the console needs a session to start, so signing in from inside
             // it is a bootstrap problem rather than a parity gap" - and the

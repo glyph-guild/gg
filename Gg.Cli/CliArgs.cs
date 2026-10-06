@@ -280,6 +280,12 @@ public abstract record CliAction
     /// </summary>
     public sealed record ItineraryTools(string Draft) : CliAction;
 
+    /// <summary>
+    /// gg itinerary tools --print-registration: the line a person runs to register the server in
+    /// their own Claude Code. gg never writes another tool's config.
+    /// </summary>
+    public sealed record ItineraryRegistration(string Draft) : CliAction;
+
     /// <summary>gg airspace show: the topology, root first.</summary>
     /// <summary>
     /// The topology, or one applied document when a name is given.
@@ -836,6 +842,8 @@ public static class CliArgs
         "gg watches                     how each watch is doing: executor, last report, cost",
         "gg plan [flight]               what must hold before a flight can start",
         "gg itinerary check <file>      what admission would do with each leg of a plan",
+        "gg itinerary tools [--draft <name>]  a tool server any Claude Code session drafts a plan with",
+        "  --print-registration         the `claude mcp add` line that registers it",
         "gg gates                       flights stopped, waiting on somebody",
         // BESIDE GATES, because it is the same question one noun earlier: what
         // is waiting on a person. A gate is a flight that has stopped; a
@@ -1433,6 +1441,11 @@ public static class CliArgs
             ["itinerary", "check", var file] => new CliAction.ItineraryCheck(file, json),
             // THE PLANNING TOOL SERVER (slice sixty-three), one draft per registration.
             ["itinerary", "tools"] => new CliAction.ItineraryTools("draft"),
+            ["itinerary", "tools", "--print-registration"] => new CliAction.ItineraryRegistration("draft"),
+            ["itinerary", "tools", "--draft", var named, "--print-registration"] =>
+                Gg.Client.ItineraryDrafts.Refused(named) is { } badNamed
+                    ? Unknown(badNamed)
+                    : new CliAction.ItineraryRegistration(named),
             ["itinerary", "tools", "--draft", var draft] => Gg.Client.ItineraryDrafts.Refused(draft) is { } badName
                 ? Unknown(badName)
                 : new CliAction.ItineraryTools(draft),

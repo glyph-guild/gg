@@ -199,7 +199,11 @@ public class SliceTwelveGuardTests
     // consumer at a pin may read changed while the set of kinds did not.
     // KindsThatCross is unchanged, which is this guard's actual criterion:
     // stack.performed already belonged to a flight and still does.
-    private const string VocabularyAtSliceStart = "0.41.0";
+    //
+    // 0.42.0 since slice sixty-two, and this time a kind DID move: intent.read, a
+    // flight's record of the file its intent named and the commit it was read at.
+    // KindsThatCross moved with it, to twenty, and the argument is written there.
+    private const string VocabularyAtSliceStart = "0.42.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number
@@ -352,7 +356,16 @@ public class SliceTwelveGuardTests
     /// shipped once both had happened, which is exactly the case that does not
     /// arrive when the bring-up fails.
     /// </para>
-    private const int KindsThatCross = 19;
+    /// <para>
+    /// <b>Twenty, and the argument for the twentieth.</b> <c>intent.read</c> crosses because
+    /// slice sixty-two lets an intent be a file in a repository, read by the runner at a ref it
+    /// resolves, and nothing else can answer afterwards WHICH COMMIT that ref named when it was
+    /// read - the control plane reads no repository bytes, and the branch has moved by then. A
+    /// plan's legs read that commit rather than the ref, so a plan's words are the same for
+    /// every leg. It belongs to a flight on this guard's own terms: it is what one flight was
+    /// given to read, and it carries names and ids, never the text.
+    /// </para>
+    private const int KindsThatCross = 20;
 
     [Test]
     public async Task Attestations_are_not_facts_and_the_count_moves_only_with_an_argument()

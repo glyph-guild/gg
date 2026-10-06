@@ -43,7 +43,9 @@ public class TicketIntentTests
     public async Task The_kind_is_advertised_beside_the_two_that_were_there()
     {
         await Assert.That(FlightIntentKinds.All).Contains(FlightIntentKinds.Ticket);
-        await Assert.That(FlightIntentKinds.All.Count).IsEqualTo(3);
+        // FOUR SINCE SLICE SIXTY-TWO, which added `file`. The count is kept rather than
+        // dropped so the next kind is a decision somebody makes here too.
+        await Assert.That(FlightIntentKinds.All.Count).IsEqualTo(4);
 
         // The two that already shipped keep their values. A vocabulary whose
         // existing members move is not an addition, it is a break wearing one.

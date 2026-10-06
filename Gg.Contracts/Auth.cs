@@ -32,6 +32,19 @@ public sealed record DeviceAuthorizationStarted
     public required string VerificationUri { get; init; }
 
     /// <summary>
+    /// <see cref="VerificationUri"/> with the code already in it, so a person
+    /// who follows the link has nothing to type. RFC 8628's
+    /// <c>verification_uri_complete</c>.
+    /// </summary>
+    /// <remarks>
+    /// Optional, and absent from a control plane that predates it - a client
+    /// then shows the bare address and the code, as it always did. The code is
+    /// still shown either way: a person should be able to see that the page
+    /// they landed on is asking about the code their terminal printed.
+    /// </remarks>
+    public string? VerificationUriComplete { get; init; }
+
+    /// <summary>
     /// Seconds the client must wait between polls. Server-supplied: the client
     /// respects it rather than inventing a cadence.
     /// </summary>

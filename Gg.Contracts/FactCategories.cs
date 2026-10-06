@@ -81,6 +81,10 @@ public static class FactCategories
         // such fact for reasons that have nothing to do with whether it had a
         // tree to push from.
         [FactKinds.LoopOutcome] = Flight,
+        // WHAT THE FLIGHT WAS GIVEN TO READ, which is about the episode and not about the
+        // subject or its tree - so it is never asked about and never makes a rule
+        // inapplicable. Slice sixty-two.
+        [FactKinds.IntentRead] = Flight,
         [FactKinds.LoopTranscript] = Flight,
         [FactKinds.LoopSession] = Flight,
         [FactKinds.DocumentProposal] = Flight,

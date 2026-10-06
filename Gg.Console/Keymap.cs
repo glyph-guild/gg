@@ -83,6 +83,9 @@ public readonly record struct KeyStroke(
         : Left ? "left"
         : Right ? "right"
         : Ctrl ? $"ctrl+{Input}"
+        // A BLANK IS NOT A NAME. Space's character is the one character the
+        // hint line and the help page cannot show, so it read "·   mark ·".
+        : Input == ' ' ? "space"
         : Input?.ToString() ?? "?";
 }
 
@@ -367,6 +370,27 @@ public readonly record struct KeymapContext(
     /// <summary>Whether there is more than one, so paging means something.</summary>
     public bool NotificationsSeveral { get; init; }
 
+    /// <summary>Whether the queue's cursor is on a nomination rather than a flight.</summary>
+    /// <remarks>
+    /// <b>What decides the queue's enter and its space.</b> A flight row opens
+    /// the flight actions; a nomination has no flight, and its question is the
+    /// board's. Only a nomination can be marked, because only a nomination can
+    /// be declined.
+    /// </remarks>
+    public bool ANominationIsUnderTheQueueCursor { get; init; }
+
+    /// <summary>Whether any row in the queue is marked.</summary>
+    /// <remarks>
+    /// <b>What `d` means on the queue.</b> Nothing marked, it decides the gate
+    /// under the cursor as it always has; something marked, it declines what
+    /// is marked. One letter, two meanings, decided inside the shared arm -
+    /// the shape `a` uses.
+    /// </remarks>
+    public bool RowsAreMarked { get; init; }
+
+    /// <summary>Whether the queue holds a watch's failure.</summary>
+    public bool AWatchIsFailing { get; init; }
+
     /// <summary>
     /// What the refresh key has to say for itself: a countdown, or the mark
     /// that says one is happening.
@@ -539,6 +563,13 @@ public readonly record struct KeymapContext(
 
             NotificationsWaiting = state.Notifications.Count > 0,
             NotificationsSeveral = state.Notifications.Count > 1,
+
+            // AND THE QUEUE'S MARKS, derived through the one reader that drops
+            // a mark whose row has left - so a key is never offered over marks
+            // nobody can see.
+            ANominationIsUnderTheQueueCursor = QueueMarks.Under(state) is not null,
+            RowsAreMarked = QueueMarks.Live(state).Count > 0,
+            AWatchIsFailing = QueueMarks.Failures(state).Count > 0,
 
             // AND WHETHER IT NAMES SOMEWHERE TO GO WITH NO READER FOR IT,
             // derived here with the rest so the hint line and the dispatch
@@ -1971,8 +2002,16 @@ public static class Keymap
             // modal that put the question on the screen and named the
             // approver; the line was advertising the shortcut past a question
             // nobody had read yet.
-            new(KeyStroke.Char('d'), Command.OpenGate, "decide")
-                { OffTheHintLine = true },
+            //
+            // AND THE QUEUE'S MARKS DECIDE WHICH `d'. With rows marked it
+            // declines them, and is on the line, because a mark is a question
+            // somebody is halfway through asking and the line is where the
+            // other half is found.
+            context.Showing == TabId.Queue && context.RowsAreMarked
+                ? new(KeyStroke.Char('d'), Command.DeclineMarked, "decline the marked")
+                    { When = "with rows marked in the queue" }
+                : new(KeyStroke.Char('d'), Command.OpenGate, "decide")
+                    { OffTheHintLine = true },
 
             // A CONVENTION, NOT A FEATURE. Every terminal program moves focus
             // with tab, and this one prints its six tab keys on the tabs
@@ -2123,6 +2162,29 @@ public static class Keymap
                         ]
                         : []]
                 : [],
+            // MARKING, ON THE QUEUE AND OVER A NOMINATION. Space because it is
+            // what marks a row in every list that has marks, and this mode had
+            // nothing on it - the mark's own space is only bound while the
+            // mark is up, and that arm returns before this one is read.
+            .. context.Showing == TabId.Queue && context.ANominationIsUnderTheQueueCursor
+                ? (KeyBinding[])
+                [
+                    new(KeyStroke.Char(' '), Command.ToggleMark, "mark")
+                        { When = "on a nomination in the queue" },
+                ]
+                : [],
+
+            // AND EVERY FAILURE AT ONCE. `*` is the board's "everybody's rows"
+            // one tab over and is select-all in most file managers; neither
+            // tab reaches the other's, so the two never shadow each other.
+            .. context.Showing == TabId.Queue && context.AWatchIsFailing
+                ? (KeyBinding[])
+                [
+                    new(KeyStroke.Char('*'), Command.MarkFailures, "mark every failure")
+                        { When = "while a watch's failure is in the queue" },
+                ]
+                : [],
+
             .. context.Showing == TabId.Board
                 ? (KeyBinding[])[
                     // CHOSEN FOR BEING FREE, AND SAID TO BE - `/`'s rule, one
@@ -2598,6 +2660,16 @@ public static class Keymap
         // reaches the doing. It opened the flight - the reading modal, which
         // deliberately binds nothing that acts on its flight - and the way to
         // act from there was esc, then `a`, then a key off the hint line.
+        //
+        // AND OVER A NOMINATION, THE BOARD'S QUESTION. The flight actions have
+        // nothing to say about a row with no flight, and the open/decline
+        // question already has a modal.
+        TabId.Queue when context.ANominationIsUnderTheQueueCursor =>
+        [
+            new(KeyStroke.EnterKey, Command.ShowQueueNomination, "open or decline it")
+                { OffTheHintLine = true, When = "on a nomination in the queue" },
+        ],
+
         TabId.Queue =>
         [
             new(KeyStroke.EnterKey, Command.ToggleFlightActions, "what can be done")
@@ -2727,6 +2799,9 @@ public static class Keymap
         c => c with { ANominationWaits = true },
         c => c with { SaidIsClipped = true },
         c => c with { OverALink = true },
+        c => c with { ANominationIsUnderTheQueueCursor = true },
+        c => c with { RowsAreMarked = true },
+        c => c with { AWatchIsFailing = true },
 
         // THE CORNER WITH MORE THAN ONE IN IT, which is both of its flags at
         // once - "several" is never true without "waiting" - and is the shape

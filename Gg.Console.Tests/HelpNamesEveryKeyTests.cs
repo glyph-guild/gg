@@ -228,6 +228,26 @@ public class HelpNamesEveryKeyTests
         new(UiMode.Normal) { Screening = true },
     ];
 
+    /// <summary>The queue's marks, in the one mode and tab that read them.</summary>
+    /// <remarks>
+    /// <b>Beside the cross, for `OverAMachineSomebodyOwns`'s reason.</b> All
+    /// three are read in Normal mode on the queue tab and nowhere else, so
+    /// crossing them against every mode and tab asks the keymap a question it
+    /// does not answer - and three more booleans would multiply a product
+    /// already measured in minutes by eight. Their eight combinations here are
+    /// every shape they can take where they mean anything.
+    /// </remarks>
+    private static IEnumerable<KeymapContext> OnTheQueue() =>
+        from under in (bool[])[false, true]
+        from marked in (bool[])[false, true]
+        from failing in (bool[])[false, true]
+        select new KeymapContext(UiMode.Normal, TabId.Queue)
+        {
+            ANominationIsUnderTheQueueCursor = under,
+            RowsAreMarked = marked,
+            AWatchIsFailing = failing,
+        };
+
     private static IEnumerable<KeymapContext> OverAMachineSomebodyOwns() =>
         from ours in (bool[])[false, true]
         from standing in (KeymapContext[])
@@ -270,6 +290,7 @@ public class HelpNamesEveryKeyTests
         var missing = (from context in contexts.Concat(OverAMachineSomebodyOwns())
                                                .Concat(OverAGateThatAsksForSomething())
                                                .Concat(UnderTheMark())
+                                               .Concat(OnTheQueue())
                        from binding in Keymap.Bindings(context)
                        select (context.Mode, binding.Key, binding.Command))
             .Distinct()
@@ -529,7 +550,12 @@ public class HelpNamesEveryKeyTests
         // one. Two flags rather than one because they are not the same
         // question - something to show, and something to page between - and
         // the second is false for most of the first's life.
-        await Assert.That(members.Count).IsEqualTo(33)
+        // THIRTY-SIX SINCE THE QUEUE ANSWERED ITS NOMINATIONS: whether the
+        // cursor is on one (enter and space), whether any are marked (which
+        // `d` means), and whether a watch's failure is listed (`*`). Held
+        // beside the cross in OnTheQueue(), since all three are read on one
+        // tab in one mode.
+        await Assert.That(members.Count).IsEqualTo(36)
             .Because("Everywhere() crosses every one of these, or OverAMachineSomebodyOwns() "
                    + "holds it beside the cross - and a member in neither would leave the "
                    + "completeness check above quietly incomplete, which is exactly how the "

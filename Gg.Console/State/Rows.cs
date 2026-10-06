@@ -896,6 +896,8 @@ public static class Rows
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        // THE MODAL'S BOARD, which from the queue is the standing page.
+        state = BoardDetails.Seen(state);
         var rows = Board(state);
 
         if (state.BoardSelected < 0 || state.BoardSelected >= rows.Count)

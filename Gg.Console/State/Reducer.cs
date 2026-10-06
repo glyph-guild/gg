@@ -252,6 +252,13 @@ public static class Reducer
             // reading of what the table drew.
             Command.ShowBoardRow => Modal(state, UiMode.BoardDetail),
 
+            // AND THE SAME MODAL FROM THE QUEUE, over the queue's cursor -
+            // BoardDetails.Seen is what makes the modal read that one.
+            Command.ShowQueueNomination => QueueNominationShown(state),
+
+            Command.ToggleMark => QueueMarks.Toggled(state),
+            Command.MarkFailures => QueueMarks.FailuresToggled(state),
+
             // AND THE PLAN UNDER THE ITINERARIES CURSOR. The leg cursor starts
             // at the top rather than wherever it was left: the modal is about
             // a plan a person just chose, and a cursor carried over from the
@@ -325,6 +332,7 @@ public static class Reducer
             // which is worse than never having moved.
             Command.OpenNomination => state,
             Command.DeclineNomination => state,
+            Command.DeclineMarked => state,
 
             // THE SHELL DOES IT, so the reducer does nothing - and it must do
             // nothing, because a local effect here would land whether or not
@@ -798,6 +806,19 @@ public static class Reducer
             Mode = UiMode.Normal,
         };
     }
+
+    /// <summary>
+    /// The board's modal, opened on the nomination under the queue's cursor.
+    /// </summary>
+    /// <remarks>
+    /// <b>Opened only over a row the modal can find</b>, which is
+    /// <see cref="BoardDetails.Seen"/>'s question: a modal over nothing would
+    /// be a box saying there is no row, reached by a key that was offered.
+    /// </remarks>
+    private static AppState QueueNominationShown(AppState state) =>
+        Rows.StandingUnder(state) is null
+            ? state
+            : state with { Mode = UiMode.BoardDetail, HelpPage = HelpPage.Keys };
 
     private static AppState Modal(AppState state, UiMode mode) =>
         state with

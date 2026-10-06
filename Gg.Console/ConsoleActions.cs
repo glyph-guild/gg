@@ -250,4 +250,8 @@ public interface IConsoleActions
 /// </remarks>
 /// <param name="Said">The sentence a person reads.</param>
 /// <param name="FlightId">The flight the write opened, when the door named it.</param>
-public sealed record Opening(string Said, string? FlightId = null);
+/// <param name="Refused">
+/// The door said no, and <paramref name="Said"/> is its sentence. Its own member
+/// because a bulk answer counts these and a sentence is not a count.
+/// </param>
+public sealed record Opening(string Said, string? FlightId = null, bool Refused = false);

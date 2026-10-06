@@ -330,13 +330,21 @@ public static class PaneText
             ];
         }
 
+        // A COLUMN FOR THE MARK, ONLY WHILE SOMETHING IS MARKED. Every row
+        // gets the same two cells so the columns below stay where they were;
+        // a queue with nothing marked spends none of its width on it.
+        var marked = QueueMarks.Live(state);
+
         return
         [
             .. notices,
             .. state.Queue.Select(row =>
             {
                 var unread = row.UnreadArrivals > 0 ? $" ({row.UnreadArrivals})" : "";
-                return Clean($"{Recognised(row),-9} {Reason(row.Reason),-18} {row.Name}{unread}");
+                var mark = marked.Count == 0 ? ""
+                    : row.NominationId is { } id && marked.Contains(id) ? "● " : "  ";
+                return Clean(
+                    $"{mark}{Recognised(row),-9} {Reason(row.Reason),-18} {row.Name}{unread}");
             }),
         ];
     }
@@ -389,6 +397,10 @@ public static class PaneText
         // one. The cell is narrow and spends its width saying which question
         // it is.
         QueueReason.NominationStanding => "nominated · open it?",
+        // NOT "open it?", which is the row above. There is nothing to open:
+        // the watch said it cannot do its job, and what a person does is fix
+        // it and decline the row - `*` marks every one of them.
+        QueueReason.WatchFailing => "watch failing",
         // Article XI: a reason nothing can render halts rather than showing a
         // blank cell that reads as "nothing wrong".
         _ => throw new InvalidOperationException(

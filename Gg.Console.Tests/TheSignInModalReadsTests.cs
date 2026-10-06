@@ -329,7 +329,22 @@ public class TheSignInModalReadsTests
                     Reason = QueueReason.AwaitingDecision,
                     Since = DateTimeOffset.UnixEpoch,
                 },
+
+                // AND A WATCH'S FAILURE BELOW IT, MARKED, which is two flags
+                // from one row: a failure is listed, and something is marked.
+                // The mark is on an id the queue holds, because a mark whose
+                // row has left is one the derivation is right to ignore.
+                new QueueRow
+                {
+                    NominationId = new Guid("019fe8b4-0000-7000-8000-00000000000e"),
+                    Key = "019fe8b4-0000-7000-8000-00000000000e",
+                    Reference = "019fe8b4-0000-7000-8000-00000000000e",
+                    Name = "nightly-triage · sweep failed",
+                    Reason = QueueReason.WatchFailing,
+                    Since = DateTimeOffset.UnixEpoch,
+                },
             ],
+            Marked = [new Guid("019fe8b4-0000-7000-8000-00000000000e")],
             SelectedRow = 0,
             Gates = new Gg.Contracts.GateList
             {
@@ -487,6 +502,14 @@ public class TheSignInModalReadsTests
             [nameof(KeymapContext.TheRowsFlightIsLoaded)] =
                 "a nomination is standing or it opened into a flight, never both - "
               + "ABoardRowOpensItsFlightTests holds the other arm.",
+
+            // AND THE FIFTH. The queue's cursor is on a flight or on a
+            // nomination, never both. This model keeps the flight, because
+            // that is the arm with a gate on it; TheQueueAnswersNominationsTests
+            // holds the other.
+            [nameof(KeymapContext.ANominationIsUnderTheQueueCursor)] =
+                "the queue's cursor is on a flight or a nomination, never both - "
+              + "TheQueueAnswersNominationsTests holds the other arm.",
 
             [nameof(KeymapContext.OverALink)] =
                 "a flight's intent is a ticket or a link, never both - "

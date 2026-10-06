@@ -379,10 +379,39 @@ public class BeatsWhileFlyingTests
         var flown = await FlyAsync(attended: false, heartbeatSeconds: 0);
 
         await Assert.That(flown.Paced).IsNotEmpty();
-        await Assert.That(flown.Paced.All(p => p >= HeartbeatCadence.Floor)).IsTrue()
-            .Because("the runner waits what it was told, and what it was told is not "
-                   + $"trusted. {flown.Paced.Count} waits, the first few: "
-                   + string.Join(", ", flown.Paced.Take(6).Select(p => $"{p.TotalMilliseconds}ms")));
+
+        // THE LONGEST WAIT, NOT EVERY WAIT, and the difference is the whole of this
+        // test's correctness. `beatPace` is handed `_nextBeatDue - _clock.UtcNow` -
+        // time REMAINING until the next beat is owed - and `RunnerLoop` passes
+        // `TimeSpan.Zero` outright when one is overdue. The clamp is somewhere else
+        // entirely: `BeatAsync` answers `HeartbeatCadence.Respecting(...)` and the
+        // due time is set from that.
+        //
+        // So a wait below the floor is ORDINARY. This test flies a real flight
+        // beside the beat and both advance the same fake clock, so any tick spent
+        // elsewhere leaves less than a full cadence owed - and `All(p => p >= Floor)`
+        // called that a clamp failure. It fired on gg #857, a release PR whose entire
+        // diff was a version string, and the value that tripped it was not even
+        // printed: the message shows the first six of eighty-four.
+        //
+        // WHAT CLAMPING ACTUALLY PROMISES is that a control plane asking for zero
+        // does not make this machine spin. A broken clamp shows as a cadence of zero,
+        // which means every wait is zero and the longest is zero. So the longest wait
+        // reaching the floor is the property, and it is the one that cannot be true
+        // by accident.
+        await Assert.That(flown.Paced.Max() >= HeartbeatCadence.Floor).IsTrue()
+            .Because("a cadence of zero would make every wait zero and this machine spin "
+                   + $"beside work that matters. {flown.Paced.Count} waits, longest "
+                   + $"{flown.Paced.Max().TotalMilliseconds}ms, floor "
+                   + $"{HeartbeatCadence.Floor.TotalMilliseconds}ms.");
+
+        // AND NOT INFLATED EITHER, which the old assertion could not see at all: a
+        // runner that waited LONGER than it was told goes stale and is reaped while
+        // it is working, which is the failure at the other end of this rule.
+        await Assert.That(flown.Paced.Max() <= HeartbeatCadence.Floor).IsTrue()
+            .Because("the floor is what a control plane asking for zero gets, and waiting "
+                   + $"longer than that is how a live runner is read as offline. Longest "
+                   + $"{flown.Paced.Max().TotalMilliseconds}ms.");
     }
 
     [Test]

@@ -850,6 +850,11 @@ public enum Command
     ComposeWithAgent,
 
     /// <summary>
+    /// Draft a plan with an agent in the mux, the planning tool server attached. Slice sixty-six.
+    /// </summary>
+    PlanWithAgent,
+
+    /// <summary>
     /// Open the flight this question was asked for, with the kind under the cursor.
     /// </summary>
     /// <remarks>
@@ -1357,6 +1362,8 @@ public static class ShellCommands
         Command.ComposeInEditor,
         Command.ComposeWithAgent,
         Command.FlyForKind,
+        // AND PLANNING WITH ONE (slice sixty-six): it hands the terminal to a child.
+        Command.PlanWithAgent,
 
         // SETTING A FLOOR IS A WRITE, so it happens between sessions with the
         // terminal provably free - the arrangement every other write here

@@ -30,14 +30,14 @@ namespace Gg.Cli;
 public static class ItineraryToolServer
 {
     /// <summary>The key a person registers this server under, and the name it gives itself.</summary>
-    public const string Server = "gg-itinerary";
+    public const string Server = Gg.Local.PlanningTool.Server;
 
-    public const string SetIntent = "set_intent";
-    public const string DraftLeg = "draft_leg";
-    public const string ReviseLeg = "revise_leg";
-    public const string DropLeg = "drop_leg";
-    public const string ShowPlan = "show_plan";
-    public const string Propose = "propose";
+    public const string SetIntent = Gg.Local.PlanningTool.SetIntent;
+    public const string DraftLeg = Gg.Local.PlanningTool.DraftLeg;
+    public const string ReviseLeg = Gg.Local.PlanningTool.ReviseLeg;
+    public const string DropLeg = Gg.Local.PlanningTool.DropLeg;
+    public const string ShowPlan = Gg.Local.PlanningTool.ShowPlan;
+    public const string Propose = Gg.Local.PlanningTool.Propose;
 
     /// <summary>
     /// The <c>claude mcp add</c> line that registers this server for <paramref name="draft"/>.
@@ -506,22 +506,10 @@ public static class ItineraryToolServer
             return DraftChange.Refuse(Missing(draft, arguments));
         }
 
-        var subject = draft.Legs[at].Subject;
-        var waiting = draft.Legs
-            .Where((other, index) => index != at
-                && string.Equals(other.After, subject, StringComparison.Ordinal))
-            .Select(other => $"'{other.Subject}'")
-            .ToList();
-
-        if (waiting.Count > 0)
-        {
-            return DraftChange.Refuse(
-                $"'{subject}' is not dropped: {string.Join(" and ", waiting)} come after it, and "
-              + "would be left waiting for a leg that no longer exists. Revise their 'after' "
-              + "first, or drop them.");
-        }
-
-        return Checked(draft with { Legs = [.. draft.Legs.Where((_, index) => index != at)] }, menu);
+        // THE PANEL'S RULE TOO (slice sixty-six): one drop rule, whichever door edits the draft.
+        return PlanEdits.Dropped(draft, at) is DraftChange.Written { Draft: var dropped }
+            ? Checked(dropped, menu)
+            : PlanEdits.Dropped(draft, at);
     }
 
     /// <summary>

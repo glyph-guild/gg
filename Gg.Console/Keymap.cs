@@ -1641,6 +1641,11 @@ public static class Keymap
                 { Label = "Editor" },
             new(KeyStroke.Char('m'), Command.ComposeWithAgent, "compose it with an agent")
                 { Label = "Agent" },
+            // OR A PLAN OF SEVERAL FLIGHTS, drafted with an agent beside a panel that shows it
+            // (slice sixty-six). New work, as an intent is, so it is offered where an intent is.
+            // `l` FOR LEGS: free in Normal mode, so nothing one keypress earlier does something else.
+            new(KeyStroke.Char('l'), Command.PlanWithAgent, "plan its legs with an agent")
+                { Label = "Plan" },
 
             // THE ONE WAY OUT, the same key it is in every other modal - which
             // is what makes it findable without being learned. Escaping opens

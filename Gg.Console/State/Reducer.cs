@@ -402,6 +402,7 @@ public static class Reducer
 
             Command.ComposeInEditor => state,
             Command.ComposeWithAgent => state,
+            Command.PlanWithAgent => state,
 
             // TAB TURNS THE HELP PAGE WHILE HELP OWNS THE KEYBOARD, and moves
             // the focused pane everywhere else. A modal holds the keys for one

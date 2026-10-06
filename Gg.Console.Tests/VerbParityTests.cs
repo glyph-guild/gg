@@ -397,6 +397,10 @@ public class VerbParityTests
             // server's draft file - and is a slice of its own, not a gap in this one.
             ["ItineraryTools"] = "a tool server spoken over stdio by an agent, never by a person; "
                                + "the console's plan session (ADR-0038 step 4) will host it.",
+            // A PLAN PROPOSED BY HAND (slice sixty-five). The console's plan session (ADR-0038 step
+            // 4) proposes from its panel; until then the person proposes from the command line.
+            ["ItineraryPropose"] = "absent, and a decision for now: the console's plan session "
+                                 + "(ADR-0038 step 4) proposes from its panel.",
             ["ItineraryRegistration"] = "a line a person pastes into their own Claude Code; the "
                                       + "console's plan session hosts the server and needs none.",
             // MOVED, AND THE OLD REASON WAS FALSE ABOUT THIS PRODUCT. It read

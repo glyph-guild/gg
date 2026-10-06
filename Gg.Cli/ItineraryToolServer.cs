@@ -37,6 +37,7 @@ public static class ItineraryToolServer
     public const string ReviseLeg = "revise_leg";
     public const string DropLeg = "drop_leg";
     public const string ShowPlan = "show_plan";
+    public const string Propose = "propose";
 
     /// <summary>
     /// The <c>claude mcp add</c> line that registers this server for <paramref name="draft"/>.
@@ -80,6 +81,7 @@ public static class ItineraryToolServer
         ItineraryDrafts drafts,
         string draft,
         IPlanningReads reads,
+        IPlanningProposals? proposals = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
@@ -92,6 +94,10 @@ public static class ItineraryToolServer
         // cannot be read leaves the server answering - a dead server costs the agent its tools
         // for the session - and every tool call says why instead of taking a free string.
         var menu = await MenuAsync(drafts, draft, reads, cancellationToken);
+
+        // WHICH AGENT IS ACTING, as the client said when it opened this server - the `via` a
+        // proposal carries. Null until initialize names one.
+        var session = new Session();
 
         while (await input.ReadLineAsync(cancellationToken) is { } line)
         {
@@ -114,7 +120,8 @@ public static class ItineraryToolServer
 
             using (message)
             {
-                if (await AnswerAsync(message.RootElement, drafts, draft, menu, reads, cancellationToken)
+                if (await AnswerAsync(
+                        message.RootElement, drafts, draft, menu, reads, proposals, session, cancellationToken)
                     is { } answer)
                 {
                     await output.WriteLineAsync(answer);
@@ -151,9 +158,15 @@ public static class ItineraryToolServer
         }
     }
 
+    /// <summary>What this server learned when it was opened.</summary>
+    private sealed class Session
+    {
+        public string? Client { get; set; }
+    }
+
     private static async Task<string?> AnswerAsync(
         JsonElement message, ItineraryDrafts drafts, string draft, Menu menu, IPlanningReads reads,
-        CancellationToken cancellationToken)
+        IPlanningProposals? proposals, Session session, CancellationToken cancellationToken)
     {
         var method = message.TryGetProperty("method", out var named) ? named.GetString() : null;
 
@@ -164,17 +177,27 @@ public static class ItineraryToolServer
 
         return method switch
         {
-            "initialize" => Initialized(id, message),
+            "initialize" => Initialized(id, message, session),
             "tools/list" => Listed(id, menu.Offered),
-            "tools/call" => await CalledAsync(id, message, drafts, draft, menu, reads, cancellationToken),
+            "tools/call" => await CalledAsync(
+                id, message, drafts, draft, menu, reads, proposals, session, cancellationToken),
             _ => Error(id, -32601,
                 $"'{method}' is not a method this server has. It has initialize, tools/list "
               + "and tools/call."),
         };
     }
 
-    private static string Initialized(JsonElement id, JsonElement message) =>
-        Write(writer =>
+    private static string Initialized(JsonElement id, JsonElement message, Session session)
+    {
+        if (message.TryGetProperty("params", out var opened)
+            && opened.TryGetProperty("clientInfo", out var client)
+            && client.TryGetProperty("name", out var name)
+            && name.GetString() is { Length: > 0 } named)
+        {
+            session.Client = named;
+        }
+
+        return Write(writer =>
         {
             Envelope(writer, id);
             writer.WriteStartObject("result");
@@ -194,6 +217,7 @@ public static class ItineraryToolServer
             writer.WriteEndObject();
             writer.WriteEndObject();
         });
+    }
 
     private static string Listed(JsonElement id, ItineraryMenu? menu) =>
         Write(writer =>
@@ -248,6 +272,12 @@ public static class ItineraryToolServer
                 ["subject"]);
 
             Tool(writer, ShowPlan, "The whole draft, changing nothing.", [], []);
+
+            Tool(writer, Propose,
+                "Propose the draft as a plan, as the signed-in person. It waits for its gate: "
+              + "nothing opens until somebody answers, and the result says who. Only a draft the "
+              + "check would accept is proposed. Answers with the plan's number beside the draft.",
+                [], []);
 
             writer.WriteEndArray();
             writer.WriteEndObject();
@@ -333,7 +363,8 @@ public static class ItineraryToolServer
 
     private static async Task<string> CalledAsync(
         JsonElement id, JsonElement message, ItineraryDrafts drafts, string draft, Menu menu,
-        IPlanningReads reads, CancellationToken cancellationToken)
+        IPlanningReads reads, IPlanningProposals? proposals, Session session,
+        CancellationToken cancellationToken)
     {
         var parameters = message.TryGetProperty("params", out var given) ? given : default;
         var name = parameters.ValueKind == JsonValueKind.Object
@@ -350,6 +381,11 @@ public static class ItineraryToolServer
             return Content(id, menu.Unavailable + "\n\n" + Rendered(drafts, draft), isError: true);
         }
 
+        if (string.Equals(name, Propose, StringComparison.Ordinal))
+        {
+            return await ProposedAsync(id, drafts, draft, proposals, session, cancellationToken);
+        }
+
         DraftChange? change = name switch
         {
             SetIntent => drafts.Change(draft, d => Intended(d, arguments, offered)),
@@ -359,7 +395,7 @@ public static class ItineraryToolServer
             ShowPlan => null,
             _ => new DraftChange.Refused(
                 $"'{name}' is not a tool this server has. It has {SetIntent}, {DraftLeg}, "
-              + $"{ReviseLeg}, {DropLeg} and {ShowPlan}."),
+              + $"{ReviseLeg}, {DropLeg}, {ShowPlan} and {Propose}."),
         };
 
         // THE DRAFT THAT STANDS, read back after the change: written, or untouched by a refusal -
@@ -582,6 +618,64 @@ public static class ItineraryToolServer
         draft.Legs.Count == 0
             ? "no legs yet"
             : string.Join(", ", draft.Legs.Select(leg => $"'{leg.Subject}'"));
+
+    /// <summary>
+    /// The server's one write (slice sixty-five): the draft, proposed as the signed-in person,
+    /// naming which agent acted.
+    /// </summary>
+    /// <remarks>
+    /// <b>A finished draft only</b>: one with no intent or no leg is refused here, by the plan's own
+    /// rule, rather than sent to be told so. <b><c>via</c> is the client and this server</b> - what
+    /// opened it and what it used - and grants nothing.
+    /// </remarks>
+    private static async Task<string> ProposedAsync(
+        JsonElement id, ItineraryDrafts drafts, string draft, IPlanningProposals? proposals,
+        Session session, CancellationToken cancellationToken)
+    {
+        if (proposals is null)
+        {
+            return Content(id,
+                "This server was started without a way to propose, so the draft below stays a "
+              + "draft. Run it as `gg itinerary tools`.\n\n" + Rendered(drafts, draft), isError: true);
+        }
+
+        if (drafts.Read(draft) is not DraftRead.Held { Draft: var held })
+        {
+            return Content(id, Rendered(drafts, draft), isError: true);
+        }
+
+        var plan = new ItineraryDraft
+        {
+            Planner = held.Planner,
+            Intent = held.Intent!,
+            Legs = held.Legs,
+        };
+
+        if (held.Intent is null || ItineraryDraft.Validate(plan) is { } unfinished)
+        {
+            return Content(id,
+                $"Not proposed: {(held.Intent is null ? "the draft says nothing about what the plan is for - set_intent first." : ItineraryDraft.Validate(plan))}"
+              + "\n\n" + Rendered(drafts, draft), isError: true);
+        }
+
+        try
+        {
+            var proposed = await proposals.ProposeAsync(new ItineraryProposal
+            {
+                Draft = plan,
+                Via = session.Client is { } client ? $"{client} ({Server})" : Server,
+            }, cancellationToken);
+
+            return Content(id,
+                VerbOutput.ItineraryProposedText(proposed) + "\n\n" + Rendered(drafts, draft),
+                isError: false);
+        }
+        catch (Exception refused) when (refused is not OperationCanceledException)
+        {
+            return Content(id,
+                $"Not proposed: {refused.Message}\n\n" + Rendered(drafts, draft), isError: true);
+        }
+    }
 
     /// <summary>What admission would do with the draft, or why that is not known.</summary>
     private sealed record Preview(ItineraryCheck? Check, string? Instead);

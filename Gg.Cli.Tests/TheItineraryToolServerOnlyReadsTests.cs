@@ -32,7 +32,10 @@ public class TheItineraryToolServerOnlyReadsTests
             .Distinct()
             .ToList();
 
-        await Assert.That(calls).IsEquivalentTo((string[])["ItineraryMenuAsync", "CheckItineraryAsync"]);
+        // AND, SINCE SLICE SIXTY-FIVE, THE ONE WRITE: proposing, through IPlanningProposals, whose
+        // own criterion is TheToolServerProposesOnceTests. The reads interface is still two.
+        await Assert.That(calls).IsEquivalentTo(
+            (string[])["ItineraryMenuAsync", "CheckItineraryAsync", "ProposeItineraryAsync"]);
     }
 
     [Test]

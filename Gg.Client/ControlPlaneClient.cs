@@ -88,6 +88,8 @@ namespace Gg.Client;
 [JsonSerializable(typeof(ItineraryDraft))]
 [JsonSerializable(typeof(ItineraryCheck))]
 [JsonSerializable(typeof(ItineraryMenu))]
+[JsonSerializable(typeof(ItineraryProposal))]
+[JsonSerializable(typeof(Gg.Contracts.ItineraryProposed))]
 [JsonSerializable(typeof(EnvironmentStrategy))]
 [JsonSerializable(typeof(EnvironmentStrategyState))]
 [JsonSerializable(typeof(StrategyList))]
@@ -1925,6 +1927,36 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         return ItineraryMenu.Validate(menu) is { } unusable
             ? throw new InvalidOperationException(unusable)
             : menu;
+    }
+
+    /// <summary>
+    /// Proposes a plan as the signed-in person (slice sixty-five): a pass that is never leased,
+    /// its legs standing, its gate closed.
+    /// </summary>
+    /// <remarks>
+    /// A 400 is the control plane's sentence - a plan the check would refuse, or a planner with no
+    /// gate a person answers - and is raised as <see cref="ItineraryRefusedException"/> with it.
+    /// </remarks>
+    public async Task<Gg.Contracts.ItineraryProposed> ProposeItineraryAsync(
+        string sessionToken, ItineraryProposal proposal, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Post, "/v1/itineraries", sessionToken);
+        request.Content = JsonContent.Create(proposal, ProtocolJsonContext.Default.ItineraryProposal);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            throw new ItineraryRefusedException(
+                await response.Content.ReadAsStringAsync(cancellationToken));
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(
+            ProtocolJsonContext.Default.ItineraryProposed, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane returned no proposed itinerary.");
     }
 
     /// <summary>

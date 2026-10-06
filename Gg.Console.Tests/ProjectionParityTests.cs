@@ -94,6 +94,11 @@ public class ProjectionParityTests
             // here would put an answer in the model with no question behind it.
             ["ItineraryChecked"] = "not projected, by decision: ADR-0038 draws it in the hosted "
                                  + "plan session's panel, where the draft it answers lives.",
+            // AND A PROPOSAL'S ANSWER (slice sixty-five), for the same reason: it is a report about
+            // one act, drawn where the draft was proposed from. The plan it made is on the board,
+            // which the console already projects.
+            ["ItineraryProposed"] = "not projected, by decision: the plan it made reaches the console "
+                                  + "on the board; the answer belongs where the draft was proposed.",
 
             // A MINTED KEY IS A REPORT ABOUT ONE ACT, not state about the tenant.
             // What comes back is a local path, a public half and a sentence about

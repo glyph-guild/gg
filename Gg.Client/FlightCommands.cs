@@ -1857,6 +1857,25 @@ public sealed class FlightCommands(
             await _client.CheckItineraryAsync(Session(), draft, cancellationToken));
     }
 
+    /// <summary>
+    /// Proposes a plan file as the signed-in person (slice sixty-five). By hand, so it names no
+    /// agent; read and judged by the plan parser first, so nothing malformed is sent.
+    /// </summary>
+    public async Task<VerbResult> ProposeItineraryAsync(
+        string path, CancellationToken cancellationToken = default)
+    {
+        var parsed = EnvelopeYaml.ParseItinerary(
+            await File.ReadAllTextAsync(path, cancellationToken), DefaultPlanner);
+
+        if (parsed.Draft is not { } draft)
+        {
+            throw new ItineraryRefusedException($"{path}: {parsed.Diagnosis}");
+        }
+
+        return new VerbResult.ItineraryProposed(await _client.ProposeItineraryAsync(
+            Session(), new ItineraryProposal { Draft = draft }, cancellationToken));
+    }
+
     /// <summary>The planner a plan file is checked against when it names none.</summary>
     public const string DefaultPlanner = "plan";
 

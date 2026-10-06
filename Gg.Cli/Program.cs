@@ -97,6 +97,8 @@ return await ByName(CliArgs.Parse(args)) switch
     CliAction.Plan plan => await EmitAsync(plan.Json, c => c.PlanAsync(plan.Flight)),
     CliAction.ItineraryCheck check =>
         await EmitAsync(check.Json, c => c.CheckItineraryAsync(check.Path)),
+    CliAction.ItineraryPropose propose =>
+        await EmitAsync(propose.Json, c => c.ProposeItineraryAsync(propose.Path)),
     CliAction.AirspaceShow airspace =>
         await EmitAsync(airspace.Json, c => c.AirspaceAsync(airspace.Name)),
     // THE WORKING COPY IS WHERE YOU ARE. Nothing configurable, because a flag
@@ -3378,7 +3380,8 @@ static async Task<int> ItineraryToolsAsync(CliAction.ItineraryTools itinerary)
     var reads = new SessionPlanningReads(new ControlPlaneClient(http), new FileSessionStore());
 
     return await ItineraryToolServer.RunAsync(
-        System.Console.In, System.Console.Out, ItineraryDrafts.ForThisMachine(), itinerary.Draft, reads);
+        System.Console.In, System.Console.Out, ItineraryDrafts.ForThisMachine(), itinerary.Draft,
+        reads, proposals: reads);
 }
 
 /// <summary>

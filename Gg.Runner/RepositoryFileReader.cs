@@ -69,6 +69,17 @@ public sealed class RepositoryFileReader(
     private readonly string _cacheRoot = cacheRoot;
     private readonly Func<RepoTarget, Task<string?>> _secretFor = secretFor;
 
+    /// <summary>
+    /// The same reader - its adapters and its cache - finding credentials another way.
+    /// </summary>
+    /// <remarks>
+    /// A sweep's skill is read with this machine's credential; a flight's intent with the ones its
+    /// lease resolved. The cache is shared because it is keyed by commit, and a commit's bytes
+    /// are the same whoever read them.
+    /// </remarks>
+    public RepositoryFileReader WithSecrets(Func<RepoTarget, Task<string?>> secretFor) =>
+        new(_adapters, _cacheRoot, secretFor);
+
     /// <param name="where">The repository, with the pinned commit as its <see cref="RepoTarget.PinnedRef"/>.</param>
     /// <param name="path">The skill's path in that repository.</param>
     /// <param name="what">What is being read, as the sentences name it: "this watch's skill", "this flight's intent".</param>

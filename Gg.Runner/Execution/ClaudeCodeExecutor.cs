@@ -812,7 +812,13 @@ public sealed class ClaudeCodeExecutor(
     /// filed - which is what "work item  in " read like before this arm existed.
     /// </remarks>
     private static string Subject(ExecutorRequest request) =>
-        request.IntentUri is { Length: > 0 } uri
+        // A FILE IS QUOTED UNDER WHERE IT CAME FROM. Its words are the work, like typed text,
+        // and the repository, path and commit are what let the agent cite them and read the
+        // files they name at the same commit. Slice sixty-two.
+        request.IntentFile is { } file
+            ? $"the work described in {file.Path} in {file.Repository} at {file.Commit}:\n\n"
+            + $"---\n{file.Content.TrimEnd()}\n---\n"
+            : request.IntentUri is { Length: > 0 } uri
             ? $"the issue at {uri} in this repository"
             : request.IntentId is { Length: > 0 } && request.IntentProvider is { Length: > 0 }
                 ? $"work item {request.IntentId} in {request.IntentProvider}"

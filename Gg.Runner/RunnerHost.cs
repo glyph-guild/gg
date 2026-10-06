@@ -220,6 +220,9 @@ public static class RunnerHost
         Execution.IExecutorPort? executor = null,
         IReadOnlyList<Gg.Local.IntentReader>? readers = null,
         IReadOnlyList<Vcs.HostDeclaration>? hosts = null,
+        // THE READER FOR A FILE INTENT (slice sixty-two). Null leaves this runner refusing such
+        // a flight out loud, which is what a runner wired before it existed should do.
+        RepositoryFileReader? fileReader = null,
 
         /// <summary>What this machine has spent, or null when it names no allowance.</summary>
         /// <remarks>
@@ -537,6 +540,7 @@ public static class RunnerHost
             secretFor: secretFor)
         {
             HoldFor = holdFor,
+            FileReader = fileReader,
         };
         started = loop;
 

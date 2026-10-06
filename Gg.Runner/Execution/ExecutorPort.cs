@@ -352,8 +352,12 @@ public sealed record ExecutorRequest
     /// runner treating it as workable would be a second, laxer copy of the rule.
     /// </para>
     /// </remarks>
-    public static bool NamesWork(string? uri, string? provider, string? id, string? text) =>
-        uri is { Length: > 0 }
+    public static bool NamesWork(
+        string? uri, string? provider, string? id, string? text, bool hasFile = false) =>
+        // A FILE NAMES WORK: the runner has already read it, and its words are what the agent
+        // is given. Slice sixty-two.
+        hasFile
+        || uri is { Length: > 0 }
         || (provider is { Length: > 0 } && id is { Length: > 0 })
         // WORDS NAME WORK. They are not addressable and there is nothing to
         // resolve, which is exactly why they have to be carried rather than
@@ -371,6 +375,12 @@ public sealed record ExecutorRequest
     /// asked for, in their words.
     /// </remarks>
     public string? IntentText { get; init; }
+
+    /// <summary>
+    /// The file this flight's intent named, read by the runner before the loop: where it came
+    /// from and what it says. Null when the intent is not a file.
+    /// </summary>
+    public RequestedIntentFile? IntentFile { get; init; }
 
     /// <summary>
     /// What the agent that nominated this flight left for whoever picks it up.
@@ -908,3 +918,12 @@ public sealed record AttendedSession
     /// <summary>Which of the operator's settings sources the launch cleared.</summary>
     public required IReadOnlyList<string> SettingsCleared { get; init; }
 }
+
+/// <summary>
+/// A file intent as the agent is given it: where it came from and what it says.
+/// </summary>
+/// <param name="Repository">The registered repository it is in.</param>
+/// <param name="Path">Its path there.</param>
+/// <param name="Commit">The commit it was read at - so the agent can cite it, and read its neighbours there.</param>
+/// <param name="Content">What it says.</param>
+public sealed record RequestedIntentFile(string Repository, string Path, string Commit, string Content);

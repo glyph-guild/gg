@@ -281,6 +281,11 @@ public abstract record CliAction
     public sealed record ItineraryTools(string Draft) : CliAction;
 
     /// <summary>
+    /// gg itinerary propose: a plan file proposed as the signed-in person. It waits for its gate.
+    /// </summary>
+    public sealed record ItineraryPropose(string Path, bool Json) : CliAction, IEmitsResult;
+
+    /// <summary>
     /// gg itinerary tools --print-registration: the line a person runs to register the server in
     /// their own Claude Code. gg never writes another tool's config.
     /// </summary>
@@ -862,6 +867,7 @@ public static class CliArgs
         "gg watches                     how each watch is doing: executor, last report, cost",
         "gg plan [flight]               what must hold before a flight can start",
         "gg itinerary check <file>      what admission would do with each leg of a plan",
+        "gg itinerary propose <file>    propose a plan; nothing opens until its gate is answered",
         "gg itinerary tools [--draft <name>]  a tool server any Claude Code session drafts a plan with",
         "  --print-registration         the `claude mcp add` line that registers it",
         "gg gates                       flights stopped, waiting on somebody",
@@ -1462,6 +1468,8 @@ public static class CliArgs
             // A PLAN CHECKED, under its own noun. `gg plan check` would be read
             // by the arm above as the checklist of a flight called "check".
             ["itinerary", "check", var file] => new CliAction.ItineraryCheck(file, json),
+            // A PLAN, PROPOSED BY HAND (slice sixty-five): the same file, sent as a proposal.
+            ["itinerary", "propose", var proposing] => new CliAction.ItineraryPropose(proposing, json),
             // THE PLANNING TOOL SERVER (slice sixty-three), one draft per registration.
             ["itinerary", "tools"] => new CliAction.ItineraryTools("draft"),
             ["itinerary", "tools", "--print-registration"] => new CliAction.ItineraryRegistration("draft"),

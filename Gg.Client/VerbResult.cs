@@ -244,6 +244,12 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.ItineraryChecked;
     }
 
+    /// <summary>A plan proposed: its number, its pass, and who must answer before anything opens.</summary>
+    public sealed record ItineraryProposed(Gg.Contracts.ItineraryProposed Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.ItineraryProposed;
+    }
+
     /// <summary>
     /// The fleet's advertised labels, each with its disposition. The same wire
     /// document as <see cref="Runners"/>, rendered per label - one document,
@@ -676,6 +682,9 @@ public static class VerbResultKinds
     /// <summary>A plan checked leg by leg - deliberately not <see cref="Plan"/>, which is the checklist.</summary>
     public const string ItineraryChecked = "itinerary-check";
 
+    /// <summary>A plan a person proposed, waiting for its gate. Slice sixty-five.</summary>
+    public const string ItineraryProposed = "itinerary-proposed";
+
     /// <summary>What has been nominated and needs somebody.</summary>
     public const string Board = "board";
 
@@ -784,6 +793,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(TakeSeed))]
 [JsonSerializable(typeof(Checklist))]
 [JsonSerializable(typeof(ItineraryCheck))]
+[JsonSerializable(typeof(Gg.Contracts.ItineraryProposed))]
 [JsonSerializable(typeof(EnvelopeTopology))]
 [JsonSerializable(typeof(RegisteredRepositories))]
 [JsonSerializable(typeof(TreeWritten))]
@@ -900,6 +910,8 @@ public static class VerbOutput
         VerbResult.Plan r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.Checklist),
         VerbResult.ItineraryChecked r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.ItineraryCheck),
+        VerbResult.ItineraryProposed r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.ItineraryProposed),
         VerbResult.AirspaceTopology r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvelopeTopology),
         VerbResult.AirspaceRepositories r =>
@@ -1021,6 +1033,8 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.Checklist))),
         VerbResultKinds.ItineraryChecked => new VerbResult.ItineraryChecked(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.ItineraryCheck))),
+        VerbResultKinds.ItineraryProposed => new VerbResult.ItineraryProposed(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.ItineraryProposed))),
         VerbResultKinds.AirspacePulled => new VerbResult.AirspacePulled(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.TreeWritten))),
         VerbResultKinds.AirspaceApplied => new VerbResult.AirspaceApplied(Require(
@@ -1100,6 +1114,7 @@ public static class VerbOutput
         VerbResult.Taken r => TakenText(r.Value, r.Notes),
         VerbResult.Plan r => PlanText(r.Value),
         VerbResult.ItineraryChecked r => ItineraryCheckText(r.Value),
+        VerbResult.ItineraryProposed r => ItineraryProposedText(r.Value),
         VerbResult.AirspaceTopology r => AirspaceText(r.Value),
         VerbResult.AirspaceRepositories r => RepositoriesText(r.Value, r.Standings),
         VerbResult.AirspacePulled r => PulledText(r.Value),
@@ -2910,6 +2925,25 @@ public static class VerbOutput
     /// <c>gg plan</c> prints, because it is the same derivation.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// A proposed plan: its number first, then what it waits on - a proposed plan opens nothing until
+    /// somebody answers, so the answer says who. Slice sixty-five.
+    /// </summary>
+    public static string ItineraryProposedText(Gg.Contracts.ItineraryProposed proposed)
+    {
+        var text = new StringBuilder();
+        text.Append($"proposed {proposed.Itinerary} - nothing opens until its gate is answered\n");
+        text.Append($"  pass {proposed.Pass}\n");
+        foreach (var gate in proposed.Gates)
+        {
+            text.Append($"  waits on {gate.ObligationId}")
+                .Append(gate.Approver is { Length: > 0 } who ? $", answered by {who}" : ", which names nobody to answer it")
+                .Append('\n');
+        }
+
+        return text.ToString().TrimEnd('\n');
+    }
+
     private static string ItineraryCheckText(ItineraryCheck check)
     {
         var text = new StringBuilder();

@@ -155,6 +155,10 @@ public class ConsoleDataTests
             // session's panel beside the draft, and the console has no draft
             // to check. A port here would answer a question nobody asked it.
             "CheckItineraryAsync",
+            // AND PROPOSING ONE, for the same reason (slice sixty-five): the console's plan session
+            // (ADR-0038 step 4) proposes the draft from its panel, and until it exists the console
+            // has no draft to propose.
+            "ProposeItineraryAsync",
 
             // THE PANE HAS THE ANSWER ALREADY, which is why neither of these
             // reaches the console. AirspaceDocumentsAsync fetches every

@@ -49,12 +49,16 @@ public class EveryCredentialActTakesTheTerminalTests
     {
         var inside = KeymapContext.For(OnTheCredentialsTab() with { Mode = UiMode.CredentialActions });
 
-        await Assert.That(Keymap.Resolve(KeyStroke.Char('n'), inside))
+        // THE SAME LETTERS THEY ALREADY HAD. `c` and `x` were bound in Normal and
+        // advertised nowhere; inside the modal they keep their letters and gain
+        // words, which is exactly how the airspace tab's four acts moved.
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('c'), inside))
             .IsEqualTo(Command.AddCredential);
 
         await Assert.That(Keymap.Resolve(KeyStroke.Char('x'), inside))
-            .IsEqualTo(Command.AskToRemoveCredential);
+            .IsEqualTo(Command.ForgetCredential);
 
+        // AND ONE THAT HAS NEVER HAD A KEY AT ALL.
         await Assert.That(Keymap.Resolve(KeyStroke.Char('m'), inside))
             .IsEqualTo(Command.MintPersonKey);
 
@@ -64,18 +68,19 @@ public class EveryCredentialActTakesTheTerminalTests
     }
 
     [Test]
-    public async Task Letters_taken_in_normal_are_free_inside_the_modal()
+    public async Task Minting_a_key_had_no_console_path_at_all()
     {
-        // `n` IS NEW FLIGHT AND `x` IS SOMETHING ELSE IN NORMAL, which is exactly
-        // why the modal exists: the four free letters left in Normal are l m p s z,
-        // and "s for add a credential" is a key nobody finds.
+        // THE ONE GENUINELY MISSING ACT, and the one that blocks everything else in
+        // ADR-0037: nobody can be sealed a credential until their key is
+        // registered, and `gg key create` existed only on the command line. It
+        // belongs beside the credentials because this pane is where somebody
+        // discovers they need it - the holder column cannot name a person until
+        // somebody has minted one.
         var normal = KeymapContext.For(OnTheCredentialsTab());
 
-        await Assert.That(Keymap.Resolve(KeyStroke.Char('n'), normal))
-            .IsNotEqualTo(Command.AddCredential);
-
-        await Assert.That(Keymap.Resolve(KeyStroke.Char('n'), normal)).IsNotNull()
-            .Because("it still means what it always meant outside the modal.");
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('m'), normal)).IsNull()
+            .Because("`m` is free in Normal, which is why the act can have it inside the modal "
+                   + "without taking anything away.");
     }
 
     [Test]
@@ -85,7 +90,7 @@ public class EveryCredentialActTakesTheTerminalTests
         // the UI is torn down, the child or the prompt owns the terminal, and the
         // next session is rebuilt from the surviving AppState.
         foreach (var act in (Command[])
-                 [Command.AddCredential, Command.RemoveCredential, Command.MintPersonKey])
+                 [Command.AddCredential, Command.ForgetCredential, Command.MintPersonKey])
         {
             await Assert.That(ShellCommands.Handled).Contains(act)
                 .Because($"{act} reads something with the echo off, and a Terminal.Gui session "
@@ -98,14 +103,14 @@ public class EveryCredentialActTakesTheTerminalTests
     }
 
     [Test]
-    public async Task Asking_to_remove_does_not_take_the_terminal()
+    public async Task Opening_the_modal_does_not_take_the_terminal()
     {
-        // THE QUESTION IS NOT THE ACT. Asking is a mode change the session makes
-        // for itself - the airspace apply and the ground both work this way - and
-        // only the ANSWER needs anything outside it.
-        await Assert.That(ShellCommands.Handled).DoesNotContain(Command.AskToRemoveCredential)
-            .Because("a question drawn on the screen a person is already looking at must not "
-                   + "cost them that screen.");
+        // A MODE CHANGE AND NOTHING ELSE, which is what makes it safe for `a` to
+        // sit on a tab somebody is reading. The acts behind it take the terminal;
+        // offering them must not.
+        await Assert.That(ShellCommands.Handled).DoesNotContain(Command.ToggleCredentialActions)
+            .Because("drawing a menu on a screen a person is already looking at must not cost "
+                   + "them that screen.");
     }
 
     [Test]
@@ -125,7 +130,7 @@ public class EveryCredentialActTakesTheTerminalTests
         var offered = Keymap.Bindings(inside).Select(b => b.Command).ToList();
 
         foreach (var act in (Command[])
-                 [Command.AddCredential, Command.AskToRemoveCredential, Command.MintPersonKey])
+                 [Command.AddCredential, Command.ForgetCredential, Command.MintPersonKey])
         {
             await Assert.That(offered.Count(c => c == act)).IsEqualTo(1)
                 .Because($"{act} must be offered once: none is a dead act, and twice is two keys "

@@ -560,6 +560,12 @@ public sealed class RunnerLoop(
     public TimeSpan HoldFor { get; init; } = TimeSpan.FromSeconds(10);
 
     /// <summary>
+    /// Reads a flight's file intent, or null for a runner wired without one - which refuses a
+    /// file intent out loud rather than working a flight with no words.
+    /// </summary>
+    public RepositoryFileReader? FileReader { get; init; }
+
+    /// <summary>
     /// How long a machine serving a preview stays out of service, at most.
     /// </summary>
     /// <remarks>
@@ -2156,7 +2162,22 @@ public sealed class RunnerLoop(
         // process. A fence answered mid-work means the flight is somebody
         // else's now: the work is cancelled, nothing ships, and the loop goes
         // back to claiming.
-        var (probe, invoked, lost) = await InvokeRenewingAsync(lease, workspace, cancellationToken);
+        // THE INTENT IS READ BEFORE ANYTHING RUNS (slice sixty-two). A flight about a file is
+        // given the words at a commit this machine resolved, with the lease's own credential, and
+        // a file that cannot be read - or is too large to give whole - ends the flight here, with
+        // the sentence that says why, rather than sending an agent to work on nothing.
+        var intent = await Intent.IntentFiles.ReadAsync(
+            FileReader, lease, secretsByLocator, cancellationToken);
+        if (intent is Intent.IntentFileOutcome.Refused { Diagnosis: var unreadable })
+        {
+            await ReleaseAsync(lease, RunnerDisposition.Failed, unreadable, cancellationToken);
+            return;
+        }
+
+        var intentRead = intent as Intent.IntentFileOutcome.Read;
+
+        var (probe, invoked, lost) = await InvokeRenewingAsync(
+            lease, workspace, intentRead?.File, cancellationToken);
         if (lost)
         {
             _observer.Fenced(lease.LeaseId);
@@ -2199,7 +2220,7 @@ public sealed class RunnerLoop(
         // out loud because it is the mechanism rather than an incidental
         // consequence of where the release happens to sit.
         var proposed = await ShipAsync(
-            lease, workspace, invoked, probe, secretsByLocator, cancellationToken);
+            lease, workspace, invoked, probe, secretsByLocator, intentRead?.Fact, cancellationToken);
 
         // A POINT REFUSED, so there is nothing to land. Placed AFTER the ship
         // deliberately: the hooks RAN, so their stack.performed facts are true
@@ -2275,11 +2296,12 @@ public sealed class RunnerLoop(
     /// </remarks>
     private async Task<(Execution.ProbeResult? Probe, Invocation Invoked, bool Lost)>
         InvokeRenewingAsync(
-            LeaseGranted lease, WorkspaceResult workspace, CancellationToken cancellationToken)
+            LeaseGranted lease, WorkspaceResult workspace, Execution.RequestedIntentFile? intentFile,
+            CancellationToken cancellationToken)
     {
         using var working = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-        var work = ProbeThenInvokeAsync(lease, workspace, working.Token);
+        var work = ProbeThenInvokeAsync(lease, workspace, intentFile, working.Token);
         var expiresAt = lease.ExpiresAt;
         var fenced = false;
 
@@ -2348,13 +2370,14 @@ public sealed class RunnerLoop(
     /// </para>
     /// </remarks>
     private async Task<(Execution.ProbeResult? Probe, Invocation Invoked)> ProbeThenInvokeAsync(
-        LeaseGranted lease, WorkspaceResult workspace, CancellationToken cancellationToken)
+        LeaseGranted lease, WorkspaceResult workspace, Execution.RequestedIntentFile? intentFile,
+        CancellationToken cancellationToken)
     {
         if (_executor is null || lease.Loop is null)
         {
             // Nothing to govern: no agent will be invoked, so there is no
             // session for a bound to hold over.
-            return (null, await InvokeAsync(lease, workspace, cancellationToken));
+            return (null, await InvokeAsync(lease, workspace, intentFile, cancellationToken));
         }
 
         // ARTICLE XI, BEFORE ANYTHING IS SPENT - including the probe, which is
@@ -2401,7 +2424,7 @@ public sealed class RunnerLoop(
         // missing fact, applied to a missing measurement.
         if (!_executor.BoundIsMeasurable)
         {
-            return (null, await InvokeAsync(lease, workspace, cancellationToken));
+            return (null, await InvokeAsync(lease, workspace, intentFile, cancellationToken));
         }
 
         // AND NOTHING TO MEASURE WHEN NOTHING WAS DECLARED. A loop that declared
@@ -2417,7 +2440,7 @@ public sealed class RunnerLoop(
         // runner had ever shipped. See ShipAsync, where the flag is read.
         if (Gg.Contracts.LoopMoves.Unbounded(lease.Loop.Moves))
         {
-            return (null, await InvokeAsync(lease, workspace, cancellationToken));
+            return (null, await InvokeAsync(lease, workspace, intentFile, cancellationToken));
         }
 
         var probe = await Execution.MoveBoundProbe.RunAsync(_executor, cancellationToken);
@@ -2426,7 +2449,7 @@ public sealed class RunnerLoop(
             return (probe, Invocation.Nothing);
         }
 
-        return (probe, await InvokeAsync(lease, workspace, cancellationToken));
+        return (probe, await InvokeAsync(lease, workspace, intentFile, cancellationToken));
     }
 
     /// <summary>
@@ -2446,7 +2469,8 @@ public sealed class RunnerLoop(
     /// </para>
     /// </remarks>
     private async Task<Invocation> InvokeAsync(
-        LeaseGranted lease, WorkspaceResult workspace, CancellationToken cancellationToken)
+        LeaseGranted lease, WorkspaceResult workspace, Execution.RequestedIntentFile? intentFile,
+        CancellationToken cancellationToken)
     {
         // NO LONGER GATED ON HAVING CLONED SOMETHING. A ticket, a text intent
         // and an issue link all resolve to no repository - correctly - and
@@ -2459,7 +2483,8 @@ public sealed class RunnerLoop(
         // one condition later.
         if (_executor is null || lease.Loop is not { } loop
             || !Execution.ExecutorRequest.NamesWork(
-                lease.IntentUri, lease.IntentProvider, lease.IntentId, lease.IntentText))
+                lease.IntentUri, lease.IntentProvider, lease.IntentId, lease.IntentText,
+                hasFile: intentFile is not null))
         {
             return Invocation.Nothing;
         }
@@ -2575,6 +2600,7 @@ public sealed class RunnerLoop(
             // words are the work, and carrying them is the only way they can
             // reach one.
             IntentText = lease.IntentText,
+            IntentFile = intentFile,
             Moves = loop.Moves,
             WallClock = TimeSpan.FromSeconds(loop.WallClockSeconds),
             TranscriptPath = _transcripts.For(lease.FlightId, loop.LoopId),
@@ -2884,7 +2910,7 @@ public sealed class RunnerLoop(
     private async Task<IReadOnlyDictionary<string, Gg.Contracts.WorkItemProposal>> ShipAsync(
         LeaseGranted lease, WorkspaceResult workspace, Invocation invoked,
         Execution.ProbeResult? probe, IReadOnlyDictionary<string, string> secretsByLocator,
-        CancellationToken cancellationToken)
+        Gg.Contracts.IntentRead? intentRead, CancellationToken cancellationToken)
     {
         var run = invoked.Run;
 
@@ -2936,6 +2962,14 @@ public sealed class RunnerLoop(
         foreach (var half in invoked.Performed ?? [])
         {
             payloads.Add(new FactPayload.Performed(half));
+        }
+
+        // WHAT THE AGENT WAS GIVEN, and the commit everything carried from this flight reads.
+        // The control plane reads no repository bytes, so this is the only place that answer is
+        // made (slice sixty-two).
+        if (intentRead is not null)
+        {
+            payloads.Add(new FactPayload.IntentRead(intentRead));
         }
 
         foreach (var tree in workspace.Trees)

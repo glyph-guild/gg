@@ -74,6 +74,15 @@ public static class FactHygiene
             })],
         }),
 
+        // A slug, a path and a ref a person typed - stripped like a source's, because each reaches
+        // a terminal through the flight's facts. The ids are hex and the size a number.
+        FactPayload.IntentRead read => new FactPayload.IntentRead(read.Value with
+        {
+            Repository = Text(read.Value.Repository),
+            Path = Text(read.Value.Path),
+            RequestedRef = Optional(read.Value.RequestedRef),
+        }),
+
         FactPayload.Source source => new FactPayload.Source(source.Value with
         {
             Provider = Text(source.Value.Provider),

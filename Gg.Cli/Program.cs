@@ -2822,7 +2822,8 @@ static async Task<int> HoldAsync(
         // because its store starts empty, no field of the create body could
         // carry a value, and anything placed by hand dies with the container.
         // A vault reference is not delivered; it is read.
-        secretFor: locator => MachineCredentialStore.SecretFor(locator));
+        secretFor: locator => MachineCredentialStore.SecretFor(locator),
+        fileReader: IntentFileReader());
 }
 
 static async Task<int> RunnerUpAsync()
@@ -3325,7 +3326,8 @@ static async Task<int> RunnerUpAsync()
             // because its store starts empty, no field of the create body could
             // carry a value, and anything placed by hand dies with the container.
             // A vault reference is not delivered; it is read.
-            secretFor: locator => MachineCredentialStore.SecretFor(locator));
+            secretFor: locator => MachineCredentialStore.SecretFor(locator),
+            fileReader: IntentFileReader());
     }
     finally
     {
@@ -3649,7 +3651,8 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
         // because its store starts empty, no field of the create body could
         // carry a value, and anything placed by hand dies with the container.
         // A vault reference is not delivered; it is read.
-        secretFor: locator => MachineCredentialStore.SecretFor(locator));
+        secretFor: locator => MachineCredentialStore.SecretFor(locator),
+        fileReader: IntentFileReader());
 }
 
 /// <summary>
@@ -4058,6 +4061,17 @@ static Gg.Runner.Sweeps.SweepLoop SweepLoopFor(
         // serve", taken from the same setting.
         trackers: Gg.Local.IntentConfiguration.ServedTrackers(
             Settings.Value(Gg.Local.IntentConfiguration.ServedVariable, inForce)));
+
+/// <summary>
+/// The runner's reader for a flight's file intent: this machine's declared VCS hosts, the
+/// commit-keyed cache a sweep's skills share, and no credential of its own - the lease's
+/// resolved credentials are what read a flight's file. Slice sixty-two.
+/// </summary>
+static Gg.Runner.RepositoryFileReader IntentFileReader() => new(
+    Gg.Runner.Vcs.VcsConfiguration.FromEnvironment(
+        Settings.Value(Gg.Runner.Vcs.VcsConfiguration.HostsVariable, InForce.Configuration)),
+    Gg.Local.LocalPaths.Skills(),
+    secretFor: _ => Task.FromResult<string?>(null));
 
 /// <summary>
 /// The credential this machine reads a skill's repository with, or null.

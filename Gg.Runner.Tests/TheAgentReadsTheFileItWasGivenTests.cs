@@ -20,6 +20,7 @@ public class TheAgentReadsTheFileItWasGivenTests
     private static ExecutorRequest Request() => new()
     {
         Trees = [],
+        WorkingDirectory = Path.GetTempPath(),
         LoopId = "implement",
         IntentFile = new RequestedIntentFile("JDX/JDNext", "docs/plans/18291.md", Commit,
             "# The plan\n\nSwap the Assign icon; leave Export alone.\n"),

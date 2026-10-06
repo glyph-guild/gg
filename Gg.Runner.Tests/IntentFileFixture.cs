@@ -1,4 +1,5 @@
 using Gg.Contracts;
+using Gg.Contracts.Description;
 using Gg.Runner.Vcs;
 
 namespace Gg.Runner.Tests;
@@ -17,8 +18,13 @@ internal static class IntentFileFixture
         LeaseId = Guid.NewGuid().ToString(),
         Generation = 1,
         FlightId = Guid.NewGuid().ToString(),
+        FlightNumber = FlightRef.Format(1),
         Repos = [],
         Credentials = [],
+        ClassificationCeiling = Classifications.Internal,
+        ClassificationRules = ClassificationRules.Default,
+        ExpiresAt = DateTimeOffset.UnixEpoch.AddDays(1),
+        RenewWithinSeconds = 30,
         IntentRepository = repository.BarePath,
         IntentRepositoryProvider = LocalVcsAdapter.ProviderKey,
         IntentPath = path ?? TheRunnerReadsTheSkillAtItsPinTests.SkillPath,

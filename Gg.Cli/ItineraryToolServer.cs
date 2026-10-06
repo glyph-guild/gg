@@ -78,7 +78,8 @@ public static class ItineraryToolServer
 
             using (message)
             {
-                if (Answer(message.RootElement, drafts, draft, menu) is { } answer)
+                if (await AnswerAsync(message.RootElement, drafts, draft, menu, reads, cancellationToken)
+                    is { } answer)
                 {
                     await output.WriteLineAsync(answer);
                     await output.FlushAsync(cancellationToken);
@@ -114,7 +115,9 @@ public static class ItineraryToolServer
         }
     }
 
-    private static string? Answer(JsonElement message, ItineraryDrafts drafts, string draft, Menu menu)
+    private static async Task<string?> AnswerAsync(
+        JsonElement message, ItineraryDrafts drafts, string draft, Menu menu, IPlanningReads reads,
+        CancellationToken cancellationToken)
     {
         var method = message.TryGetProperty("method", out var named) ? named.GetString() : null;
 
@@ -127,7 +130,7 @@ public static class ItineraryToolServer
         {
             "initialize" => Initialized(id, message),
             "tools/list" => Listed(id, menu.Offered),
-            "tools/call" => Called(id, message, drafts, draft, menu),
+            "tools/call" => await CalledAsync(id, message, drafts, draft, menu, reads, cancellationToken),
             _ => Error(id, -32601,
                 $"'{method}' is not a method this server has. It has initialize, tools/list "
               + "and tools/call."),
@@ -292,8 +295,9 @@ public static class ItineraryToolServer
         writer.WriteEndObject();
     }
 
-    private static string Called(
-        JsonElement id, JsonElement message, ItineraryDrafts drafts, string draft, Menu menu)
+    private static async Task<string> CalledAsync(
+        JsonElement id, JsonElement message, ItineraryDrafts drafts, string draft, Menu menu,
+        IPlanningReads reads, CancellationToken cancellationToken)
     {
         var parameters = message.TryGetProperty("params", out var given) ? given : default;
         var name = parameters.ValueKind == JsonValueKind.Object
@@ -322,8 +326,10 @@ public static class ItineraryToolServer
               + $"{ReviseLeg}, {DropLeg} and {ShowPlan}."),
         };
 
-        // THE DRAFT THAT STANDS, read back after the change: written, or untouched by a refusal.
-        var shown = Rendered(drafts, draft);
+        // THE DRAFT THAT STANDS, read back after the change: written, or untouched by a refusal -
+        // and what admission would do with it, from the check itself (rule 7).
+        var preview = await PreviewAsync(drafts, draft, reads, cancellationToken);
+        var shown = Rendered(drafts, draft, preview);
 
         return change is DraftChange.Refused { Diagnosis: var why }
             ? Content(id, why + "\n\n" + shown, isError: true)
@@ -541,8 +547,54 @@ public static class ItineraryToolServer
             ? "no legs yet"
             : string.Join(", ", draft.Legs.Select(leg => $"'{leg.Subject}'"));
 
+    /// <summary>What admission would do with the draft, or why that is not known.</summary>
+    private sealed record Preview(ItineraryCheck? Check, string? Instead);
+
+    /// <summary>
+    /// The check, called on every result once the draft has an intent and a leg (rule 7).
+    /// </summary>
+    /// <remarks>
+    /// <b>Never computed here</b>: a second implementation of admission is what ADR-0038
+    /// Decision 9 forbids. <b>A check that fails keeps the draft</b> - it is a read about the
+    /// plan, not part of the edit, so it is said beside the draft and the change stands.
+    /// </remarks>
+    private static async Task<Preview> PreviewAsync(
+        ItineraryDrafts drafts, string draft, IPlanningReads reads, CancellationToken cancellationToken)
+    {
+        if (drafts.Read(draft) is not DraftRead.Held { Draft: var held })
+        {
+            return new Preview(null, null);
+        }
+
+        if (held.Intent is null || held.Legs.Count == 0)
+        {
+            return new Preview(null,
+                "Preview: waits for "
+              + (held.Intent is null && held.Legs.Count == 0 ? "an intent (set_intent) and a leg (draft_leg)"
+                 : held.Intent is null ? "an intent (set_intent) - a plan about nothing is refused whole"
+                 : "a leg (draft_leg)")
+              + ", then every result shows what admission would do with each leg.");
+        }
+
+        try
+        {
+            return new Preview(await reads.CheckAsync(new ItineraryDraft
+            {
+                Planner = held.Planner,
+                Intent = held.Intent,
+                Legs = held.Legs,
+            }, cancellationToken), null);
+        }
+        catch (Exception unread) when (unread is not OperationCanceledException)
+        {
+            return new Preview(null,
+                $"Preview: the check could not be read, so what admission would do is not known "
+              + $"yet. The draft above stands. {unread.Message}");
+        }
+    }
+
     /// <summary>The whole draft as text: the result is the only panel there is (rule 8).</summary>
-    private static string Rendered(ItineraryDrafts drafts, string draft)
+    private static string Rendered(ItineraryDrafts drafts, string draft, Preview? preview = null)
     {
         var text = new StringBuilder();
         text.Append($"Draft '{draft}', kept at {drafts.PathOf(draft)}\n");
@@ -570,6 +622,11 @@ public static class ItineraryToolServer
         if (held.Legs.Count == 0)
         {
             text.Append("Legs: none yet - draft_leg adds one.\n");
+            if (preview?.Instead is { } waiting)
+            {
+                text.Append(waiting).Append('\n');
+            }
+
             return text.ToString();
         }
 
@@ -598,6 +655,26 @@ public static class ItineraryToolServer
             {
                 text.Append($"     note: {note}\n");
             }
+
+            // THE VERDICT, UNDER ITS LEG, matched by kind and subject - the identity the check
+            // judged it by. Verdict first, then admission's own sentence.
+            if (preview?.Check?.Legs.FirstOrDefault(judged =>
+                    string.Equals(judged.Subject, leg.Subject, StringComparison.Ordinal)
+                    && string.Equals(judged.WorkKind, leg.WorkKind, StringComparison.Ordinal))
+                is { } verdict)
+            {
+                text.Append($"     {verdict.Verdict}: {verdict.Reason}\n");
+            }
+        }
+
+        if (preview?.Check?.Refused is { } whole)
+        {
+            text.Append($"The plan as a whole would be refused: {whole}\n");
+        }
+
+        if (preview?.Instead is { } instead)
+        {
+            text.Append(instead).Append('\n');
         }
 
         return text.ToString();

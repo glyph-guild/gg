@@ -95,6 +95,22 @@ public class ProjectionParityTests
             ["ItineraryChecked"] = "not projected, by decision: ADR-0038 draws it in the hosted "
                                  + "plan session's panel, where the draft it answers lives.",
 
+            // A MINTED KEY IS A REPORT ABOUT ONE ACT, not state about the tenant.
+            // What comes back is a local path, a public half and a sentence about
+            // whether registration landed - three things a person reads once. The
+            // TENANT's keys are state and do have an arm: VerbResult.Keys fills
+            // AppState.Keys, which is what the holder column joins against. So a
+            // newly minted key reaches the model on the next read of that list,
+            // from the control plane, rather than from this answer.
+            //
+            // AND THE PATH IS THE REASON TO BE SURE. AppState is serialized to disk
+            // under GG_STATE_DUMP and handed to a diagnostics bundle; a local
+            // filesystem path has no business in either, and projecting this would
+            // put one there for no reader.
+            ["KeyCreated"] = "not projected, by decision: it reports one act - a path, a public "
+                           + "half and whether registering landed - and the tenant's key LIST is "
+                           + "the state, which has its own arm.",
+
             ["NominationDecided"] = "not projected, and not pending an arm: it is a report "
                                   + "about one invocation - a row plus how long gg waited - "
                                   + "and the pane's own refresh is what shows the board "

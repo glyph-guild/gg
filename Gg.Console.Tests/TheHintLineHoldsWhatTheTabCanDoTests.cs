@@ -52,7 +52,14 @@ public class TheHintLineHoldsWhatTheTabCanDoTests
     /// not to have. A tab belongs in one of these two on the day it arrives.
     /// </remarks>
     private static readonly TabId[] Elsewhere =
-        [TabId.Runners, TabId.Browse, TabId.Credentials,
+        [TabId.Runners, TabId.Browse,
+
+         // CREDENTIALS LEFT THIS LIST IN SLICE SIXTY, and the rule it is on this
+         // list for is unchanged: `a` is not advertised on a tab with no flight
+         // under the cursor. What changed is that `a` there no longer acts on a
+         // flight at all - it opens the credential acts, which are about the rows
+         // that tab is showing. So it belongs on the line, for the same reason the
+         // airspace tab's does.
          // ADDED BY HAND ON THE DAY IT ARRIVED, which this list's own remark
          // asks for. A plan is read rather than driven: its rows are legs
          // somebody already approved, so there is nothing on this tab a hint

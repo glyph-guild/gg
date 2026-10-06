@@ -196,6 +196,31 @@ public enum UiMode
     /// </remarks>
     AirspaceActions,
 
+    /// <summary>
+    /// What may be done to this tenant's credentials, and to your own key.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A modal for <see cref="AirspaceActions"/>' reason, and it fixes the same
+    /// problem.</b> Those four acts collapsed behind <c>a</c> because a hint line
+    /// carrying ten keys truncated mid-sentence. These two were worse off than
+    /// truncated: <c>c</c> and <c>x</c> were bound in Normal with
+    /// <c>OffTheHintLine</c>, so the console's two credential writes were
+    /// advertised nowhere at all — against its own rule that a bound key a person
+    /// cannot find is a key that does not exist.
+    /// </para>
+    /// <para>
+    /// <b>They keep their letters.</b> Inside a modal the letters are free, which
+    /// is what let the airspace's four move without anybody relearning one.
+    /// </para>
+    /// <para>
+    /// <b>Three acts, not four.</b> Pushing is reached from the runner modal, where
+    /// the machine being given a credential is on the screen; reaching it from here
+    /// would mean choosing a runner, which is a chooser nobody has asked for.
+    /// </para>
+    /// </remarks>
+    CredentialActions,
+
     ConfirmRetire,
 
     /// <summary>The tenant's enrollment tokens, and what is left of each.</summary>

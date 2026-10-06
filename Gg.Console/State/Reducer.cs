@@ -187,6 +187,11 @@ public static class Reducer
             Command.ToggleFlightActions => Modal(state, UiMode.FlightActions),
             Command.ToggleAirspaceActions => Modal(state, UiMode.AirspaceActions),
 
+            // A MODE CHANGE AND NOTHING ELSE, which is what lets `a` sit on a tab
+            // somebody is reading. The three acts behind it take the terminal;
+            // offering them must not cost a screen.
+            Command.ToggleCredentialActions => Modal(state, UiMode.CredentialActions),
+
             // THE THREE THAT ALSO BLINKED. Each was the shell's so the pane
             // could be filled before it was shown, and the cost was the whole
             // screen going away and coming back once per keypress. The toggle

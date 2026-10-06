@@ -1208,6 +1208,22 @@ public static class Keymap
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 
+        // THE THREE ACTS ON CREDENTIALS, two of which keep the letter they had in
+        // Normal - where they were bound with OffTheHintLine and therefore
+        // advertised nowhere at all. Inside a modal the letters are free and every
+        // key carries a word, which is the whole reason they could move.
+        UiMode.CredentialActions =>
+        [
+            new(KeyStroke.Char('c'), Command.AddCredential, "register a credential"),
+            new(KeyStroke.Char('x'), Command.ForgetCredential, "forget one"),
+
+            // THE ONE THAT NEVER HAD A KEY. Nobody can be sent a credential until
+            // their key is registered, so this is the act that has to happen before
+            // the holder column can name a person at all.
+            new(KeyStroke.Char('m'), Command.MintPersonKey, "mint your key"),
+            new(KeyStroke.Esc, Command.CloseModal, "close"),
+        ],
+
         UiMode.HandFlight => [new(KeyStroke.Esc, Command.CloseModal, "close")],
 
         // THE CORNER, PICKED UP. A modal like any other while it holds the
@@ -1928,11 +1944,21 @@ public static class Keymap
             // and this arm is above the tab spreads, so an `a' added down there
             // would never fire - the trap a red test caught for `enter'.
             new(KeyStroke.Char('a'),
-                    context.Showing == TabId.Envelope
-                        ? Command.ToggleAirspaceActions
-                        : Command.ToggleFlightActions,
+                    context.Showing switch
+                    {
+                        TabId.Envelope => Command.ToggleAirspaceActions,
+
+                        // A THIRD ANSWER IN THE SHARED ARM, not a tab spread.
+                        // Resolve answers the FIRST match and this arm sits above
+                        // the spreads, so an `a` added down there would never fire -
+                        // which the comment above warns about and a red test caught
+                        // once for `enter`.
+                        TabId.Credentials => Command.ToggleCredentialActions,
+                        _ => Command.ToggleFlightActions,
+                    },
                     "actions")
                 { OffTheHintLine = context.Showing != TabId.Envelope
+                                   && context.Showing != TabId.Credentials
                                    && !OverAFlight(context) },
 
             // IN HELP, WITH THE CREDENTIAL KEYS. A gate is decided from the

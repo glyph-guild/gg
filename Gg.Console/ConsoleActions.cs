@@ -200,6 +200,23 @@ public interface IConsoleActions
     string ForgetCredential();
 
     /// <summary>
+    /// Mints this person's key and registers its public half, saying what happened.
+    /// </summary>
+    /// <remarks>
+    /// <b>The passphrase is read inside the adapter and never crosses this port.</b>
+    /// It is typed twice with the echo off, gg keeps no copy of it, and a lost one
+    /// means re-minting the credentials it protected — so a port that could carry it
+    /// would be a port that could put it in a model this console serializes.
+    /// <para>
+    /// <b>It answers a sentence rather than a key.</b> What a person needs back is
+    /// the fingerprint and whether registration reached the control plane, which
+    /// `gg key create` already says in words — and the public half belongs on a
+    /// screen only as something to read, not as state.
+    /// </para>
+    /// </remarks>
+    string MintPersonKey();
+
+    /// <summary>
     /// Issues an invitation and places the link, returning WHERE it went.
     /// </summary>
     /// <remarks>

@@ -35,6 +35,7 @@ public static class Modals
         UiMode.Help,
         UiMode.FlightActions,
         UiMode.AirspaceActions,
+        UiMode.CredentialActions,
         UiMode.FlightDetail,
         UiMode.Runner,
         UiMode.HandFlight,

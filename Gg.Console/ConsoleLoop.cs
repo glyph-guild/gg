@@ -443,6 +443,27 @@ public sealed class ConsoleLoop(
                         asked: false);
                     break;
 
+                case Command.MintPersonKey:
+                    // THE PASSPHRASE IS READ INSIDE THE ACTION and nothing here
+                    // holds it, which is AddCredential's reason one case up: this
+                    // record is serialized to disk under GG_STATE_DUMP.
+                    //
+                    // IT RE-READS TOO, because what it changes is on a pane. A key
+                    // registered here is a name the holder column can use, so a
+                    // console still saying a credential can be opened by this
+                    // machine and nobody nameable is showing the state from before
+                    // the act.
+                    state = Reloaded(
+                        state with
+                        {
+                            LastCredential = actions is null
+                                ? "This console is not configured to mint a key."
+                                : actions.MintPersonKey(),
+                        },
+                        reload,
+                        asked: false);
+                    break;
+
                 case Command.StartRunner:
                     // A CHILD, so the session ends first. The runner is treated
                     // as hostile and the OS is what keeps it apart from the

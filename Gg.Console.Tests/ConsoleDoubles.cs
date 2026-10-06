@@ -411,6 +411,15 @@ internal static class ConsoleDoubles
             return refusing ? "Nothing was forgotten." : "forgotten";
         }
 
+        /// <summary>How many times a key was minted, and nothing about the key.</summary>
+        public int Minted { get; private set; }
+
+        public string MintPersonKey()
+        {
+            Minted++;
+            return refusing ? "Nothing was written." : "your key is at a path";
+        }
+
         public string Invite()
         {
             Invited++;

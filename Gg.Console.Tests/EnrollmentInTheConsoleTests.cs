@@ -140,18 +140,41 @@ public class EnrollmentInTheConsoleTests
         // NOT "IT IS NOT BOUND" - THERE IS NOTHING TO BIND. A console that had
         // the command and left it off a keymap is one key away from painting a
         // secret that a screen share, a scrollback and a screenshot all keep.
-        await Assert.That(Enum.GetNames<Command>()
-                .Any(n => n.Contains("Mint", StringComparison.Ordinal)
-                       || n.Contains("Enroll", StringComparison.Ordinal)))
-            .IsFalse()
-            .Because("minting is the terminal's: it prints the secret once and moves on.");
+        //
+        // EXEMPT BY EXACT NAME, AND ONLY ONE. `MintPersonKey` shares an English
+        // verb with this guard's subject and not its hazard: `gg key create` prints
+        // a PUBLIC half and a fingerprint, and the passphrase is typed with the
+        // echo off, never echoed and never stored. An enrollment token is the
+        // opposite - the secret IS the output - which is what this test exists for.
+        //
+        // The exemption is the exact name rather than a prefix, for
+        // ProviderNeutralityTests' reason about `public_key`: a prefix would also
+        // excuse `MintPersonKeyAndShowIt`. Anything else containing Mint or Enroll
+        // still fails here, which is the whole point of keeping the scan.
+        var minting = Enum.GetNames<Command>()
+            .Where(n => n.Contains("Mint", StringComparison.Ordinal)
+                     || n.Contains("Enroll", StringComparison.Ordinal))
+            .Where(n => !string.Equals(n, nameof(Command.MintPersonKey), StringComparison.Ordinal))
+            .ToList();
+
+        await Assert.That(minting).IsEmpty()
+            .Because("minting a TOKEN is the terminal's: it prints the secret once and moves on. "
+                   + "Found: " + string.Join(", ", minting));
 
         var reachable = Enum.GetValues<UiMode>()
             .SelectMany(mode => Keymap.Bindings(new KeymapContext(mode) { Showing = TabId.Runners }))
             .Select(b => b.Description)
             .ToList();
 
-        await Assert.That(reachable.Any(d => d.Contains("mint", StringComparison.OrdinalIgnoreCase)))
-            .IsFalse();
+        // THE SAME EXEMPTION ON THE OTHER HALF, because a description is what a
+        // person reads and "mint your key" is the one that offers no secret.
+        var advertised = reachable
+            .Where(d => d.Contains("mint", StringComparison.OrdinalIgnoreCase))
+            .Where(d => !string.Equals(d, "mint your key", StringComparison.Ordinal))
+            .ToList();
+
+        await Assert.That(advertised).IsEmpty()
+            .Because("a key offering to mint a token is a key one press from a secret on a "
+                   + "screen. Found: " + string.Join(", ", advertised));
     }
 }

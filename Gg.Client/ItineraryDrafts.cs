@@ -87,6 +87,33 @@ public sealed class ItineraryDrafts(string root)
     /// <summary>Where the draft called <paramref name="name"/> is kept.</summary>
     public string PathOf(string name) => Path.Combine(_root, name + ".yaml");
 
+    /// <summary>
+    /// Where the tool server leaves its last result for <paramref name="name"/> - the mux panel's
+    /// only source of verdicts. Slice sixty-six.
+    /// </summary>
+    public string ResultPathOf(string name) => Path.Combine(_root, name + ".result.txt");
+
+    /// <summary>The last result, or null when the server has said nothing yet.</summary>
+    public string? LastResult(string name) =>
+        Refused(name) is null && File.Exists(ResultPathOf(name)) ? File.ReadAllText(ResultPathOf(name)) : null;
+
+    /// <summary>
+    /// Leaves <paramref name="text"/> as the last result, written whole: a panel reading it sees
+    /// the old result or the new, never half of either.
+    /// </summary>
+    public void KeepResult(string name, string text)
+    {
+        if (Refused(name) is not null)
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(_root);
+        var staged = ResultPathOf(name) + ".writing";
+        File.WriteAllText(staged, text);
+        File.Move(staged, ResultPathOf(name), overwrite: true);
+    }
+
     /// <summary>The draft as the file holds it now.</summary>
     public DraftRead Read(string name)
     {

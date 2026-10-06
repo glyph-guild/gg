@@ -2247,7 +2247,7 @@ public static class ProtocolSurface
             [typeof(LeaseGranted)] =
                 ["leaseId", "generation", "flightId", "flightNumber", "repos", "credentials",
                  "unresolvedRepos", "classificationCeiling", "classificationRules", "expiresAt",
-                 "renewWithinSeconds", "intentUri", "intentProvider", "intentId", "intentText", "intentRepository", "intentPath", "intentRef",
+                 "renewWithinSeconds", "intentUri", "intentProvider", "intentId", "intentText", "intentRepository", "intentRepositoryProvider", "intentPath", "intentRef",
                  "nominationNote", "menu", "loop", "feedback", "attended",
                  // AND WHETHER THIS DESTINATION EXPECTS SEVERAL. Declared here
                  // rather than derived, which is the point of this table: the

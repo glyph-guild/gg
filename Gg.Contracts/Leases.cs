@@ -794,6 +794,18 @@ public sealed record LeaseGranted
     /// </remarks>
     public string? IntentRepository { get; init; }
 
+    /// <summary>
+    /// Which forge <see cref="IntentRepository"/> is on, as the tenant registered it - the key a
+    /// runner chooses its adapter by.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not <see cref="IntentProvider"/></b>, which is a tracker's key and a different
+    /// namespace: one runner can serve tracker <c>agentic-backlog</c> and repositories from
+    /// <c>ado</c>. A slug alone says neither. The person writes only the slug; the control plane
+    /// supplies this from the repository's registration.
+    /// </remarks>
+    public string? IntentRepositoryProvider { get; init; }
+
     /// <summary>The file's path inside <see cref="IntentRepository"/>.</summary>
     public string? IntentPath { get; init; }
 

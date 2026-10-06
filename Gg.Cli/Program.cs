@@ -60,8 +60,7 @@ return await ByName(CliArgs.Parse(args)) switch
     CliAction.RunnerRead read => await RunnerReadAsync(read),
     // THE PLANNING TOOL SERVER, registered by a person in their own Claude Code. Stdout is the
     // protocol, so nothing on this path prints.
-    CliAction.ItineraryTools itinerary => await ItineraryToolServer.RunAsync(
-        System.Console.In, System.Console.Out, ItineraryDrafts.ForThisMachine(), itinerary.Draft),
+    CliAction.ItineraryTools itinerary => await ItineraryToolsAsync(itinerary),
     CliAction.RunnerUp or CliAction.RunnerServe => await RunnerUpAsync(),
     CliAction.RunnerMaintain maintain => await RunnerMaintainAsync(maintain.Pool),
     CliAction.RunnerSweep sweeping => await RunnerSweepAsync(sweeping.Watch),
@@ -3341,6 +3340,23 @@ static async Task<int> RunnerUpAsync()
         // pid is alive before believing it.
         pidFile.Clear();
     }
+}
+
+/// <summary>
+/// `gg itinerary tools`: the planning tool server, reading as the person signed in here. Slice
+/// sixty-three.
+/// </summary>
+/// <remarks>
+/// Stdout is the protocol, so nothing on this path prints - a person not signed in finds out from
+/// the first tool result, which says so, rather than from a line the client cannot parse.
+/// </remarks>
+static async Task<int> ItineraryToolsAsync(CliAction.ItineraryTools itinerary)
+{
+    using var http = new HttpClient { BaseAddress = new Uri(ControlPlaneAddress()) };
+    var reads = new SessionPlanningReads(new ControlPlaneClient(http), new FileSessionStore());
+
+    return await ItineraryToolServer.RunAsync(
+        System.Console.In, System.Console.Out, ItineraryDrafts.ForThisMachine(), itinerary.Draft, reads);
 }
 
 /// <summary>

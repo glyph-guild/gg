@@ -43,12 +43,19 @@ public static class ItineraryToolServer
         TextWriter output,
         ItineraryDrafts drafts,
         string draft,
+        IPlanningReads reads,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
         ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(drafts);
         ArgumentNullException.ThrowIfNull(draft);
+        ArgumentNullException.ThrowIfNull(reads);
+
+        // THE MENU, READ ONCE AT START (rule 6), for the planner the draft names. A menu that
+        // cannot be read leaves the server answering - a dead server costs the agent its tools
+        // for the session - and every tool call says why instead of taking a free string.
+        var menu = await MenuAsync(drafts, draft, reads, cancellationToken);
 
         while (await input.ReadLineAsync(cancellationToken) is { } line)
         {
@@ -71,7 +78,7 @@ public static class ItineraryToolServer
 
             using (message)
             {
-                if (Answer(message.RootElement, drafts, draft) is { } answer)
+                if (Answer(message.RootElement, drafts, draft, menu) is { } answer)
                 {
                     await output.WriteLineAsync(answer);
                     await output.FlushAsync(cancellationToken);
@@ -82,7 +89,32 @@ public static class ItineraryToolServer
         return 0;
     }
 
-    private static string? Answer(JsonElement message, ItineraryDrafts drafts, string draft)
+    /// <summary>The menu, or why there is none.</summary>
+    private sealed record Menu(ItineraryMenu? Offered, string? Unavailable);
+
+    private static async Task<Menu> MenuAsync(
+        ItineraryDrafts drafts, string draft, IPlanningReads reads, CancellationToken cancellationToken)
+    {
+        var planner = drafts.Read(draft) is DraftRead.Held { Draft: var held }
+            ? held.Planner
+            : PlanDraft.DefaultPlanner;
+
+        try
+        {
+            var offered = await reads.MenuAsync(planner, cancellationToken);
+            return offered.Refused is { Length: > 0 } refused
+                ? new Menu(null, refused)
+                : new Menu(offered, null);
+        }
+        catch (Exception unread) when (unread is not OperationCanceledException)
+        {
+            return new Menu(null,
+                $"The menu of what a leg may name under '{planner}' could not be read, so nothing "
+              + $"can be drafted until it can - restart this server once it answers. {unread.Message}");
+        }
+    }
+
+    private static string? Answer(JsonElement message, ItineraryDrafts drafts, string draft, Menu menu)
     {
         var method = message.TryGetProperty("method", out var named) ? named.GetString() : null;
 
@@ -94,8 +126,8 @@ public static class ItineraryToolServer
         return method switch
         {
             "initialize" => Initialized(id, message),
-            "tools/list" => Listed(id),
-            "tools/call" => Called(id, message, drafts, draft),
+            "tools/list" => Listed(id, menu.Offered),
+            "tools/call" => Called(id, message, drafts, draft, menu),
             _ => Error(id, -32601,
                 $"'{method}' is not a method this server has. It has initialize, tools/list "
               + "and tools/call."),
@@ -124,7 +156,7 @@ public static class ItineraryToolServer
             writer.WriteEndObject();
         });
 
-    private static string Listed(JsonElement id) =>
+    private static string Listed(JsonElement id, ItineraryMenu? menu) =>
         Write(writer =>
         {
             Envelope(writer, id);
@@ -150,7 +182,7 @@ public static class ItineraryToolServer
                 "Add one leg: a piece of work a flight will do. The subject says which piece - "
               + "every leg needs one, and two legs of one kind need different subjects. "
               + "Answers with the whole draft.",
-                LegFields(includeSubject: true),
+                LegFields(menu, includeSubject: true),
                 ["subject", "work_kind", "reason"]);
 
             Tool(writer, ReviseLeg,
@@ -162,7 +194,7 @@ public static class ItineraryToolServer
                     ("subject", "The subject of the leg to change.", null),
                     ("of_kind", "Its work kind, when two legs share the subject.", null),
                     ("rename_to", "A new subject for the leg.", null),
-                    .. LegFields(includeSubject: false),
+                    .. LegFields(menu, includeSubject: false),
                 ],
                 ["subject"]);
 
@@ -182,8 +214,16 @@ public static class ItineraryToolServer
             writer.WriteEndObject();
         });
 
+    /// <summary>
+    /// A leg's fields, the three choices as enums from the menu (ADR-0038 Decision 8).
+    /// </summary>
+    /// <remarks>
+    /// <b>A choice the destination permits none of is left out</b>: no bound is no choice
+    /// (<c>SelectionBound</c>), so the field could only ever be refused. Without a menu - it could
+    /// not be read - the fields are listed without enums, and every call says why it cannot draft.
+    /// </remarks>
     private static (string Name, string Description, IReadOnlyList<string>? Choices)[] LegFields(
-        bool includeSubject) =>
+        ItineraryMenu? menu, bool includeSubject) =>
     [
         .. includeSubject
             ? new (string, string, IReadOnlyList<string>?)[]
@@ -191,11 +231,22 @@ public static class ItineraryToolServer
                 ("subject", "Which piece of work this leg is, in a few words.", null),
             }
             : [],
-        ("work_kind", "The kind of flight that does this leg.", null),
+        ("work_kind", "The kind of flight that does this leg.", menu?.WorkKinds),
         ("reason", "Why this leg exists, for the person approving the plan.", null),
         ("after", "The subject of a leg this one must wait for.", null),
-        ("repository", "The registered repository this leg works in, when not the plan's own.", null),
-        ("environment", "The charted environment this leg runs in.", null),
+        .. menu is { Repositories.Count: 0 }
+            ? []
+            : new (string, string, IReadOnlyList<string>?)[]
+            {
+                ("repository", "The registered repository this leg works in, when not the plan's own.",
+                    menu?.Repositories),
+            },
+        .. menu is { Environments.Count: 0 }
+            ? []
+            : new (string, string, IReadOnlyList<string>?)[]
+            {
+                ("environment", "The charted environment this leg runs in.", menu?.Environments),
+            },
         ("note", "Advice for whoever flies this leg.", null),
     ];
 
@@ -241,7 +292,8 @@ public static class ItineraryToolServer
         writer.WriteEndObject();
     }
 
-    private static string Called(JsonElement id, JsonElement message, ItineraryDrafts drafts, string draft)
+    private static string Called(
+        JsonElement id, JsonElement message, ItineraryDrafts drafts, string draft, Menu menu)
     {
         var parameters = message.TryGetProperty("params", out var given) ? given : default;
         var name = parameters.ValueKind == JsonValueKind.Object
@@ -253,12 +305,17 @@ public static class ItineraryToolServer
             ? supplied
             : default;
 
+        if (menu.Offered is not { } offered)
+        {
+            return Content(id, menu.Unavailable + "\n\n" + Rendered(drafts, draft), isError: true);
+        }
+
         DraftChange? change = name switch
         {
-            SetIntent => drafts.Change(draft, d => Intended(d, arguments)),
-            DraftLeg => drafts.Change(draft, d => Drafted(d, arguments)),
-            ReviseLeg => drafts.Change(draft, d => Revised(d, arguments)),
-            DropLeg => drafts.Change(draft, d => Dropped(d, arguments)),
+            SetIntent => drafts.Change(draft, d => Intended(d, arguments, offered)),
+            DraftLeg => drafts.Change(draft, d => Drafted(d, arguments, offered)),
+            ReviseLeg => drafts.Change(draft, d => Revised(d, arguments, offered)),
+            DropLeg => drafts.Change(draft, d => Dropped(d, arguments, offered)),
             ShowPlan => null,
             _ => new DraftChange.Refused(
                 $"'{name}' is not a tool this server has. It has {SetIntent}, {DraftLeg}, "
@@ -273,7 +330,7 @@ public static class ItineraryToolServer
             : Content(id, shown, isError: false);
     }
 
-    private static DraftChange Intended(PlanDraft draft, JsonElement arguments)
+    private static DraftChange Intended(PlanDraft draft, JsonElement arguments, ItineraryMenu menu)
     {
         var repository = Argument(arguments, "repository");
         var path = Argument(arguments, "path");
@@ -293,10 +350,10 @@ public static class ItineraryToolServer
 
         return FlightIntent.Validate(intent) is { } refused
             ? DraftChange.Refuse(refused)
-            : Checked(draft with { Intent = intent });
+            : Checked(draft with { Intent = intent }, menu);
     }
 
-    private static DraftChange Drafted(PlanDraft draft, JsonElement arguments)
+    private static DraftChange Drafted(PlanDraft draft, JsonElement arguments, ItineraryMenu menu)
     {
         var leg = new FlightNomination
         {
@@ -309,10 +366,10 @@ public static class ItineraryToolServer
             Note = Cleared(Argument(arguments, "note")),
         };
 
-        return Checked(draft with { Legs = [.. draft.Legs, leg] });
+        return Checked(draft with { Legs = [.. draft.Legs, leg] }, menu);
     }
 
-    private static DraftChange Revised(PlanDraft draft, JsonElement arguments)
+    private static DraftChange Revised(PlanDraft draft, JsonElement arguments, ItineraryMenu menu)
     {
         if (Found(draft, arguments) is not { } at)
         {
@@ -342,10 +399,10 @@ public static class ItineraryToolServer
                     : other)
             .ToList();
 
-        return Checked(draft with { Legs = legs });
+        return Checked(draft with { Legs = legs }, menu);
     }
 
-    private static DraftChange Dropped(PlanDraft draft, JsonElement arguments)
+    private static DraftChange Dropped(PlanDraft draft, JsonElement arguments, ItineraryMenu menu)
     {
         if (Found(draft, arguments) is not { } at)
         {
@@ -367,14 +424,14 @@ public static class ItineraryToolServer
               + "first, or drop them.");
         }
 
-        return Checked(draft with { Legs = [.. draft.Legs.Where((_, index) => index != at)] });
+        return Checked(draft with { Legs = [.. draft.Legs.Where((_, index) => index != at)] }, menu);
     }
 
     /// <summary>
     /// The draft held to the contract's own leg rules, so nothing reaches the file that
     /// <c>gg itinerary check</c> would refuse for its shape.
     /// </summary>
-    private static DraftChange Checked(PlanDraft draft)
+    private static DraftChange Checked(PlanDraft draft, ItineraryMenu menu)
     {
         if (draft.Legs.Count > ItineraryDraft.MaxLegs)
         {
@@ -397,6 +454,24 @@ public static class ItineraryToolServer
             if (FlightNomination.Validate(leg) is { } badLeg)
             {
                 return DraftChange.Refuse($"'{leg.Subject}': {badLeg}");
+            }
+
+            // THE MENU, ENFORCED HERE TOO: not every client holds a tool call to its schema.
+            if (Outside("work kind", leg.WorkKind, menu.WorkKinds) is { } kind)
+            {
+                return DraftChange.Refuse($"'{leg.Subject}': {kind}");
+            }
+
+            if (leg.Repository is { } repository
+                && Outside("repository", repository, menu.Repositories) is { } where)
+            {
+                return DraftChange.Refuse($"'{leg.Subject}': {where}");
+            }
+
+            if (leg.Environment is { } environment
+                && Outside("environment", environment, menu.Environments) is { } place)
+            {
+                return DraftChange.Refuse($"'{leg.Subject}': {place}");
             }
 
             if (leg.After is { } after
@@ -423,6 +498,14 @@ public static class ItineraryToolServer
 
         return new DraftChange.Written(draft);
     }
+
+    private static string? Outside(string what, string chosen, IReadOnlyList<string> offered) =>
+        offered.Contains(chosen, StringComparer.Ordinal)
+            ? null
+            : offered.Count == 0
+                ? $"'{chosen}' is not a {what} this plan's destination lets a leg name - it permits none."
+                : $"'{chosen}' is not a {what} this plan's destination lets a leg name. It permits: "
+                + string.Join(", ", offered) + ".";
 
     /// <summary>The index of the leg the arguments name, or null when none or more than one does.</summary>
     private static int? Found(PlanDraft draft, JsonElement arguments)

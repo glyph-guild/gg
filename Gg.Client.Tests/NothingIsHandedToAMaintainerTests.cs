@@ -36,6 +36,15 @@ public class NothingIsHandedToAMaintainerTests
         System.Security.Cryptography.ECDiffieHellman.Create(
             System.Security.Cryptography.ECCurve.NamedCurves.nistP256);
 
+    /// <summary>The same key, in the shape a send now asks for.</summary>
+    /// <remarks>
+    /// A send takes a HOLDER rather than a key (ADR-0037 Decision 2), so that the
+    /// thing performing the rewrap can be a person's key or a card. This wraps a
+    /// key this test holds, which is what the machine path does.
+    /// </remarks>
+    private static Gg.Contracts.IAgreeAsAHolder AHolder() =>
+        Gg.Contracts.RunnerSeal.AsAHolder(AKey());
+
     private static Gg.Contracts.SealedCredential Sealed() =>
         Gg.Contracts.CredentialSeal.Seal(
             "not-a-real-secret",
@@ -121,7 +130,7 @@ public class NothingIsHandedToAMaintainerTests
         var (control, channel, handler, pins) = Parts();
 
         var sent = await new SendACredential(control, channel).SendAsync(
-            "session", Maintainer, "secret://acme/widgets", Sealed(), AKey(), pins, Now);
+            "session", Maintainer, "secret://acme/widgets", Sealed(), AHolder(), pins, Now);
 
         await Assert.That(sent.Outcome).IsEqualTo(SendOutcome.Offline)
             .Because("a secret typed for a machine nothing can reach is a secret typed for "

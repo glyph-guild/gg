@@ -52,7 +52,7 @@ public class AReceivedEnvelopeIsWrittenUnopenedTests
         sender.Write(Locator, Value);
 
         var pushed = CredentialSeal.Rewrap(
-            sender.SealedFor(Locator), senderKey.ForOpeningWhatThisMachineSealed(), recipientKey.PublicKey);
+            sender.SealedFor(Locator), senderKey, recipientKey.PublicKey);
 
         recipient.WriteSealed(Locator, pushed);
 
@@ -68,7 +68,7 @@ public class AReceivedEnvelopeIsWrittenUnopenedTests
         sender.Write(Locator, Value);
 
         var pushed = CredentialSeal.Rewrap(
-            sender.SealedFor(Locator), senderKey.ForOpeningWhatThisMachineSealed(), recipientKey.PublicKey);
+            sender.SealedFor(Locator), senderKey, recipientKey.PublicKey);
 
         recipient.WriteSealed(Locator, pushed);
 
@@ -92,7 +92,7 @@ public class AReceivedEnvelopeIsWrittenUnopenedTests
         sender.Write(Locator, Value);
 
         var pushed = CredentialSeal.Rewrap(
-            sender.SealedFor(Locator), senderKey.ForOpeningWhatThisMachineSealed(), recipientKey.PublicKey);
+            sender.SealedFor(Locator), senderKey, recipientKey.PublicKey);
 
         recipient.WriteSealed(Locator, pushed);
 
@@ -115,7 +115,7 @@ public class AReceivedEnvelopeIsWrittenUnopenedTests
 
         var elsewhere = CredentialSeal.Rewrap(
             sender.SealedFor(Locator),
-            senderKey.ForOpeningWhatThisMachineSealed(),
+            senderKey,
             Convert.ToBase64String(somebodyElse.PublicKey.ExportSubjectPublicKeyInfo()));
 
         recipient.WriteSealed(Locator, elsewhere);
@@ -139,7 +139,7 @@ public class AReceivedEnvelopeIsWrittenUnopenedTests
             Locator,
             CredentialSeal.Rewrap(
                 sender.SealedFor(Locator),
-                senderKey.ForOpeningWhatThisMachineSealed(),
+                senderKey,
                 recipientKey.PublicKey));
 
         await Assert.That(File.Exists(plain)).IsFalse()
@@ -162,7 +162,7 @@ public class AReceivedEnvelopeIsWrittenUnopenedTests
             Locator,
             CredentialSeal.Rewrap(
                 sender.SealedFor(Locator),
-                senderKey.ForOpeningWhatThisMachineSealed(),
+                senderKey,
                 recipientKey.PublicKey));
 
         var before = File.ReadAllText(recipient.SealedPathFor(Locator));

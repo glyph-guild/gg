@@ -34,6 +34,16 @@ public class APushRewrapsRatherThanDecryptsTests
 
     private static ECDiffieHellman AKey() => ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
 
+    /// <summary>A key this test holds, in the shape a rewrap now asks for.</summary>
+    /// <remarks>
+    /// <b>A rewrap takes an agreement rather than a key</b> (ADR-0037, slice
+    /// sixty-four step 1), so that a person's key - which never leaves its
+    /// adapter, because a card-backed one cannot - can perform the one act the ADR
+    /// says belongs to it. These tests hold a bare key, which is what a MACHINE
+    /// has, so they adapt it the way the machine path does.
+    /// </remarks>
+    private static IAgreeAsAHolder Holder(ECDiffieHellman key) => RunnerSeal.AsAHolder(key);
+
     private static string PublicHalf(ECDiffieHellman key) =>
         Convert.ToBase64String(key.PublicKey.ExportSubjectPublicKeyInfo());
 
@@ -44,7 +54,7 @@ public class APushRewrapsRatherThanDecryptsTests
         using var theirs = AKey();
 
         var envelope = CredentialSeal.Seal(Value, [PublicHalf(mine)]);
-        var rewrapped = CredentialSeal.Rewrap(envelope, mine, PublicHalf(theirs));
+        var rewrapped = CredentialSeal.Rewrap(envelope, Holder(mine), PublicHalf(theirs));
 
         await Assert.That(CredentialSeal.Open(rewrapped, theirs)).IsEqualTo(Value);
     }
@@ -56,7 +66,7 @@ public class APushRewrapsRatherThanDecryptsTests
         using var theirs = AKey();
 
         var envelope = CredentialSeal.Seal(Value, [PublicHalf(mine)]);
-        var rewrapped = CredentialSeal.Rewrap(envelope, mine, PublicHalf(theirs));
+        var rewrapped = CredentialSeal.Rewrap(envelope, Holder(mine), PublicHalf(theirs));
 
         // THE ASSERTION THE WHOLE DECISION RESTS ON. Re-encrypting would mint a
         // new nonce, so an identical ciphertext is proof the value was never
@@ -71,7 +81,7 @@ public class APushRewrapsRatherThanDecryptsTests
         using var theirs = AKey();
 
         var envelope = CredentialSeal.Seal(Value, [PublicHalf(mine)]);
-        var rewrapped = CredentialSeal.Rewrap(envelope, mine, PublicHalf(theirs));
+        var rewrapped = CredentialSeal.Rewrap(envelope, Holder(mine), PublicHalf(theirs));
 
         // ADDS A HOLDER RATHER THAN MOVING ONE. A push must not cost the pusher
         // its own access, or sending a credential to a runner would take it away
@@ -88,7 +98,7 @@ public class APushRewrapsRatherThanDecryptsTests
         using var stranger = AKey();
 
         var envelope = CredentialSeal.Seal(Value, [PublicHalf(mine)]);
-        var rewrapped = CredentialSeal.Rewrap(envelope, mine, PublicHalf(theirs));
+        var rewrapped = CredentialSeal.Rewrap(envelope, Holder(mine), PublicHalf(theirs));
 
         await Assert.That(() => CredentialSeal.Open(rewrapped, stranger))
             .Throws<CryptographicException>();
@@ -107,7 +117,7 @@ public class APushRewrapsRatherThanDecryptsTests
 
         var envelope = CredentialSeal.Seal(Value, [PublicHalf(mine)]);
 
-        await Assert.That(() => CredentialSeal.Rewrap(envelope, stranger, PublicHalf(theirs)))
+        await Assert.That(() => CredentialSeal.Rewrap(envelope, Holder(stranger), PublicHalf(theirs)))
             .Throws<CryptographicException>();
     }
 
@@ -120,7 +130,7 @@ public class APushRewrapsRatherThanDecryptsTests
 
         var envelope = CredentialSeal.Seal(Value, [PublicHalf(mine)]);
 
-        await Assert.That(() => CredentialSeal.Rewrap(envelope, mine, PublicHalf(mine)))
+        await Assert.That(() => CredentialSeal.Rewrap(envelope, Holder(mine), PublicHalf(mine)))
             .Throws<ArgumentException>();
     }
 
@@ -131,7 +141,7 @@ public class APushRewrapsRatherThanDecryptsTests
         using var theirs = AKey();
 
         var envelope = CredentialSeal.Seal(Value, [PublicHalf(mine)]);
-        var rewrapped = CredentialSeal.Rewrap(envelope, mine, PublicHalf(theirs));
+        var rewrapped = CredentialSeal.Rewrap(envelope, Holder(mine), PublicHalf(theirs));
 
         await Assert.That(rewrapped.Version).IsEqualTo(envelope.Version)
             .Because("the body was sealed under the old version and is unchanged, so saying "

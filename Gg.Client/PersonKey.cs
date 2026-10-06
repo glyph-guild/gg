@@ -35,7 +35,7 @@ namespace Gg.Client;
 /// and what leaves is bytes.
 /// </para>
 /// </remarks>
-public sealed class PersonKey
+public sealed class PersonKey : IAgreeAsAHolder
 {
     /// <summary>The only derivation this build writes.</summary>
     /// <remarks>
@@ -248,11 +248,13 @@ public sealed class PersonKey
         using var peer = ECDiffieHellman.Create();
         peer.ImportSubjectPublicKeyInfo(Convert.FromBase64String(theirPublicKey), out _);
 
-        return HKDF.DeriveKey(
-            HashAlgorithmName.SHA256,
-            _key.DeriveRawSecretAgreement(peer.PublicKey),
-            32,
-            info: Encoding.UTF8.GetBytes(label));
+        // THE RAW AGREEMENT IS THE ONLY PART THAT NEEDS THE PRIVATE HALF, so it
+        // is the only part done here. What follows it was a second copy of
+        // RunnerSeal's derivation - the same hash, the same length, the same
+        // labelled info - and two that agree today is how an envelope ends up
+        // opening for whoever sealed it and nobody else.
+        return RunnerSeal.AgreementOver(
+            _key.DeriveRawSecretAgreement(peer.PublicKey), label);
     }
 
     private static StoredPersonKey Read(string? path)

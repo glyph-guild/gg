@@ -253,7 +253,7 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
         string runnerId,
         string locator,
         SealedCredential envelope,
-        ECDiffieHellman ours,
+        IAgreeAsAHolder ours,
         PinnedRunnerKeys pins,
         DateTimeOffset now,
         Action<string>? saying = null,
@@ -335,6 +335,11 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
             // has just been checked against it. Thirty-two bytes are unwrapped
             // and wrapped again; the credential itself is never opened, so this
             // process has not held it at any point (ADR-0037 Decision 3).
+            //
+            // AND `ours` IS A HOLDER RATHER THAN A KEY, which is what lets the
+            // thing performing it be a person (Decision 2) or a card, instead of
+            // only a file this process can read. Step 2 is what makes it a person;
+            // this step is what makes it possible.
             SealedCredential forThem;
 
             try

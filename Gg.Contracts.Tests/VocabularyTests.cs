@@ -40,6 +40,7 @@ public class VocabularyTests
             .Where(t => !(t.IsAbstract && t.IsSealed)) // exclude static classes (Vocabulary)
             .Where(t => !NotOnTheWire.Contains(t.Namespace, StringComparer.Ordinal))
             .Where(t => !t.IsEnum)
+            .Where(t => !t.IsInterface) // see TheOnlyInterfacesHereAreSeamsNotShapes
             .ToList();
 
     [Test]
@@ -60,6 +61,61 @@ public class VocabularyTests
                        + "and holds nothing, so the exclusion is protecting nothing and "
                        + "hiding whatever lands there next.");
         }
+    }
+
+    /// <summary>
+    /// An interface here is a SEAM — behaviour somebody implements — and a seam
+    /// never travels, so the hole that exclusion opens is closed here rather than
+    /// left for whoever adds the second one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Why interfaces are excluded above.</b> <c>IAgreeAsAHolder</c> arrived in
+    /// slice sixty-four as the shape a rewrap asks a holder for: a public half, and
+    /// an agreement it performs. It declares two members and carries no data, so a
+    /// pinned id on it would be <i>"a promise about something that never crosses
+    /// the boundary"</i> — word for word the reason the two excluded namespaces
+    /// give — and registering it in <c>Vocabulary</c> would put a thing with no
+    /// serializable shape into the list of things that have one.
+    /// </para>
+    /// <para>
+    /// <b>And the hole it would otherwise open.</b> If a wire type declared a
+    /// MEMBER typed as one of these interfaces, that member's concrete type would
+    /// be chosen at runtime, serialized, and never scanned by anything above —
+    /// which is exactly the kind of silence these three tests exist to prevent. So
+    /// this asserts the distinction holds rather than trusting the word "seam": an
+    /// interface may be implemented, and may be passed to a method, and may not be
+    /// the type of anything a wire record carries.
+    /// </para>
+    /// <para>
+    /// <b>It looks through <c>IReadOnlyList&lt;T&gt;</c></b>, because a list of
+    /// them would be the same hole with one more layer of wrapping, and the
+    /// framework's own collection interfaces are not what this is about.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task TheOnlyInterfacesHereAreSeamsNotShapes()
+    {
+        var seams = typeof(PinnedIdAttribute).Assembly
+            .GetExportedTypes()
+            .Where(t => t.IsInterface)
+            .ToHashSet();
+
+        static IEnumerable<Type> Beneath(Type type) =>
+            type.IsConstructedGenericType ? [type, .. type.GetGenericArguments()] : [type];
+
+        var carried = Vocabulary.Types
+            .SelectMany(wire => wire
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .SelectMany(member => Beneath(member.PropertyType)
+                    .Where(seams.Contains)
+                    .Select(found => $"{wire.Name}.{member.Name} carries {found.Name}")))
+            .ToList();
+
+        await Assert.That(carried).IsEmpty()
+            .Because("an interface declared here is behaviour, and it is excluded from the "
+                   + "pinned-id and vocabulary rules on the grounds that it never travels. A wire "
+                   + "type carrying one would make that false, and nothing else would notice.");
     }
 
     [Test]

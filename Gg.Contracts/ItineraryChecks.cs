@@ -385,7 +385,11 @@ public sealed record ItineraryProposed
     /// <summary>The plan's number, <c>ITN-n</c>.</summary>
     public required string Itinerary { get; init; }
 
-    /// <summary>The pass flight that holds the plan's gate, <c>GG-n</c>. It is never leased.</summary>
+    /// <summary>
+    /// The id of the pass flight that holds the plan's gate. It is never leased. An id rather
+    /// than its <c>GG-n</c>, because a flight's number is assigned as it is created, after this
+    /// answer; <c>gg show</c> and the decisions route take either.
+    /// </summary>
     public required string Pass { get; init; }
 
     /// <summary>The human obligations the plan waits on, and who the envelope names to answer each.</summary>

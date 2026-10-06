@@ -12,8 +12,8 @@ namespace Gg.Client.Tests;
 /// <c>--repo</c> <b>or</b> <c>--agent</c>; <c>gg credential add</c> takes only
 /// <c>--repo</c>. So a credential for an agent could be pushed to a machine and could
 /// not be registered on the one it came from, which is how this fleet's tracker
-/// credential ended up as <c>local:jdx/jdnext</c> — a repository-shaped locator for an
-/// Azure DevOps tracker, because that was the only shape <c>add</c> could make.
+/// credential ended up as <c>local:jdx/jdnext</c> — a repository-shaped locator for a
+/// hosted tracker, because that was the only shape <c>add</c> could make.
 /// </para>
 /// <para>
 /// <b>The wire member stops claiming to be a repository.</b>

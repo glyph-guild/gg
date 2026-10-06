@@ -248,7 +248,7 @@ return await ByName(CliArgs.Parse(args)) switch
         accept.Json, o => ConfigCommands.Accept(o, accept.Version)),
 
     CliAction.CredentialAdd add =>
-        await CredentialAsync(add.Json, c => c.AddAsync(add.Repo, add.Scopes, add.Identity)),
+        await CredentialAsync(add.Json, c => c.AddAsync(add.Named, add.Scopes, add.Identity, add.Subject)),
     CliAction.CredentialSend send => await SendCredentialAsync(send),
     CliAction.AgentCredentialSend send => await SendAgentCredentialAsync(send),
     CliAction.AgentLogin login => await AgentLoginAsync(login),

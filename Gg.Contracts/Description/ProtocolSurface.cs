@@ -2441,10 +2441,10 @@ public static class ProtocolSurface
             // as asserted over the type, because a [JsonPropertyName] can add
             // a wire member without adding a property name.
             [typeof(CredentialReference)] = ["kind", "locator", "identity", "scopes"],
-            [typeof(CredentialRegistrationRequest)] = ["repo", "reference"],
+            [typeof(CredentialRegistrationRequest)] = ["for", "reference"],
             [typeof(CredentialRegistered)] = ["credentialId", "reference", "addedAt"],
             [typeof(CredentialSummary)] =
-                ["credentialId", "repo", "reference", "referencedBySubject", "addedAt"],
+                ["credentialId", "for", "reference", "referencedBySubject", "addedAt"],
             [typeof(CredentialList)] = ["credentials"],
             [typeof(CredentialRemoved)] = ["credentialId", "reference"],
             [typeof(CredentialResolutionFailure)] = ["reference", "problem"],

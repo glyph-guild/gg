@@ -210,14 +210,33 @@ public sealed class CredentialCommands(
     /// with nothing pointing at it.
     /// </para>
     /// </remarks>
+    /// <param name="named">
+    /// What the credential is for, as the person naming it spelled it — a repository
+    /// slug, an agent's key, a tracker's key.
+    /// </param>
+    /// <param name="subject">
+    /// Which kind of thing <paramref name="named"/> names. One of
+    /// <see cref="CredentialSubjects.All"/>; it defaults to a repository because that
+    /// is the common case and every caller written before slice sixty-four step 4 meant
+    /// one, but an unknown value is refused rather than narrowed to it.
+    /// </param>
     public async Task<VerbResult> AddAsync(
-        string repo,
+        string named,
         IReadOnlyList<string> scopes,
         string? identity = null,
+        string subject = CredentialSubjects.Repository,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(repo);
+        ArgumentException.ThrowIfNullOrWhiteSpace(named);
         ArgumentNullException.ThrowIfNull(scopes);
+
+        // THE SUBJECT IS CHECKED BEFORE ANYTHING ELSE, because a subject gg does not
+        // know cannot produce a locator and narrowing it to a repository is exactly
+        // how this fleet's tracker credential got a repository's locator.
+        if (CredentialSubjects.Refuse(subject) is { } unknown)
+        {
+            throw new CredentialRefusedException(unknown);
+        }
 
         var token = Session();
 
@@ -237,16 +256,18 @@ public sealed class CredentialCommands(
               + string.Join(", ", CredentialScopes.All) + ".");
         }
 
-        var locator = CredentialLocator.ForRepo(repo);
+        // DERIVED IN THE ONE PLACE THAT KNOWS HOW. A switch here would be the second
+        // derivation, and a subject added later would need finding in both.
+        var locator = CredentialLocator.For(subject, named);
 
         var who = identity is { Length: > 0 }
             ? identity
-            : _prompt.ReadLine($"Which account does this credential act as, on {repo}? ");
+            : _prompt.ReadLine($"Which account does this credential act as, on {named}? ");
         if (string.IsNullOrWhiteSpace(who))
         {
             throw new CredentialRefusedException(
                 "A credential names the account it acts as. Without it a flight log cannot say "
-              + "who read the repository.");
+              + "who read what it opened.");
         }
 
         var reference = new CredentialReference
@@ -270,13 +291,13 @@ public sealed class CredentialCommands(
         // The one place a secret enters this process. It goes to the store and
         // nowhere else; nothing below this line reads it again.
         _credentials.Register(
-            locator, _prompt.ReadSecret($"Secret for {repo} (not echoed): "), holder);
+            locator, _prompt.ReadSecret($"Secret for {named} (not echoed): "), holder);
 
         try
         {
             var registered = await _client.RegisterCredentialAsync(
                 token,
-                new CredentialRegistrationRequest { Repo = repo, Reference = reference },
+                new CredentialRegistrationRequest { For = named, Reference = reference },
                 cancellationToken);
 
             return new VerbResult.CredentialAdded(registered);

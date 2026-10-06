@@ -35,7 +35,7 @@ public class ACredentialRowOpensNothingTests
         string repo, string locator, string identity = "acme-bot") => new()
     {
         CredentialId = "01a0a21c-a32c-76e1-a716-ccbb19dda796",
-        Repo = repo,
+        For = repo,
         AddedAt = DateTimeOffset.UnixEpoch,
         ReferencedBySubject = "a-directory:ada",
         Reference = new CredentialReference

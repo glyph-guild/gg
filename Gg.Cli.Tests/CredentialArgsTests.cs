@@ -117,7 +117,7 @@ public class CredentialArgsTests
         var parsed = CliArgs.Parse(["credential", "add", "--repo", "acme/widgets"]);
 
         var action = (CliAction.CredentialAdd)parsed;
-        await Assert.That(action.Repo).IsEqualTo("acme/widgets");
+        await Assert.That(action.Named).IsEqualTo("acme/widgets");
         await Assert.That(action.Scopes).IsEquivalentTo((string[])["read"]);
     }
 

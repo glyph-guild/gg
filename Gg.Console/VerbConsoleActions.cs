@@ -368,11 +368,36 @@ public sealed class VerbConsoleActions(
     {
         try
         {
-            var repo = _prompt.ReadLine("Which repository is this credential for? ").Trim();
+            // WHAT IT IS FOR, ASKED FIRST, and this prompt is the one the owner
+            // complained about by name: "when i go to add a credential, it immediately
+            // asks me for the repository. credentials may be used for other things
+            // than repositories." Asking which KIND first is what stops the answer
+            // being a repository by construction.
+            //
+            // RETURN MEANS A REPOSITORY, because it is the common case and an empty
+            // answer is how a person says "the usual" - the same shape the scope
+            // question below already has.
+            var askedSubject = _prompt.ReadLine(
+                $"What is this credential for? {string.Join(" / ", CredentialSubjects.All)} "
+              + $"(return for {CredentialSubjects.Repository}): ").Trim();
 
-            if (repo.Length == 0)
+            var subject = askedSubject.Length == 0 ? CredentialSubjects.Repository : askedSubject;
+
+            // REFUSED BY NAME rather than narrowed to a repository, which is how this
+            // fleet's tracker credential got a repository's locator in the first place.
+            if (CredentialSubjects.Refuse(subject) is { } unknown)
             {
-                return "Nothing was registered: no repository was named.";
+                return "Nothing was registered: " + unknown;
+            }
+
+            var named = _prompt.ReadLine(
+                subject == CredentialSubjects.Repository
+                    ? "Which repository is this credential for? "
+                    : $"Which {subject}? ").Trim();
+
+            if (named.Length == 0)
+            {
+                return $"Nothing was registered: no {subject} was named.";
             }
 
             // THE SCOPE, ASKED FOR. Registering read-only by fiat meant a
@@ -395,7 +420,7 @@ public sealed class VerbConsoleActions(
                      + $"for. It asks for one of: {string.Join(", ", CredentialScopes.All)}.";
             }
 
-            var added = _data.AddAsync(repo, [scope]).GetAwaiter().GetResult();
+            var added = _data.AddAsync(named, [scope], subject).GetAwaiter().GetResult();
 
             // THE REFERENCE, which is what crosses the wire anyway: kind, locator,
             // identity and scopes. Never the value, and there is nothing here that
@@ -404,7 +429,7 @@ public sealed class VerbConsoleActions(
                 ? $"Registered {registered.Value.Reference.Locator} as "
                 + $"{registered.Value.Reference.Identity}, scopes "
                 + string.Join(",", registered.Value.Reference.Scopes) + "."
-                : $"A credential for {repo} was registered.";
+                : $"A credential for {named} was registered.";
         }
         catch (Exception refusal) when (Expected(refusal))
         {
@@ -512,7 +537,7 @@ public sealed class VerbConsoleActions(
             }
 
             var match = held.Value.Credentials.FirstOrDefault(
-                c => string.Equals(c.Repo, repo, StringComparison.Ordinal));
+                c => string.Equals(c.For, repo, StringComparison.Ordinal));
 
             if (match is null)
             {
@@ -521,7 +546,7 @@ public sealed class VerbConsoleActions(
                 // next moves, and "not found" is both.
                 var known = held.Value.Credentials.Count == 0
                     ? "this tenant holds none"
-                    : string.Join(", ", held.Value.Credentials.Select(c => c.Repo));
+                    : string.Join(", ", held.Value.Credentials.Select(c => c.For));
 
                 return $"Nothing was forgotten: no credential for {repo} ({known}).";
             }

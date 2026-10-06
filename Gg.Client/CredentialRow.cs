@@ -179,7 +179,7 @@ public static class CredentialRows
     /// registration's own repo field says it when it has one.
     /// </remarks>
     private static string Serves(CredentialSummary credential, string locator) =>
-        credential.Repo is { Length: > 0 } repo ? repo : locator;
+        credential.For is { Length: > 0 } named ? named : locator;
 
     /// <summary>
     /// Whether this repository needs a credential at all.

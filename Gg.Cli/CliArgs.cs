@@ -543,7 +543,7 @@ public abstract record CliAction
     /// code of ours ran, and neither is somewhere a later fix can reach.
     /// </remarks>
     public sealed record CredentialAdd(
-        string Repo, IReadOnlyList<string> Scopes, string? Identity, bool Json) : CliAction, IEmitsResult;
+        string Named, string Subject, IReadOnlyList<string> Scopes, string? Identity, bool Json) : CliAction, IEmitsResult;
 
     /// <summary>
     /// Puts a credential this tenant registered onto one runner.
@@ -903,7 +903,9 @@ public static class CliArgs
         "gg runner watch <id|name>      watch it, and whatever it flies next",
         "gg runner repin <id>           trust a runner's key again after it changed",
         "gg invite                      a link that makes somebody a second principal here",
-        "gg credential add --repo <slug>  register a credential (the value is prompted for)",
+        "gg credential add --repo <slug>|--agent <name>|--tracker <key>",
+        "                                 register a credential for what it is actually for;",
+        "                                 the value is prompted for and never an argument",
         "gg credential send --runner <id|name> --repo <slug>|--agent <name>",
         "                                 put one on a machine that cannot be reached any other way",
         "gg key create                  mint this person's key; the passphrase is prompted for",
@@ -2057,7 +2059,12 @@ public static class CliArgs
 
     private static CliAction CredentialAdd(IReadOnlyList<string> options, bool json)
     {
-        string? repo = null;
+        // ONE FLAG PER SUBJECT, matching `gg credential send` which has taken
+        // --repo OR --agent all along. That asymmetry - send could name an agent and
+        // add could not - is what made this fleet's tracker credential a
+        // repository-shaped locator, because add was the only verb that registers one.
+        string? named = null;
+        string? subject = null;
         string? identity = null;
         IReadOnlyList<string> scopes = ReadOnly;
 
@@ -2072,7 +2079,18 @@ public static class CliArgs
             switch (options[i])
             {
                 case "--repo":
-                    repo = value;
+                    named = value;
+                    subject = CredentialSubjects.Repository;
+                    break;
+
+                case "--agent":
+                    named = value;
+                    subject = CredentialSubjects.Agent;
+                    break;
+
+                case "--tracker":
+                    named = value;
+                    subject = CredentialSubjects.Tracker;
                     break;
 
                 case "--scopes":
@@ -2088,9 +2106,26 @@ public static class CliArgs
             }
         }
 
-        return repo is { Length: > 0 }
-            ? new CliAction.CredentialAdd(repo, scopes, identity, json)
-            : Unknown("gg credential add needs --repo <slug>: which repository this credential is for.");
+        // TWO SUBJECTS IS NOT A NARROWING, it is a question nobody asked. A line
+        // carrying both --repo and --agent means somebody changed their mind halfway
+        // and the last flag winning would file the credential under whichever they
+        // typed second - the shape `gg fly`'s own "an intent that says two things says
+        // nothing" refuses.
+        var claimed = options.Where((o, i) => i % 2 == 0)
+            .Count(o => o is "--repo" or "--agent" or "--tracker");
+
+        if (claimed > 1)
+        {
+            return Unknown(
+                "gg credential add takes one of --repo, --agent or --tracker. A credential that "
+              + "says two things says nothing about either.");
+        }
+
+        return named is { Length: > 0 } && subject is { Length: > 0 }
+            ? new CliAction.CredentialAdd(named, subject, scopes, identity, json)
+            : Unknown(
+                "gg credential add needs to know what the credential is for: --repo <slug>, "
+              + "--agent <name> or --tracker <key>.");
     }
 
     /// <summary>The refusal's own sentence, without the parameter note.</summary>

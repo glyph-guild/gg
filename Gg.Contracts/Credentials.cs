@@ -18,6 +18,75 @@ namespace Gg.Contracts;
 /// "we will be careful" is not a control.
 /// </para>
 /// </remarks>
+/// <summary>
+/// What a credential can be FOR. A repository is one of these rather than the only
+/// one.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The gap the owner found by using the product:</b> <i>"when i go to add a
+/// credential, it immediately asks me for the repository. credentials may be used for
+/// other things than repositories."</i> The locator vocabulary already knew better —
+/// <see cref="CredentialLocator.ForAgent"/> has sat beside
+/// <see cref="CredentialLocator.ForRepo"/> since the credential was first sealed — and
+/// only the verb that registers one could not name anything else.
+/// </para>
+/// <para>
+/// <b>NOT THE SAME AXIS AS <see cref="CredentialKinds"/>, which is the thing to keep
+/// straight.</b> A kind says HOW the secret is reached — <c>local</c>, and a vault
+/// scheme beside it. A subject says WHAT it is for. A credential has both: a
+/// <c>local</c> credential for a tracker. Collapsing them would make "where it is" and
+/// "what it opens" one question with one answer, and they have different answers.
+/// </para>
+/// <para>
+/// <b>Closed, and refused loudly when unknown</b> — ADR-0027's rule for <c>kind</c> and
+/// <c>StrategyKinds</c>' precedent. Each member owes a reserved locator namespace (or,
+/// for a repository, the absence of one) and a producer in
+/// <see cref="CredentialLocator.For"/>; a subject with neither is a credential filed
+/// where nothing resolves, discovered by a flight much later.
+/// </para>
+/// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
+public static class CredentialSubjects
+{
+    /// <summary>A repository, as its provider spells it.</summary>
+    /// <remarks>
+    /// <b>The one with no namespace of its own</b>, because it is what is left when no
+    /// reserved segment claims the locator — which is why
+    /// <see cref="CredentialLocator.ForRepo"/> has to refuse the reserved words rather
+    /// than tidy them.
+    /// </remarks>
+    public const string Repository = "repository";
+
+    /// <summary>An agent, by the key its executor is declared with.</summary>
+    public const string Agent = "agent";
+
+    /// <summary>A tracker, by the key an intent host names it with.</summary>
+    /// <remarks>
+    /// <b>This fleet has had one all along and called it a repository.</b>
+    /// <c>GG_INTENT_HOSTS=ado=…|local:jdx/jdnext|…</c> is a hosted tracker
+    /// behind a repository-shaped locator, because that was the only shape
+    /// <c>gg credential add</c> could make.
+    /// </remarks>
+    public const string Tracker = "tracker";
+
+    /// <summary>Every subject a credential can be registered for.</summary>
+    public static IReadOnlyList<string> All { get; } = [Repository, Agent, Tracker];
+
+    /// <summary>The diagnosis, or null when the subject is one that exists.</summary>
+    /// <remarks>
+    /// <b>It names every subject there is</b>, because somebody who guessed wrong has
+    /// no other way to find out — and because the alternative, narrowing an unknown
+    /// subject to a repository, is how this fleet's tracker ended up with a
+    /// repository's locator.
+    /// </remarks>
+    public static string? Refuse(string? subject) =>
+        subject is { Length: > 0 } named && All.Contains(named, StringComparer.Ordinal)
+            ? null
+            : $"'{subject}' is not something a credential can be registered for. "
+            + $"gg knows: {string.Join(", ", All)}.";
+}
+
 [VocabularyOf(VocabularyFingerprints.Contract)]
 public static class CredentialKinds
 {
@@ -114,7 +183,16 @@ public static class CredentialScopes
 /// stops the accident, not somebody determined to paste a token into the wrong
 /// prompt - and the control plane's absence scan is what covers the rest.
 /// </para>
+/// <para>
+/// <b>It declares the contract's fingerprint because it now carries a vocabulary.</b>
+/// <see cref="ReservedSegments"/> arrived in slice sixty-four step 4 and made this a
+/// closed set somebody can add to — so adding one has to move a ledger and make
+/// somebody think, which is the whole mechanism. Two of its constants are exempt from
+/// the totality scan with reasons: a prefix and a URI scheme are not members of this
+/// set, and one of them belongs to the other axis entirely.
+/// </para>
 /// </remarks>
+[VocabularyOf(VocabularyFingerprints.Contract)]
 public static class CredentialLocator
 {
     /// <summary>Every local locator begins with this.</summary>
@@ -143,6 +221,34 @@ public static class CredentialLocator
     /// </remarks>
     public const string AgentSegment = "agent";
 
+    /// <summary>
+    /// The first segment reserved for trackers' credentials, for
+    /// <see cref="AgentSegment"/>'s reason exactly.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It arrived late and the comment above predicted it</b> — <i>"a repository's
+    /// locator named for an agent would read the credential a tracker owns"</i> was
+    /// written when a tracker had no namespace of its own, which is why this fleet's
+    /// tracker credential is <c>local:jdx/jdnext</c>: a repository-shaped locator,
+    /// because that was the only shape there was.
+    /// </para>
+    /// <para>
+    /// <b>Every reserved segment costs <see cref="ForRepo"/> a refusal</b>, and the
+    /// refusal has to happen after the slug is reduced — <c>Tracker/x</c> lowercases
+    /// into this word, so a guard comparing the raw input passes it through.
+    /// </para>
+    /// </remarks>
+    public const string TrackerSegment = "tracker";
+
+    /// <summary>Every segment a repository slug may not begin with.</summary>
+    /// <remarks>
+    /// <b>Derived, so adding a subject cannot forget to reserve its namespace.</b> The
+    /// alternative is a second list that agrees today, which is the hazard this file is
+    /// written to prevent.
+    /// </remarks>
+    public static IReadOnlyList<string> ReservedSegments { get; } = [AgentSegment, TrackerSegment];
+
     /// <summary>The locator an agent's own credential lives under.</summary>
     /// <remarks>
     /// <b>Refused rather than reduced.</b> An agent's name is a key - the same
@@ -151,6 +257,74 @@ public static class CredentialLocator
     /// would let the console and the executor derive two locators from two
     /// spellings of one agent.
     /// </remarks>
+    public static string ForTracker(string tracker)
+    {
+        var locator = $"{LocalPrefix}{TrackerSegment}/{tracker}";
+
+        return Validate(locator) is { } refused
+            ? throw new ArgumentException(
+                $"'{tracker}' is not a name a tracker's locator can carry: {refused}",
+                nameof(tracker))
+            : locator;
+    }
+
+    /// <summary>The locator for a subject, derived in the one place that knows how.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>ONE MAP, because two would be the hazard this file exists to prevent:</b>
+    /// <i>"two derivations that agree today is how a runner ends up looking for a file
+    /// the CLI never wrote."</i> A caller that switched on the subject itself would be
+    /// the second derivation, and a new subject would then need finding in two places
+    /// — one of which has no test that knows it is missing.
+    /// </para>
+    /// <para>
+    /// <b>An unknown subject throws rather than falling back to a repository.</b>
+    /// Narrowing it would file the credential somewhere nothing resolves, and a flight
+    /// would report it absent much later with nothing pointing here.
+    /// </para>
+    /// </remarks>
+    public static string For(string subject, string named) =>
+        subject switch
+        {
+            CredentialSubjects.Repository => ForRepo(named),
+            CredentialSubjects.Agent => ForAgent(named),
+            CredentialSubjects.Tracker => ForTracker(named),
+            _ => throw new ArgumentException(
+                CredentialSubjects.Refuse(subject) ?? $"'{subject}' is not a subject.",
+                nameof(subject)),
+        };
+
+    /// <summary>What a locator is for, read back out of it.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A repository is what is left when no reserved namespace claims it</b>, which
+    /// is exactly why <see cref="ForRepo"/> must refuse the reserved words on the way
+    /// in — without that refusal this answer would be wrong for any repository named
+    /// after one.
+    /// </para>
+    /// <para>
+    /// <b>It opens nothing and reads no disk.</b> A sentence about a credential must
+    /// never be a reason to resolve one, which is the rule <c>Holds</c> already
+    /// carries.
+    /// </para>
+    /// </remarks>
+    public static string SubjectOf(string locator)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(locator);
+
+        foreach (var reserved in ReservedSegments)
+        {
+            if (locator.StartsWith($"{LocalPrefix}{reserved}/", StringComparison.Ordinal))
+            {
+                return reserved == AgentSegment
+                    ? CredentialSubjects.Agent
+                    : CredentialSubjects.Tracker;
+            }
+        }
+
+        return CredentialSubjects.Repository;
+    }
+
     public static string ForAgent(string provider)
     {
         var locator = $"{LocalPrefix}{AgentSegment}/{provider}";
@@ -300,18 +474,23 @@ public static class CredentialLocator
         // like "acme//widgets" cannot become a locator this contract refuses.
         var segments = reduced.Split('/', StringSplitOptions.RemoveEmptyEntries)
             .Select(s => s.TrimStart('.', '-', '_'))
-            .Where(s => s.Length > 0);
+            .Where(s => s.Length > 0)
+            .ToList();
 
-        // THE AGENTS' NAMESPACE, refused here rather than shared. See
+        // EVERY RESERVED NAMESPACE, refused here rather than shared. See
         // AgentSegment: a slug reduces through the same alphabet a locator
-        // validates, so this is the only place the two derivations can be
-        // kept apart.
-        if (string.Equals(segments.FirstOrDefault(), AgentSegment, StringComparison.Ordinal))
+        // validates, so this is the only place the derivations can be kept apart -
+        // and the comparison is against the REDUCED first segment, because
+        // `Tracker/x` lowercases into a reserved word and a guard reading the raw
+        // input would pass it through.
+        if (segments.FirstOrDefault() is { } first
+         && ReservedSegments.Contains(first, StringComparer.Ordinal))
         {
             throw new ArgumentException(
-                $"'{repoSlug}' begins with '{AgentSegment}', which is reserved for agents' own "
-              + "credentials - a repository under that owner would share a file with an "
-              + "agent's token.", nameof(repoSlug));
+                $"'{repoSlug}' begins with '{first}', which is reserved for {first}s' own "
+              + $"credentials - a repository under that owner would share a file with a "
+              + $"{first}'s token. Reserved: {string.Join(", ", ReservedSegments)}.",
+                nameof(repoSlug));
         }
 
         var body = string.Join('/', segments);
@@ -423,8 +602,33 @@ public sealed record CredentialReference
 [PinnedId("f0b2c8a4-3d1e-4f52-8a67-9c0d5e7b1a33")]
 public sealed record CredentialRegistrationRequest
 {
-    /// <summary>The repository this credential is for, as that provider spells it.</summary>
-    public required string Repo { get; init; }
+    /// <summary>
+    /// What this credential is for, as a person would name it: a repository slug, an
+    /// agent, a tracker.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It said "the repository this credential is for" and was <c>required</c></b>,
+    /// so until slice sixty-four step 4 every registration asserted the credential was
+    /// for a repository whether or not it was. That is how this fleet's tracker
+    /// credential became <c>local:jdx/jdnext</c>.
+    /// </para>
+    /// <para>
+    /// <b>Kept rather than deleted, and it was close.</b> Nothing decides anything on
+    /// this value — the lease grant keys on the locator, and the control plane never
+    /// reads it back — so removing it would have been cheaper. What keeps it is
+    /// SPELLING: <see cref="CredentialLocator.ForRepo"/> lowercases and reduces, so the
+    /// locator cannot give back <c>Acme/Widgets</c>, and a list that shows
+    /// <c>acme/widgets</c> instead is one somebody has to translate.
+    /// </para>
+    /// <para>
+    /// <b>WHICH kind of thing it names is read from the locator</b>
+    /// (<see cref="CredentialLocator.SubjectOf"/>) rather than carried beside it. Two
+    /// members that both answer "what is this for" is two that can disagree, and the
+    /// locator is the one every other decision already keys on.
+    /// </para>
+    /// </remarks>
+    public required string For { get; init; }
 
     /// <summary>Where the secret is, who it acts as, what it may do.</summary>
     public required CredentialReference Reference { get; init; }
@@ -448,8 +652,13 @@ public sealed record CredentialSummary
 {
     public required string CredentialId { get; init; }
 
-    /// <summary>The repository it is for.</summary>
-    public required string Repo { get; init; }
+    /// <summary>
+    /// What it is for, as the person who registered it named it. See
+    /// <see cref="CredentialRegistrationRequest.For"/> — the two carry one meaning, so
+    /// a rename that moved one and not the other would leave a reader deriving the same
+    /// fact from two members that disagree about what it is.
+    /// </summary>
+    public required string For { get; init; }
 
     public required CredentialReference Reference { get; init; }
 

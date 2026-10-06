@@ -29,7 +29,7 @@ public class TheDoctorChecksYourOwnCredentialsTests
     private static CredentialSummary ACredential(string repo, string subject) => new()
     {
         CredentialId = Guid.NewGuid().ToString(),
-        Repo = repo,
+        For = repo,
         AddedAt = DateTimeOffset.UnixEpoch,
         ReferencedBySubject = subject,
         Reference = new CredentialReference

@@ -47,6 +47,20 @@ public class ClosedVocabularyTotalityTests
                 "a header name, for the same reason as SessionHeader",
             ["ProtocolSurface.SupportedProtocolsHeader"] =
                 "a header name, for the same reason as SessionHeader",
+
+            // CredentialLocator CAME INTO THIS SCAN IN SLICE SIXTY-FOUR STEP 4, when
+            // ReservedSegments gave it a list and the discovery-by-shape found it. The
+            // two constants below were always unlisted; nothing could see them until
+            // then, which is the scan working rather than a new problem.
+            ["CredentialLocator.LocalPrefix"] =
+                "a prefix rather than a value - a real locator is this plus a subject's name, "
+              + "so the constant alone is never a member of the vocabulary. ReservedSegments "
+              + "is the vocabulary this type carries, and a prefix is not one of its members",
+            ["CredentialLocator.VaultScheme"] =
+                "a URI scheme rather than a value, and it belongs to a different axis "
+              + "entirely: CredentialKinds says HOW a secret is reached and this is the "
+              + "spelling of one of those, while ReservedSegments says what a local locator "
+              + "is FOR. Listing it beside a reserved segment would put two axes in one set",
         };
 
     private static IReadOnlyList<string> ValuesOf(Type type) =>

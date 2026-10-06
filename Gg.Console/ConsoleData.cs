@@ -414,11 +414,19 @@ public sealed class ConsoleData(
     /// place a developer registering from their own machine can make it.
     /// </para>
     /// </remarks>
+    /// <param name="subject">
+    /// Which kind of thing <paramref name="named"/> names — a repository, an agent, a
+    /// tracker. Threaded through rather than fixed here, because the console's credential
+    /// actions are the other door onto the same verb and a door that could only register
+    /// repositories would be the asymmetry step 4 exists to close, one layer down.
+    /// </param>
     public Task<VerbResult> AddAsync(
-        string repo,
+        string named,
         IReadOnlyList<string> scopes,
+        string subject = CredentialSubjects.Repository,
         CancellationToken cancellationToken = default) =>
-        _credentials.AddAsync(repo, scopes, null, cancellationToken);
+        _credentials.AddAsync(
+            named, scopes, identity: null, subject: subject, cancellationToken: cancellationToken);
 
     public Task<VerbResult> WhyAsync(
         string reference, string? obligation = null, CancellationToken cancellationToken = default) =>

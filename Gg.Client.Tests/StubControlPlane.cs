@@ -566,7 +566,7 @@ public sealed class StubControlPlane : IAsyncDisposable
                     var summary = new CredentialSummary
                     {
                         CredentialId = Guid.NewGuid().ToString(),
-                        Repo = request.Repo,
+                        For = request.For,
                         Reference = request.Reference,
                         AddedAt = DateTimeOffset.UtcNow,
                     };

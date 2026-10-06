@@ -14,7 +14,7 @@ namespace Gg.Contracts.Tests;
 /// </para>
 /// <para>
 /// <b>The product currently instructs the lie.</b> This fleet's tracker credential is
-/// <c>local:jdx/jdnext</c> — a repository-shaped locator for an Azure DevOps tracker
+/// <c>local:jdx/jdnext</c> — a repository-shaped locator for a hosted tracker
 /// — because <c>CredentialLocator.ForRepo</c> is the only producer of a locator and
 /// <c>gg credential add</c> is the only verb that registers one. The locator
 /// vocabulary already knew better: <c>ForAgent</c> has sat beside <c>ForRepo</c> since
@@ -74,7 +74,7 @@ public class ACredentialSaysWhatItIsForTests
         // THE GUARD THAT MATTERS, extended. ForRepo already refused a slug beginning
         // `agent` because a repository under that owner would share a file with an
         // agent's token. A tracker's namespace needs the same refusal on the day it
-        // arrives, not on the day somebody registers github.com/tracker/something.
+        // arrives, not on the day somebody registers a forge's tracker/something.
         foreach (var reserved in (string[])[CredentialLocator.AgentSegment, CredentialLocator.TrackerSegment])
         {
             var refused = Assert.Throws<ArgumentException>(

@@ -29,6 +29,9 @@ public abstract record FactPayload
 
     public sealed record Performed(StackPerformed Value) : FactPayload;
 
+    /// <summary>The file a flight's intent named, as the runner read it. Slice sixty-two.</summary>
+    public sealed record IntentRead(Gg.Contracts.IntentRead Value) : FactPayload;
+
     /// <summary>An airspace document this flight drafted, asking it be applied.</summary>
     public sealed record Document(DocumentProposal Value) : FactPayload;
 
@@ -135,6 +138,7 @@ public sealed record FilteredFacts(IReadOnlyList<FactEnvelope> Items);
 [JsonSerializable(typeof(LoopSession))]
 [JsonSerializable(typeof(EnvironmentReclaimed))]
 [JsonSerializable(typeof(StackPerformed))]
+[JsonSerializable(typeof(Gg.Contracts.IntentRead))]
 [JsonSerializable(typeof(DocumentProposal))]
 [JsonSerializable(typeof(DestinationLanded))]
 [JsonSerializable(typeof(LoopDigest))]
@@ -196,6 +200,14 @@ public static class FactPipeline
                     Digest = digest,
                     ObservedAt = observedAt,
                     Environment = environment.Value,
+                },
+                FactPayload.IntentRead read => new FactEnvelope
+                {
+                    IdempotencyKey = Key(flightId, kind, digest),
+                    Kind = kind,
+                    Digest = digest,
+                    ObservedAt = observedAt,
+                    IntentRead = read.Value,
                 },
                 FactPayload.Source source => new FactEnvelope
                 {
@@ -469,6 +481,9 @@ public static class FactPipeline
             FactKinds.EnvironmentReclaimed,
             JsonSerializer.Serialize(
                 reclaimed.Value, FactJsonContext.Default.EnvironmentReclaimed)),
+        FactPayload.IntentRead read => (
+            FactKinds.IntentRead,
+            JsonSerializer.Serialize(read.Value, FactJsonContext.Default.IntentRead)),
         FactPayload.Performed performed => (
             FactKinds.StackPerformed,
             JsonSerializer.Serialize(

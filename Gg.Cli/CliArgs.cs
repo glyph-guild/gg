@@ -181,7 +181,14 @@ public abstract record CliAction
         /// wants to see what the flight says - the runner opens a channel and an
         /// agent still does the work.
         /// </remarks>
-        bool Attended = false)
+        bool Attended = false,
+        /// <summary>
+        /// A file intent: the registered repository, the path in it and the ref, from
+        /// <c>--file repo:path@ref</c>. Sent unread - the runner reads it at a commit it records.
+        /// </summary>
+        string? FileRepository = null,
+        string? FilePath = null,
+        string? FileRef = null)
         : CliAction, IEmitsResult;
 
     /// <summary>
@@ -809,6 +816,7 @@ public static class CliArgs
         "  --work-kind <name>           which work kind's rules govern it",
         "  --environment <name>         which charted environment it runs in",
         "  --attended                   and watch it from wherever you are",
+        "  --file <repo>:<path>[@ref]   about a file in a registered repository, read by the runner",
         "gg flights [--all] [--intent <provider>#<id>|<uri>]  flights in the air, or every one",
         "  --limit <rows> --after <cursor>  one page of them, and where to carry on",
         "gg show <flight>               one flight, by GG-42 or by id",
@@ -1603,6 +1611,10 @@ public static class CliArgs
                 Runner: runner, Attended: attended, WorkKind: workKind, Environment: environment),
             ["fly", "--ticket", var ticket] => Ticket(
                 ticket, json, repositories, byHand, runner, attended, workKind, environment),
+            // ONE ARGUMENT, as --ticket is, for the same reason: three flags would make "a
+            // repository and no path" reachable here. Slice sixty-two.
+            ["fly", "--file", var reference] => FileIntent(
+                reference, json, repositories, byHand, runner, attended, workKind, environment),
 
             // BEFORE the free-text arm, because that arm accepts anything. A
             // word starting with a dash is an option somebody got wrong, and
@@ -1615,16 +1627,16 @@ public static class CliArgs
             // asking for is exactly this list.
             ["fly", var option] when Option(option) => Unknown(
                 $"'{option}' is an option, and gg fly does not have it. It takes some text, "
-              + "--uri <uri>, or --ticket <provider>#<id>."),
+              + "--uri <uri>, --ticket <provider>#<id>, or --file <repository>:<path>[@ref]."),
 
             ["fly", var text] => new CliAction.Fly(text, null, json,
                 Repositories: repositories, ByHand: byHand,
                 Runner: runner, Attended: attended, WorkKind: workKind, Environment: environment),
             ["fly"] => Unknown(
                 "gg fly needs something to act on: some text, --uri <uri>, "
-              + "or --ticket <provider>#<id>."),
+              + "--ticket <provider>#<id>, or --file <repository>:<path>[@ref]."),
             ["fly", ..] => Unknown(
-                "gg fly takes one of some text, --uri or --ticket, and this has more than one. "
+                "gg fly takes one of some text, --uri, --ticket or --file, and this has more than one. "
               + "An intent that says two things says nothing."),
 
             ["agent", "login", .. var login] => AgentLogin(login, runner, json),
@@ -1946,6 +1958,40 @@ public static class CliArgs
             : Unknown(
                 $"gg fly --ticket takes <provider>#<id>, and '{token}' is not that shape. "
               + "Both halves are needed: the id alone does not say which tracker it is in.");
+
+    /// <summary>
+    /// <c>--file &lt;repository&gt;:&lt;path&gt;[@ref]</c>, split the one way it is ever split.
+    /// </summary>
+    /// <remarks>
+    /// <b>The repository ends at the first colon</b>, because a registered slug never holds one,
+    /// and <b>the ref starts after the last <c>@</c></b>, because a ref may hold a slash and a
+    /// path rarely holds an <c>@</c>. Whether the path stays inside the repository is the
+    /// contract's rule, applied by the client before anything is sent.
+    /// </remarks>
+    private static CliAction FileIntent(
+        string reference, bool json, IReadOnlyList<string>? repositories, bool byHand,
+        string? runner, bool attended, string? workKind, string? environment)
+    {
+        var colon = reference.IndexOf(':', StringComparison.Ordinal);
+        var repository = colon > 0 ? reference[..colon] : "";
+        var rest = colon > 0 ? reference[(colon + 1)..] : "";
+        var at = rest.LastIndexOf('@');
+        var path = at >= 0 ? rest[..at] : rest;
+        string? @ref = at >= 0 ? rest[(at + 1)..] : null;
+
+        if (repository.Length == 0 || path.Length == 0 || @ref is { Length: 0 })
+        {
+            return Unknown(
+                $"gg fly --file takes <repository>:<path>[@ref], and '{reference}' is missing a "
+              + "half. The repository is its registered name, the path is inside it, and the "
+              + "ref is optional - without one the repository's default branch is read.");
+        }
+
+        return new CliAction.Fly(
+            null, null, json, Repositories: repositories, ByHand: byHand, Runner: runner,
+            Attended: attended, WorkKind: workKind, Environment: environment,
+            FileRepository: repository, FilePath: path, FileRef: @ref);
+    }
 
     private static CliAction CredentialAdd(IReadOnlyList<string> options, bool json)
     {

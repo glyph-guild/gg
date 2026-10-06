@@ -1,13 +1,14 @@
 using System.Security.Cryptography;
 using System.Text;
+using Gg.Contracts;
 using Gg.Runner.Vcs;
 
-namespace Gg.Runner.Sweeps;
+namespace Gg.Runner;
 
-/// <summary>What reading a sweep's skill concluded.</summary>
-public abstract record SkillRead
+/// <summary>What reading a file from a repository concluded.</summary>
+public abstract record FileRead
 {
-    private SkillRead()
+    private FileRead()
     {
     }
 
@@ -19,17 +20,23 @@ public abstract record SkillRead
     /// watch's ref names, so the attestation's record of what ran can only come
     /// from here.
     /// </remarks>
-    public sealed record Read(RepositoryFile Skill, string Commit) : SkillRead;
+    public sealed record Read(RepositoryFile File, string Commit) : FileRead;
 
     /// <summary>Why it could not be read, in a sentence the sweep attests.</summary>
-    public sealed record Unreadable(string Diagnosis) : SkillRead;
+    public sealed record Unreadable(string Diagnosis) : FileRead;
 }
 
 /// <summary>
-/// Reads a watch's skill at the commit the control plane pinned, once per
-/// commit.
+/// Reads one file from a repository at a ref it resolves, once per commit - a watch's skill,
+/// or a flight's intent.
 /// </summary>
 /// <remarks>
+/// <para>
+/// <b>One reader for every file a runner is handed by name.</b> Slice sixty-two made a flight's
+/// intent able to be a file, and the reader it needed was this one: the same path rule, the same
+/// cache, the same object id. It was <c>SkillReader</c>; a second reader for intents would have
+/// drifted from the first on exactly the checks that keep a path inside its repository.
+/// </para>
 /// <para>
 /// <b>The runner reads it, and the owner decided so on 2026-09-16</b>: the
 /// control plane reads nothing from a repository but a narrowings directory, so
@@ -53,7 +60,7 @@ public abstract record SkillRead
 /// <param name="adapters">This runner's VCS adapters, keyed by the provider each serves.</param>
 /// <param name="cacheRoot">Where read skills are kept, normally <c>LocalPaths.Skills()</c>.</param>
 /// <param name="secretFor">The credential for a repository, or null where it needs none.</param>
-public sealed class SkillReader(
+public sealed class RepositoryFileReader(
     IReadOnlyList<IVcsAdapter> adapters,
     string cacheRoot,
     Func<RepoTarget, Task<string?>> secretFor)
@@ -62,24 +69,44 @@ public sealed class SkillReader(
     private readonly string _cacheRoot = cacheRoot;
     private readonly Func<RepoTarget, Task<string?>> _secretFor = secretFor;
 
+    /// <summary>
+    /// The same reader - its adapters and its cache - finding credentials another way.
+    /// </summary>
+    /// <remarks>
+    /// A sweep's skill is read with this machine's credential; a flight's intent with the ones its
+    /// lease resolved. The cache is shared because it is keyed by commit, and a commit's bytes
+    /// are the same whoever read them.
+    /// </remarks>
+    public RepositoryFileReader WithSecrets(Func<RepoTarget, Task<string?>> secretFor) =>
+        new(_adapters, _cacheRoot, secretFor);
+
     /// <param name="where">The repository, with the pinned commit as its <see cref="RepoTarget.PinnedRef"/>.</param>
     /// <param name="path">The skill's path in that repository.</param>
-    public async Task<SkillRead> ReadAsync(
-        RepoTarget where, string path, CancellationToken cancellationToken = default)
+    /// <param name="what">What is being read, as the sentences name it: "this watch's skill", "this flight's intent".</param>
+    public async Task<FileRead> ReadAsync(
+        RepoTarget where, string path, string what, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(where);
 
-        if (Unsafe(path) is { } unsafePath)
+        // THE CONTRACT'S RULE, never a second one. The wire refuses a path that could leave
+        // its repository and this refuses it again before anything is fetched; one function
+        // means the two cannot disagree, and the stricter of the two rules is the one kept.
+        if (string.IsNullOrWhiteSpace(path))
         {
-            return new SkillRead.Unreadable(unsafePath);
+            return new FileRead.Unreadable($"Nothing names a path for {what}, so nothing was fetched.");
+        }
+
+        if (RepositoryPaths.Refused(path) is { } outside)
+        {
+            return new FileRead.Unreadable(outside + " Nothing was fetched.");
         }
 
         if (_adapters.FirstOrDefault(a =>
                 string.Equals(a.Provider, where.Provider, StringComparison.Ordinal)) is not { } adapter)
         {
-            return new SkillRead.Unreadable(
+            return new FileRead.Unreadable(
                 $"This runner serves no repositories from '{where.Provider}', so it cannot read "
-              + $"{path} from {where.Slug}.");
+              + $"{path} from {where.Slug} for {what}.");
         }
 
         // RESOLVE FIRST, THEN LOOK IN THE CACHE - the owner's call of
@@ -104,26 +131,26 @@ public sealed class SkillReader(
                                           or VcsCapabilityException
                                           or IOException)
         {
-            return new SkillRead.Unreadable(
-                $"'{where.PinnedRef}' could not be resolved in {where.Slug}.");
+            return new FileRead.Unreadable(
+                $"'{where.PinnedRef}' could not be resolved in {where.Slug}, so {what} was not read.");
         }
 
         if (commit is not { Length: > 0 })
         {
-            return new SkillRead.Unreadable(
+            return new FileRead.Unreadable(
                 $"'{where.PinnedRef}' does not resolve to a commit in {where.Slug}, so there is "
-              + "no version of this watch's skill to run.");
+              + $"no version of {what} to read.");
         }
 
         var entry = Path.Combine(_cacheRoot, Key(where, commit, path));
         if (Cached(entry) is { } cached)
         {
-            return new SkillRead.Read(cached, commit);
+            return new FileRead.Read(cached, commit);
         }
 
         RepositoryFile? file;
         var scratch = Path.Combine(
-            Path.GetTempPath(), "gg-skill-read", Guid.NewGuid().ToString("n"));
+            Path.GetTempPath(), "gg-file-read", Guid.NewGuid().ToString("n"));
 
         try
         {
@@ -134,38 +161,20 @@ public sealed class SkillReader(
                                           or VcsCapabilityException
                                           or IOException)
         {
-            return new SkillRead.Unreadable(
-                $"{path} could not be fetched from {where.Slug} at {commit}.");
+            return new FileRead.Unreadable(
+                $"{path} could not be fetched from {where.Slug} at {commit}, so {what} was not read.");
         }
 
         if (file is null)
         {
-            return new SkillRead.Unreadable(
-                $"{where.Slug} has no {path} at {commit}.");
+            return new FileRead.Unreadable(
+                $"{where.Slug} has no {path} at {commit}, so {what} was not read.");
         }
 
         Keep(entry, file);
-        return new SkillRead.Read(file, commit);
+        return new FileRead.Read(file, commit);
     }
 
-    /// <summary>Why this path may not be read, or null.</summary>
-    private static string? Unsafe(string path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return "The watch names no skill path.";
-        }
-
-        if (path.StartsWith('/')
-            || path.Contains('\\', StringComparison.Ordinal)
-            || path.Split('/').Any(part => part is ".." or "")
-            || path.Any(char.IsControl))
-        {
-            return $"'{path}' is not a path inside the repository, so nothing was fetched.";
-        }
-
-        return null;
-    }
 
     /// <summary>Forty or sixty-four hex digits - a commit, and never a name that moves.</summary>
     /// <summary>One file name per repository, commit and path.</summary>
@@ -185,6 +194,8 @@ public sealed class SkillReader(
 
     private static RepositoryFile? Cached(string entry)
     {
+        // ".skill" still, though the reader reads more than skills: renaming it would orphan
+        // every entry already cached on a runner, for a word nobody reads.
         var content = entry + ".skill";
         var sha = entry + ".sha";
 

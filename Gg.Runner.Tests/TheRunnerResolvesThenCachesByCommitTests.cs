@@ -37,7 +37,7 @@ public class TheRunnerResolvesThenCachesByCommitTests
     private static string Scratch() =>
         Path.Combine(Path.GetTempPath(), "gg-skill-cache", Guid.NewGuid().ToString("n"));
 
-    private static SkillReader Reader(
+    private static RepositoryFileReader Reader(
         TheRunnerReadsTheSkillAtItsPinTests.SkillRepository repository, string cache) =>
         new([new LocalVcsAdapter(repository.Directory)], cache,
             secretFor: _ => Task.FromResult<string?>(null));
@@ -56,16 +56,16 @@ public class TheRunnerResolvesThenCachesByCommitTests
         using var repository = new TheRunnerReadsTheSkillAtItsPinTests.SkillRepository();
 
         var read = await Reader(repository, Scratch())
-            .ReadAsync(At(repository, "refs/heads/main"), SkillPath);
+            .ReadAsync(At(repository, "refs/heads/main"), SkillPath, "this watch's skill");
 
-        await Assert.That(read).IsTypeOf<SkillRead.Read>();
+        await Assert.That(read).IsTypeOf<FileRead.Read>();
 
-        var got = (SkillRead.Read)read;
+        var got = (FileRead.Read)read;
 
         await Assert.That(got.Commit).IsEqualTo(repository.Pushed)
             .Because("the control plane no longer resolves this, so the commit the attestation "
                    + "reports can only come from the machine that did.");
-        await Assert.That(got.Skill.Content).IsEqualTo("words nobody reviewed\n")
+        await Assert.That(got.File.Content).IsEqualTo("words nobody reviewed\n")
             .Because("the branch head is what a ref means, and the amendment accepted that the "
                    + "words that run are whatever it points at now.");
     }
@@ -76,12 +76,12 @@ public class TheRunnerResolvesThenCachesByCommitTests
         using var repository = new TheRunnerReadsTheSkillAtItsPinTests.SkillRepository();
 
         var read = await Reader(repository, Scratch())
-            .ReadAsync(At(repository, repository.Reviewed), SkillPath);
+            .ReadAsync(At(repository, repository.Reviewed), SkillPath, "this watch's skill");
 
-        var got = (SkillRead.Read)read;
+        var got = (FileRead.Read)read;
 
         await Assert.That(got.Commit).IsEqualTo(repository.Reviewed);
-        await Assert.That(got.Skill.Content).IsEqualTo("the reviewed words\n")
+        await Assert.That(got.File.Content).IsEqualTo("the reviewed words\n")
             .Because("a caller holding a commit may still hand one over, and resolving it "
                    + "answers itself.");
     }
@@ -98,7 +98,7 @@ public class TheRunnerResolvesThenCachesByCommitTests
         var reader = Reader(repository, cache);
         var main = At(repository, "refs/heads/main");
 
-        var first = (SkillRead.Read)await reader.ReadAsync(main, SkillPath);
+        var first = (FileRead.Read)await reader.ReadAsync(main, SkillPath, "this watch's skill");
 
         await Assert.That(first.Commit).IsEqualTo(repository.Pushed)
             .Because("ASK WHY IT PASSES: if the first read were already stale the assertion "
@@ -106,10 +106,10 @@ public class TheRunnerResolvesThenCachesByCommitTests
 
         var moved = repository.PushAnother("the newest words\n");
 
-        var second = (SkillRead.Read)await reader.ReadAsync(main, SkillPath);
+        var second = (FileRead.Read)await reader.ReadAsync(main, SkillPath, "this watch's skill");
 
         await Assert.That(second.Commit).IsEqualTo(moved);
-        await Assert.That(second.Skill.Content).IsEqualTo("the newest words\n")
+        await Assert.That(second.File.Content).IsEqualTo("the newest words\n")
             .Because("a watch whose skill was updated running the first words this machine "
                    + "ever read is the staleness the whole resolve-then-cache order exists to "
                    + "prevent.");
@@ -126,11 +126,11 @@ public class TheRunnerResolvesThenCachesByCommitTests
         var cache = Scratch();
         var reader = Reader(repository, cache);
 
-        _ = await reader.ReadAsync(At(repository, "refs/heads/main"), SkillPath);
+        _ = await reader.ReadAsync(At(repository, "refs/heads/main"), SkillPath, "this watch's skill");
 
         var entries = Directory.EnumerateFiles(cache, "*.skill").Count();
 
-        _ = await reader.ReadAsync(At(repository, repository.Pushed), SkillPath);
+        _ = await reader.ReadAsync(At(repository, repository.Pushed), SkillPath, "this watch's skill");
 
         await Assert.That(Directory.EnumerateFiles(cache, "*.skill").Count()).IsEqualTo(entries)
             .Because("the ref and the commit it points at are one version of one file, and two "
@@ -144,10 +144,10 @@ public class TheRunnerResolvesThenCachesByCommitTests
         using var repository = new TheRunnerReadsTheSkillAtItsPinTests.SkillRepository();
 
         var read = await Reader(repository, Scratch())
-            .ReadAsync(At(repository, "refs/heads/nope"), SkillPath);
+            .ReadAsync(At(repository, "refs/heads/nope"), SkillPath, "this watch's skill");
 
-        await Assert.That(read).IsTypeOf<SkillRead.Unreadable>();
-        await Assert.That(((SkillRead.Unreadable)read).Diagnosis).Contains("nope")
+        await Assert.That(read).IsTypeOf<FileRead.Unreadable>();
+        await Assert.That(((FileRead.Unreadable)read).Diagnosis).Contains("nope")
             .Because("the sweep attests this sentence, and a person reading it has to know "
                    + "which ref did not resolve.");
     }

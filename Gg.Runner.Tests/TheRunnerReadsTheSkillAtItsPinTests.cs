@@ -100,10 +100,10 @@ public class TheRunnerReadsTheSkillAtItsPinTests
     private static string Scratch() =>
         Path.Combine(Path.GetTempPath(), "gg-skill-cache", Guid.NewGuid().ToString("n"));
 
-    private static (SkillReader Reader, string Cache) Reader(SkillRepository repository)
+    private static (RepositoryFileReader Reader, string Cache) Reader(SkillRepository repository)
     {
         var cache = Scratch();
-        return (new SkillReader(
+        return (new RepositoryFileReader(
             [new LocalVcsAdapter(repository.Directory)], cache,
             secretFor: _ => Task.FromResult<string?>(null)), cache);
     }
@@ -121,10 +121,10 @@ public class TheRunnerReadsTheSkillAtItsPinTests
         using var repository = new SkillRepository();
         var (reader, _) = Reader(repository);
 
-        var read = await reader.ReadAsync(At(repository, repository.Reviewed), SkillPath);
+        var read = await reader.ReadAsync(At(repository, repository.Reviewed), SkillPath, "this watch's skill");
 
-        await Assert.That(read).IsTypeOf<SkillRead.Read>();
-        var skill = ((SkillRead.Read)read).Skill;
+        await Assert.That(read).IsTypeOf<FileRead.Read>();
+        var skill = ((FileRead.Read)read).File;
 
         await Assert.That(skill.Content).IsEqualTo("the reviewed words\n")
             .Because("the branch moved after the pin, and the words that run are the ones "
@@ -143,14 +143,14 @@ public class TheRunnerReadsTheSkillAtItsPinTests
         using var repository = new SkillRepository();
         var (reader, _) = Reader(repository);
 
-        _ = await reader.ReadAsync(At(repository, repository.Reviewed), SkillPath);
+        _ = await reader.ReadAsync(At(repository, repository.Reviewed), SkillPath, "this watch's skill");
 
         System.IO.Directory.Delete(repository.BarePath, recursive: true);
 
-        var again = await reader.ReadAsync(At(repository, repository.Reviewed), SkillPath);
+        var again = await reader.ReadAsync(At(repository, repository.Reviewed), SkillPath, "this watch's skill");
 
-        await Assert.That(again).IsTypeOf<SkillRead.Read>();
-        await Assert.That(((SkillRead.Read)again).Skill.Content).IsEqualTo("the reviewed words\n");
+        await Assert.That(again).IsTypeOf<FileRead.Read>();
+        await Assert.That(((FileRead.Read)again).File.Content).IsEqualTo("the reviewed words\n");
     }
 
     [Test]
@@ -159,16 +159,16 @@ public class TheRunnerReadsTheSkillAtItsPinTests
         using var repository = new SkillRepository();
         var (reader, _) = Reader(repository);
 
-        _ = await reader.ReadAsync(At(repository, repository.Reviewed), SkillPath);
+        _ = await reader.ReadAsync(At(repository, repository.Reviewed), SkillPath, "this watch's skill");
 
         System.IO.Directory.Delete(repository.BarePath, recursive: true);
 
-        await Assert.That(await reader.ReadAsync(At(repository, repository.Pushed), SkillPath))
-            .IsTypeOf<SkillRead.Unreadable>()
+        await Assert.That(await reader.ReadAsync(At(repository, repository.Pushed), SkillPath, "this watch's skill"))
+            .IsTypeOf<FileRead.Unreadable>()
             .Because("another commit is another skill, and a cache that answered it from the "
                    + "first would run words nobody pinned.");
-        await Assert.That(await reader.ReadAsync(At(repository, repository.Reviewed), "src.cs"))
-            .IsTypeOf<SkillRead.Unreadable>();
+        await Assert.That(await reader.ReadAsync(At(repository, repository.Reviewed), "src.cs", "this watch's skill"))
+            .IsTypeOf<FileRead.Unreadable>();
     }
 
     [Test]
@@ -178,10 +178,10 @@ public class TheRunnerReadsTheSkillAtItsPinTests
         var (reader, _) = Reader(repository);
 
         var read = await reader.ReadAsync(
-            At(repository, repository.Reviewed), ".goodgrief/skills/missing.md");
+            At(repository, repository.Reviewed), ".goodgrief/skills/missing.md", "this watch's skill");
 
-        await Assert.That(read).IsTypeOf<SkillRead.Unreadable>();
-        await Assert.That(((SkillRead.Unreadable)read).Diagnosis).Contains("missing.md");
+        await Assert.That(read).IsTypeOf<FileRead.Unreadable>();
+        await Assert.That(((FileRead.Unreadable)read).Diagnosis).Contains("missing.md");
     }
 
     [Test]
@@ -195,9 +195,9 @@ public class TheRunnerReadsTheSkillAtItsPinTests
         using var repository = new SkillRepository();
         var (reader, cache) = Reader(repository);
 
-        var read = await reader.ReadAsync(At(repository, repository.Reviewed), path);
+        var read = await reader.ReadAsync(At(repository, repository.Reviewed), path, "this watch's skill");
 
-        await Assert.That(read).IsTypeOf<SkillRead.Unreadable>();
+        await Assert.That(read).IsTypeOf<FileRead.Unreadable>();
         await Assert.That(System.IO.Directory.Exists(cache)
             && System.IO.Directory.EnumerateFileSystemEntries(cache).Any()).IsFalse()
             .Because("nothing was fetched and nothing was kept.");
@@ -210,10 +210,10 @@ public class TheRunnerReadsTheSkillAtItsPinTests
         var (reader, _) = Reader(repository);
 
         var read = await reader.ReadAsync(
-            At(repository, repository.Reviewed) with { Provider = "forge.elsewhere" }, SkillPath);
+            At(repository, repository.Reviewed) with { Provider = "forge.elsewhere" }, SkillPath, "this watch's skill");
 
-        await Assert.That(read).IsTypeOf<SkillRead.Unreadable>();
-        await Assert.That(((SkillRead.Unreadable)read).Diagnosis).Contains("forge.elsewhere");
+        await Assert.That(read).IsTypeOf<FileRead.Unreadable>();
+        await Assert.That(((FileRead.Unreadable)read).Diagnosis).Contains("forge.elsewhere");
     }
 
     [Test]
@@ -230,10 +230,10 @@ public class TheRunnerReadsTheSkillAtItsPinTests
         using var repository = new SkillRepository();
         var (reader, _) = Reader(repository);
 
-        var read = await reader.ReadAsync(At(repository, "refs/heads/main"), SkillPath);
+        var read = await reader.ReadAsync(At(repository, "refs/heads/main"), SkillPath, "this watch's skill");
 
-        await Assert.That(read).IsTypeOf<SkillRead.Read>();
-        await Assert.That(((SkillRead.Read)read).Commit).IsEqualTo(repository.Pushed);
+        await Assert.That(read).IsTypeOf<FileRead.Read>();
+        await Assert.That(((FileRead.Read)read).Commit).IsEqualTo(repository.Pushed);
     }
 
     [Test]
@@ -242,7 +242,7 @@ public class TheRunnerReadsTheSkillAtItsPinTests
         using var repository = new SkillRepository();
         var (reader, cache) = Reader(repository);
 
-        _ = await reader.ReadAsync(At(repository, repository.Reviewed), SkillPath);
+        _ = await reader.ReadAsync(At(repository, repository.Reviewed), SkillPath, "this watch's skill");
 
         var kept = System.IO.Directory.EnumerateFiles(cache, "*", SearchOption.AllDirectories)
             .Select(f => File.ReadAllText(f))

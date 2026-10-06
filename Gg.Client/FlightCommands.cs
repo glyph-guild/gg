@@ -1879,14 +1879,25 @@ public sealed class FlightCommands(
         // it shipped and no caller set either, so a tenant with a work kind
         // defined had no way to open a flight for it.
         string? workKind = null,
-        string? environment = null)
+        string? environment = null,
+        // A FILE, SENT UNREAD (slice sixty-two). The runner reads it at a commit it
+        // records; a copy read here would be a second version nothing recorded.
+        string? fileRepository = null,
+        string? filePath = null,
+        string? fileRef = null)
     {
         var token = Session();
 
         // The kind is DERIVED from which payload arrived, in one place shared
         // with a plan file, so a caller never names a kind that disagrees with
-        // what it supplied - the exact mismatch Validate refuses below.
-        var intent = FlightIntent.Of(text, uri, provider, id);
+        // what it supplied - the exact mismatch Validate refuses below. A file
+        // keeps anything beside it, so the contract refuses the pair as two.
+        var intent = fileRepository is not null || filePath is not null
+            ? FlightIntent.ForFile(fileRepository ?? "", filePath ?? "", fileRef) with
+            {
+                Text = text, Uri = uri, Provider = provider, Id = id,
+            }
+            : FlightIntent.Of(text, uri, provider, id);
 
         if (FlightIntent.Validate(intent) is { } diagnosis)
         {
@@ -1898,7 +1909,11 @@ public sealed class FlightCommands(
             // The name defaults to the intent, because a person who typed one
             // sentence should not have to type it twice. It is stripped and
             // shortened control-plane-side either way.
-            Name = name is { Length: > 0 } ? name : (text ?? uri ?? $"{provider}#{id}"),
+            Name = name is { Length: > 0 }
+                ? name
+                : filePath is not null
+                    ? $"{filePath} in {fileRepository}"
+                    : (text ?? uri ?? $"{provider}#{id}"),
             Intent = intent,
             // WHICH repository, never at which ref. The ref belongs to whoever
             // registered the repository - a person opening a flight about a work

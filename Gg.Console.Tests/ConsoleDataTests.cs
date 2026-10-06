@@ -698,7 +698,9 @@ public class ConsoleStartTests
         var sessions = new NoSession();
         var data = new ConsoleData(
             new FlightCommands(client, sessions),
-            new CredentialCommands(client, sessions, new RefusesEverything(), new NeverAsked()),
+            new CredentialCommands(
+                client, sessions, new RefusesEverything(), new NeverAsked(),
+                ConsoleDoubles.APersonsKey()),
             new TakeCommands(client, sessions),
             new IdentityCommands(client, sessions),
             new EnvelopeCommands(client, sessions));

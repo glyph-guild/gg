@@ -157,7 +157,8 @@ public class AgainstARealControlPlaneTests
         var data = new ConsoleData(
             new FlightCommands(client, sessions),
             new CredentialCommands(
-                client, sessions, new FileCredentialStore(home), new NoPrompt()),
+                client, sessions, new FileCredentialStore(home), new NoPrompt(),
+                ConsoleDoubles.APersonsKey()),
             takes,
             new IdentityCommands(client, sessions),
             new EnvelopeCommands(client, sessions));

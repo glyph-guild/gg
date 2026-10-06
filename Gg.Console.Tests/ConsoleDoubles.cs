@@ -24,6 +24,37 @@ namespace Gg.Console.Tests;
 internal static class ConsoleDoubles
 {
     /// <summary>
+    /// A person's key, in a temporary place, for any test that builds real
+    /// <c>CredentialCommands</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>MEASURED IN CI, NOT GUESSED.</b> A credential is sealed to the person who
+    /// registers it (ADR-0037 Decision 2, slice sixty-four step 2), so registering one
+    /// needs a key — and with no path given, <c>CredentialCommands</c> reads
+    /// <c>~/.config/good-grief/person-key</c>. On a developer's machine that file
+    /// exists and the test passes; on a GitHub runner it does not, and
+    /// <c>ConsoleWriteParityTests</c> went red with <i>"There is no key at
+    /// '/home/runner/.config/good-grief/person-key'"</i> having been green here.
+    /// </para>
+    /// <para>
+    /// <b>It is the hazard <c>FileCredentialStore</c>'s lazy key already names</b> —
+    /// a test that passed a temporary root and would then have written a key into the
+    /// real user's configuration directory. Every site that builds real credential
+    /// commands passes this, including the ones that do not register anything today,
+    /// because the day one of them does is not the day to rediscover this.
+    /// </para>
+    /// </remarks>
+    internal static string APersonsKey()
+    {
+        var path = Path.Combine(
+            Path.GetTempPath(), "gg-console-pk-" + Guid.NewGuid().ToString("N"), "person-key");
+
+        Gg.Client.PersonKey.Create(path, "correct horse battery staple");
+        return path;
+    }
+
+    /// <summary>
     /// A session that types keys, reducing its own and exiting on the shell's.
     /// </summary>
     /// <remarks>

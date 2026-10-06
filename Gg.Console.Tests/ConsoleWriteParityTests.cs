@@ -92,7 +92,9 @@ public class ConsoleWriteParityTests
 
     private static ConsoleData Unreachable(ISecretPrompt prompt) =>
         new(new FlightCommands(Client(), new Held()),
-            new CredentialCommands(Client(), new Held(), new NoStore(), prompt),
+            new CredentialCommands(
+                Client(), new Held(), new NoStore(), prompt,
+                ConsoleDoubles.APersonsKey()),
             new TakeCommands(Client(), new Held()),
             new IdentityCommands(Client(), new Held()),
             new EnvelopeCommands(Client(), new Held()));

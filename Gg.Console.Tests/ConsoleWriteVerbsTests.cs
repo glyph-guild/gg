@@ -37,7 +37,9 @@ public class ConsoleWriteVerbsTests
 
         return new ConsoleData(
             new FlightCommands(client, sessions),
-            new CredentialCommands(client, sessions, new NoStore(), new Answers("s3cret-value")),
+            new CredentialCommands(
+                client, sessions, new NoStore(), new Answers("s3cret-value"),
+                ConsoleDoubles.APersonsKey()),
             new TakeCommands(client, sessions),
             new IdentityCommands(client, sessions),
             new EnvelopeCommands(client, sessions));

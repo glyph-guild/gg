@@ -1747,6 +1747,13 @@ public static class Keymap
             // opens nothing at all. One keypress must not be able to mean both.
             new(KeyStroke.EnterKey, Command.FlyForKind, "fly it for this") { Label = "Fly" },
 
+            // OR A PLAN OF SEVERAL FLIGHTS, drafted with an agent (slice sixty-six). Offered here as
+            // well as in the compose choice, because on a tenant with work kinds this picker is
+            // what `n` opens - and a key that only exists one modal further on is a key nobody
+            // finds. A plan's kinds are its legs', chosen with the agent, so no kind is picked first.
+            new(KeyStroke.Char('l'), Command.PlanWithAgent, "plan several flights with an agent")
+                { Label = "Plan" },
+
             // THE SECOND HALF OF THE QUESTION. Which repositories a flight
             // names used to be a console-wide switch on another tab, which is
             // the wrong range for it - a person opening one flight against a

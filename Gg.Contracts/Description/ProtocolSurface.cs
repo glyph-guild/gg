@@ -926,7 +926,9 @@ public static class ProtocolSurface
             Audience = Audience.Developer,
             Request = typeof(ItineraryProposal),
             Response = typeof(ItineraryProposed),
-            Statuses = [202, 400, 401, 403, ProtocolTooOld],
+            // 409 FOR A SUPERSEDE THE DOOR CANNOT HONOUR (slice sixty-eight): the plan named is
+            // not the caller's, its gate was answered, or another proposal already replaced it.
+            Statuses = [202, 400, 401, 403, 409, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
 
@@ -2219,7 +2221,7 @@ public static class ProtocolSurface
             [typeof(ItineraryDraft)] = ["planner", "intent", "legs"],
             [typeof(ItineraryCheck)] = ["planner", "destinationId", "refused", "legs"],
             [typeof(ItineraryMenu)] = ["planner", "destinationId", "workKinds", "repositories", "environments", "refused"],
-            [typeof(ItineraryProposal)] = ["draft", "via"],
+            [typeof(ItineraryProposal)] = ["draft", "via", "supersedes"],
             [typeof(ItineraryProposed)] = ["itinerary", "pass", "gates"],
             [typeof(LegCheck)] =
             [

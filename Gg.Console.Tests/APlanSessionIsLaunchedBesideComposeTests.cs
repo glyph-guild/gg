@@ -20,6 +20,50 @@ public class APlanSessionIsLaunchedBesideComposeTests
     }
 
     [Test]
+    public async Task On_a_tenant_with_kinds_n_then_l_plans_too()
+    {
+        // FOUND BY THE OWNER, pressing it: with work kinds declared, `n` opens the work-kind
+        // picker first and the compose choice only after a kind is chosen - so `l` there did
+        // nothing. The first test above pressed it in a mode the console never opens on a
+        // tenant that has declared kinds, which is every tenant in the field.
+        var tenant = new AppState
+        {
+            Estate = new EstateOnThisMachine
+            {
+                Uncommitted = [],
+                Names = new Gg.Contracts.EnvelopeTopology
+                {
+                    Names =
+                    [
+                        new Gg.Contracts.TopologyName
+                        {
+                            Name = "root", Role = Gg.Contracts.Roles.Root,
+                            DeclaredBy = "kdee", DeclaredAt = DateTimeOffset.UnixEpoch,
+                        },
+                        new Gg.Contracts.TopologyName
+                        {
+                            Name = "implement", Role = Gg.Contracts.Roles.WorkKind, Parent = "root",
+                            DeclaredBy = "kdee", DeclaredAt = DateTimeOffset.UnixEpoch,
+                        },
+                    ],
+                },
+            },
+        };
+
+        var asked = Press(tenant, KeyStroke.Char('n'));
+        await Assert.That(asked.Mode).IsEqualTo(UiMode.WorkKindChoice)
+            .Because("this is the path the owner was on: kinds are declared, so n asks for one.");
+
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('l'), KeymapContext.For(asked)))
+            .IsEqualTo(Command.PlanWithAgent);
+    }
+
+    private static AppState Press(AppState state, KeyStroke key) =>
+        Keymap.Resolve(key, KeymapContext.For(state)) is { } command
+            ? Reducer.Reduce(state, command)
+            : state;
+
+    [Test]
     public async Task It_is_the_shells_to_run_and_the_reducers_to_leave()
     {
         await Assert.That(ShellCommands.Handled).Contains(Command.PlanWithAgent)

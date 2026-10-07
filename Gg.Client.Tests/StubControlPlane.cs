@@ -46,6 +46,12 @@ public sealed class StubControlPlane : IAsyncDisposable
 
         public ItineraryCheck? ItineraryAnswer { get; set; }
 
+    /// <summary>The status a proposal refusal answers with: 400 by default, 409 for a supersede.</summary>
+    public int ItineraryRefusalStatus { get; set; } = 400;
+
+    /// <summary>When set, the refusal is problem+json, as the real door writes it.</summary>
+    public bool ItineraryRefusalAsProblem { get; set; }
+
     /// <summary>Every proposal sent to POST /v1/itineraries, in order.</summary>
     public List<ItineraryProposal> ObservedProposals { get; } = [];
 
@@ -603,7 +609,21 @@ public sealed class StubControlPlane : IAsyncDisposable
 
                 if (ItineraryRefusal is { } proposalRefusal)
                 {
-                    await WriteAsync(context, 400, proposalRefusal);
+                    // AS THE REAL DOOR ANSWERS, when asked: Results.Problem, a problem+json body
+                    // whose `detail` is the sentence. A bare string is what this stub sent first,
+                    // and it hid that the client relayed the JSON rather than the sentence.
+                    await WriteAsync(
+                        context,
+                        ItineraryRefusalStatus,
+                        ItineraryRefusalAsProblem
+                            ? JsonSerializer.Serialize(new Dictionary<string, object>
+                            {
+                                ["type"] = "https://tools.ietf.org/html/rfc9110#section-15.5.10",
+                                ["title"] = "Conflict",
+                                ["status"] = ItineraryRefusalStatus,
+                                ["detail"] = proposalRefusal,
+                            })
+                            : proposalRefusal);
                     return;
                 }
 

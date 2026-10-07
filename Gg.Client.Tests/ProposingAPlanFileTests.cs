@@ -12,7 +12,7 @@ namespace Gg.Client.Tests;
 /// </remarks>
 public class ProposingAPlanFileTests
 {
-    private const string Plan = """
+    internal const string Plan = """
         intent: three findings in one bug
         legs:
           - subject: the icon
@@ -32,11 +32,11 @@ public class ProposingAPlanFileTests
         PrincipalDisplay = "stub-principal",
     };
 
-    private static FlightCommands Build(StubControlPlane stub) =>
+    internal static FlightCommands Build(StubControlPlane stub) =>
         new(new ControlPlaneClient(new HttpClient { BaseAddress = new Uri(stub.BaseAddress) }),
             new HeldSessionStore(ASession()));
 
-    private static async Task<string> FileAsync(string text)
+    internal static async Task<string> FileAsync(string text)
     {
         var path = Path.Combine(Path.GetTempPath(), $"proposal-{Guid.NewGuid():N}.yaml");
         await File.WriteAllTextAsync(path, text);

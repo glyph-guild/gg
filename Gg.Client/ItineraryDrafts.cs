@@ -114,7 +114,21 @@ public sealed class ItineraryDrafts(string root)
         File.Move(staged, ResultPathOf(name), overwrite: true);
     }
 
-    /// <summary>The draft as the file holds it now.</summary>
+    /// <summary>Where the record of what this draft was last proposed as is kept.</summary>
+    public string ProposedPathOf(string name) => Path.Combine(_root, name + ".proposed");
+
+    /// <summary>What this draft was last proposed as, or null when it never was (shape only).</summary>
+    public ProposedPlan? Proposed(string name) => null;
+
+    /// <summary>Records what this draft was proposed as (shape only).</summary>
+    public void KeepProposed(string name, ProposedPlan plan)
+    {
+    }
+
+    /// <summary>The line the bar, the panel and every tool result open with (shape only).</summary>
+    public string? ProposalLine(string name) => null;
+
+        /// <summary>The draft as the file holds it now.</summary>
     public DraftRead Read(string name)
     {
         if (Refused(name) is { } refused)
@@ -175,3 +189,10 @@ public sealed class ItineraryDrafts(string root)
         return new DraftChange.Written(next);
     }
 }
+
+/// <summary>
+/// What a draft was last proposed as, kept beside it so that no later tool call can lose it (slice
+/// sixty-eight): the plan, its pass, the gates it waits on, and the draft's digest when it went.
+/// </summary>
+public sealed record ProposedPlan(
+    string Itinerary, string Pass, IReadOnlyList<string> Gates, string Digest, DateTimeOffset At);

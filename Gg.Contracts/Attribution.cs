@@ -367,7 +367,20 @@ public sealed record FlightAttribution
 [PinnedId("b2149091-1492-419d-b3a4-546e72b3d838")]
 public sealed record LegHold
 {    /// <summary>What this hold means for the leg, in one sentence: `gg why`, `gg show` and the console's.</summary>
-    public string Sentence() => throw new NotImplementedException();
+    /// <remarks>
+    /// <b>Two sentences, because there are two situations and only one of them resolves
+    /// itself.</b> A predecessor still flying releases this leg when it lands; one that ended any
+    /// other way never will, and the person's next act is to end the itinerary rather than wait
+    /// (ADR-0035 Decision 3 point 3). Moved here from `gg why`'s renderer so `gg show` and the
+    /// console say the same thing (slice sixty-seven).
+    /// </remarks>
+    public string Sentence() =>
+        Ending is { Length: > 0 } ending && !string.Equals(ending, FlightStates.Landed, StringComparison.Ordinal)
+            ? $"NOT STARTED: this leg follows {Follows} ({Subject}), which {ending} rather than "
+            + "landing. It will never be offered - this leg's premise was that one's result, and "
+            + "nothing expires the wait. End the itinerary, or re-open the work behind it."
+            : $"NOT STARTED: this leg follows {Follows} ({Subject}), which has not landed yet. It "
+            + "will be offered when that one does; nothing has to be done here.";
 
 
     /// <summary>The flight it follows, rendered. GG-41.</summary>

@@ -67,7 +67,7 @@ public abstract record VerbResult
     /// FROM the log, and the log stays the machine-readable record three walks grep
     /// and a support bundle carries.
     /// </remarks>
-    public sealed record Story(FlightStory Value) : VerbResult
+    public sealed record Story(FlightStory Value, LegHold? Held = null) : VerbResult
     {
         public override string Kind => VerbResultKinds.Story;
     }
@@ -1074,7 +1074,7 @@ public static class VerbOutput
         VerbResult.Launched r => Launched(r.Value),
         VerbResult.Log r => Log(r.Value),
         VerbResult.Facts r => Facts(r.Value),
-        VerbResult.Story r => StoryText(r.Value),
+        VerbResult.Story r => StoryText(r.Value, r.Held),
         VerbResult.Runners r => Runners(r.Value),
         VerbResult.Invited r => Invited(r.Value),
         VerbResult.Diagnosis r => Diagnosis(r.Value),
@@ -1911,7 +1911,7 @@ public static class VerbOutput
     /// owes an answer to. They are the same objects, never a second derivation.
     /// </para>
     /// </remarks>
-    private static string StoryText(FlightStory story)
+    private static string StoryText(FlightStory story, LegHold? held = null)
     {
         var text = new StringBuilder();
 
@@ -1951,6 +1951,13 @@ public static class VerbOutput
             text.AppendLine($"  held by     {Clean(holder.Name)}{until}");
         }
 
+        // WHY A LEG HAS NOT STARTED, which only `gg why` said (slice sixty-seven).
+        if (held is not null)
+        {
+            text.AppendLine();
+            text.AppendLine($"  {HoldText(held)}");
+        }
+
         if (story.Outstanding.Count > 0)
         {
             text.AppendLine();
@@ -1958,6 +1965,12 @@ public static class VerbOutput
             foreach (var owed in story.Outstanding)
             {
                 text.AppendLine($"    {Clean(FlightStory.Sentence(owed.Kind, owed.Params))}");
+
+                // WHAT WAS SAID, which is what a person answers (found on GG-968).
+                if (owed.Said is { Length: > 0 } said)
+                {
+                    text.AppendLine($"      {Clean(said)}");
+                }
             }
         }
 
@@ -3257,16 +3270,7 @@ public static class VerbOutput
     /// gone away, and better than a client deciding the hold is stale.
     /// </para>
     /// </remarks>
-    private static string HoldText(LegHold held) =>
-        held.Ending is { Length: > 0 } ending
-            && !string.Equals(ending, FlightStates.Landed, StringComparison.Ordinal)
-        ? $"NOT STARTED: this leg follows {Clean(held.Follows)} ({Clean(held.Subject)}), "
-        + $"which {Clean(ending)} rather than landing. It will never be offered - this "
-        + "leg's premise was that one's result, and nothing expires the wait. End the "
-        + "itinerary, or re-open the work behind it."
-        : $"NOT STARTED: this leg follows {Clean(held.Follows)} ({Clean(held.Subject)}), "
-        + "which has not landed yet. It will be offered when that one does; nothing has "
-        + "to be done here.";
+    private static string HoldText(LegHold held) => Clean(held.Sentence());
 
     private static string WhyText(FlightAttribution attribution)
     {

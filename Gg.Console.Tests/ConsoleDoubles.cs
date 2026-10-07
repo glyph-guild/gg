@@ -472,6 +472,33 @@ internal static class ConsoleDoubles
             return refusing ? "Nothing changed." : "this machine can now open it";
         }
 
+        /// <summary>How many times an audience was asked for, and for which credential.</summary>
+        public List<string> AudiencesAsked { get; } = [];
+
+        public AppState AudienceFor(AppState state)
+        {
+            AudiencesAsked.Add(AudienceReview.Chosen(state) ?? "(nothing selected)");
+
+            // A ROW THAT CAN BE REACHED, so a test driving the loop into the review gets a
+            // state the modal can actually be confirmed from. A double answering an empty
+            // audience would make every such test exercise the nobody-to-send-to path.
+            return refusing
+                ? state with { Mode = UiMode.Normal, LastCredential = "Nothing was sent." }
+                : state with
+                {
+                    Mode = UiMode.CredentialAudience,
+                    AudienceFor = AudienceReview.Chosen(state) ?? "local:acme/widgets",
+                    Audience =
+                    [
+                        new Gg.Client.CredentialAudienceRow(
+                            RunnerId: "r1", Label: "a-machine",
+                            Locator: AudienceReview.Chosen(state) ?? "local:acme/widgets",
+                            Declared: true, Reported: false, Reachable: true, Through: null),
+                    ],
+                    AudienceAsked = false,
+                };
+        }
+
         public string Invite()
         {
             Invited++;

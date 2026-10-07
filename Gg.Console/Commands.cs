@@ -438,6 +438,31 @@ public enum Command
     /// </remarks>
     TrustThisMachine,
 
+    /// <summary>Send the credential under the cursor wherever the fleet says it is needed.</summary>
+    /// <remarks>
+    /// <b>ADR-0037 Decision 9 reaching the console.</b> The CLI form names a credential and
+    /// no machine; this one does not even need the locator typed, because the cursor is
+    /// already on it.
+    /// </remarks>
+    SendWhereNeeded,
+
+    /// <summary>Having read the audience, go on to the passphrase.</summary>
+    /// <remarks>
+    /// <b>It advances a STAGE rather than opening a screen.</b> The list stays visible
+    /// behind the field, because somebody typing a passphrase should be able to see what
+    /// they are typing it for.
+    /// </remarks>
+    ConfirmAudience,
+
+    /// <summary>Send the reviewed credential to everybody in the audience.</summary>
+    /// <remarks>
+    /// <b>The shell's, because the push blocks.</b> It introduces, reaches over WebRTC and
+    /// waits out a heartbeat interval per machine; a UI session may not. The passphrase is
+    /// read in the console before this, so what crosses to the shell is an opener rather
+    /// than a secret.
+    /// </remarks>
+    SendTheAudience,
+
     /// <summary>Ask whether to retire the names the tree no longer holds.</summary>
     /// <remarks>
     /// Reduced in session - it opens a question and nothing else. `x` inside
@@ -1469,6 +1494,17 @@ public static class ShellCommands
         // one act in slice sixty-four step 2 that unwraps a content key, so the
         // person has to be at the keyboard for it by construction.
         Command.TrustThisMachine,
+
+        // AND THE BROADCAST, for a different reason from the others: the review and the
+        // passphrase both happen IN the console, and what cannot is the push. SendAsync
+        // introduces, reaches over WebRTC and waits out a heartbeat interval, and a UI
+        // session may not block - so the session ends here and the shell does the moving.
+        Command.SendWhereNeeded,
+
+        // AND SENDING WHAT WAS REVIEWED, which is the push itself: one introduction,
+        // one reach and one wait per machine. The review and the passphrase happened
+        // on screen; this is the only part that could not.
+        Command.SendTheAudience,
 
         // TAKES THE TERMINAL TO PRINT A URL AND READ A CODE, which is the
         // send's reason with a person's browser in the middle of it. The

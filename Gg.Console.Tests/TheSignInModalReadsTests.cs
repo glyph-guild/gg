@@ -183,6 +183,20 @@ public class TheSignInModalReadsTests
             Screening = true,
             BrowseVisible = true,
             EnvelopeVisible = true,
+
+            // A BROADCAST REVIEW PAST ITS LIST, so AudienceAsked is read. It needs all
+            // three: the mode, the stage, and a REACHABLE machine - the derivation goes
+            // through AudienceReview.AsksForThePassphrase, which refuses an audience
+            // nobody can be sent to, because a passphrase read for a push that is not
+            // going to happen reads as something having moved.
+            AudienceAsked = true,
+            AudienceFor = "local:acme/widgets",
+            Audience =
+            [
+                new Gg.Client.CredentialAudienceRow(
+                    RunnerId: "r1", Label: "a-machine", Locator: "local:acme/widgets",
+                    Declared: true, Reported: false, Reachable: true, Through: null),
+            ],
             CredentialsVisible = true,
             TakeableTree = "/somewhere",
             TakenOver = true,

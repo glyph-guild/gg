@@ -266,6 +266,21 @@ public class HelpNamesEveryKeyTests
         ]
         select standing with { RunnerIsOurs = ours, RunnerIsBeating = true };
 
+    /// <summary>Both stages of a broadcast review.</summary>
+    /// <remarks>
+    /// <b>Beside the cross, for <c>OverAMachineSomebodyOwns</c>'s reason.</b> The flag is
+    /// read in <c>UiMode.CredentialAudience</c> and nowhere else, so crossing it against
+    /// every tab and mode asks the keymap a question it does not answer — and this cross is
+    /// already modes times tabs times seventeen booleans. Two shapes is all the completeness
+    /// check needs: <c>enter</c> means GO ON while the list is being read and SEND once it
+    /// has been, and both have to appear somewhere with their descriptions.
+    /// </remarks>
+    private static IEnumerable<KeymapContext> ReviewingAnAudience() =>
+    [
+        new(UiMode.CredentialAudience) { AudienceAsked = false },
+        new(UiMode.CredentialAudience) { AudienceAsked = true },
+    ];
+
     [Test]
     public async Task The_catalogue_holds_every_key_the_keymap_can_resolve()
     {
@@ -291,6 +306,7 @@ public class HelpNamesEveryKeyTests
                                                .Concat(OverAGateThatAsksForSomething())
                                                .Concat(UnderTheMark())
                                                .Concat(OnTheQueue())
+                                               .Concat(ReviewingAnAudience())
                        from binding in Keymap.Bindings(context)
                        select (context.Mode, binding.Key, binding.Command))
             .Distinct()
@@ -555,7 +571,12 @@ public class HelpNamesEveryKeyTests
         // `d` means), and whether a watch's failure is listed (`*`). Held
         // beside the cross in OnTheQueue(), since all three are read on one
         // tab in one mode.
-        await Assert.That(members.Count).IsEqualTo(36)
+        // THIRTY-SEVEN SINCE THE CONSOLE COULD BROADCAST: whether the review has
+        // moved past its list to its passphrase field, which is what `enter` means
+        // next. Held beside the cross in ReviewingAnAudience(), since it is read in
+        // one mode - and because a flag claimed not to be needed at all turned out to
+        // be, the moment the two stages wanted different keys.
+        await Assert.That(members.Count).IsEqualTo(37)
             .Because("Everywhere() crosses every one of these, or OverAMachineSomebodyOwns() "
                    + "holds it beside the cross - and a member in neither would leave the "
                    + "completeness check above quietly incomplete, which is exactly how the "

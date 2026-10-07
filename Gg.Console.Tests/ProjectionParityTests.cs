@@ -112,6 +112,15 @@ public class ProjectionParityTests
             // under GG_STATE_DUMP and handed to a diagnostics bundle; a local
             // filesystem path has no business in either, and projecting this would
             // put one there for no reader.
+            ["CredentialAudienceFound"] = "not projected into a pane, by decision: it IS the "
+                                       + "model for one. The console's broadcast review puts the "
+                                       + "machines on AppState.Audience and draws them from there, "
+                                       + "so an arm folding this result somewhere else would be a "
+                                       + "second copy of the same list - and the stale one would be "
+                                       + "the one somebody was looking at when they confirmed. The "
+                                       + "verb exists so the console and the command line derive "
+                                       + "the audience the same way; where it lands differs, and "
+                                       + "VerbConsoleActions.AudienceFor is the arm.",
             ["CredentialTrusted"] = "not projected, by decision, and for KeyCreated's reason: "
                                   + "it reports one act - a locator, a holder count - and the "
                                   + "state it CHANGES is the credentials tab's holder column, "

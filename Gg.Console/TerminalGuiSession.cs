@@ -28,7 +28,13 @@ public sealed class TerminalGuiSession(
     // and defaulted, for reads' reason. BOTH arguments arrived while the
     // other was out - taking either side's list whole would have dropped the
     // other silently, and a defaulted parameter does not fail to compile.
-    Expectations? expectations = null) : IUiSession
+    Expectations? expectations = null,
+
+    // WHERE A TYPED PASSPHRASE GOES. Threaded through rather than constructed here,
+    // because the shell act that spends it needs the same instance - a session that made
+    // its own would hand the push an empty one. Last and defaulted, since every existing
+    // caller passes positionally.
+    HeldSecret? held = null) : IUiSession
 {
     public UiOutcome Run(AppState state)
     {
@@ -41,7 +47,8 @@ public sealed class TerminalGuiSession(
         app.Init();
         using var screen = new ConsoleScreen(
             app, state, tails, runnerLog, refresh, signInLanded, reads, booted,
-            expectations);
+            expectations,
+            held);
         app.Run(screen);
         return new UiOutcome(screen.ExitCommand, screen.State);
     }

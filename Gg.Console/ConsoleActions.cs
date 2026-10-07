@@ -229,6 +229,19 @@ public interface IConsoleActions
     string TrustThisMachine();
 
     /// <summary>
+    /// Reads who the credential under the cursor is wanted by, and opens the review over it.
+    /// </summary>
+    /// <remarks>
+    /// <b>It returns a STATE rather than a sentence</b>, unlike every other act here, because
+    /// what it produces is a list to look at rather than a result to report. The two reads it
+    /// makes — the runner list and the fleet profiles — are what a UI session may not do for
+    /// itself.
+    /// </remarks>
+    AppState AudienceFor(AppState state);
+
+
+
+    /// <summary>
     /// Issues an invitation and places the link, returning WHERE it went.
     /// </summary>
     /// <remarks>

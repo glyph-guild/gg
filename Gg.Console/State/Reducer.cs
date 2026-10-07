@@ -192,6 +192,18 @@ public static class Reducer
             // offering them must not cost a screen.
             Command.ToggleCredentialActions => Modal(state, UiMode.CredentialActions),
 
+            // THE LIST IS READ, THEN THE FIELD APPEARS OVER IT. The stage moves and
+            // the screen does not, so somebody typing a passphrase can still see what
+            // they are typing it for - a field on a blank screen is a confirmation
+            // with no subject.
+            //
+            // AND IT GOES NOWHERE WHEN NOBODY IS REACHABLE. AsksForThePassphrase
+            // refuses that case, so this would advance a stage the view ignores; the
+            // list stays up instead, with each row saying why.
+            Command.ConfirmAudience => state.Audience.Any(row => row.Reachable)
+                ? state with { AudienceAsked = true }
+                : state,
+
             // THE THREE THAT ALSO BLINKED. Each was the shell's so the pane
             // could be filled before it was shown, and the cost was the whole
             // screen going away and coming back once per keypress. The toggle
@@ -381,6 +393,15 @@ public static class Reducer
                     // browse modal open about a flight's ticket instead of the
                     // row under the cursor.
                     WorkItemRow = null,
+
+                    // AND A BROADCAST REVIEW GOES WITH ITS MODAL, SUBJECT AND ALL.
+                    // Left behind, the audience is one a later keystroke could send,
+                    // and the credential it was about is how a second attempt sends
+                    // the first one's. The stage goes too, so reopening starts at the
+                    // list rather than at a field for an audience nobody has read.
+                    Audience = [],
+                    AudienceFor = null,
+                    AudienceAsked = false,
                 },
 
             // ANSWERING OPENS; IT DOES NOT DECIDE, which is the shape the two

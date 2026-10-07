@@ -397,7 +397,13 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// </remarks>
     public int VisibleAfterPolls { get; set; }
 
-    /// <summary>When set, a decision is refused with this diagnosis and a 400.</summary>
+    /// <summary>
+    /// When set, a rejection withdraws the flight the way a proposed pass is withdrawn: its gate
+    /// closes and its obligation records no outcome, because the flight ended first.
+    /// </summary>
+    public bool RejectionWithdraws { get; set; }
+
+        /// <summary>When set, a decision is refused with this diagnosis and a 400.</summary>
     public string? RefuseDecision { get; set; }
 
     /// <summary>
@@ -914,7 +920,8 @@ public sealed class StubControlPlane : IAsyncDisposable
                     // The mapping the real Engine applies: an approval against the work
                     // shown satisfies the obligation, a rejection leaves it violated.
                     _decidedOutcome = approved
-                        ? ObligationOutcomes.Satisfied : ObligationOutcomes.Violated;
+                        ? ObligationOutcomes.Satisfied
+                        : RejectionWithdraws ? null : ObligationOutcomes.Violated;
                     _pendingObservations = VisibleAfterPolls;
 
                     if (_pendingObservations <= 0)

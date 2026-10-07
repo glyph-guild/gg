@@ -177,7 +177,30 @@ public readonly record struct KeymapContext(
     /// that opens a sentence saying so. Last, because this is a positional
     /// record.
     /// </remarks>
-    bool AGateWaits = false)
+    bool AGateWaits = false,
+
+    /// <summary>
+    /// Whether a broadcast review has moved past its list to its passphrase field.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A FLAG WAS CLAIMED NOT TO BE NEEDED, AND THAT WAS WRONG.</b> The two stages were
+    /// going to share <c>enter</c> and let the reducer tell them apart. They cannot:
+    /// <c>enter</c> on the list advances a stage INSIDE the session, and <c>enter</c> on the
+    /// field has to END it, because the push introduces, reaches over WebRTC and waits and a
+    /// UI session may not block. One command doing both means either this flag or making
+    /// <c>enter</c> a shell command in both stages — and the second tears the screen down and
+    /// rebuilds it on the first keypress, which is the blink three credential acts were moved
+    /// out of the shell to stop.
+    /// </para>
+    /// <para>
+    /// <b>So the keys differ and the context has to say so.</b> It is the cheaper of the two
+    /// honest options, and the cost is four ratchets: this type's hand-kept member count, the
+    /// <c>Everywhere()</c> product, the sign-in fixture that sets every flag, and
+    /// <c>Keymap.Raised</c>.
+    /// </para>
+    /// </remarks>
+    bool AudienceAsked = false)
 {
     /// <summary>
     /// Whether a code is already on the screen waiting to be approved.
@@ -541,6 +564,13 @@ public readonly record struct KeymapContext(
             // ANSWER, for AGateWaits' reason one field up: two kinds of row
             // share that table and only one of them is a decision.
             ANominationWaits = Rows.StandingUnder(state) is not null,
+
+            // AND WHICH STAGE A BROADCAST REVIEW IS IN, because `enter` means go on
+            // while the list is being read and SEND once it has been - and only one of
+            // those can happen inside a session. Read from the state rather than
+            // tracked here, so the view, the reducer and the keymap cannot come to
+            // disagree about which half somebody is looking at.
+            AudienceAsked = AudienceReview.AsksForThePassphrase(state),
 
             // AND WHETHER THERE IS A ROW AT ALL, which is what OPENING one
             // asks. Derived from the same rows the table draws, so a key
@@ -1258,8 +1288,35 @@ public static class Keymap
             // is "you, and not this machine" - which is correct and, without this
             // key, something a person could read and not act on.
             new(KeyStroke.Char('t'), Command.TrustThisMachine, "let this machine open one"),
+
+            // THE BROADCAST, AND `b` WORKS HERE BECAUSE IT IS A MODAL. In Normal mode `b`
+            // is the browse tab's toggle from every tab, and tab keys resolving from
+            // everywhere is the point of them - so binding this one outside the modal
+            // would make `b` mean two things depending on where somebody is standing.
+            new(KeyStroke.Char('b'), Command.SendWhereNeeded, "send one where it is needed"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
+
+        // TWO STAGES, ONE SET OF KEYS. `enter` means GO ON while the list is being read
+        // and SEND once it has been, and `esc` means STOP in both - so the stage lives in
+        // the state rather than in this context, and the modal's own text says which act
+        // `enter` is about to perform.
+        // TWO STAGES, TWO MEANINGS FOR ONE KEY. On the list `enter` goes on, which the
+        // reducer does without leaving the session; on the field it SENDS, which it cannot,
+        // so that one ends the session and the shell pushes. `esc` means stop in both.
+        UiMode.CredentialAudience => context.AudienceAsked
+            ?
+            [
+                new(KeyStroke.EnterKey, Command.SendTheAudience, "send it")
+                    { When = "once the list has been read" },
+                new(KeyStroke.Esc, Command.CloseModal, "close"),
+            ]
+            :
+            [
+                new(KeyStroke.EnterKey, Command.ConfirmAudience, "go on")
+                    { When = "while the list is being read" },
+                new(KeyStroke.Esc, Command.CloseModal, "close"),
+            ],
 
         UiMode.HandFlight => [new(KeyStroke.Esc, Command.CloseModal, "close")],
 
@@ -2819,6 +2876,11 @@ public static class Keymap
         // once - "several" is never true without "waiting" - and is the shape
         // every one of its keys exists in.
         c => c with { NotificationsWaiting = true, NotificationsSeveral = true },
+
+        // AND A BROADCAST REVIEW PAST ITS LIST, which is the only shape `enter` means
+        // SEND in - the other stage means go on, and a help page that raised neither
+        // would name one of the two keys this mode has.
+        c => c with { AudienceAsked = true },
     ];
 
     /// <summary>

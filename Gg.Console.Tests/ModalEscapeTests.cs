@@ -122,6 +122,17 @@ public class ModalEscapeTests
           + "The_escape_hatch_always_returns_to_a_non_modal_state already walks arbitrary "
           + "key sequences out of this one.",
 
+        [UiMode.CredentialAudience] =
+            "opened by ConsoleLoop when `b` inside the credential acts asks who a credential "
+          + "is wanted by - two reads, the runner list and the fleet profiles, so it cannot "
+          + "happen inside a UI session and no key can reach it against a fresh state. The "
+          + "audience is not on the model at boot deliberately: it is derived for one "
+          + "credential at the moment somebody asks about that one, and a console that kept "
+          + "an audience on a tick would be holding a list nobody had asked for about a "
+          + "credential nobody was looking at. TheConsoleCanBroadcastTests holds the key and "
+          + "the shell arm; AReviewThatIsEscapedMovesNothingTests walks out of it from both "
+          + "stages and asserts the audience and its subject go with the modal.",
+
         [UiMode.FleetTokens] =
             "opened by ConsoleLoop when `t` on the fleet asks for the tenant's enrollment "
           + "tokens - a read, so it cannot happen inside a UI session and cannot be reached "

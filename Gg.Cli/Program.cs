@@ -1611,6 +1611,11 @@ static async Task<int> LaunchConsoleAsync()
     // TWO ARGUMENTS BECAUSE THEY ARE REMEMBERED DIFFERENTLY. A file tail holds
     // an offset that must survive a session rebuild; a watched machine's buffer
     // belongs to its conversation, and pressing the key again makes a new one.
+    // ONE HOLDER FOR THE ONE SECRET TYPED ON SCREEN, shared between the session that
+    // reads it and the act that spends it. Not on the model, deliberately: AppState is
+    // written under GG_STATE_DUMP and goes into the diagnostics bundle.
+    var heldSecret = new HeldSecret();
+
     var tails = new LiveTails(
         flightId => new LiveTail(Gg.Local.LocalPaths.LiveView(flightId)),
         watched.Current);
@@ -1853,7 +1858,11 @@ static async Task<int> LaunchConsoleAsync()
             // AND THE BOOT, WHICH THE CONSOLE NO LONGER WAITS FOR. Asked on a
             // tick beside the sign-in's, folded when it lands.
             booted: booted,
-            expectations: expectations),
+            expectations: expectations,
+
+            // THE SAME HOLDER THE BROADCAST DELEGATE SPENDS. One instance, because a
+            // session that made its own would type into a holder nothing reads.
+            held: heldSecret),
         // HOSTED, SO GG KEEPS A ROW WHILE THE EDITOR HAS THE SCREEN. The
         // handoff is the same one it always was - text out, a real process, text
         // back - and the difference is that gg mediates the terminal instead of
@@ -1903,6 +1912,18 @@ static async Task<int> LaunchConsoleAsync()
         // escape-hatch rules a modal would need do not apply to a process that owns
         // the screen.
         actions: new VerbConsoleActions(data, new ConsoleSecretPrompt()),
+
+        // THE BROADCAST, AND WHY IT IS A DELEGATE. A push needs the WebRTC channel and
+        // its STUN configuration, which are composed here beside the control-plane
+        // client - an actions port that needed them would drag the whole transport
+        // behind it, which is why `hand` and `take` are delegates too.
+        //
+        // AND THE PASSPHRASE COMES FROM THE SCREEN, not from a prompt here. `heldSecret`
+        // is the one secret in this program that is typed inside a UI session: the owner
+        // asked for the field to sit under the audience it unlocks, and being thrown to
+        // a bare terminal to type it is two screens for one decision. It is a controller
+        // outside the store, so nothing of it reaches AppState or the state dump.
+        broadcast: state => BroadcastFromTheConsole(state, heldSecret),
         tails: tails,
         // THE READ PATH, AND IT IS THE SAME ONE THE BOOT TOOK. Passing the boot
         // itself is what makes a refresh mean "as if you had just opened it"
@@ -2415,6 +2436,93 @@ static string LoginFromTheConsole(string runnerId, string provider)
 /// so asking per recipient would replay them per machine.
 /// </para>
 /// </remarks>
+/// <summary>
+/// Sends a reviewed credential to its audience, from the console.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The audience was derived and read on screen</b>, so this does not ask again: what it
+/// is handed is a list a person has already confirmed, and asking the fleet a second time
+/// would be asking a question whose answer could differ from the one they approved.
+/// </para>
+/// <para>
+/// <b>One passphrase for all of them</b>, taken from the holder the session typed into.
+/// The opener is resolved once before the loop, because asking per machine is what teaches
+/// somebody to script it.
+/// </para>
+/// </remarks>
+static string BroadcastFromTheConsole(AppState state, HeldSecret held)
+{
+    if (state.AudienceFor is not { Length: > 0 } locator)
+    {
+        return "Nothing was sent: the review had no credential.";
+    }
+
+    var recipients = state.Audience.Where(row => row.Reachable).ToList();
+
+    if (recipients.Count == 0)
+    {
+        // THE LIST ALREADY SAID WHY, per machine, so this does not repeat it.
+        return "Nothing was sent: no machine in that list can be reached.";
+    }
+
+    var session = new FileSessionStore().Read();
+    if (session is null)
+    {
+        return "Nobody is signed in on this machine.";
+    }
+
+    try
+    {
+        using var http = new HttpClient { BaseAddress = new Uri(ControlPlaneAddress()) };
+        var control = new ControlPlaneClient(http);
+
+        var sending = SendACredential.EnvelopeFor(
+            new FileCredentialStore(), MachineKey.LoadOrCreate(), locator, held, saying: null);
+
+        if (sending is null)
+        {
+            return $"Nothing was sent: this machine has no {locator} to send.";
+        }
+
+        var said = new List<string>();
+
+        foreach (var row in recipients)
+        {
+            var sent = new SendACredential(
+                control,
+                new ConsoleChannel(
+                    Gg.Runner.StunConfiguration.FromEnvironment(
+                        Settings.Value(Gg.Runner.StunConfiguration.Variable, InForce.Configuration)),
+                    TimeSpan.FromSeconds(20)))
+                .SendAsync(
+                    session.SessionToken, row.RunnerId, locator,
+                    sending.Envelope, sending.Opener, new PinnedRunnerKeys(),
+                    DateTimeOffset.UtcNow)
+                .GetAwaiter().GetResult();
+
+            // ONE MACHINE'S FAILURE IS NOT THE BROADCAST'S, and each outcome is named
+            // rather than counted - a machine that went offline between the review and
+            // the push must not stop the others.
+            said.Add($"{row.Label}: {sent.Said}");
+        }
+
+        return string.Join("  ", said);
+    }
+    catch (Exception refused) when (
+        refused is CredentialUnavailableException or CredentialRefusedException
+            or InvalidOperationException or HttpRequestException)
+    {
+        return refused.Message;
+    }
+    finally
+    {
+        // TAKEN OR NOT, IT GOES. A passphrase left in the holder is one the next act
+        // could be given, and a push that threw halfway is exactly when that matters.
+        held.Forget();
+    }
+}
+
 static async Task<int> SendWhereNeededAsync(CliAction.CredentialSendWhereNeeded send)
 {
     var session = new FileSessionStore().Read();

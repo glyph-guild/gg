@@ -544,6 +544,42 @@ public sealed class CredentialCommands(
             new VerbResult.MachineTrusted(locator, after.Count, AlreadyWas: after.Count == before)));
     }
 
+    /// <summary>
+    /// Who the tenant has declared needs this credential, and who has reported they cannot
+    /// resolve it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>ONE DERIVATION FOR BOTH DOORS.</b> The CLI's broadcast and the console's review
+    /// ask the same question, and two places asking it is the hazard this codebase keeps
+    /// naming — <i>"two derivations that agree today is how a runner ends up looking for a
+    /// file the CLI never wrote."</i>
+    /// </para>
+    /// <para>
+    /// <b>Two reads, each made once.</b> The fleet read replays every profile's event
+    /// stream, because a profile is the newest entry on a stream rather than a row — so
+    /// asking per recipient would replay them per machine.
+    /// </para>
+    /// <para>
+    /// <b>A verb, because the console may only load through one.</b> A bare DTO reaching
+    /// <c>ConsoleData</c> is what <c>Every_load_the_console_can_do_is_a_verb</c> refuses.
+    /// </para>
+    /// </remarks>
+    public async Task<VerbResult> AudienceAsync(
+        string locator, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(locator);
+
+        var token = Session();
+
+        var runners = await _client.ListRunnersAsync(token, cancellationToken);
+        var profiles = await _client.ListFleetProfilesAsync(token, cancellationToken);
+
+        return new VerbResult.CredentialAudienceFound(new VerbResult.AudienceList(
+            For: locator,
+            Machines: CredentialAudience.For(locator, runners.Runners, profiles.Profiles)));
+    }
+
     public async Task<VerbResult> RemoveCredentialAsync(
         string credentialId, CancellationToken cancellationToken = default)
     {

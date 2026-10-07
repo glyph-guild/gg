@@ -21,6 +21,24 @@ public sealed class ConsoleLoop(
     Func<AppState, AppState>? envelope = null,
     Func<AppState, AppState>? repositories = null,
 
+    /// <summary>
+    /// Sends the reviewed credential to everybody in the audience, and says what happened.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A delegate rather than a method on <c>IConsoleActions</c>, because of where the
+    /// channel lives.</b> A push needs the WebRTC channel and its STUN configuration, which
+    /// are composed in the CLI beside the control-plane client — the same reason <c>hand</c>
+    /// and <c>take</c> are delegates. An actions port that needed them would be a port that
+    /// drags the whole transport behind it.
+    /// </para>
+    /// <para>
+    /// <b>It is handed the state because the audience is on it</b>, reviewed and confirmed,
+    /// and the passphrase it needs was typed into a holder the composition owns.
+    /// </para>
+    /// </remarks>
+    Func<AppState, string>? broadcast = null,
+
 
     /// <summary>
     /// Asks what a flight would need, and either refuses or takes an intent and
@@ -480,6 +498,54 @@ public sealed class ConsoleLoop(
                             LastCredential = actions is null
                                 ? "This console is not configured to trust this machine."
                                 : actions.TrustThisMachine(),
+                        },
+                        reload,
+                        asked: false);
+                    break;
+
+                case Command.SendWhereNeeded:
+                    // THE AUDIENCE IS READ HERE, not in the session: it is a join of
+                    // the runner list and the fleet profiles, and a UI session may not
+                    // fetch either. What goes back is the list and the credential it is
+                    // about, with the modal opened over them - so the next keypress is
+                    // somebody answering a question they can see.
+                    //
+                    // NOTHING IS SENT BY THIS ARM. It opens a review; the send is the
+                    // case below, after a person has read the list and typed a
+                    // passphrase.
+                    state = actions is null
+                        ? state with
+                        {
+                            Mode = UiMode.Normal,
+                            LastCredential = "This console is not configured to send a credential.",
+                        }
+                        : actions.AudienceFor(state);
+                    break;
+
+                case Command.SendTheAudience:
+                    // THE ONLY PART THAT COULD NOT HAPPEN ON SCREEN. The review was
+                    // read and the passphrase typed inside the session; this
+                    // introduces, reaches over WebRTC and waits out a heartbeat
+                    // interval per machine, which is the one thing a UI session may
+                    // never do.
+                    //
+                    // AND THE REVIEW CLOSES WITH IT, subject and all, so a second
+                    // keypress cannot send the same audience twice.
+                    state = Reloaded(
+                        (broadcast is null
+                            ? state with
+                            {
+                                LastCredential = "This console is not configured to send a credential.",
+                            }
+                            : state with { LastCredential = broadcast is null
+                                ? "This console is not configured to send a credential."
+                                : broadcast(state) })
+                        with
+                        {
+                            Mode = UiMode.Normal,
+                            Audience = [],
+                            AudienceFor = null,
+                            AudienceAsked = false,
                         },
                         reload,
                         asked: false);

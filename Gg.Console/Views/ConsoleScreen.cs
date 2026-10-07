@@ -327,6 +327,29 @@ public sealed class ConsoleScreen : Window
     private readonly TableView _credentialRepoChoices;
 
     private readonly View _filterBody;
+
+    /// <summary>
+    /// The broadcast review's own body: the audience, and the field that unlocks it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Beside <see cref="_modalBody"/> for the flight body's reason</b>, with one of its
+    /// own: a label cannot be typed into, and this modal's second stage reads a passphrase.
+    /// </para>
+    /// <para>
+    /// <b>THE ONLY SECRET FIELD IN THIS PROGRAM.</b> Every other credential act reads what
+    /// somebody types in the shell with the UI torn down. The owner asked for this one to sit
+    /// under the audience it unlocks — being thrown to a bare terminal to type is two screens
+    /// for one decision — and <c>TextField.Secret</c> masks it. What makes it safe is that a
+    /// field's text lives in a VIEW: <c>AppState</c> is the only survivor of a session and it
+    /// never holds this, so nothing of it reaches <c>GG_STATE_DUMP</c>.
+    /// </para>
+    /// </remarks>
+    private readonly HeldSecret? _held;
+
+    private readonly View _audienceBody;
+    private readonly Label _audienceList;
+    private readonly TextField _audienceSecret;
     private readonly Label _filterSentence;
     private readonly Terminal.Gui.Views.Tabs _filterViews;
     private readonly (BrowseFacet View, View Pane, TableView Table, Label Empty)[] _filterTabbed;
@@ -702,7 +725,13 @@ public sealed class ConsoleScreen : Window
 
         // WHAT THE CONSOLE'S WRITES SAID THEY DID, looked for on a tick of its
         // own. Last and defaulted, for reads' reason.
-        Expectations? expectations = null)
+        Expectations? expectations = null,
+
+        // WHERE A TYPED PASSPHRASE GOES, and the only secret this screen touches. A
+        // controller outside the store, because AppState is written under GG_STATE_DUMP;
+        // null when nothing composed one, in which case the field hands nothing over and
+        // the act says it is not configured rather than sending with an empty key.
+        HeldSecret? held = null)
     {
         _app = app;
         _expectations = expectations;
@@ -2199,9 +2228,45 @@ public sealed class ConsoleScreen : Window
 
         _watchBody.Add(_watchSaid);
 
+        // THE REVIEW: the machines above, the field below, and the field only there once
+        // the list has been read. Two stages in one modal, because the list has to stay
+        // visible behind what unlocks it - a field on a blank screen is a confirmation
+        // with no subject.
+        _held = held;
+
+        _audienceList = new Label { Width = Dim.Fill(), Height = Dim.Fill(1), CanFocus = true };
+
+        _audienceSecret = new TextField
+        {
+            X = 0,
+            Y = Pos.AnchorEnd(1),
+            Width = Dim.Fill(),
+
+            // MASKED, which is the whole reason this field can exist here at all.
+            Secret = true,
+            Visible = false,
+        };
+
+        // ENTER ON THE FIELD ENDS THE SESSION with the command the keymap would have
+        // resolved, which is OnStartRunner's shape and for its reason: a TextField
+        // consumes printable keys and enter, so the keymap never sees them while it has
+        // focus. What this does NOT do is perform the push - that needs the terminal
+        // free, and the loop is where it is.
+        _audienceSecret.Accepting += OnSendTheAudience;
+
+        _audienceBody = new View
+        {
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            Visible = false,
+            CanFocus = true,
+        };
+
+        _audienceBody.Add(_audienceList, _audienceSecret);
+
         _modal.Add(
             _modalBody, _flightBody, _runnerBody, _readingBody, _helpBody, _filterBody,
-            _itemBody, _kindBody, _credentialRepoBody, _watchBody, _planBody);
+            _itemBody, _kindBody, _credentialRepoBody, _watchBody, _planBody, _audienceBody);
 
         // THE QUEUE TAB IS TWO PANES, so it gets a container: the list a person
         // drives and the detail of whatever it lands on are one view of one
@@ -2658,6 +2723,42 @@ public sealed class ConsoleScreen : Window
     private void OnFlyTheOpenItem(object? sender, EventArgs args)
     {
         ExitCommand = Command.FlyPicked;
+        _app.RequestStop(this);
+    }
+
+    /// <summary>The passphrase was typed; hand it over and let the loop push.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>OnStartRunner's shape, and it has to be.</b> A <c>TextField</c> consumes enter, so
+    /// the keymap never sees it while the field has focus - the binding exists for help and
+    /// for a person who has not focused the field, and this is the path that actually fires.
+    /// </para>
+    /// <para>
+    /// <b>The secret goes to the holder, never to the model.</b> <c>AppState</c> is the only
+    /// survivor of this session and it is written under <c>GG_STATE_DUMP</c>; the holder is a
+    /// controller outside the store, which is what the console's own rule provides for.
+    /// </para>
+    /// <para>
+    /// <b>An empty field is a refusal, not a send.</b> Somebody who pressed enter on nothing
+    /// has not confirmed anything, and unlocking a key with an empty passphrase would fail
+    /// one layer down with a worse sentence.
+    /// </para>
+    /// </remarks>
+    private void OnSendTheAudience(object? sender, EventArgs args)
+    {
+        if (_audienceSecret.Text is not { Length: > 0 } typed)
+        {
+            return;
+        }
+
+        _held?.Hold(typed);
+
+        // TAKEN OFF THE SCREEN IMMEDIATELY, before anything else runs. The view is about
+        // to be torn down anyway, and leaving it set would put a passphrase in whatever
+        // a crash dump of this process caught.
+        _audienceSecret.Text = "";
+
+        ExitCommand = Command.SendTheAudience;
         _app.RequestStop(this);
     }
 
@@ -4697,6 +4798,7 @@ public sealed class ConsoleScreen : Window
         var credentialRepo = State.Mode is UiMode.CredentialRepositoryChoice;
         var watching = State.Mode is UiMode.Watching;
         var plan = State.Mode is UiMode.ItineraryDetail;
+        var audience = State.Mode is UiMode.CredentialAudience;
 
         _planBody.Visible = plan;
         _watchBody.Visible = watching;
@@ -4708,9 +4810,37 @@ public sealed class ConsoleScreen : Window
         _itemBody.Visible = item;
         _kindBody.Visible = kind;
         _credentialRepoBody.Visible = credentialRepo;
+        _audienceBody.Visible = audience;
         _modalBody.Visible =
             !flight && !runner && !reading && !helping && !filtering && !item && !kind
-            && !credentialRepo && !watching && !plan;
+            && !credentialRepo && !watching && !plan && !audience;
+
+        if (audience)
+        {
+            // THE LIST, THEN THE FIELD. Both are filled from the state every sync, so a
+            // refresh that happened while somebody was reading does not leave them showing
+            // the audience from before it.
+            _audienceList.Text = PaneText.Audience(State);
+
+            var asking = AudienceReview.AsksForThePassphrase(State);
+
+            _audienceSecret.Visible = asking;
+
+            // EMPTIED WHENEVER IT IS NOT BEING ASKED FOR, which covers the way out: a
+            // review abandoned half-typed must not reopen with the first attempt's answer
+            // sitting in the field, and the holder is cleared beside it.
+            if (!asking)
+            {
+                _audienceSecret.Text = "";
+                _held?.Forget();
+            }
+            else if (!_audienceSecret.HasFocus)
+            {
+                // FOCUSED ONCE IT APPEARS, because a field somebody has to find with tab
+                // is a field they type a passphrase into the list behind.
+                _audienceSecret.SetFocus();
+            }
+        }
 
         if (watching)
         {

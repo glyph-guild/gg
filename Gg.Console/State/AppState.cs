@@ -221,6 +221,31 @@ public enum UiMode
     /// </remarks>
     CredentialActions,
 
+    /// <summary>
+    /// Who a credential is about to be sent to, read before it moves.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The owner asked for it the day the broadcast merged:</b> <i>"can i broadcast in
+    /// the TUI?"</i> It could not. The CLI prints its audience and sends; the console shows
+    /// the same list and waits, because the credentials tab is where somebody reads that a
+    /// credential is sealed to them and not to the fleet.
+    /// </para>
+    /// <para>
+    /// <b>TWO STAGES IN ONE MODE, which is why there is no second UiMode.</b> The list is
+    /// read, then the passphrase field appears over it — <see cref="AppState.AudienceAsked"/>
+    /// is which. <c>enter</c> and <c>esc</c> mean <i>go on</i> and <i>stop</i> in both, so
+    /// the keymap needs no flag to tell them apart and the stage stays a thing the reducer
+    /// and the view read.
+    /// </para>
+    /// <para>
+    /// <b>The push itself is not in here.</b> It introduces, reaches over WebRTC and waits,
+    /// and a UI session may not block — so the session ends and the shell does it, which is
+    /// where every other credential act already does its waiting.
+    /// </para>
+    /// </remarks>
+    CredentialAudience,
+
     ConfirmRetire,
 
     /// <summary>The tenant's enrollment tokens, and what is left of each.</summary>
@@ -1952,6 +1977,45 @@ public sealed record AppState
     /// already the empty list.
     /// </remarks>
     public int CredentialsSelected { get; init; }
+
+    /// <summary>Who the credential under review is about to be sent to.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Derived outside any session and folded in</b>, like every other read: the audience
+    /// is a join of the runner list and the fleet profiles, neither of which a UI session
+    /// may fetch for itself.
+    /// </para>
+    /// <para>
+    /// <b>Every member of a row is a reference</b> — a label, a locator, a flag — so this
+    /// goes into <c>GG_STATE_DUMP</c> without carrying anything a credential could be
+    /// recovered from. <c>APassphraseTypedInTheConsoleIsNotInTheDumpTests</c> holds that
+    /// over the row's shape rather than trusting it.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<Gg.Client.CredentialAudienceRow> Audience
+    {
+        get => field ?? [];
+        init;
+    } = [];
+
+    /// <summary>The credential the review is about, or null when there is no review.</summary>
+    /// <remarks>
+    /// <b>Cleared with the review, deliberately.</b> A subject left behind is how a second
+    /// attempt sends the first one's credential.
+    /// </remarks>
+    public string? AudienceFor { get; init; }
+
+    /// <summary>
+    /// Whether the list has been read, so the passphrase may be asked for.
+    /// </summary>
+    /// <remarks>
+    /// <b>A stage, not a mode, and not a keymap flag.</b> The owner chose list-then-field so
+    /// that "I did not mean that audience" stays cheap; a field already focused invites
+    /// typing before reading. Keeping it here rather than in <c>KeymapContext</c> is what
+    /// stops it costing <c>HelpNamesEveryKeyTests</c>' member count and multiplying the
+    /// <c>Everywhere()</c> product.
+    /// </remarks>
+    public bool AudienceAsked { get; init; }
 
     /// <summary>Which row the credential chooser's cursor is on.</summary>
     /// <remarks>

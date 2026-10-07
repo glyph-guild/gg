@@ -518,6 +518,56 @@ public sealed class VerbConsoleActions(
         }
     }
 
+    /// <inheritdoc />
+    public AppState AudienceFor(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        // THE CREDENTIAL UNDER THE CURSOR, not one typed. A console that asked would be
+        // asking somebody to retype what they are looking at.
+        if (AudienceReview.Chosen(state) is not { Length: > 0 } locator)
+        {
+            return state with
+            {
+                Mode = UiMode.Normal,
+                LastCredential = "Nothing was sent: no credential is selected. "
+                               + "The credentials tab lists them; `c` registers one.",
+            };
+        }
+
+        try
+        {
+            if (_data.AudienceAsync(locator).GetAwaiter().GetResult()
+                is not VerbResult.CredentialAudienceFound found)
+            {
+                return state with
+                {
+                    Mode = UiMode.Normal,
+                    LastCredential = $"Nothing was sent: who needs {locator} could not be read.",
+                };
+            }
+
+            // THE MODAL OPENS OVER THE LIST, so the next keypress is somebody answering a
+            // question they can see. The stage starts at the list, deliberately: a field
+            // already focused invites typing before reading.
+            return state with
+            {
+                Mode = UiMode.CredentialAudience,
+                Audience = found.Value.Machines,
+                AudienceFor = found.Value.For,
+                AudienceAsked = false,
+            };
+        }
+        catch (Exception refused) when (Expected(refused))
+        {
+            return state with
+            {
+                Mode = UiMode.Normal,
+                LastCredential = refused.Message,
+            };
+        }
+    }
+
     public string ForgetCredential()
     {
         try

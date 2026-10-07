@@ -364,6 +364,20 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.CredentialTrusted;
     }
 
+    /// <summary>Who a credential is wanted by, and which credential.</summary>
+    /// <remarks>
+    /// <b>A LOCAL RECORD, for KeyMinted's reason.</b> The audience is derived on this
+    /// machine by joining two reads the control plane already serves; nothing about it
+    /// crosses a wire, so a contract type would be a promise about something that never
+    /// leaves here.
+    /// </remarks>
+    public sealed record AudienceList(string For, IReadOnlyList<CredentialAudienceRow> Machines);
+
+    public sealed record CredentialAudienceFound(AudienceList Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.CredentialAudience;
+    }
+
     public sealed record RunnerRepinned(Gg.Client.RunnerRepinned Value) : VerbResult
     {
         public override string Kind => VerbResultKinds.RunnerRepinned;
@@ -652,6 +666,7 @@ public static class VerbResultKinds
 
     public const string KeyCreated = "key-created";
     public const string CredentialTrusted = "credential-trusted";
+    public const string CredentialAudience = "credential-audience";
     public const string CredentialAdded = "credential-added";
     public const string CredentialRemoved = "credential-removed";
     public const string RunnerRetired = "runner-retired";
@@ -767,6 +782,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(PrincipalKeyList))]
 [JsonSerializable(typeof(VerbResult.KeyMinted))]
 [JsonSerializable(typeof(VerbResult.MachineTrusted))]
+[JsonSerializable(typeof(VerbResult.AudienceList))]
 [JsonSerializable(typeof(CredentialRegistered))]
 [JsonSerializable(typeof(Gg.Contracts.CredentialRemoved))]
 [JsonSerializable(typeof(Gg.Contracts.RunnerRetired))]
@@ -868,6 +884,8 @@ public static class VerbOutput
         VerbResult.KeyCreated r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.KeyMinted),
         VerbResult.CredentialTrusted r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.MachineTrusted),
+        VerbResult.CredentialAudienceFound r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.AudienceList),
         VerbResult.CredentialAdded r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.CredentialRegistered),
         VerbResult.CredentialRemoved r =>
@@ -986,6 +1004,8 @@ public static class VerbOutput
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.KeyMinted))),
         VerbResultKinds.CredentialTrusted => new VerbResult.CredentialTrusted(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.MachineTrusted))),
+        VerbResultKinds.CredentialAudience => new VerbResult.CredentialAudienceFound(Require(
+            JsonSerializer.Deserialize(json, VerbJsonContext.Default.AudienceList))),
         VerbResultKinds.CredentialAdded => new VerbResult.CredentialAdded(Require(
             JsonSerializer.Deserialize(json, VerbJsonContext.Default.CredentialRegistered))),
         VerbResultKinds.CredentialRemoved => new VerbResult.CredentialRemoved(Require(
@@ -1082,6 +1102,7 @@ public static class VerbOutput
         VerbResult.Keys r => Keys(r.Value),
         VerbResult.KeyCreated r => KeyCreated(r.Value),
         VerbResult.CredentialTrusted r => CredentialTrusted(r.Value),
+        VerbResult.CredentialAudienceFound r => AudienceFound(r.Value),
         VerbResult.CredentialAdded r => CredentialAdded(r.Value),
         VerbResult.CredentialRemoved r => CredentialRemoved(r.Value),
         VerbResult.RunnerRetired r => RunnerRetiredText(r.Value),
@@ -1657,6 +1678,26 @@ public static class VerbOutput
         $"Registered {Clean(registered.Reference.Identity)} for "
       + $"{Clean(string.Join(',', registered.Reference.Scopes))}. "
       + $"The control plane holds {Clean(registered.Reference.Locator)}; the value stays here.";
+
+    /// <summary>The audience as text, for `--json`'s other half and for a shell print.</summary>
+    /// <remarks>
+    /// <b>One line per machine and a count of RECIPIENTS</b>, not of rows: two rows with one
+    /// reachable machine means one machine is getting it, and saying two would promise
+    /// something about a pool member nothing can reach.
+    /// </remarks>
+    private static string AudienceFound(VerbResult.AudienceList audience)
+    {
+        if (audience.Machines.Count == 0)
+        {
+            return $"Nothing declares it needs {Clean(audience.For)}, and no machine has "
+                 + "reported it cannot resolve one. There is nobody to send it to.";
+        }
+
+        var rows = string.Join('\n', audience.Machines.Select(m => "  " + Clean(m.Label)));
+
+        return $"{Clean(audience.For)} is wanted by {audience.Machines.Count} machine(s), "
+             + $"{audience.Machines.Count(m => m.Reachable)} of which can be reached:\n{rows}";
+    }
 
     private static string CredentialTrusted(VerbResult.MachineTrusted trusted) =>
         trusted.AlreadyWas
@@ -3742,7 +3783,7 @@ public static class VerbOutput
           + $"{VerbResultKinds.Launched}, {VerbResultKinds.Log}, {VerbResultKinds.Runners}, "
           + $"{VerbResultKinds.Diagnosis}, {VerbResultKinds.Credentials}, "
           + $"{VerbResultKinds.CredentialAdded}, {VerbResultKinds.CredentialRemoved}, "
-          + $"{VerbResultKinds.CredentialTrusted}, "
+          + $"{VerbResultKinds.CredentialTrusted}, {VerbResultKinds.CredentialAudience}, "
           + $"{VerbResultKinds.Keys}.");
 
     private static T Require<T>(T? value) where T : class =>

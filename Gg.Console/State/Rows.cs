@@ -1358,6 +1358,49 @@ public static class Rows
     /// </remarks>
     public sealed record CredentialPaneRow(string Credential, string For, string Here, string Holders);
 
+    /// <summary>One machine in a broadcast review: who it is, and why it is in the list.</summary>
+    /// <remarks>
+    /// <b>Why rather than a flag, because the reasons read differently.</b> A declaration is
+    /// somebody's intent; a report is a machine saying it is currently broken; and "not
+    /// reached" has to name the host that could pass it on, because told only that a member
+    /// is unreachable a person can do nothing with it.
+    /// </remarks>
+    public sealed record AudiencePaneRow(string Machine, string Why);
+
+    /// <summary>The columns a broadcast review shows.</summary>
+    public static IReadOnlyList<string> AudienceColumns { get; } = ["machine", "why"];
+
+    /// <summary>The machines in the review, in the order the audience was derived.</summary>
+    /// <remarks>
+    /// <b>Unreachable rows are kept and MARKED, never dropped.</b> A list that quietly
+    /// omitted every pool member would read as complete, and the thing a person would
+    /// notice is that member failing a flight days later.
+    /// </remarks>
+    public static IReadOnlyList<AudiencePaneRow> Audience(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return
+        [
+            .. state.Audience.Select(row => new AudiencePaneRow(
+                Machine: row.Label,
+                Why: Why(row))),
+        ];
+    }
+
+    private static string Why(Gg.Client.CredentialAudienceRow row) =>
+        row.Reachable
+            ? (row.Declared, row.Reported) switch
+            {
+                (true, true) => "declared, and it has reported it cannot resolve one",
+                (true, false) => "declared",
+                _ => "NOT declared, but it has reported it cannot resolve one",
+            }
+            : row.Through is { Length: > 0 } host
+                ? $"not reached: a member of {host}, which has no profile of its own. "
+                + $"Send to {host} and it passes it on."
+                : "not reached: it is offline, and nothing is held for it.";
+
     /// <summary>
     /// Every credential this tenant has, with the gaps, ordered as a worklist.
     /// </summary>

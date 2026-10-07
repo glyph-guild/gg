@@ -3119,6 +3119,7 @@ public static class PaneText
         UiMode.FlightActions => "what can be done",
         UiMode.AirspaceActions => "what can be done to the airspace",
         UiMode.CredentialActions => "what can be done about credentials",
+        UiMode.CredentialAudience => "who this credential is wanted by",
         UiMode.FlightDetail => "this flight",
         UiMode.Watching => "watching",
         UiMode.HandFlight => "nothing was created",
@@ -3460,6 +3461,7 @@ public static class PaneText
             UiMode.FlightActions => Actions(state),
             UiMode.AirspaceActions => AirspaceActions(state),
             UiMode.CredentialActions => CredentialActions(state),
+            UiMode.CredentialAudience => Audience(state),
             UiMode.ConfirmFlight => ConfirmFlight(state),
             UiMode.ConfirmGround => ConfirmGround(state),
             UiMode.ConfirmApply => ConfirmApply(state),
@@ -4126,6 +4128,7 @@ public static class PaneText
         UiMode.FlightActions => "while the actions list is open",
         UiMode.AirspaceActions => "while the airspace actions are open",
         UiMode.CredentialActions => "while the credential actions are open",
+        UiMode.CredentialAudience => "while a broadcast is being reviewed",
         UiMode.ConfirmFlight => "when asked whether to open a second flight",
         UiMode.ConfirmGround => "when asked whether to ground a flight",
         UiMode.ConfirmOwnership => "when asked who may claim a machine",
@@ -4174,7 +4177,63 @@ public static class PaneText
         $"  {Clean(CredentialsPane(state))}\n\n"
       + "  c  register a credential - names the account, then reads the secret\n"
       + "  x  forget one - asks which repository, and checks the list again first\n"
-      + "  m  mint your key - nobody can seal a credential to you until you have one\n";
+      + "  m  mint your key - nobody can seal a credential to you until you have one\n"
+      + "  b  send one where it is needed - lists the machines first, then asks for your\n"
+      + "     passphrase; nothing moves until you have read the list\n";
+
+    /// <summary>
+    /// The broadcast review: who is about to receive the credential, and what `enter` does
+    /// next.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The modal says the specific thing because the hint line cannot.</b> `enter` means
+    /// GO ON while the list is being read and SEND once it has been, so a hint naming one of
+    /// them is wrong for a stage — the airspace tab set this precedent, where the acts name
+    /// themselves inside the modal and the line spends one slot on `a`.
+    /// </para>
+    /// <para>
+    /// <b>The count is of RECIPIENTS, not rows.</b> Two rows with one reachable machine
+    /// means one machine is getting it, and saying two would be a promise about a pool
+    /// member nothing can reach.
+    /// </para>
+    /// </remarks>
+    public static string Audience(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var about = state.AudienceFor is { Length: > 0 } locator ? Clean(locator) : "a credential";
+
+        if (state.Audience.Count == 0)
+        {
+            // NOBODY IS A FACT WORTH A SENTENCE. Silence here is indistinguishable from a
+            // broadcast that worked, and the usual cause - no fleet profile declares it -
+            // is a thing a person can go and fix.
+            return $"  Nothing in this tenant declares it needs {about}, and no machine has\n"
+                 + "  reported it cannot resolve one. There is nobody to send it to.\n\n"
+                 + "  Fleet profiles are what declare a need; `gg airspace pull` writes them\n"
+                 + "  out, and the airspace tab applies them.\n";
+        }
+
+        var rows = string.Join('\n', Rows.Audience(state)
+            .Select(row => $"  {Clean(row.Machine),-16} {Clean(row.Why)}"));
+
+        var recipients = AudienceReview.Recipients(state);
+
+        var next = recipients == 0
+
+            // THE LIST STAYS UP SAYING WHY. Confirming cannot read a passphrase for a push
+            // that is not going to happen, so the only honest next step is the one the rows
+            // above already name.
+            ? "  None of them can be reached, so there is nothing to send. Each row says why."
+
+            : state.AudienceAsked
+                ? $"  Your passphrase unlocks the key that moves it - once, for all "
+                + $"{recipients}.\n  enter to send, esc to stop."
+                : $"  {recipients} machine(s) will receive it. enter to go on, esc to stop.";
+
+        return $"  {about} is wanted by:\n\n{rows}\n\n{next}\n";
+    }
 
     private static string Actions(AppState state) =>
         state.Selected is not { } row

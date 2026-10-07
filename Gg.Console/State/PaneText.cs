@@ -387,6 +387,10 @@ public static class PaneText
         QueueReason.AwaitingDecision => "awaiting a decision",
         QueueReason.LeaseExpiredTwice => "expired twice",
         QueueReason.RunnerOffline => "runner offline",
+        // THE RUNNER GAVE IT BACK AND IS WAITING ON A PERSON. "outstanding" is the
+        // runner's word and reads as a balance; this says what happened and whose
+        // move it is.
+        QueueReason.GivenBack => "given back · needs you",
         // THE WORD A PERSON SEARCHES FOR. "unresolved" alone would be true and
         // would not say what to go and do; the cell is narrow, so it spends its
         // width on the noun rather than on the verb.

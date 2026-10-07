@@ -34,7 +34,10 @@ public sealed class TerminalGuiSession(
     // because the shell act that spends it needs the same instance - a session that made
     // its own would hand the push an empty one. Last and defaulted, since every existing
     // caller passes positionally.
-    HeldSecret? held = null) : IUiSession
+    HeldSecret? held = null,
+
+    // THE AGENTS BESIDE GG, for the column (slice sixty-nine). Last and defaulted, like held.
+    Mux? mux = null) : IUiSession
 {
     public UiOutcome Run(AppState state)
     {
@@ -48,7 +51,8 @@ public sealed class TerminalGuiSession(
         using var screen = new ConsoleScreen(
             app, state, tails, runnerLog, refresh, signInLanded, reads, booted,
             expectations,
-            held);
+            held,
+            mux);
         app.Run(screen);
         return new UiOutcome(screen.ExitCommand, screen.State);
     }

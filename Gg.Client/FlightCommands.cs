@@ -394,6 +394,14 @@ public sealed class FlightCommands(
                 limit ?? Gg.Contracts.Paging.DefaultLimit, after));
 
     /// <summary>
+    /// One plan, by the number a person proposed it as: the mux's history screen opens it (slice
+    /// sixty-nine). Null where the tenant has no such plan.
+    /// </summary>
+    public Task<Gg.Contracts.BoardPage?> ItineraryAsync(
+        string reference, CancellationToken cancellationToken = default) =>
+        _client.GetItineraryAsync(Session(), reference, cancellationToken);
+
+    /// <summary>
     /// Answers a nomination, then reads the board to see what came of it.
     /// </summary>
     /// <remarks>

@@ -29,12 +29,30 @@ public sealed class PtyPlanSession
     /// <summary>The draft the mux plans in.</summary>
     public const string Draft = "console";
 
+    /// <summary>
+    /// The draft a new plan agent takes: <c>console</c>, or <c>console-2</c> and on while another
+    /// live agent holds it (slice sixty-nine). Two agents never edit one file, which slice
+    /// sixty-eight's one-live-plan-per-draft rule relies on.
+    /// </summary>
+    /// <param name="labels">The live agents' labels; a plan agent is "plan · &lt;draft&gt;".</param>
+    public static string FreeDraft(IEnumerable<string> labels)
+    {
+        var taken = labels.Where(label => label.StartsWith("plan · ", StringComparison.Ordinal))
+            .Select(label => label["plan · ".Length..])
+            .ToHashSet(StringComparer.Ordinal);
+
+        return Enumerable.Range(1, MuxColumn.Most + 1)
+            .Select(n => n == 1 ? Draft : $"{Draft}-{n}")
+            .First(name => !taken.Contains(name));
+    }
+
     private readonly string _agentCommand;
     private readonly Func<IHostTerminal?> _terminal;
     private readonly SelfInvocation? _self;
     private readonly HostRun _host;
     private readonly ItineraryDrafts _drafts;
     private readonly Action<string> _say;
+    private readonly string _draft;
 
     public PtyPlanSession(
         string? agentCommand = null,
@@ -42,8 +60,10 @@ public sealed class PtyPlanSession
         SelfInvocation? self = null,
         HostRun? host = null,
         ItineraryDrafts? drafts = null,
-        Action<string>? say = null)
+        Action<string>? say = null,
+        string draft = Draft)
     {
+        _draft = draft;
         _agentCommand = agentCommand
             ?? Environment.GetEnvironmentVariable("GG_TAKE_COMMAND")
             ?? "claude";
@@ -82,7 +102,7 @@ public sealed class PtyPlanSession
         // ASKED ON EVERY FRAME, because a proposal lands while the session runs (slice sixty-eight:
         // "the bar needs to be clear when itinerary plans have been submitted"). Once proposed it
         // leads with what the draft became, and says when an edit since means proposing replaces it.
-        string Bar() => _drafts.ProposalLine(Draft) is { } proposed
+        string Bar() => _drafts.ProposalLine(_draft) is { } proposed
             ? $"gg · {proposed} · ctrl-g shows the plan"
             : asking;
 
@@ -95,7 +115,7 @@ public sealed class PtyPlanSession
                 terminal,
                 parts[0],
                 [.. parts.Skip(1),
-                 "--mcp-config", ServerConfig(_self),
+                 "--mcp-config", ServerConfig(_self, _draft),
                  // NAMED, NOT GRANTED BY PREFIX: a prefix widens with every tool the server adds.
                  "--allowedTools", .. PlanningTool.All.Select(PlanningTool.Qualified)],
                 Directory.GetCurrentDirectory(),
@@ -146,12 +166,12 @@ public sealed class PtyPlanSession
     private string Left()
     {
         // THE RECORD FIRST: the last result moves on with every tool call after a proposal.
-        if (_drafts.ProposalLine(Draft) is { } proposed)
+        if (_drafts.ProposalLine(_draft) is { } proposed)
         {
-            return $"The plan session ended: {proposed}. The draft is kept at {_drafts.PathOf(Draft)}.";
+            return $"The plan session ended: {proposed}. The draft is kept at {_drafts.PathOf(_draft)}.";
         }
 
-        if (_drafts.LastResult(Draft) is { } last
+        if (_drafts.LastResult(_draft) is { } last
             && last.StartsWith("proposed ITN-", StringComparison.Ordinal))
         {
             var said = last.Split('\n')
@@ -160,21 +180,21 @@ public sealed class PtyPlanSession
             return "The plan session ended: " + string.Join("; ", said) + ".";
         }
 
-        return $"The plan session ended. The draft is kept at {_drafts.PathOf(Draft)}; plan with "
+        return $"The plan session ended. The draft is kept at {_drafts.PathOf(_draft)}; plan with "
              + "an agent again to carry on, or ask it to propose.";
     }
 
     private int Legs() =>
-        _drafts.Read(Draft) is DraftRead.Held { Draft: var held } ? held.Legs.Count : 0;
+        _drafts.Read(_draft) is DraftRead.Held { Draft: var held } ? held.Legs.Count : 0;
 
     /// <summary>One edit from the panel, through the draft's own store and rules (rule 4).</summary>
     private (string? Notice, string? StaleAgainst, HostedPanel Panel) Applied(
         PlanEdit edit, HostedPanel panel, string? staleAgainst)
     {
-        var before = _drafts.LastResult(Draft);
+        var before = _drafts.LastResult(_draft);
         var moved = 0;
 
-        var change = _drafts.Change(Draft, draft =>
+        var change = _drafts.Change(_draft, draft =>
         {
             var at = Math.Clamp(panel.Leg, 0, Math.Max(draft.Legs.Count - 1, 0));
             switch (edit)
@@ -209,12 +229,12 @@ public sealed class PtyPlanSession
         var text = new StringBuilder();
 
         // WHAT THE DRAFT BECAME, above the draft (slice sixty-eight).
-        if (_drafts.ProposalLine(Draft) is { } proposed)
+        if (_drafts.ProposalLine(_draft) is { } proposed)
         {
             text.Append(proposed).Append("\n\n");
         }
 
-        switch (_drafts.Read(Draft))
+        switch (_drafts.Read(_draft))
         {
             case DraftRead.Unreadable { Diagnosis: var unreadable }:
                 text.Append(unreadable).Append('\n');
@@ -251,7 +271,7 @@ public sealed class PtyPlanSession
             text.Append('\n').Append(notice).Append('\n');
         }
 
-        var last = _drafts.LastResult(Draft);
+        var last = _drafts.LastResult(_draft);
         var stale = staleAgainst is not null && string.Equals(last ?? "", staleAgainst, StringComparison.Ordinal);
         text.Append('\n')
             .Append(stale
@@ -264,7 +284,7 @@ public sealed class PtyPlanSession
     }
 
     /// <summary>The server: `gg itinerary tools --draft console`, under its own key (rule 2).</summary>
-    private static string ServerConfig(SelfInvocation self)
+    private static string ServerConfig(SelfInvocation self, string draft)
     {
         using var buffer = new MemoryStream();
         using (var json = new Utf8JsonWriter(buffer))
@@ -274,7 +294,7 @@ public sealed class PtyPlanSession
             json.WriteStartObject(PlanningTool.Server);
             json.WriteString("command", self.Command);
             json.WriteStartArray("args");
-            foreach (var argument in self.Under("itinerary", "tools", "--draft", Draft))
+            foreach (var argument in self.Under("itinerary", "tools", "--draft", draft))
             {
                 json.WriteStringValue(argument);
             }

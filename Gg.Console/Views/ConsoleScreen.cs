@@ -699,6 +699,10 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private readonly Func<AppState?>? _booted;
 
+    // THE MUX'S, READ ONLY: its rows on a tick, and whether an agent ended (slice sixty-nine).
+    private readonly Mux? _mux;
+    private MuxColumnView? _column;
+
     private EdgePresses _edge = EdgePresses.None;
     private TableView? _edgeAt;
     private Terminal.Gui.Drawing.Scheme? _edgeWas;
@@ -731,9 +735,14 @@ public sealed class ConsoleScreen : Window
         // controller outside the store, because AppState is written under GG_STATE_DUMP;
         // null when nothing composed one, in which case the field hands nothing over and
         // the act says it is not configured rather than sending with an empty key.
-        HeldSecret? held = null)
+        HeldSecret? held = null,
+
+        // THE AGENTS BESIDE GG (slice sixty-nine), read on a tick for the column and never
+        // started from here. Last and defaulted, for reads' reason.
+        Mux? mux = null)
     {
         _app = app;
+        _mux = mux;
         _expectations = expectations;
         _tails = tails;
         _runnerLog = runnerLog;
@@ -2449,8 +2458,52 @@ public sealed class ConsoleScreen : Window
         _modalBody.KeyDown += OnModalKeyDown;
         _queue.ValueChanged += OnQueueSelectionChanged;
 
+        Columned();
         Render();
         Watch();
+    }
+
+    /// <summary>
+    /// The mux's column on the left while any agent lives, and none at all otherwise: a person who
+    /// never starts an agent sees the console exactly as it was (slice sixty-nine).
+    /// </summary>
+    /// <remarks>
+    /// <b>In the padding, so nothing else moves by hand.</b> Every pane is laid out inside the
+    /// window's content; widening the padding's left edge by the column's width moves all of them
+    /// at once, and the column sits in the room that leaves.
+    /// </remarks>
+    private void Columned()
+    {
+        if (_mux is null)
+        {
+            return;
+        }
+
+        if (_column is null)
+        {
+            _column = new MuxColumnView(tab => Dispatch(MuxCommands.For(tab)))
+            {
+                X = 0,
+                Y = 0,
+                Width = MuxColumn.Width,
+                Height = Dim.Fill(),
+            };
+            Padding!.GetOrCreateView().Add(_column);
+        }
+
+        var alive = State.Agents.Count > 0;
+        _column.Agents = State.Agents;
+        _column.Armed = State.Switching;
+        _column.Visible = alive;
+
+        var left = alive ? MuxColumn.Width : 0;
+        if (Padding!.Thickness.Left != left)
+        {
+            Padding.Thickness = new Terminal.Gui.Drawing.Thickness(left, Padding.Thickness.Top, Padding.Thickness.Right, Padding.Thickness.Bottom);
+            SetNeedsLayout();
+        }
+
+        _column.SetNeedsDraw();
     }
 
     /// <summary>
@@ -2481,6 +2534,24 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private void Watch()
     {
+        if (_mux is not null)
+        {
+            // THE AGENTS, A QUARTER OF A SECOND STALE AT MOST: their ages, their marks, and an
+            // ending, which the shell folds - what an agent leaves may be a flight to open.
+            _app.AddTimeout(TimeSpan.FromMilliseconds(250), () =>
+            {
+                State = State with { Agents = _mux.Rows() };
+                Columned();
+
+                if (_mux.Ending)
+                {
+                    Dispatch(Command.AgentsEnded);
+                }
+
+                return true;
+            });
+        }
+
         // THE BREATH, AND ONLY WHILE SOMETHING IS WAITING. A tick that painted
         // regardless would be this console repainting four times a second for
         // ever - which is the cost just taken out of it, put back for a mark

@@ -236,7 +236,9 @@ public sealed class ConsoleLoop(
     /// </remarks>
     Func<AppState, AppState>? setAirspace = null,
 
-    // THE AGENTS BESIDE GG (slice sixty-nine). Declared; nothing shows or ends them yet.
+    // THE AGENTS BESIDE GG (slice sixty-nine). The shell's, like every child here: the loop
+    // shows the one asked for between UI sessions, folds what an ended one left, and ends them
+    // all when gg quits - asked first.
     Mux? mux = null)
 {
     /// <summary>
@@ -331,15 +333,26 @@ public sealed class ConsoleLoop(
 
     public AppState Run(AppState initial)
     {
-        _ = mux;
         var state = initial;
+
+        // ASKED ONCE: a second q right after the question quits, anything else keeps the agents.
+        var quitAsked = false;
+
         while (true)
         {
             state = tails?.Advance(state) ?? state;
             state = runnerHere?.Invoke(state) ?? state;
 
+            if (mux is not null)
+            {
+                state = Shown(state, mux);
+            }
+
             var outcome = ui.Run(state);
             state = outcome.State;
+
+            var asked = quitAsked;
+            quitAsked = false;
 
             // A REFRESH NOBODY SERVED. The tick clears Wanted the moment it
             // starts one, so a flag that survived a whole session means this
@@ -360,7 +373,47 @@ public sealed class ConsoleLoop(
             switch (outcome.Exit)
             {
                 case Command.Quit:
+                    // AGENTS LIVE, SO QUITTING ASKS, NAMING THEM: quitting gg ends them.
+                    if (mux is { Any: true } && !asked)
+                    {
+                        quitAsked = true;
+                        state = state with { Diagnosis = MuxColumn.QuitQuestion(mux.Labels()) };
+                        break;
+                    }
+
+                    mux?.EndAll();
                     return state;
+
+                // SWITCHING, AND AN ENDING, ARE SHOWN AND FOLDED AT THE TOP OF THE LOOP, which
+                // is where the terminal is free (slice sixty-nine).
+                case Command.ShowAgent1:
+                case Command.ShowAgent2:
+                case Command.ShowAgent3:
+                case Command.ShowAgent4:
+                case Command.ShowAgent5:
+                case Command.ShowAgent6:
+                case Command.ShowAgent7:
+                case Command.ShowAgent8:
+                case Command.ShowAgent9:
+                case Command.ShowNewAgent:
+                case Command.ShowHistory:
+                    if (MuxCommands.Tab(outcome.Exit) is { } tab)
+                    {
+                        mux?.Want(tab);
+                    }
+
+                    state = state with { Switching = false };
+                    break;
+
+                case Command.AgentsEnded:
+                    break;
+
+                // COMPOSING WITH AN AGENT BESIDE GG: the agent runs as a tab, and the flight its
+                // intent asks for is opened when it ends, by the fold (slice sixty-nine).
+                case Command.ComposeWithAgent when mux is not null && compose is not null
+                                                   && state.ComposingFor != ComposingFor.HandFlight:
+                    state = Spent(Closed(Composing(state, mux, compose, actions)));
+                    break;
 
                 case Command.HandBack:
                     // The same shape again: the session ends, an agent reads the
@@ -1281,6 +1334,77 @@ public sealed class ConsoleLoop(
     /// <summary>The question closed, however it was answered.</summary>
     private static AppState Closed(AppState state) =>
         state with { Mode = UiMode.Normal, ComposingFor = ComposingFor.Nothing };
+
+    /// <summary>
+    /// Shows what the mux was asked for, folds what ended agents left, and carries the agents into
+    /// the model for the column (slice sixty-nine).
+    /// </summary>
+    private AppState Shown(AppState state, Mux mux)
+    {
+        state = Folded(state, mux);
+
+        while (mux.TakeWanted() is { Place: not MuxPlace.Gg } wanted)
+        {
+            var left = mux.Show(wanted);
+            state = Folded(state, mux);
+
+            if (left == MuxLeave.Plan)
+            {
+                state = planSession is null
+                    ? state with { LastNomination = "This console is not configured to plan with an agent." }
+                    : planSession(Closed(state));
+            }
+            else if (left == MuxLeave.Compose)
+            {
+                state = Reducer.Reduce(Closed(state), Command.AskHowToCompose);
+            }
+        }
+
+        return state with { Switching = false };
+    }
+
+    /// <summary>What ended agents left, folded, and the console read again if anything was.</summary>
+    private AppState Folded(AppState state, Mux mux)
+    {
+        state = mux.Fold(state, out var folded);
+        return folded ? Reloaded(state, reload, asked: false) : state;
+    }
+
+    /// <summary>
+    /// A compose agent, launched beside gg: the kind and repository it composes for are the ones
+    /// chosen now, so a second compose chosen while it runs does not change what it opens.
+    /// </summary>
+    private static AppState Composing(AppState state, Mux mux, IEditorSession compose, IConsoleActions? actions)
+    {
+        var against = state.Against;
+        var picked = WorkKinds.Picked(state);
+
+        mux.Launch($"compose · {picked ?? "flight"}", () =>
+        {
+            var intent = compose.Edit("").Trim();
+            return later => Flown(later, actions, intent, against, picked);
+        });
+
+        return state;
+    }
+
+    /// <summary>The flight an intent asks for, opened; or why nothing was.</summary>
+    private static AppState Flown(
+        AppState state, IConsoleActions? actions, string intent, IReadOnlyList<string> against, string? picked)
+    {
+        if (actions is null)
+        {
+            return state with { LastFlightOpened = "This console is not configured to open flights." };
+        }
+
+        if (intent.Length == 0)
+        {
+            return state with { LastFlightOpened = "Nothing was opened: no intent was written." };
+        }
+
+        var opening = actions.Fly(intent, against, picked);
+        return Expect(state with { LastFlightOpened = opening.Said }, opening);
+    }
 
     public static AppState Opened(
         AppState state, IConsoleActions? actions, IEditorSession editor, string seed = "")

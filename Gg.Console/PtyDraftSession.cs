@@ -207,7 +207,7 @@ public sealed class PtyDraftSession
                     // that failed to load rather than one scrolled too far.
                     panel = HostedBar.Next(
                         panel, gesture, typed.Span, Body(panel.Showing, envelope),
-                        room, width);
+                        room, width, status: _bar);
 
                     return true;
                 },

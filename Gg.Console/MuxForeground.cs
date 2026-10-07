@@ -77,6 +77,11 @@ public sealed partial class Mux
         }
         finally
         {
+            // AN AGENT STARTED FROM HERE ASKED TO BE SHOWN, AND WAS: the ask is spent. Left
+            // standing, going back to gg showed that agent again at once - found driving the
+            // real console, where `+` `c` then ctrl-g `0` came straight back to Claude Code.
+            _ = TakeWanted();
+
             terminal.Paint(MouseInput.Modes(MouseTrackingMode.None, MouseEncoding.Default, focus: false, paste: false));
             terminal.Paint($"{Esc}[0m{Esc}[?1049l");
             RawMode.Restore(terminal.Descriptor, cooked);
@@ -457,7 +462,10 @@ public sealed partial class Mux
                 }
 
                 var answered = answer(bytes.Length == 1 ? bytes[0] : (byte)0, bytes);
-                if (answered is { } went && went.Next != keepOn)
+                // LEAVING FOR THE SHELL HAS NO NEXT TAB, and staying has none either on a screen
+                // with no cursor: so a leave is asked for first. `l` read as "stay" until it was.
+                if (answered is { } went
+                    && (went.Leave is not null || (went.Next is { } next && next != keepOn)))
                 {
                     return went;
                 }

@@ -326,7 +326,12 @@ public static class ItineraryToolServer
             ? []
             : new (string, string, IReadOnlyList<string>?)[]
             {
-                ("repository", "The registered repository this leg works in, when not the plan's own.",
+                // REQUIRED FOR A KIND THAT WORKS IN ONE, said before the refusal rather than by it
+                // (slice sixty-seven). "When not the plan's own" sent ITN-60's agent past it: a
+                // person's plan has no repository of its own, and GG-968 opened with no tree.
+                ("repository", "The registered repository this leg works in, required unless its kind "
+                             + "works on a ticket or on nothing: a plan has no repository of its own, "
+                             + "and a leg without one is refused.",
                     menu?.Repositories),
             },
         .. menu is { Environments.Count: 0 }

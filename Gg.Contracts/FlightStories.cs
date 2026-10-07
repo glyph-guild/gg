@@ -169,9 +169,13 @@ public sealed record FlightStory
         return kind switch
         {
             StoryKinds.Created => $"opened by {At(parameters, 0, "somebody")}",
-            StoryKinds.OpenedByAdmission =>
-                $"opened by admission as {At(parameters, 0, "work")}, on another flight's "
-              + "classification",
+            // A LEG OF A PLAN SAYS WHICH, when the record carries its label: "'<subject>' of ITN-n".
+            // Without one - a classifier's nomination, or a record from before labels - the
+            // sentence it always had.
+            StoryKinds.OpenedByAdmission => parameters.Count > 1 && parameters[1] is { Length: > 0 } leg
+                ? $"opened by admission as {At(parameters, 0, "work")}, leg {leg}"
+                : $"opened by admission as {At(parameters, 0, "work")}, on another flight's "
+                + "classification",
 
             // WHAT IT ASKED FOR AND WHAT BECAME OF THE ASKING. A sentence that
             // stopped at the kind would leave a reader wondering whether

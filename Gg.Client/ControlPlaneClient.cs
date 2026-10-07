@@ -1934,8 +1934,8 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     /// its legs standing, its gate closed.
     /// </summary>
     /// <remarks>
-    /// A 400 is the control plane's sentence - a plan the check would refuse, or a planner with no
-    /// gate a person answers - and is raised as <see cref="ItineraryRefusedException"/> with it.
+    /// A 400 or a 409 is the control plane's sentence - a plan the check would refuse, a planner with no
+    /// gate a person answers, or a supersede it cannot honour - raised as <see cref="ItineraryRefusedException"/> with it.
     /// </remarks>
     public async Task<Gg.Contracts.ItineraryProposed> ProposeItineraryAsync(
         string sessionToken, ItineraryProposal proposal, CancellationToken cancellationToken = default)
@@ -1946,10 +1946,13 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         await ThrowIfProtocolRefusedAsync(response, cancellationToken);
 
-        if (response.StatusCode == HttpStatusCode.BadRequest)
+        // A REFUSAL IS SAID IN THE DOOR'S SENTENCE (slice sixty-eight): 400 for a plan the check
+        // refuses, 409 for a supersede it cannot honour. Both arrive as problem+json, and the
+        // sentence is its `detail` - relaying the envelope, or the status line, drops what to do.
+        if (response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Conflict)
         {
             throw new ItineraryRefusedException(
-                await response.Content.ReadAsStringAsync(cancellationToken));
+                ProblemDetail(await response.Content.ReadAsStringAsync(cancellationToken)));
         }
 
         response.EnsureSuccessStatusCode();
@@ -1957,6 +1960,25 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.ItineraryProposed, cancellationToken)
             ?? throw new InvalidOperationException("Control plane returned no proposed itinerary.");
+    }
+
+    /// <summary>A problem+json body's `detail`, or the body as it came when it is not one.</summary>
+    private static string ProblemDetail(string body)
+    {
+        try
+        {
+            using var problem = JsonDocument.Parse(body);
+            return problem.RootElement.ValueKind == JsonValueKind.Object
+                && problem.RootElement.TryGetProperty("detail", out var detail)
+                && detail.ValueKind == JsonValueKind.String
+                && detail.GetString() is { Length: > 0 } said
+                    ? said
+                    : body;
+        }
+        catch (JsonException)
+        {
+            return body;
+        }
     }
 
     /// <summary>

@@ -353,7 +353,14 @@ public sealed record ItineraryProposal
     /// </summary>
     public string? Via { get; init; }
 
-    /// <summary>The plan this one replaces, as <c>ITN-n</c>; absent for a new plan (shape only).</summary>
+    /// <summary>The plan this one replaces, as <c>ITN-n</c>; absent for a new plan.</summary>
+    /// <remarks>
+    /// <b>Slice sixty-eight, found on ITN-61 and ITN-62</b>: a draft proposed, edited and proposed
+    /// again minted a second plan carrying the first's legs again, because the door is
+    /// exactly-once per draft CONTENT. The tool server sends this from the draft's local record of
+    /// what it last proposed, and the door withdraws that plan in the same request - or answers
+    /// 409 when it cannot: not the caller's, its gate already answered, or already replaced.
+    /// </remarks>
     public string? Supersedes { get; init; }
 
     /// <summary>The diagnosis, or null when the proposal is well formed.</summary>
@@ -371,7 +378,14 @@ public sealed record ItineraryProposal
             return draft;
         }
 
-        if (proposal.Via is { Length: > MaxVia })
+        if (proposal.Supersedes is { } replaced
+            && !Description.ItineraryRef.TryParse(replaced, out _))
+        {
+            return $"'supersedes' names the plan this one replaces, as ITN-n, and '{replaced}' is not "
+                 + "one.";
+        }
+
+                if (proposal.Via is { Length: > MaxVia })
         {
             return $"'via' names the agent that acted, in at most {MaxVia} characters, and this is "
                  + $"{proposal.Via.Length}. It is a label: the conversation is not kept.";

@@ -562,7 +562,9 @@ public class EndpointSurfaceTests
         // AND 0.280.0 ADDS THE COLLECTION'S ONE WRITE: POST /v1/itineraries, a plan a person
         // proposes (slice sixty-five, ADR-0038 Decision 5). It becomes a pass flight that is
         // never leased and waits on its human gate.
-            .IsEqualTo("c4354ab0e30bb5198cc062eee565b2ca68c373b2c9f9c223b1c66ced3c54ab5f")
+        // AND 0.282.0 LETS IT ANSWER 409: a proposal that supersedes a plan the door cannot
+        // withdraw - not the caller's, its gate answered, or already replaced (slice sixty-eight).
+            .IsEqualTo("073872f37069624b8f1f8708b897cd8a9b7820144c84b0a78c5d0da67d1c7ee1")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

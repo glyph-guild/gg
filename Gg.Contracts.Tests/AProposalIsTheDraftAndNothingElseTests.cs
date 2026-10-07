@@ -35,9 +35,10 @@ public class AProposalIsTheDraftAndNothingElseTests
     {
         var members = typeof(ItineraryProposal).GetProperties().Select(p => p.Name).ToList();
 
-        await Assert.That(members).IsEquivalentTo((string[])["Draft", "Via"]);
+        // AND, SINCE SLICE SIXTY-EIGHT, THE PLAN IT REPLACES - still nothing the agent said.
+        await Assert.That(members).IsEquivalentTo((string[])["Draft", "Via", "Supersedes"]);
         await Assert.That(ProtocolSurface.JsonMembers[typeof(ItineraryProposal)])
-            .IsEquivalentTo((string[])["draft", "via"]);
+            .IsEquivalentTo((string[])["draft", "via", "supersedes"]);
     }
 
     [Test]

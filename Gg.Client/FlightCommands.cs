@@ -346,9 +346,21 @@ public sealed class FlightCommands(
         // be observing nothing.
         var attribution = await _client.WhyAsync(token, resolved, cancellationToken);
 
-        return attribution?.Obligations
-            .FirstOrDefault(o => string.Equals(o.ObligationId, obligation, StringComparison.Ordinal))
-            ?.Outcome;
+        if (attribution?.Obligations
+                .FirstOrDefault(o => string.Equals(o.ObligationId, obligation, StringComparison.Ordinal))
+                ?.Outcome is { } outcome)
+        {
+            return outcome;
+        }
+
+        // A FLIGHT THAT ENDED BEFORE ITS OBLIGATION WAS JUDGED (slice sixty-eight, found rejecting
+        // GG-972): a proposed pass whose gate is refused is withdrawn at once, so no outcome is ever
+        // recorded, and waiting for one waited out the whole bound to say "not yet visible" about a
+        // decision that had landed in a second. The gate closing and the flight ending is the answer.
+        return await _client.GetFlightStoryAsync(token, resolved, cancellationToken) is { } story
+            && !string.Equals(story.State, FlightStates.Open, StringComparison.Ordinal)
+            ? $"answered; {resolved} ended {story.State}"
+            : null;
     }
 
     public async Task<VerbResult> GatesAsync(CancellationToken cancellationToken = default) =>

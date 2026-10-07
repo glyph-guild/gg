@@ -76,8 +76,15 @@ public sealed class PtyPlanSession
         var staleAgainst = (string?)null;
         var room = 0;
         var width = 0;
-        const string bar = "gg · planning with an agent — ask it to draft legs · ctrl-g shows the plan, "
-                         + "where J/K move a leg and x drops one · ask it to propose when it is ready";
+        const string asking = "gg · planning with an agent — ask it to draft legs · ctrl-g shows the plan, "
+                            + "where J/K move a leg and x drops one · ask it to propose when it is ready";
+
+        // ASKED ON EVERY FRAME, because a proposal lands while the session runs (slice sixty-eight:
+        // "the bar needs to be clear when itinerary plans have been submitted"). Once proposed it
+        // leads with what the draft became, and says when an edit since means proposing replaces it.
+        string Bar() => _drafts.ProposalLine(Draft) is { } proposed
+            ? $"gg · {proposed} · ctrl-g shows the plan"
+            : asking;
 
         string Body() => Plan(panel.Leg, notice, staleAgainst);
 
@@ -97,7 +104,7 @@ public sealed class PtyPlanSession
                     room = most;
                     width = wide;
                     return new HostedRows(
-                        HostedBar.Rows(panel, bar, panel.Showing == HostedView.Plan ? Body() : "", most, wide),
+                        HostedBar.Rows(panel, Bar(), panel.Showing == HostedView.Plan ? Body() : "", most, wide),
                         panel.Showing != HostedView.Closed);
                 },
                 (gesture, typed) =>
@@ -138,6 +145,12 @@ public sealed class PtyPlanSession
     /// </summary>
     private string Left()
     {
+        // THE RECORD FIRST: the last result moves on with every tool call after a proposal.
+        if (_drafts.ProposalLine(Draft) is { } proposed)
+        {
+            return $"The plan session ended: {proposed}. The draft is kept at {_drafts.PathOf(Draft)}.";
+        }
+
         if (_drafts.LastResult(Draft) is { } last
             && last.StartsWith("proposed ITN-", StringComparison.Ordinal))
         {
@@ -194,6 +207,12 @@ public sealed class PtyPlanSession
     private string Plan(int chosen, string? notice, string? staleAgainst)
     {
         var text = new StringBuilder();
+
+        // WHAT THE DRAFT BECAME, above the draft (slice sixty-eight).
+        if (_drafts.ProposalLine(Draft) is { } proposed)
+        {
+            text.Append(proposed).Append("\n\n");
+        }
 
         switch (_drafts.Read(Draft))
         {

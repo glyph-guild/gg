@@ -38,7 +38,13 @@ public sealed class StubControlPlane : IAsyncDisposable
     public List<ItineraryDraft> ObservedDrafts { get; } = [];
 
     /// <summary>What the check answers, when a test sets it.</summary>
-    public ItineraryCheck? ItineraryAnswer { get; set; }
+    /// <summary>The story `/story` answers, when a test needs a particular one.</summary>
+    public FlightStory? StoryAnswer { get; set; }
+
+    /// <summary>The hold `/why` carries, when a test needs a leg held behind another.</summary>
+    public LegHold? HeldAnswer { get; set; }
+
+        public ItineraryCheck? ItineraryAnswer { get; set; }
 
     /// <summary>Every proposal sent to POST /v1/itineraries, in order.</summary>
     public List<ItineraryProposal> ObservedProposals { get; } = [];
@@ -947,6 +953,7 @@ public sealed class StubControlPlane : IAsyncDisposable
                     {
                         FlightNumber = FlightRef.Format(42),
                         EnvelopeVersion = "v1",
+                        Held = HeldAnswer,
                         Obligations =
                         [
                             new ObligationAttribution
@@ -1004,7 +1011,7 @@ public sealed class StubControlPlane : IAsyncDisposable
 
             case var _ when path.EndsWith("/story", StringComparison.Ordinal)
                          && path.StartsWith("/v1/flights/", StringComparison.Ordinal):
-                await WriteJsonAsync(context, 200, AStory());
+                await WriteJsonAsync(context, 200, StoryAnswer ?? AStory());
                 return;
 
             case var _ when path.EndsWith("/log", StringComparison.Ordinal)

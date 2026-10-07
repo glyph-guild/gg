@@ -366,7 +366,10 @@ public sealed record FlightAttribution
 /// </remarks>
 [PinnedId("b2149091-1492-419d-b3a4-546e72b3d838")]
 public sealed record LegHold
-{
+{    /// <summary>What this hold means for the leg, in one sentence: `gg why`, `gg show` and the console's.</summary>
+    public string Sentence() => throw new NotImplementedException();
+
+
     /// <summary>The flight it follows, rendered. GG-41.</summary>
     /// <remarks>
     /// THE NUMBER, because it is what a person types next. A leg held behind

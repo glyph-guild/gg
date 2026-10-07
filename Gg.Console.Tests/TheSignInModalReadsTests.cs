@@ -181,6 +181,10 @@ public class TheSignInModalReadsTests
             // says. It is here because the derivation has to READ it, which is
             // what this model is for.
             Screening = true,
+
+            // AND THE MUX'S SWITCH, armed (slice sixty-nine), with agents to number.
+            Switching = true,
+            Agents = [new MuxRow(1, "Claude Code", TimeSpan.Zero, false)],
             BrowseVisible = true,
             EnvelopeVisible = true,
 

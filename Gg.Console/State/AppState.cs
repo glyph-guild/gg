@@ -1795,6 +1795,12 @@ public sealed record AppState
     /// </remarks>
     public bool Screening { get; init; }
 
+    /// <summary>Whether ctrl-g was just pressed, so the next key switches the mux (slice sixty-nine).</summary>
+    public bool Switching { get; init; }
+
+    /// <summary>The agents the mux holds beside gg, as its column lists them (slice sixty-nine).</summary>
+    public IReadOnlyList<MuxRow> Agents { get; init; } = [];
+
     /// <summary>Seconds since anybody touched the keyboard or clicked.</summary>
     /// <remarks>
     /// <b>Ticks rather than a timestamp.</b> The console already counts

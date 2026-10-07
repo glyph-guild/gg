@@ -234,7 +234,10 @@ public sealed class ConsoleLoop(
     /// rule <c>ConsoleScreen</c> states stays true - nothing is written by
     /// typing into a widget, only collected by one.
     /// </remarks>
-    Func<AppState, AppState>? setAirspace = null)
+    Func<AppState, AppState>? setAirspace = null,
+
+    // THE AGENTS BESIDE GG (slice sixty-nine). Declared; nothing shows or ends them yet.
+    Mux? mux = null)
 {
     /// <summary>
     /// Re-reads everything the boot read, keeping what the person was looking
@@ -328,6 +331,7 @@ public sealed class ConsoleLoop(
 
     public AppState Run(AppState initial)
     {
+        _ = mux;
         var state = initial;
         while (true)
         {

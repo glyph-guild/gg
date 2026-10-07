@@ -50,13 +50,6 @@ public class AClientMethodIsNotAReachTests
     /// </remarks>
     private static readonly Dictionary<string, string> Exempt = new(StringComparer.Ordinal)
     {
-        ["/v1/itineraries/{ref}"] =
-            "GetItineraryAsync reads ONE plan by the number a person typed. Nothing a person "
-          + "types names one: `gg plan` answers what a flight would need before it starts, which "
-          + "is a different question, and the itineraries pane lists legs across every plan. "
-          + "Reaching this means a detail view deciding what a single plan's page says, and that "
-          + "decision has not been made.",
-
         ["/v1/airspace/strategies/{name}"] =
             "GetStrategyAsync reads the strategy in force for ONE name, and the estate is how a "
           + "person reads strategies: `gg airspace pull` writes every one into the working copy "

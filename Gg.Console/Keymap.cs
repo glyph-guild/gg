@@ -223,6 +223,12 @@ public readonly record struct KeymapContext(
     /// </remarks>
     public bool Screening { get; init; }
 
+    /// <summary>Whether ctrl-g was just pressed, so the next key switches the mux (slice sixty-nine).</summary>
+    public bool Switching { get; init; }
+
+    /// <summary>How many agents the mux holds, so only a number that is on a row is bound.</summary>
+    public int Agents { get; init; }
+
     /// <summary>
     /// Whether the flight on screen names a link and no ticket a reader here
     /// can read.

@@ -917,6 +917,24 @@ public static class ConsoleProjection
         return Math.Clamp(state.FlightSelected, 0, shown.Count - 1);
     }
 
+    /// <summary>A lease release's disposition, from the log row's detail; null when it has none.</summary>
+    private static string? Disposition(string detail)
+    {
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(detail);
+            return document.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object
+                && document.RootElement.TryGetProperty("disposition", out var value)
+                && value.ValueKind == System.Text.Json.JsonValueKind.String
+                    ? value.GetString()
+                    : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>
     /// Which flights need me, from what the verbs returned.
     /// </summary>
@@ -1002,6 +1020,21 @@ public static class ConsoleProjection
             if (unresolved.Count > 0)
             {
                 rows.Add(Row(flight, QueueReason.CredentialUnresolved, unresolved[0].At));
+                continue;
+            }
+
+            // GIVEN BACK, AND OWED AN ANSWER. A runner that releases a flight
+            // `outstanding` is saying somebody owes it one - found on GG-968, whose
+            // agent had no repository to work in. Nothing else makes the flight
+            // ready again, so without this row it was in no queue at all. Only the
+            // LATEST lease counts: a lease after the release means it is being
+            // worked again, and an ended flight owes nobody.
+            if (flight.State == FlightStates.Open
+                && log.Entries.LastOrDefault(e => e.Kind is "lease-granted" or "lease-released")
+                    is { Kind: "lease-released" } release
+                && Disposition(release.Detail) == "outstanding")
+            {
+                rows.Add(Row(flight, QueueReason.GivenBack, release.At));
                 continue;
             }
 

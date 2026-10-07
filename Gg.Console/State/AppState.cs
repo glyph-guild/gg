@@ -974,6 +974,16 @@ public enum QueueReason
     /// failing.
     /// </remarks>
     WatchFailing,
+
+    /// <summary>
+    /// The runner gave the flight back as <c>outstanding</c>: somebody owes it an answer.
+    /// </summary>
+    /// <remarks>
+    /// <b>Found on GG-968</b>, whose agent found no repository and asked how to reach the code.
+    /// Released <c>outstanding</c>, the flight was not ready, had no gate and no ending, so it
+    /// was in no queue at all. It is never ended for the person; it is shown to them.
+    /// </remarks>
+    GivenBack,
 }
 
 /// <summary>One row of the queue.</summary>

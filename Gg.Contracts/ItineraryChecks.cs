@@ -353,6 +353,9 @@ public sealed record ItineraryProposal
     /// </summary>
     public string? Via { get; init; }
 
+    /// <summary>The plan this one replaces, as <c>ITN-n</c>; absent for a new plan (shape only).</summary>
+    public string? Supersedes { get; init; }
+
     /// <summary>The diagnosis, or null when the proposal is well formed.</summary>
     public static string? Validate(ItineraryProposal proposal)
     {

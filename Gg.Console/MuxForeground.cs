@@ -97,6 +97,7 @@ public sealed partial class Mux
         }
 
         var armed = false;
+        var held = false;
         var barRows = 1;
         var mirrored = "";
         var last = number;
@@ -151,7 +152,12 @@ public sealed partial class Mux
                     return (last > 1 && Agent(last - 1) is not null ? MuxTab.Agent(last - 1) : MuxTab.Gg, null);
                 }
 
-                last = Math.Max(NumberOf(agent), 1);
+                // ONLY WHILE IT HAS A ROW: its row goes a moment before its exit is seen, and
+                // reading nought in that gap sent an agent on row two to gg, not to row one.
+                if (NumberOf(agent) is > 0 and var row)
+                {
+                    last = row;
+                }
 
                 var read = terminal.Keystrokes.Read(typed, 0, typed.Length);
                 if (read <= 0)
@@ -177,6 +183,27 @@ public sealed partial class Mux
                             && chosen != MuxTab.Agent(NumberOf(agent)))
                         {
                             return (chosen, null);
+                        }
+
+                        continue;
+                    }
+
+                    // THE WHEEL, AS THE TERMINAL WOULD HAVE SENT IT. Reporting is on for the
+                    // column's sake; without it a terminal on the alternate screen turns the wheel
+                    // into arrows, and that is how the panel and an agent that never asked for the
+                    // mouse scrolled. So a wheel report becomes an arrow, and goes the way a typed
+                    // one does: to gg's panel first, then the child.
+                    if (agent.Emulator.MouseTrackingMode == MouseTrackingMode.None
+                        && click.Final == 'M' && (click.Button & 64) != 0)
+                    {
+                        byte[] arrow = (click.Button & 1) == 0 ? [0x1b, (byte)'[', (byte)'A'] : [0x1b, (byte)'[', (byte)'B'];
+                        if (agent.Took(HostedGesture.Typed, arrow))
+                        {
+                            Repaint();
+                        }
+                        else
+                        {
+                            agent.Write(arrow);
                         }
 
                         continue;
@@ -217,6 +244,8 @@ public sealed partial class Mux
                 if (armed)
                 {
                     armed = false;
+                    var wasHeld = held;
+                    held = false;
                     if (bytes.Length == 1 && MuxColumn.Key(bytes[0], Rows().Count) is { } switched)
                     {
                         // THE PANEL CTRL-G OPENED CLOSES AGAIN: the agent is left as it was found.
@@ -229,10 +258,30 @@ public sealed partial class Mux
 
                         return (switched, null);
                     }
+
+                    // NOT A SWITCH, SO THE CTRL-G HELD BACK WAS THE CHILD'S AFTER ALL.
+                    if (wasHeld)
+                    {
+                        agent.Write([HostedBar.Prefix]);
+                    }
                 }
                 else if (bytes.Length == 1 && bytes[0] == HostedBar.Prefix)
                 {
                     armed = true;
+
+                    // HELD BACK FROM A CHILD THE PANEL DID NOT TAKE IT FOR: a switch's prefix is
+                    // never the child's to read. Found as a CI race - a shell echoing ^G a moment
+                    // after it was hidden, marked as having changed while nobody looked.
+                    if (!agent.Took(HostedGesture.Typed, bytes))
+                    {
+                        held = true;
+                    }
+                    else
+                    {
+                        Repaint();
+                    }
+
+                    continue;
                 }
 
                 if (agent.Took(HostedGesture.Typed, bytes))
@@ -487,7 +536,7 @@ public sealed partial class Mux
     }
 
     /// <summary>
-    /// One read, as the keys in it: ctrl-g, and the key after it, are each their own.
+    /// One read, as the keys in it: ctrl-g, the key after it, and each mouse report are their own.
     /// </summary>
     /// <remarks>
     /// <b>Typed quickly, ctrl-g and a number arrive in one read</b>, and a prefix only ever looked
@@ -498,8 +547,28 @@ public sealed partial class Mux
     {
         var keys = new List<byte[]>();
         var rest = read;
-        while (rest.Length > 1 && (rest[0] == HostedBar.Prefix || (armed && rest[0] != 0x1b)))
+        while (rest.Length > 1)
         {
+            // ONE MOUSE REPORT AT A TIME: a wheel turned once is several reports in one read.
+            if (rest.Length > 3 && rest[0] == 0x1b && rest[1] == '[' && rest[2] == '<')
+            {
+                var end = rest[3..].IndexOfAny((byte)'M', (byte)'m');
+                if (end < 0)
+                {
+                    break;
+                }
+
+                keys.Add(rest[..(end + 4)].ToArray());
+                rest = rest[(end + 4)..];
+                armed = false;
+                continue;
+            }
+
+            if (rest[0] != HostedBar.Prefix && !(armed && rest[0] != 0x1b))
+            {
+                break;
+            }
+
             armed = rest[0] == HostedBar.Prefix;
             keys.Add([rest[0]]);
             rest = rest[1..];

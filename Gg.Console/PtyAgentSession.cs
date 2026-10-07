@@ -251,7 +251,8 @@ public sealed class PtyAgentSession : IEditorSession
                             typed.Span,
                             Body(panel.Showing, envelope, intent),
                             room,
-                            width);
+                            width,
+                            status: File.Exists(intent) ? _submitted : _bar);
 
                         return true;
                     },

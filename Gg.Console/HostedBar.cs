@@ -176,7 +176,6 @@ public static class HostedBar
         HostedView opensOn = HostedView.Envelope,
         string? status = null)
     {
-        _ = status;
         if (panel.Showing == HostedView.Closed)
         {
             // OPENS ON THE ENVELOPE rather than on a menu asking which of two
@@ -213,7 +212,12 @@ public static class HostedBar
 
         if (Scrolled(gesture, typed) is { } by)
         {
-            return panel with { Offset = Bounded(panel.Offset + by, body, most, columns) };
+            return panel with
+            {
+                Offset = Bounded(
+                    panel.Offset + by, body, most, columns,
+                    status is null ? 1 : Wrapped(Heading(panel.Showing, status), columns, Math.Max(most - 1, 1)).Count),
+            };
         }
 
         if (gesture != HostedGesture.Typed || typed.Length != 1)
@@ -328,7 +332,7 @@ public static class HostedBar
     /// past the last the panel empties itself — which reads as a view that
     /// failed to load rather than as one scrolled too far.
     /// </remarks>
-    private static int Bounded(int offset, string? body, int most, int columns)
+    private static int Bounded(int offset, string? body, int most, int columns, int heading = 1)
     {
         if (offset <= 0)
         {
@@ -350,7 +354,10 @@ public static class HostedBar
         // early on exactly the documents worth scrolling.
         var rows = Displayed(body, columns > 0 ? columns : int.MaxValue).Count;
 
-        return Math.Min(offset, Math.Max(rows - Room(most), 0));
+        // AND THE STATUS AS MANY ROWS AS IT WRAPS TO, which the render counts: assuming one stopped
+        // the wheel a line or two short of the end once the bar was narrowed beside the mux's
+        // column (found by the owner walking slice sixty-nine).
+        return Math.Min(offset, Math.Max(rows - Math.Max(Room(most) - (heading - 1), 1), 0));
     }
 
     /// <summary>How many rows of body a panel of this height shows.</summary>
@@ -368,6 +375,13 @@ public static class HostedBar
     /// </para>
     /// </remarks>
     private static int Room(int most) => Math.Max(most - 3, 1);
+
+    /// <summary>The open panel's first row, before it wraps: what the session says, and the keys.</summary>
+    /// <remarks>One place, read by the render and by the scroll clamp, so they count it alike.</remarks>
+    private static string Heading(HostedView showing, string status) =>
+        showing == HostedView.Plan
+            ? $"{status}  ·  {Name(showing)}  ·  j/k choose · J/K move · x drop · e envelope · esc close"
+            : $"{status}  ·  {Name(showing)}  ·  e envelope · i intent · esc close";
 
     /// <summary>
     /// The rows gg keeps: the status, and what is open under it.
@@ -419,12 +433,7 @@ public static class HostedBar
         // budget below is what is left after the header rather than after one
         // row: a header that grew and a body that did not notice would push
         // rows past the budget, and the painter drops those onto the child.
-        var rows = new List<string>(Wrapped(
-            showing == HostedView.Plan
-                ? $"{status}  ·  {Name(showing)}  ·  j/k choose · J/K move · x drop · e envelope · esc close"
-                : $"{status}  ·  {Name(showing)}  ·  e envelope · i intent · esc close",
-            columns,
-            Math.Max(most - 1, 1)));
+        var rows = new List<string>(Wrapped(Heading(showing, status), columns, Math.Max(most - 1, 1)));
 
         // WRAPPED, LIKE THE STATUS ABOVE IT. Handed over whole, a long line is
         // cut at the terminal's edge by the painter - and the rules in force

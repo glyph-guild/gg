@@ -142,7 +142,7 @@ public sealed class PtyPlanSession
                     }
 
                     panel = HostedBar.Next(
-                        panel, gesture, typed.Span, Body(), room, width, opensOn: HostedView.Plan);
+                        panel, gesture, typed.Span, Body(), room, width, opensOn: HostedView.Plan, status: Bar());
                     panel = panel with { Leg = Math.Clamp(panel.Leg, 0, Math.Max(Legs() - 1, 0)) };
                     return true;
                 },

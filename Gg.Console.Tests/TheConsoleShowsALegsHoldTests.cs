@@ -43,7 +43,16 @@ public class TheConsoleShowsALegsHoldTests
                 },
             ],
         },
-        Attribution = new FlightAttribution
+        Story = new FlightStory
+        {
+            FlightId = "a",
+            FlightNumber = FlightRef.Format(969),
+            WorkKind = "ui-preview",
+            Stage = FlightStoryStages.Reached([]),
+            State = FlightStates.Open,
+            Entries = [],
+        },
+                Attribution = new FlightAttribution
         {
             FlightNumber = FlightRef.Format(969),
             EnvelopeVersion = "v18",

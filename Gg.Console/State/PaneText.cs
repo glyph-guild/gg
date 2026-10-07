@@ -1671,7 +1671,13 @@ public static class PaneText
         }
 
         var text = new StringBuilder();
-        text.AppendLine($"  why           {Clean(attribution.Halt ?? "nothing is holding this flight")}");
+
+        // A LEG HELD BEHIND ANOTHER IS HELD, whatever its obligations say: GG-969 read "nothing is
+        // holding this flight" while it waited on GG-968 (slice sixty-seven).
+        var why = attribution.Halt
+            ?? attribution.Held?.Sentence()
+            ?? "nothing is holding this flight";
+        text.AppendLine($"  why           {Clean(why)}");
 
         foreach (var obligation in attribution.Obligations)
         {

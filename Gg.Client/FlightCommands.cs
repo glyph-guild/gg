@@ -131,9 +131,20 @@ public sealed class FlightCommands(
         var token = Session();
         var resolved = Readable(reference);
 
-        return new VerbResult.Story(
-            await _client.GetFlightStoryAsync(token, resolved, cancellationToken)
-            ?? throw NoSuchFlight(reference));
+        var story = await _client.GetFlightStoryAsync(token, resolved, cancellationToken)
+            ?? throw NoSuchFlight(reference);
+
+        // A LEG THAT HAS NEVER STARTED MAY BE HELD BEHIND ANOTHER, and only the why read knows
+        // (slice sixty-seven: GG-969 waited on GG-968 and `gg show` said nothing). Asked only of an
+        // open flight no runner has ever been handed, so every other `gg show` pays one read.
+        LegHold? held = null;
+        if (story.State == FlightStates.Open
+            && story.Entries.All(e => e.Kind != StoryKinds.LeaseGranted))
+        {
+            held = (await _client.WhyAsync(token, resolved, cancellationToken))?.Held;
+        }
+
+        return new VerbResult.Story(story, held);
     }
 
     /// <summary>

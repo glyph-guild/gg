@@ -879,6 +879,51 @@ public enum Command
     /// </summary>
     PlanWithAgent,
 
+    /// <summary>ctrl-g: the next key switches the mux (slice sixty-nine).</summary>
+    ArmSwitch,
+
+    /// <summary>After ctrl-g, <c>0</c>: stay in gg, or come back to it.</summary>
+    ShowGg,
+
+    /// <summary>After ctrl-g, a number: show the agent on that row. The shell's: it hands over the terminal.</summary>
+    ShowAgent1,
+
+    /// <summary><see cref="ShowAgent1"/>, row 2.</summary>
+    ShowAgent2,
+
+    /// <summary><see cref="ShowAgent1"/>, row 3.</summary>
+    ShowAgent3,
+
+    /// <summary><see cref="ShowAgent1"/>, row 4.</summary>
+    ShowAgent4,
+
+    /// <summary><see cref="ShowAgent1"/>, row 5.</summary>
+    ShowAgent5,
+
+    /// <summary><see cref="ShowAgent1"/>, row 6.</summary>
+    ShowAgent6,
+
+    /// <summary><see cref="ShowAgent1"/>, row 7.</summary>
+    ShowAgent7,
+
+    /// <summary><see cref="ShowAgent1"/>, row 8.</summary>
+    ShowAgent8,
+
+    /// <summary><see cref="ShowAgent1"/>, row 9.</summary>
+    ShowAgent9,
+
+    /// <summary>After ctrl-g, <c>+</c>: what a new agent can be.</summary>
+    ShowNewAgent,
+
+    /// <summary>After ctrl-g, <c>H</c>: proposals and sessions, on a screen of their own.</summary>
+    ShowHistory,
+
+    /// <summary>
+    /// An agent ended while gg was on screen, and left something for the shell to fold - what
+    /// its plan became, or the flight its intent opens. Raised by the tick, not a key.
+    /// </summary>
+    AgentsEnded,
+
     /// <summary>
     /// Open the flight this question was asked for, with the kind under the cursor.
     /// </summary>

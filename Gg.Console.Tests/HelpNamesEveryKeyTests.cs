@@ -228,6 +228,20 @@ public class HelpNamesEveryKeyTests
         new(UiMode.Normal) { Screening = true },
     ];
 
+    /// <summary>The console after ctrl-g, with no agent, one, and as many as the mux holds.</summary>
+    /// <remarks>
+    /// <b>Beside the cross, for the mark's reason</b>: switching outranks the mode, so
+    /// <c>Bindings</c> answers the switch's list whatever else is set, and the agent count only
+    /// decides how many numbers are on it (slice sixty-nine).
+    /// </remarks>
+    private static IEnumerable<KeymapContext> Switching() =>
+    [
+        new(UiMode.Normal) { Switching = true },
+        new(UiMode.Normal) { Switching = true, Agents = 1 },
+        new(UiMode.Normal) { Switching = true, Agents = MuxColumn.Most },
+        new(UiMode.Normal) { Agents = 2 },
+    ];
+
     /// <summary>The queue's marks, in the one mode and tab that read them.</summary>
     /// <remarks>
     /// <b>Beside the cross, for `OverAMachineSomebodyOwns`'s reason.</b> All
@@ -305,6 +319,7 @@ public class HelpNamesEveryKeyTests
         var missing = (from context in contexts.Concat(OverAMachineSomebodyOwns())
                                                .Concat(OverAGateThatAsksForSomething())
                                                .Concat(UnderTheMark())
+                                               .Concat(Switching())
                                                .Concat(OnTheQueue())
                                                .Concat(ReviewingAnAudience())
                        from binding in Keymap.Bindings(context)
@@ -576,7 +591,10 @@ public class HelpNamesEveryKeyTests
         // next. Held beside the cross in ReviewingAnAudience(), since it is read in
         // one mode - and because a flag claimed not to be needed at all turned out to
         // be, the moment the two stages wanted different keys.
-        await Assert.That(members.Count).IsEqualTo(37)
+        // THIRTY-NINE SINCE THE MUX HELD AGENTS (slice sixty-nine): whether ctrl-g was just
+        // pressed, and how many agents there are to number. Held beside the cross in Switching(),
+        // since the first outranks every other dimension as the mark does.
+        await Assert.That(members.Count).IsEqualTo(39)
             .Because("Everywhere() crosses every one of these, or OverAMachineSomebodyOwns() "
                    + "holds it beside the cross - and a member in neither would leave the "
                    + "completeness check above quietly incomplete, which is exactly how the "

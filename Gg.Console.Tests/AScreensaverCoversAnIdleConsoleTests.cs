@@ -78,9 +78,15 @@ public class AScreensaverCoversAnIdleConsoleTests
     public async Task It_can_be_asked_for_outright()
     {
         // ctrl+g, obscure on purpose and free: c, d, f, o, r and v are taken
-        // and g is the only letter that means anything here.
+        // and g is the only letter that means anything here. TWICE NOW (slice
+        // sixty-nine): the first arms the mux's switch, as it does beside an
+        // agent, and the second is the mark it always was.
+        var armed = Reducer.Reduce(
+            new AppState(),
+            Keymap.Resolve(KeyStroke.Control('g'), KeymapContext.For(new AppState()))!.Value);
+
         await Assert.That(
-            Keymap.Resolve(KeyStroke.Control('g'), KeymapContext.For(new AppState())))
+            Keymap.Resolve(KeyStroke.Control('g'), KeymapContext.For(armed)))
             .IsEqualTo(Command.ShowScreensaver);
 
         await Assert.That(Reducer.Reduce(new AppState(), Command.ShowScreensaver).Screening)

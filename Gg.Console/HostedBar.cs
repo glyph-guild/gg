@@ -173,8 +173,10 @@ public static class HostedBar
         string? body = null,
         int most = 0,
         int columns = 0,
-        HostedView opensOn = HostedView.Envelope)
+        HostedView opensOn = HostedView.Envelope,
+        string? status = null)
     {
+        _ = status;
         if (panel.Showing == HostedView.Closed)
         {
             // OPENS ON THE ENVELOPE rather than on a menu asking which of two

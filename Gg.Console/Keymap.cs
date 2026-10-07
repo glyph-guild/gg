@@ -224,6 +224,10 @@ public readonly record struct KeymapContext(
     public bool Screening { get; init; }
 
     /// <summary>Whether ctrl-g was just pressed, so the next key switches the mux (slice sixty-nine).</summary>
+    /// <remarks>
+    /// <b>It outranks the mode, as the mark does</b>, and only over Normal: one key after ctrl-g
+    /// means a tab, whatever it usually means.
+    /// </remarks>
     public bool Switching { get; init; }
 
     /// <summary>How many agents the mux holds, so only a number that is on a row is bound.</summary>
@@ -457,7 +461,12 @@ public readonly record struct KeymapContext(
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return With(state) with { Screening = state.Screening };
+        return With(state) with
+        {
+            Screening = state.Screening,
+            Switching = state.Switching,
+            Agents = state.Agents.Count,
+        };
     }
 
     private static KeymapContext With(AppState state)
@@ -897,7 +906,30 @@ public static class Keymap
             { When = "while the mark is up" },
     ];
 
+    /// <summary>
+    /// The keys after ctrl-g (slice sixty-nine): <c>0</c> gg, <c>1</c>-<c>9</c> an agent on a row,
+    /// <c>+</c> a new agent, <c>H</c> history - the same keys an agent's screen takes after it.
+    /// </summary>
+    /// <remarks>
+    /// <b>ctrl-g twice is still the mark.</b> ctrl-g was the mark's key alone; it arms the switch
+    /// now, as it does beside an agent, and pressed again it does what it always did.
+    /// </remarks>
+    private static IReadOnlyList<KeyBinding> Switch(KeymapContext context) =>
+    [
+        new(KeyStroke.Char('0'), Command.ShowGg, "gg") { When = "after ctrl-g" },
+        .. Enumerable.Range(1, Math.Min(context.Agents, MuxColumn.Most)).Select(number =>
+            new KeyBinding(KeyStroke.Char((char)('0' + number)), MuxCommands.Agent(number), $"agent {number}")
+                { When = "after ctrl-g" }),
+        new(KeyStroke.Char('+'), Command.ShowNewAgent, "a new agent") { When = "after ctrl-g" },
+        // LOWER CASE HERE: the console's keys arrive as letters without their shift. Beside an
+        // agent the mux takes H or h.
+        new(KeyStroke.Char('h'), Command.ShowHistory, "history") { When = "after ctrl-g" },
+        new(KeyStroke.Control('g'), Command.ShowScreensaver, "show the mark") { When = "after ctrl-g" },
+        new(KeyStroke.Esc, Command.ShowGg, "stay in gg") { When = "after ctrl-g" },
+    ];
+
     public static IReadOnlyList<KeyBinding> Bindings(KeymapContext context) =>
+        context.Switching && !context.Screening && context.Mode == UiMode.Normal ? Switch(context) :
         // THE MARK OUTRANKS THE MODE, AND ONLY COVERS THE PLAIN ONE. While it
         // is up the keys underneath are unreachable - a key that both woke the
         // console and grounded a flight is the worst possible reading of "press
@@ -2180,7 +2212,9 @@ public static class Keymap
             // where everything else is", never "findable only by reading the
             // source" - so it is on the help page, which is where somebody
             // looks for the key they half remember.
-            new(KeyStroke.Control('g'), Command.ShowScreensaver, "show the mark")
+            // AND NOW THE MUX'S PREFIX FIRST (slice sixty-nine): ctrl-g then 0, 1-9, + or H
+            // switches, as beside an agent, and ctrl-g twice is the mark.
+            new(KeyStroke.Control('g'), Command.ArmSwitch, "switch: then 0 gg, 1-9 an agent, + new, H history")
                 { OffTheHintLine = true },
             new(KeyStroke.Char('r'), Command.ToggleCredentials,
                 Closes(context, TabId.Credentials, "repositories")) { OffTheHintLine = true },
@@ -2644,6 +2678,16 @@ public static class Keymap
         {
             entries.Add(new KeyCatalogueEntry(UiMode.Normal, binding));
             seen.Add((UiMode.Normal, binding.Key, binding.Command));
+        }
+
+        // AND THE SWITCH, FOR THE MARK'S REASON: it outranks the mode, so no mode's shapes reach
+        // it. Shaped with every agent, so each number is on the page.
+        foreach (var binding in Bindings(new KeymapContext(UiMode.Normal) { Switching = true, Agents = MuxColumn.Most }))
+        {
+            if (seen.Add((UiMode.Normal, binding.Key, binding.Command)))
+            {
+                entries.Add(new KeyCatalogueEntry(UiMode.Normal, binding));
+            }
         }
 
         foreach (var mode in Enum.GetValues<UiMode>())

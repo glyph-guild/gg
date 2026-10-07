@@ -52,7 +52,7 @@ public static class Reducer
             // flight's first ones, with nothing saying they are not its.
             // THE MARK GOES UP, AND THE MODE IS NOT TOUCHED. It covers
             // whatever is there and the same thing is under it when it goes.
-            Command.ShowScreensaver => state with { Screening = true, IdleTicks = 0 },
+            Command.ShowScreensaver => state with { Screening = true, Switching = false, IdleTicks = 0 },
 
             // AND COMES DOWN ON ANYTHING. The count goes back to nought with
             // it: a key that woke the console is somebody at the keyboard, so
@@ -424,6 +424,17 @@ public static class Reducer
             Command.ComposeInEditor => state,
             Command.ComposeWithAgent => state,
             Command.PlanWithAgent => state,
+
+            // THE SWITCH ARMS AND DISARMS HERE; WHERE IT GOES IS THE SHELL'S (slice sixty-nine).
+            Command.ArmSwitch => state with { Switching = true },
+            Command.ShowGg => state with { Switching = false },
+
+            // THE SHELL'S, SO THE REDUCER LEAVES THEM ALONE: the loop disarms the switch when it
+            // shows what they name.
+            Command.ShowAgent1 or Command.ShowAgent2 or Command.ShowAgent3 or Command.ShowAgent4
+                or Command.ShowAgent5 or Command.ShowAgent6 or Command.ShowAgent7 or Command.ShowAgent8
+                or Command.ShowAgent9 or Command.ShowNewAgent or Command.ShowHistory
+                or Command.AgentsEnded => state,
 
             // TAB TURNS THE HELP PAGE WHILE HELP OWNS THE KEYBOARD, and moves
             // the focused pane everywhere else. A modal holds the keys for one

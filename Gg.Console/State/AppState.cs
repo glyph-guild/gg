@@ -1798,7 +1798,10 @@ public sealed record AppState
     /// <summary>Whether ctrl-g was just pressed, so the next key switches the mux (slice sixty-nine).</summary>
     public bool Switching { get; init; }
 
-    /// <summary>The agents the mux holds beside gg, as its column lists them (slice sixty-nine).</summary>
+    /// <summary>
+    /// The agents the mux holds beside gg, as its column lists them (slice sixty-nine). Folded in
+    /// from the mux, which the shell owns; empty, and no column drawn, when none lives.
+    /// </summary>
     public IReadOnlyList<MuxRow> Agents { get; init; } = [];
 
     /// <summary>Seconds since anybody touched the keyboard or clicked.</summary>

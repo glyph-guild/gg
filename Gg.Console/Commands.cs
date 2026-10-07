@@ -1435,6 +1435,22 @@ public static class ShellCommands
         // AND PLANNING WITH ONE (slice sixty-six): it hands the terminal to a child.
         Command.PlanWithAgent,
 
+        // AND SWITCHING THE MUX TO AN AGENT, A NEW ONE, OR HISTORY (slice sixty-nine): each
+        // hands the terminal to the mux, and an ending is folded by the shell because what an
+        // agent leaves may be a flight to open.
+        Command.ShowAgent1,
+        Command.ShowAgent2,
+        Command.ShowAgent3,
+        Command.ShowAgent4,
+        Command.ShowAgent5,
+        Command.ShowAgent6,
+        Command.ShowAgent7,
+        Command.ShowAgent8,
+        Command.ShowAgent9,
+        Command.ShowNewAgent,
+        Command.ShowHistory,
+        Command.AgentsEnded,
+
         // SETTING A FLOOR IS A WRITE, so it happens between sessions with the
         // terminal provably free - the arrangement every other write here
         // uses. As a pure reduction it would change the model and never reach

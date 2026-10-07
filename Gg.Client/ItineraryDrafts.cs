@@ -187,6 +187,25 @@ public sealed class ItineraryDrafts(string root)
     /// The draft file's digest: what "changed since it was proposed" compares. Of the bytes, so a
     /// hand edit counts as a change as much as a tool's does.
     /// </summary>
+    /// <summary>
+    /// Every draft that has been proposed, with what it was proposed as: the mux's history screen
+    /// lists them (slice sixty-nine). A record that does not read is left out, as
+    /// <see cref="Proposed"/> leaves it.
+    /// </summary>
+    public IReadOnlyList<(string Draft, ProposedPlan Plan)> ProposedDrafts()
+    {
+        if (!Directory.Exists(_root))
+        {
+            return [];
+        }
+
+        return [.. Directory.EnumerateFiles(_root, "*.proposed")
+            .Select(path => Path.GetFileNameWithoutExtension(path))
+            .Select(name => (Draft: name, Plan: Proposed(name)))
+            .Where(found => found.Plan is not null)
+            .Select(found => (found.Draft, found.Plan!))];
+    }
+
     public string DigestOf(string name) =>
         File.Exists(PathOf(name))
             ? Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(PathOf(name))))

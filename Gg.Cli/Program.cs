@@ -1737,6 +1737,25 @@ static async Task<int> LaunchConsoleAsync()
     var expectations = new Gg.Console.Expectations(
         expected => Task.Run(() => lookFor(expected)), new SystemClock());
 
+    // THE AGENTS BESIDE GG (slice sixty-nine): one mux for the console's life, given to the
+    // session for its column and to the loop that shows and ends them. History reads the drafts'
+    // records and one plan at a time, here because only this root may name the control plane.
+    var mux = new Gg.Console.Mux(
+            ledger: Gg.Console.MuxLedger.ForThisMachine(),
+            agentCommand: Settings.Value("GG_TAKE_COMMAND", InForce.Configuration))
+        .Reading(Gg.Client.ItineraryDrafts.ForThisMachine(), reference =>
+        {
+            try
+            {
+                return new FlightCommands(client, sessions).ItineraryAsync(reference).GetAwaiter().GetResult();
+            }
+            catch (Exception unread) when (unread is HttpRequestException or NotSignedInException
+                                               or ProtocolTooOldException or TaskCanceledException)
+            {
+                return null;
+            }
+        });
+
     var final = new ConsoleLoop(
         new TerminalGuiSession(
             tails, runnerLog, refresh, signIn.Landed,
@@ -1862,7 +1881,8 @@ static async Task<int> LaunchConsoleAsync()
 
             // THE SAME HOLDER THE BROADCAST DELEGATE SPENDS. One instance, because a
             // session that made its own would type into a holder nothing reads.
-            held: heldSecret),
+            held: heldSecret,
+            mux: mux),
         // HOSTED, SO GG KEEPS A ROW WHILE THE EDITOR HAS THE SCREEN. The
         // handoff is the same one it always was - text out, a real process, text
         // back - and the difference is that gg mediates the terminal instead of
@@ -1889,6 +1909,8 @@ static async Task<int> LaunchConsoleAsync()
         // is what EveryPortIsPassedTests exists to catch - it caught this one.
         compose: new PtyAgentSession(
             Settings.Value("GG_TAKE_COMMAND", InForce.Configuration),
+            // BESIDE GG, AS A TAB (slice sixty-nine): launched by the loop, the mux hosts it.
+            host: mux.Host,
             // THE RULES IN FORCE, FOR THE PANEL TO SHOW. Read here because this
             // is the only place that may name the control plane, and read once
             // per compose session rather than on the keypress - the panel opens
@@ -2174,10 +2196,21 @@ static async Task<int> LaunchConsoleAsync()
                 path: null, typed: current.AirspacePathTyped),
         },
 
-        planSession: current => current with
+        // A TAB BESIDE GG (slice sixty-nine): the session runs on the mux's thread, on a draft no
+        // other live plan agent holds, and what it left is folded when its agent ends.
+        planSession: current =>
         {
-            LastNomination = new Gg.Console.PtyPlanSession(
-                Settings.Value("GG_TAKE_COMMAND", InForce.Configuration)).Run(),
+            var draft = Gg.Console.PtyPlanSession.FreeDraft(mux.Labels());
+            mux.Launch($"plan · {draft}", () =>
+            {
+                var said = new Gg.Console.PtyPlanSession(
+                    Settings.Value("GG_TAKE_COMMAND", InForce.Configuration),
+                    host: mux.Host,
+                    say: _ => { },
+                    draft: draft).Run();
+                return later => later with { LastNomination = said };
+            });
+            return current;
         },
 
         draftEstate: current => current with
@@ -2186,7 +2219,10 @@ static async Task<int> LaunchConsoleAsync()
                 Settings.Value("GG_TAKE_COMMAND", InForce.Configuration),
                 envelope: () => ConsoleEnvelope.Read(data, new AppState()).Envelope)
                 .Draft(Airspace()),
-        })
+        },
+
+        // THE AGENTS BESIDE GG (slice sixty-nine): shown between sessions, ended on quit.
+        mux: mux)
         .Run(initial);
 
     // Demo/verification hook: prove the surviving model is the whole truth.

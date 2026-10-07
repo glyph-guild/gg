@@ -75,9 +75,15 @@ public static class PtyScreen
         int columns,
         IReadOnlyList<string> panel,
         string? footer = null,
-        bool dim = false)
+        bool dim = false,
+        int left = 0)
     {
         ArgumentNullException.ThrowIfNull(panel);
+
+        // WHERE GG'S ROWS AND THE CHILD'S START ACROSS: the first column, or past the mux's
+        // navigation column (slice sixty-nine). Every position below is offset by it, the cursor
+        // included, or the caret sits thirty columns left of where typing lands.
+        var at = left + 1;
 
         // WHERE THE CHILD STARTS, DERIVED RATHER THAN DECLARED. It was a
         // constant, correct only while the panel was one row - and a cursor
@@ -106,7 +112,7 @@ public static class PtyScreen
             // exists for, arriving from gg's own text rather than the child's -
             // one long row would push everything below it down and the child's
             // last row off the bottom.
-            painted.Append($"{Esc}[{row + 1};1H{Esc}[7m");
+            painted.Append($"{Esc}[{row + 1};{at}H{Esc}[7m");
             painted.Append(text.Length > columns ? text[..columns] : text.PadRight(columns));
             painted.Append($"{Esc}[0m");
         }
@@ -119,7 +125,7 @@ public static class PtyScreen
 
         for (var row = 0; row < rows; row++)
         {
-            painted.Append($"{Esc}[{row + firstChildRow};1H{Esc}[K");
+            painted.Append($"{Esc}[{row + firstChildRow};{at}H{Esc}[K");
 
             var line = buffer.Lines[buffer.YDisp + row];
             if (line is null)
@@ -159,12 +165,12 @@ public static class PtyScreen
         // about the session.
         if (footer is { Length: > 0 })
         {
-            painted.Append($"{Esc}[{rows + firstChildRow};1H{Esc}[7m");
+            painted.Append($"{Esc}[{rows + firstChildRow};{at}H{Esc}[7m");
             painted.Append(footer.Length > columns ? footer[..columns] : footer.PadRight(columns));
             painted.Append($"{Esc}[0m");
         }
 
-        painted.Append($"{Esc}[{buffer.Y + firstChildRow};{buffer.X + 1}H{Esc}[?25h{Esc}[?7h");
+        painted.Append($"{Esc}[{buffer.Y + firstChildRow};{buffer.X + at}H{Esc}[?25h{Esc}[?7h");
 
         return painted.ToString();
     }

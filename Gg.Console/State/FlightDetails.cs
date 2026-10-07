@@ -409,9 +409,13 @@ public static class FlightDetails
         // its subject.
         foreach (var owed in story?.Outstanding ?? [])
         {
+            // AND WHAT WAS SAID, which is what a person answers: an agent's question
+            // or a runner's reason for giving the flight back. The sentence alone said
+            // only that something was asked (found on GG-968).
+            var sentence = FlightStory.Sentence(owed.Kind, owed.Params);
             fields.Add(new FlightField(
                 "awaiting",
-                ControlText.Strip(FlightStory.Sentence(owed.Kind, owed.Params))));
+                ControlText.Strip(owed.Said is { Length: > 0 } said ? $"{sentence}: {said}" : sentence)));
         }
 
         return fields;

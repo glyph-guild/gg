@@ -774,6 +774,12 @@ public static class PaneText
             foreach (var owed in story.Outstanding)
             {
                 text.AppendLine($"    {Clean(Gg.Contracts.FlightStory.Sentence(owed.Kind, owed.Params))}");
+
+                // WHAT WAS SAID, which is what a person answers (found on GG-968).
+                if (owed.Said is { Length: > 0 } said)
+                {
+                    text.AppendLine($"      {Clean(said)}");
+                }
             }
         }
 

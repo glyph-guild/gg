@@ -14,7 +14,7 @@ namespace Gg.Cli.Tests;
 /// </remarks>
 public class TheToolServerProposesOnceTests
 {
-    private static ItineraryServerHarness AFinishedDraft() => new ItineraryServerHarness()
+    internal static ItineraryServerHarness AFinishedDraft() => new ItineraryServerHarness()
         .Method("initialize", client: "claude-code")
         .Call("set_intent", new { text = "three findings in one bug" })
         .Call("draft_leg", new { subject = "the icon", work_kind = "implement", reason = "named first" })

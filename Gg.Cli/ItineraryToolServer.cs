@@ -171,6 +171,18 @@ public static class ItineraryToolServer
             && content[0].TryGetProperty("text", out var text)
             && text.GetString() is { } said)
         {
+            // OPENED BY WHAT THE DRAFT WAS PROPOSED AS (slice sixty-eight), read after the call so
+            // a propose or an edit is already reflected: the agent reads results, not the bar.
+            if (drafts.ProposalLine(draft) is { } line
+                && parsed.RootElement.TryGetProperty("id", out var id))
+            {
+                said = line + "\n\n" + said;
+                answer = Content(
+                    id,
+                    said,
+                    result.TryGetProperty("isError", out var error) && error.GetBoolean());
+            }
+
             drafts.KeepResult(draft, said);
         }
 
@@ -672,11 +684,21 @@ public static class ItineraryToolServer
 
         try
         {
+            // PROPOSING AGAIN REPLACES (slice sixty-eight): the plan this draft was last proposed
+            // as goes with it, and the door withdraws that plan in the same request.
             var proposed = await proposals.ProposeAsync(new ItineraryProposal
             {
                 Draft = plan,
                 Via = session.Client is { } client ? $"{client} ({Server})" : Server,
+                Supersedes = drafts.Proposed(draft)?.Itinerary,
             }, cancellationToken);
+
+            drafts.KeepProposed(draft, new ProposedPlan(
+                proposed.Itinerary,
+                proposed.Pass,
+                [.. proposed.Gates.Select(g => g.ObligationId)],
+                drafts.DigestOf(draft),
+                DateTimeOffset.UtcNow));
 
             return Content(id,
                 VerbOutput.ItineraryProposedText(proposed) + "\n\n" + Rendered(drafts, draft),

@@ -117,18 +117,98 @@ public sealed class ItineraryDrafts(string root)
     /// <summary>Where the record of what this draft was last proposed as is kept.</summary>
     public string ProposedPathOf(string name) => Path.Combine(_root, name + ".proposed");
 
-    /// <summary>What this draft was last proposed as, or null when it never was (shape only).</summary>
-    public ProposedPlan? Proposed(string name) => null;
-
-    /// <summary>Records what this draft was proposed as (shape only).</summary>
-    public void KeepProposed(string name, ProposedPlan plan)
+    /// <summary>What this draft was last proposed as, or null when it never was.</summary>
+    /// <remarks>
+    /// <b>A record that cannot be read is no record</b>, and says nothing: the bar then shows the
+    /// draft as unproposed, and the door's own claims are what stop a second plan regardless.
+    /// </remarks>
+    public ProposedPlan? Proposed(string name)
     {
+        if (Refused(name) is not null || !File.Exists(ProposedPathOf(name)))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var read = System.Text.Json.JsonDocument.Parse(File.ReadAllText(ProposedPathOf(name)));
+            var root = read.RootElement;
+            return new ProposedPlan(
+                root.GetProperty("itinerary").GetString()!,
+                root.GetProperty("pass").GetString()!,
+                [.. root.GetProperty("gates").EnumerateArray().Select(g => g.GetString()!)],
+                root.GetProperty("digest").GetString()!,
+                root.GetProperty("at").GetDateTimeOffset());
+        }
+        catch (Exception unreadable) when (unreadable is System.Text.Json.JsonException
+                                              or KeyNotFoundException or InvalidOperationException
+                                              or FormatException or IOException)
+        {
+            return null;
+        }
     }
 
-    /// <summary>The line the bar, the panel and every tool result open with (shape only).</summary>
-    public string? ProposalLine(string name) => null;
+    /// <summary>
+    /// Records what this draft was proposed as, written whole by rename (slice sixty-eight): no
+    /// tool call but a later proposal of the same draft replaces it.
+    /// </summary>
+    public void KeepProposed(string name, ProposedPlan plan)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        if (Refused(name) is not null)
+        {
+            return;
+        }
 
-        /// <summary>The draft as the file holds it now.</summary>
+        Directory.CreateDirectory(_root);
+        var staged = ProposedPathOf(name) + ".writing";
+        using (var stream = File.Create(staged))
+        using (var writer = new System.Text.Json.Utf8JsonWriter(stream, new() { Indented = true }))
+        {
+            writer.WriteStartObject();
+            writer.WriteString("itinerary", plan.Itinerary);
+            writer.WriteString("pass", plan.Pass);
+            writer.WriteStartArray("gates");
+            foreach (var gate in plan.Gates)
+            {
+                writer.WriteStringValue(gate);
+            }
+
+            writer.WriteEndArray();
+            writer.WriteString("digest", plan.Digest);
+            writer.WriteString("at", plan.At);
+            writer.WriteEndObject();
+        }
+
+        File.Move(staged, ProposedPathOf(name), overwrite: true);
+    }
+
+    /// <summary>
+    /// The draft file's digest: what "changed since it was proposed" compares. Of the bytes, so a
+    /// hand edit counts as a change as much as a tool's does.
+    /// </summary>
+    public string DigestOf(string name) =>
+        File.Exists(PathOf(name))
+            ? Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(PathOf(name))))
+            : "";
+
+    /// <summary>
+    /// The line the bar, the panel and every tool result open with once the draft has been
+    /// proposed; null before.
+    /// </summary>
+    /// <remarks>
+    /// <b>Found on ITN-61 and ITN-62</b>: nothing a person or the agent read said a draft had been
+    /// proposed, so it was edited and proposed again as a second plan.
+    /// </remarks>
+    public string? ProposalLine(string name) =>
+        Proposed(name) is not { } plan
+            ? null
+            : string.Equals(plan.Digest, DigestOf(name), StringComparison.Ordinal)
+                ? $"proposed as {plan.Itinerary} · waiting on "
+                  + (plan.Gates.Count > 0 ? string.Join(", ", plan.Gates) : "its gate")
+                : $"changed since {plan.Itinerary} was proposed · proposing again replaces it";
+
+    /// <summary>The draft as the file holds it now.</summary>
     public DraftRead Read(string name)
     {
         if (Refused(name) is { } refused)

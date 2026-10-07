@@ -359,6 +359,18 @@ public class VerbParityTests
                            + "CredentialSend, because it reads a code with the echo off. Until "
                            + "then the verb is the command line's: `gg agent login --runner "
                            + "<id>`.",
+            ["CredentialSendWhereNeeded"] = "absent, and a gap with a date on it. The console can "
+                                          + "send a credential to ONE machine already - `c` from "
+                                          + "the runner modal - and the broadcast is the same act "
+                                          + "with the machine argument left out, so the console "
+                                          + "arm is a list to show and a confirmation to take "
+                                          + "rather than new machinery. What it needs that the "
+                                          + "CLI does not is somewhere to PUT the audience: a "
+                                          + "modal listing every recipient with its locator and "
+                                          + "whether it can be reached, which is a pane-shaped "
+                                          + "decision and not a keystroke. Until then the verb "
+                                          + "is the command line's: `gg credential send --repo "
+                                          + "<slug>` with no --runner.",
             ["CredentialTrustThisMachine"] = "RUN, from the credential actions modal on `t`, "
                                            + "and built in the same step as the verb rather "
                                            + "than deferred - because the credentials tab's "

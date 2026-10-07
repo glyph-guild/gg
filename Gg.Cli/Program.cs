@@ -250,6 +250,7 @@ return await ByName(CliArgs.Parse(args)) switch
     CliAction.CredentialAdd add =>
         await CredentialAsync(add.Json, c => c.AddAsync(add.Named, add.Scopes, add.Identity, add.Subject)),
     CliAction.CredentialSend send => await SendCredentialAsync(send),
+    CliAction.CredentialSendWhereNeeded everywhere => await SendWhereNeededAsync(everywhere),
     CliAction.AgentCredentialSend send => await SendAgentCredentialAsync(send),
     CliAction.AgentLogin login => await AgentLoginAsync(login),
     CliAction.KeyCreate create => await KeyCreatedAsync(create.Json),
@@ -2391,6 +2392,108 @@ static string LoginFromTheConsole(string runnerId, string provider)
         .GetResult();
 
     return ended.Said;
+}
+
+/// <summary>
+/// Sends a credential to every machine the tenant declared needs it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>ADR-0037 Decision 9, and the reach S64.5-05 asks for.</b> An audience derived by a
+/// client method nobody can call is a feature nobody has - the lesson
+/// <c>AClientMethodIsNotAReachTests</c> exists for - so the derivation is wired to the
+/// verb that already moves a credential, with its machine argument left out.
+/// </para>
+/// <para>
+/// <b>Printed, then opened once, then pushed.</b> The ordering is the criterion: a list
+/// printed alongside the sending is a log, and a list printed first is a chance to stop.
+/// One passphrase covers the whole audience because the opener is resolved before the
+/// loop, which is rule 3 - asking per machine teaches people to script it.
+/// </para>
+/// <para>
+/// <b>Two reads, each made once.</b> The fleet read replays every profile's event stream,
+/// so asking per recipient would replay them per machine.
+/// </para>
+/// </remarks>
+static async Task<int> SendWhereNeededAsync(CliAction.CredentialSendWhereNeeded send)
+{
+    var session = new FileSessionStore().Read();
+    if (session is null)
+    {
+        return Fail("Nobody is signed in on this machine. Run `gg login` first.");
+    }
+
+    using var http = new HttpClient { BaseAddress = new Uri(ControlPlaneAddress()) };
+    var control = new ControlPlaneClient(http);
+
+    var runners = await control.ListRunnersAsync(session.SessionToken);
+    var profiles = await control.ListFleetProfilesAsync(session.SessionToken);
+
+    var audience = CredentialAudience.For(send.Locator, runners.Runners, profiles.Profiles);
+
+    // BEFORE ANYTHING MOVES. Everything below this line can fail per machine; the
+    // list is what a person reviews, and it is printed whole first.
+    Console.Error.WriteLine($"gg: {send.Locator} is wanted by:");
+    CredentialBroadcast.Announce(send.Locator, audience, line => Console.Error.WriteLine(line));
+
+    var machineKey = MachineKey.LoadOrCreate();
+    var store = new FileCredentialStore();
+
+    // OPENED ONCE, OUTSIDE THE LOOP, and null when there is nobody reachable - so a
+    // passphrase is never read for a push that is not going to happen.
+    var sending = CredentialBroadcast.Opened(
+        store, machineKey, send.Locator, audience,
+        new ConsoleSecretPrompt(), line => Console.Error.WriteLine($"gg: {line}"));
+
+    if (sending is null)
+    {
+        return audience.Count == 0 ? 0 : Fail(
+            "Nothing was sent: no machine in that list can be reached right now. The list above "
+          + "says why for each one.");
+    }
+
+    var reached = 0;
+    var missed = 0;
+
+    foreach (var row in audience.Where(a => a.Reachable))
+    {
+        var sent = await new SendACredential(
+            control,
+            new ConsoleChannel(
+                Gg.Runner.StunConfiguration.FromEnvironment(
+                    Settings.Value(Gg.Runner.StunConfiguration.Variable, InForce.Configuration)),
+                TimeSpan.FromSeconds(20)))
+            .SendAsync(
+                session.SessionToken,
+                row.RunnerId,
+                send.Locator,
+                sending.Envelope,
+                sending.Opener,
+                new PinnedRunnerKeys(),
+                DateTimeOffset.UtcNow,
+                saying: line => Console.Error.WriteLine($"gg: {row.Label}: {line}"));
+
+        // ONE MACHINE'S FAILURE IS NOT THE BROADCAST'S. A machine that went offline
+        // between the read and the push, or whose pin changed, must not stop the
+        // others - and each outcome is named rather than counted.
+        Console.WriteLine($"{row.Label}: {sent.Said}");
+
+        if (sent.Outcome is SendOutcome.Sent)
+        {
+            reached++;
+        }
+        else
+        {
+            missed++;
+        }
+    }
+
+    Console.WriteLine(missed == 0
+        ? $"Sent {send.Locator} to {reached} machine(s)."
+        : $"Sent {send.Locator} to {reached} machine(s); {missed} did not take it, named above. "
+        + "Nothing is held for them.");
+
+    return missed == 0 ? 0 : 1;
 }
 
 static Task<int> SendCredentialAsync(CliAction.CredentialSend send) =>

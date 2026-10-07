@@ -66,6 +66,7 @@ public class ACredentialsAudienceIsDeclaredTests
             Profile = new FleetProfile
             {
                 Environment = name,
+                Roles = [],
                 Credentials = credentials,
             },
         };

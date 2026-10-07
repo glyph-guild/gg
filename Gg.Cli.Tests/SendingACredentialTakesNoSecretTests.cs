@@ -50,22 +50,52 @@ public class SendingACredentialTakesNoSecretTests
     }
 
     [Test]
-    public async Task Both_are_required_and_the_refusal_says_which_is_missing()
+    public async Task The_credential_is_required_and_the_refusal_says_so()
     {
-        foreach (var (line, wanted) in new[]
-        {
-            ((string[])["credential", "send", "--repo", "acme/widgets"], "--runner"),
-            ((string[])["credential", "send", "--runner", "runner-1"], "--repo"),
-        })
-        {
-            var refused = CliArgs.Parse(line);
+        // ONE OF THE TWO STOPPED BEING REQUIRED IN SLICE SIXTY-FOUR STEP 5. A send with
+        // no --runner used to be refused; it is now a BROADCAST - ADR-0037 Decision 9,
+        // a push names a credential and the fleet says who needs it - so the only thing
+        // this verb cannot do without is knowing WHICH credential.
+        var refused = CliArgs.Parse(["credential", "send", "--runner", "runner-1"]);
 
-            await Assert.That(refused).IsTypeOf<CliAction.Unknown>();
-            await Assert.That(((CliAction.Unknown)refused).Message)
-                .Contains(wanted, StringComparison.Ordinal)
-                .Because("a refusal that names a problem and hides which half of the line "
-                       + "was wrong is half a sentence.");
-        }
+        await Assert.That(refused).IsTypeOf<CliAction.Unknown>();
+        await Assert.That(((CliAction.Unknown)refused).Message)
+            .Contains("--repo", StringComparison.Ordinal)
+            .Because("a refusal that names a problem and hides which half of the line "
+                   + "was wrong is half a sentence.");
+    }
+
+    [Test]
+    public async Task And_a_send_with_no_machine_is_a_broadcast_rather_than_a_refusal()
+    {
+        var parsed = CliArgs.Parse(["credential", "send", "--repo", "acme/widgets"]);
+
+        var broadcast = await Assert.That(parsed)
+            .IsTypeOf<CliAction.CredentialSendWhereNeeded>()
+            .Because("leaving --runner out is how a person says 'wherever this is needed', and "
+                   + "the fleet is what answers - which is the whole of Decision 9.");
+
+        await Assert.That(((CliAction.CredentialSendWhereNeeded)parsed).Locator)
+            .IsEqualTo("local:acme/widgets")
+            .Because("the locator is derived at the parse rather than in the handler, because the "
+                   + "audience is keyed on exactly the string the recipients look under.");
+
+        _ = broadcast;
+    }
+
+    [Test]
+    public async Task A_broadcast_still_refuses_two_credentials_at_once()
+    {
+        // THE REFUSAL THAT SURVIVES. Dropping --runner must not drop the one-send-one-
+        // credential rule with it: two locators would be two files and one secret.
+        var refused = CliArgs.Parse(
+            ["credential", "send", "--repo", "acme/widgets", "--agent", "claude"]);
+
+        await Assert.That(refused).IsTypeOf<CliAction.Unknown>();
+
+        await Assert.That(((CliAction.Unknown)refused).Message)
+            .Contains("not both", StringComparison.Ordinal)
+            .Because("one send puts one credential under one locator, with or without a machine.");
     }
 
     [Test]

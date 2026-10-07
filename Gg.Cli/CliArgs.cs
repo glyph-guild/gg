@@ -554,6 +554,24 @@ public abstract record CliAction
     /// secret is not here and cannot be, because an argument is in shell
     /// history and in <c>ps</c> output before any code of ours has run.
     /// </remarks>
+    /// <summary>
+    /// Sends a credential to every machine the tenant has declared needs it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>ADR-0037 Decision 9: a push names a credential, not a machine.</b> It carries a
+    /// locator rather than a slug because the audience is keyed on the exact string the
+    /// recipients look under, and deriving it twice is the hazard <c>Credentials.cs</c>
+    /// is written to prevent.
+    /// </para>
+    /// <para>
+    /// <b>No runner, deliberately.</b> <c>--runner</c> is how a person names one machine;
+    /// its absence is how they say "wherever this is needed", and the fleet answers.
+    /// </para>
+    /// </remarks>
+    public sealed record CredentialSendWhereNeeded(string Locator, bool Json)
+        : CliAction, IEmitsResult;
+
     public sealed record CredentialSend(
         string RunnerId, string Repo, bool Json) : CliAction, IEmitsResult, INameAMachine
     { public CliAction WithRunner(string runnerId) => this with { RunnerId = runnerId }; }
@@ -906,6 +924,9 @@ public static class CliArgs
         "gg credential add --repo <slug>|--agent <name>|--tracker <key>",
         "                                 register a credential for what it is actually for;",
         "                                 the value is prompted for and never an argument",
+        "gg credential send --repo <slug>|--agent <name>",
+        "                                 send it to every machine your fleet profiles say",
+        "                                 needs it; the list is printed before anything moves",
         "gg credential send --runner <id|name> --repo <slug>|--agent <name>",
         "                                 put one on a machine that cannot be reached any other way",
         "gg key create                  mint this person's key; the passphrase is prompted for",
@@ -2249,11 +2270,35 @@ public static class CliArgs
             }
         }
 
+        // NO --runner IS A BROADCAST, which is ADR-0037 Decision 9: a push names a
+        // CREDENTIAL and the fleet says who needs it. This used to refuse, and the
+        // refusal was the whole reason a person had to know which machines their own
+        // profiles declare - which is a thing gg can read and they cannot.
+        //
+        // The locator is still derived here rather than in the handler, because the
+        // broadcast's audience is keyed on exactly the string the recipients will look
+        // under: two derivations that agree today is how a runner ends up hunting for a
+        // file the CLI never wrote.
         if (runner is not { Length: > 0 })
         {
-            return Unknown(
-                "gg credential send needs --runner <id|name>: which machine to put it on. "
-              + "`gg runners` lists them, and either the id or the machine's name will do.");
+            if (repo is { Length: > 0 } && agent is { Length: > 0 })
+            {
+                return Unknown(
+                    "gg credential send takes --repo or --agent, not both: one send puts one "
+                  + "credential under one locator.");
+            }
+
+            return (repo, agent) switch
+            {
+                ({ Length: > 0 } slug, _) => new CliAction.CredentialSendWhereNeeded(
+                    CredentialLocator.ForRepo(slug), json),
+                (_, { Length: > 0 } named) => new CliAction.CredentialSendWhereNeeded(
+                    CredentialLocator.ForAgent(named), json),
+                _ => Unknown(
+                    "gg credential send needs to know which credential: --repo <slug> or "
+                  + "--agent <name>. Name a machine with --runner to send to one; leave it out "
+                  + "and gg sends it to every machine your fleet profiles say needs it."),
+            };
         }
 
         // ONE SEND, ONE CREDENTIAL. Two locators would be two files and one

@@ -52,7 +52,7 @@ public class AnOfflineMachineIsNamedNotQueuedTests
             Name = name,
             Version = "v1",
             AppliedAt = DateTimeOffset.UnixEpoch,
-            Profile = new FleetProfile { Environment = name, Credentials = credentials },
+            Profile = new FleetProfile { Environment = name, Roles = [], Credentials = credentials },
         };
 
     [Test]

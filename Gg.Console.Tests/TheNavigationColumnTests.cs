@@ -72,13 +72,28 @@ public class TheNavigationColumnTests
             .IsTrue();
 
         var painted = fixture.Terminal.Painted;
-        await Assert.That(painted).Contains("\u001b[1;1H\u001b[0;38;2;16;24;32;48;2;124;176;204m gg")
-            .Because("gg is always the column's first row, in the blue, at the left edge.");
+        await Assert.That(painted).Contains("\u001b[1;1H\u001b[0;38;2;230;237;243;48;2;56;79;92m gg")
+            .Because("gg is always the column's first row, at the left edge - on the darker ground "
+                   + "while an agent is the one shown.");
         await Assert.That(painted).Contains("\u001b[1;31H")
             .Because("the agent's bar starts in the first column past the nav.");
 
         fixture.Terminal.Type("\u0007");
         fixture.Terminal.Type("0");
         await Assert.That(await showing.WaitAsync(TimeSpan.FromSeconds(20))).IsEqualTo(MuxLeave.Gg);
+    }
+
+    [Test]
+    public async Task The_column_is_a_darker_blue_and_the_row_shown_is_the_logo_s()
+    {
+        // THE OWNER, 2026-10-07: "make the left blue darker". The ground is the logo's blue at
+        // about 45% brightness with light ink; the row on screen keeps the logo's blue, so the
+        // row a person is on is the one that stands out.
+        var painted = MuxColumn.Paint(MuxColumn.Lines(Two, MuxTab.Agent(1), height: 16));
+
+        await Assert.That(painted).Contains("\u001b[0;38;2;230;237;243;48;2;56;79;92m gg")
+            .Because("a row not shown is light ink on the darker ground.");
+        await Assert.That(painted).Contains("\u001b[0;1;38;2;16;24;32;48;2;124;176;204m 1")
+            .Because("the row shown is dark ink on the logo's blue, bold.");
     }
 }

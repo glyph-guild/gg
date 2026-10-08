@@ -32,7 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git ca-certific
 # gg from the release the fleet runs, whole - the tarball carries native
 # side-cars beside the binary, and copying gg alone drops them. Same pattern as
 # gg/deploy/member-browser/Dockerfile.
-ARG GG_VERSION=0.87.3
+ARG GG_VERSION=0.87.4
 RUN curl -fsSL "https://github.com/glyph-guild/gg/releases/download/v${GG_VERSION}/gg-linux-x64.tar.gz" -o /tmp/gg.tar.gz \
  && tar xz --no-same-owner -C /usr/local/bin -f /tmp/gg.tar.gz \
  && rm /tmp/gg.tar.gz && chmod +x /usr/local/bin/gg && /usr/local/bin/gg --version

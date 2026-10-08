@@ -467,6 +467,62 @@ public static class FlightDetails
     }
 
     /// <summary>
+    /// The fields as ROWS, with any value too wide for the column broken over
+    /// more than one of them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Because a <c>TextField</c> clips and the modal lays one per field.</b>
+    /// Reported from use: `awaiting` was cut off. What pushed these past the
+    /// column was `awaiting` becoming <c>$"{sentence}: {said}"</c> so a person
+    /// could read what was actually asked - worth having, and it made the widest
+    /// value in the modal several times the width of the widest one before it.
+    /// </para>
+    /// <para>
+    /// <b>The label on the first row only.</b> A label repeated down the
+    /// continuations reads as several things owed rather than one sentence, and
+    /// one field per thing owed is exactly what the label means here.
+    /// </para>
+    /// <para>
+    /// <b>A width of zero wraps nothing</b>, this file's own rule one method
+    /// down: a viewport has no width until it has been laid out, and wrapping to
+    /// none is a modal that becomes a column of single letters.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<FlightField> Wrapped(
+        IReadOnlyList<FlightField> fields, int width)
+    {
+        ArgumentNullException.ThrowIfNull(fields);
+
+        if (width <= 0)
+        {
+            return fields;
+        }
+
+        var rows = new List<FlightField>(fields.Count);
+
+        foreach (var field in fields)
+        {
+            if (field.Value.Length <= width)
+            {
+                rows.Add(field);
+                continue;
+            }
+
+            // THE SAME BREAK THE LOG-DETAIL PANE USES, rather than a second
+            // opinion about where a line ends.
+            var lines = Rows.Wrapped(field.Value, width);
+
+            for (var i = 0; i < lines.Count; i++)
+            {
+                rows.Add(new FlightField(i == 0 ? field.Label : "", lines[i]));
+            }
+        }
+
+        return rows;
+    }
+
+    /// <summary>
     /// What the entry under the cursor said, broken to the width it is shown at.
     /// </summary>
     /// <remarks>

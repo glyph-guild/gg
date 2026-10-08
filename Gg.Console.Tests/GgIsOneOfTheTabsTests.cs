@@ -1,8 +1,8 @@
 namespace Gg.Console.Tests;
 
 /// <summary>
-/// <b>S69.4-01</b> - choosing gg shows the console with the column while agents live, and the agents
-/// keep running behind it.
+/// <b>S69.4-01</b> - choosing gg shows the console with the column, and the agents keep running
+/// behind it. Since 2026-10-07 the column is there from launch, before any agent.
 /// </summary>
 public class GgIsOneOfTheTabsTests
 {
@@ -46,13 +46,28 @@ public class GgIsOneOfTheTabsTests
     }
 
     [Test]
-    public async Task The_console_draws_the_column_only_while_an_agent_lives()
+    public async Task The_console_opens_in_the_mux_view_with_no_agents()
     {
+        // OWNER'S CALL, 2026-10-07: gg launches into the mux view - the column, gg chosen, no
+        // agents - rather than hiding the column until the first agent starts. Slice sixty-nine
+        // drew it only while an agent lived.
         var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
 
         await Assert.That(screen).Contains("new MuxColumnView(");
-        await Assert.That(screen).Contains("var alive = State.Agents.Count > 0;")
-            .Because("with no agent there is no column at all, so a person who never starts one sees no change.");
+        await Assert.That(screen).DoesNotContain("State.Agents.Count > 0")
+            .Because("the column does not wait for an agent: it is there from launch.");
+        await Assert.That(screen).Contains("var left = MuxColumn.Width;")
+            .Because("the console sits beside the column whether or not an agent lives.");
+    }
+
+    [Test]
+    public async Task The_column_with_no_agents_offers_gg_a_new_agent_and_history()
+    {
+        var lines = MuxColumn.Lines([], MuxTab.Gg, 12).Select(line => line.Text.Trim()).ToList();
+
+        await Assert.That(lines).Contains("gg");
+        await Assert.That(lines).Contains("+ new agent");
+        await Assert.That(lines).Contains("history");
     }
 
     private sealed class NoEditor : IEditorSession

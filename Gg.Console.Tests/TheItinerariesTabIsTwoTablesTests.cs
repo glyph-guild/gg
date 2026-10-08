@@ -191,4 +191,24 @@ public class TheItinerariesTabIsTwoTablesTests
 
         await Assert.That(Rows.ItineraryLegs(state)).IsEmpty();
     }
+
+    [Test]
+    public async Task A_plans_legs_are_listed_in_the_order_the_plan_wrote_them()
+    {
+        // ITN-63: five legs written in order, drawn newest first, so the plan's last leg
+        // (GG-994) sat at the top and its first at the bottom. The board read sends them newest
+        // first, which is the order handed in here.
+        var state = Showing(0,
+            Leg(One, "review", "the last review", plan: "ITN-63", flight: "GG-994", hour: 13),
+            Leg(One, "implement", "the second change", plan: "ITN-63", flight: "GG-993", hour: 12),
+            Leg(One, "ui-preview", "the visual check", plan: "ITN-63", flight: "GG-990", hour: 11),
+            Leg(One, "implement", "the Storybook upgrade", plan: "ITN-63", flight: "GG-991", hour: 10));
+
+        await Assert.That(string.Join(" ", Rows.ItineraryLegs(state).Select(l => l.Flight)))
+            .IsEqualTo("GG-991 GG-990 GG-993 GG-994")
+            .Because("a plan reads top to bottom in the order it was written, its first leg first.");
+        await Assert.That(string.Join(" ", ItineraryDetails.Legs(state).Select(l => l.Flight)))
+            .IsEqualTo("GG-991 GG-990 GG-993 GG-994")
+            .Because("the modal is the same plan, read the same way.");
+    }
 }

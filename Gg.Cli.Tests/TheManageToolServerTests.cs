@@ -80,6 +80,8 @@ public class TheManageToolServerTests
     [Arguments("why_flight", "flight=GG-42;obligation=in-scope", "why GG-42 in-scope --json")]
     [Arguments("list_runners", "", "runners --json")]
     [Arguments("list_watches", "", "watches --json")]
+    [Arguments("list_itineraries", "", "itineraries --json")]
+    [Arguments("show_itinerary", "itinerary=ITN-63", "itinerary show ITN-63 --json")]
     [Arguments("decide_gate", "flight=GG-42;obligation=widen-root;outcome=approved;reason=looks right", "decide GG-42 widen-root approved looks right --json")]
     [Arguments("decide_gate", "flight=GG-42;obligation=widen-root;outcome=rejected", "decide GG-42 widen-root rejected --json")]
     [Arguments("answer_nomination", "nomination=01a0792a-0000-0000-0000-000000000000;answer=open;because=it blocks the release", "board open 01a0792a-0000-0000-0000-000000000000 it blocks the release --json")]

@@ -285,6 +285,13 @@ public abstract record CliAction
     /// </summary>
     public sealed record ManageTools : CliAction;
 
+    /// <summary>gg itineraries: every plan this tenant has, and its legs.</summary>
+    public sealed record Itineraries(bool Json, int? Limit = null, string? After = null)
+        : CliAction, IEmitsResult;
+
+    /// <summary>gg itinerary show ITN-n: one plan, and every leg of it.</summary>
+    public sealed record ItineraryShow(string Reference, bool Json) : CliAction, IEmitsResult;
+
     /// <summary>
     /// gg itinerary propose: a plan file proposed as the signed-in person. It waits for its gate.
     /// </summary>

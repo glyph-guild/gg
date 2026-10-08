@@ -153,6 +153,8 @@ public sealed class PtyAgentSession : IEditorSession
     /// only thing there. gg has no business guessing, and the caller already
     /// treats empty text as "nothing to open".
     /// </remarks>
+    public string Compose(string initialText, ComposeBrief brief) => Edit(initialText);
+
     public string Edit(string initialText)
     {
         if (_self is null)

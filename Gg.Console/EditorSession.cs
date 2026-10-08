@@ -5,7 +5,18 @@ namespace Gg.Console;
 public interface IEditorSession
 {
     string Edit(string initialText);
+
+    /// <summary>
+    /// Composes an intent, told what was chosen for the flight it is for. An editor has nobody to
+    /// tell, so it edits; an agent opens on a prompt that says so (<see cref="AgentOpening"/>).
+    /// </summary>
+    string Compose(string initialText, ComposeBrief brief) => Edit(initialText);
 }
+
+/// <summary>What was chosen for the flight an intent is being composed for.</summary>
+/// <param name="WorkKind">The work kind picked, or null for none.</param>
+/// <param name="Against">The repositories the flight names; empty for none.</param>
+public sealed record ComposeBrief(string? WorkKind, IReadOnlyList<string> Against);
 
 /// <summary>
 /// Spawns $EDITOR as a separate process with the terminal inherited, waits

@@ -153,9 +153,12 @@ public sealed class PtyAgentSession : IEditorSession
     /// only thing there. gg has no business guessing, and the caller already
     /// treats empty text as "nothing to open".
     /// </remarks>
-    public string Compose(string initialText, ComposeBrief brief) => Edit(initialText);
+    /// <summary>Composes, the agent told what was chosen for the flight (<see cref="AgentOpening"/>).</summary>
+    public string Compose(string initialText, ComposeBrief brief) => Run(brief);
 
-    public string Edit(string initialText)
+    public string Edit(string initialText) => Run(new ComposeBrief(null, []));
+
+    private string Run(ComposeBrief brief)
     {
         if (_self is null)
         {
@@ -210,6 +213,9 @@ public sealed class PtyAgentSession : IEditorSession
                     terminal,
                     parts[0],
                     [.. parts.Skip(1),
+                     // THE OPENING, BEFORE EVERY FLAG: both flags below take a list, and a prompt
+                     // after them is one more tool name.
+                     AgentOpening.Compose(brief),
                      "--mcp-config", ServerConfig(_self, intent),
                      // THE QUALIFIED NAME, from the one declaration that owns
                      // all three spellings. A launch grants what the transcript

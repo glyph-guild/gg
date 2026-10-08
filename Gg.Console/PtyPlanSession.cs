@@ -115,6 +115,9 @@ public sealed class PtyPlanSession
                 terminal,
                 parts[0],
                 [.. parts.Skip(1),
+                 // THE OPENING, BEFORE EVERY FLAG: --allowedTools takes a list, and a prompt after it
+                 // is one more tool name.
+                 AgentOpening.Plan(_draft),
                  "--mcp-config", ServerConfig(_self, _draft),
                  // NAMED, NOT GRANTED BY PREFIX: a prefix widens with every tool the server adds.
                  "--allowedTools", .. PlanningTool.All.Select(PlanningTool.Qualified)],

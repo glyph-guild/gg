@@ -729,7 +729,18 @@ public static class ConsoleProjection
             // THE FLIGHT'S STORY, which is what `gg show` now answers. The pane
             // renders sentences from it; the log beside it stays the raw record
             // the queue's rows are derived from.
-            VerbResult.Story story => state with { Story = story.Value, Diagnosis = null },
+            // AND HELD PER FLIGHT, so that a refresh clearing the queue pane's
+            // slot cannot empty a modal open on this flight. The slot stays for
+            // the queue pane, whose rule is that a story goes when its row does.
+            VerbResult.Story story => state with
+            {
+                Story = story.Value,
+                Stories = new Dictionary<string, FlightStory>(state.Stories, StringComparer.Ordinal)
+                {
+                    [story.Value.FlightId] = story.Value,
+                },
+                Diagnosis = null,
+            },
 
             // WHAT THE FLIGHT RECORDED, which the story does not carry. Two of
             // thirteen fact kinds reach a story; this is the rest of them, and

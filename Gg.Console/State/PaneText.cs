@@ -155,11 +155,23 @@ public static class PaneText
     /// flight's name - which is the defect the flight pane was fixed for one
     /// slice earlier, arriving through a different door.
     /// </remarks>
+    /// <remarks>
+    /// <b>THE PER-FLIGHT STORE FIRST, and the queue pane's slot only as a
+    /// fallback.</b> The slot is cleared by <c>Reducer.Detail</c> on every
+    /// refresh whose queue row is not this flight - which on a healthy tenant is
+    /// every refresh - so a reader that only consulted it watched `why` and
+    /// `awaiting` disappear four times a second. The fallback stays because a
+    /// story can reach the state through the slot before this session has
+    /// recorded it anywhere else, and because it costs nothing: both arms are
+    /// keyed on the flight asked about, so neither can answer about another one.
+    /// </remarks>
     internal static Gg.Contracts.FlightStory? StoryOf(AppState state, string flightId) =>
-        state.Story is { } story
-        && string.Equals(story.FlightId, flightId, StringComparison.Ordinal)
-            ? story
-            : null;
+        state.Stories.TryGetValue(flightId, out var held)
+            ? held
+            : state.Story is { } story
+              && string.Equals(story.FlightId, flightId, StringComparison.Ordinal)
+                ? story
+                : null;
 
     /// <summary>
     /// Why the compose modal's repositories tab has no rows, or nothing.

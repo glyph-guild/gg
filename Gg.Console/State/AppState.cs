@@ -1450,12 +1450,41 @@ public sealed record AppState
     /// Its story, exactly as `gg show` returned it.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Beside the log rather than instead of it.</b> The queue still derives
     /// its rows from the logs the boot fetches, and the story answers the four
     /// questions the summary could not: which stage the flight reached, what
     /// became of it, what it waits on, and who has it right now.
+    /// </para>
+    /// <para>
+    /// <b>THE QUEUE PANE'S SLOT, and only that.</b> It is cleared whenever the
+    /// queue's row stops being the flight it was read for, which is what
+    /// <c>TheStoryBelongsToItsRowTests</c> exists to hold. Anything else that
+    /// wants a story reads <see cref="Stories"/> by flight id -
+    /// <c>PaneText.StoryOf</c> is the one door - because two cursors sharing one
+    /// nullable slot means the pane that clears it decides what the other one
+    /// can see.
+    /// </para>
     /// </remarks>
     public FlightStory? Story { get; init; }
+
+    /// <summary>Every story read this session, by flight id.</summary>
+    /// <remarks>
+    /// <b>Because the flights modal lost its fields on every tick.</b> Reported
+    /// from use: <c>why</c> and <c>awaiting</c> vanished four times a second
+    /// while somebody was reading them. <c>Reducer.Detail</c> runs on every
+    /// refresh and nulls <see cref="Story"/> when the QUEUE's row is not a
+    /// flight - correct for the queue pane, and on a healthy tenant that row is
+    /// null, so the modal's own cursor was collateral.
+    /// <para>
+    /// <b><see cref="Logs"/>' shape, for <see cref="Logs"/>' reason.</b> A read
+    /// already paid for should not have to be paid for again because another
+    /// pane moved, and a per-flight key makes "whose story is this" unanswerable
+    /// wrongly rather than merely discouraged.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyDictionary<string, FlightStory> Stories { get; init; } =
+        new Dictionary<string, FlightStory>(StringComparer.Ordinal);
 
     /// <summary>
     /// Why the selected flight is stopped, exactly as `gg why` returned it.

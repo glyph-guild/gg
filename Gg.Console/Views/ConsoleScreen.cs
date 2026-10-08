@@ -515,6 +515,9 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private IReadOnlyList<FlightField>? _fieldsShowing;
 
+    /// <summary>The value column the fields above were wrapped to.</summary>
+    private int _fieldsWidth;
+
     /// <summary>
     /// The dimmer scheme, computed once. The field captions are rebuilt on
     /// every render, and asking the theme for it each time would be a palette
@@ -5543,13 +5546,21 @@ public sealed class ConsoleScreen : Window
 
         var fields = FlightDetails.Fields(State);
 
-        if (_fieldsShowing is not null && _fieldsShowing.SequenceEqual(fields))
+        // AND THE WIDTH, not only the content. The guard exists so that a tick
+        // four times a second does not rebuild widgets; a modal that was resized
+        // has the same fields and needs a different number of rows for them.
+        var width = ValueWidth(_flightFields);
+
+        if (_fieldsShowing is not null
+            && _fieldsShowing.SequenceEqual(fields)
+            && _fieldsWidth == width)
         {
             RenderLog();
             return;
         }
 
         _fieldsShowing = fields;
+        _fieldsWidth = width;
         Lay(_flightFields, fields);
 
         RenderLog();
@@ -5579,6 +5590,12 @@ public sealed class ConsoleScreen : Window
         {
             gone.Dispose();
         }
+
+        // WRAPPED TO THE COLUMN THE VALUES ARE DRAWN IN, which is what is left
+        // of the container after the label gutter and the one-column margin the
+        // TextField below keeps. A TextField clips, so without this a long value
+        // is simply cut off - reported from use about `awaiting`.
+        fields = FlightDetails.Wrapped(fields, ValueWidth(container));
 
         for (var i = 0; i < fields.Count; i++)
         {
@@ -6368,6 +6385,17 @@ public sealed class ConsoleScreen : Window
     /// produces, <c>waiting on</c>, with a space after it.
     /// </remarks>
     private const int FieldLabelWidth = 11;
+
+    /// <summary>How wide a field's value may be drawn in this container.</summary>
+    /// <remarks>
+    /// <b>The TextField's own geometry, read back.</b> It sits at
+    /// <c>FieldLabelWidth + 1</c> with <c>Dim.Fill(1)</c>, so the value's column
+    /// is the viewport less the gutter and less that trailing margin. Zero
+    /// before the first layout, which <c>FlightDetails.Wrapped</c> treats as
+    /// "do not wrap" rather than as a width of nothing.
+    /// </remarks>
+    private static int ValueWidth(View container) =>
+        Math.Max(0, container.Viewport.Width - FieldLabelWidth - 2);
 
     /// <summary>
     /// Focus follows the tab, because the tab is the only thing on screen.

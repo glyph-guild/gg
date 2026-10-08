@@ -13,10 +13,9 @@ namespace Gg.Cli.Tests;
 /// <b>THE HALF THE TOOLS DO NOT ADDRESS.</b> <c>describe_airspace</c> and
 /// <c>pull_airspace</c> are for the agent. The PERSON still arrives at an
 /// empty prompt in a session they opened by pressing one key, with no
-/// indication of what this agent is for or what a good opening looks like -
-/// and <c>PtyDraftSession</c> passes no prompt, deliberately, because a
-/// prompt gg wrote would start the agent working before anybody said what
-/// they wanted.
+/// indication of what this agent is for or what a good opening looks like.
+/// (Since 2026-10-07 the session also opens on <c>AgentOpening.Airspace</c>, by
+/// the owner's call - which orients and asks, and writes nothing.)
 /// </para>
 /// <para>
 /// <b>A PROMPT IS THE CHANNEL THAT SPLITS THAT DIFFERENCE.</b> An MCP server
@@ -143,11 +142,14 @@ public class ThePersonGetsAFirstMoveTests
     }
 
     [Test]
-    public async Task The_bar_tells_the_person_it_is_there()
+    public async Task The_session_opens_on_the_first_move_itself()
     {
-        // A COMMAND NOBODY IS TOLD ABOUT IS A COMMAND NOBODY HAS. gg owns the
-        // top row of this session and already spends it on what ends the
-        // session; what STARTS it belongs there too.
+        // THE BAR USED TO ADVERTISE THE PROMPT, because the session sent none: "a prompt gg wrote
+        // would start the agent working before anybody said what they wanted". The owner decided
+        // otherwise on 2026-10-07 - an agent gg launches opens on a prompt that directs it and names
+        // its tools - so the first move is sent rather than advertised. What survives is this
+        // class's rule, ORIENT, DO NOT ACT: the opening describes the airspace and asks what the
+        // person wants before anything is written. The slash prompt is still offered.
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "Gg.sln")))
         {
@@ -156,14 +158,12 @@ public class ThePersonGetsAFirstMoveTests
 
         var session = await File.ReadAllTextAsync(Path.Combine(
             root!.FullName, "Gg.Console", "PtyDraftSession.cs"));
+        await Assert.That(session).Contains("AgentOpening.Airspace()", StringComparison.Ordinal);
 
-        // THROUGH THE DECLARATION, NOT THE LITERAL. This first scanned for
-        // the bare name and failed on a bar that names it correctly - which
-        // would have forced a second spelling of a name whose whole point is
-        // that it has one place. What the bar must contain is a reference to
-        // the type that owns it.
-        await Assert.That(session).Contains(nameof(DraftingPrompt), StringComparison.Ordinal)
-            .Because("the bar is the only thing a person reads before they type, so a "
-                   + "first move they are not told about is one they never use.");
+        var opening = Gg.Console.AgentOpening.Airspace();
+        await Assert.That(opening).Contains(AirspaceContextTool.Qualified, StringComparison.Ordinal)
+            .Because("the one thing a person cannot know to ask for. Text: " + opening);
+        await Assert.That(opening).Contains("asking me what I want", StringComparison.Ordinal)
+            .Because("orient, do not act: the agent asks before it writes. Text: " + opening);
     }
 }

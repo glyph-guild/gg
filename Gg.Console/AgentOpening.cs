@@ -60,4 +60,7 @@ public static class AgentOpening
              + "as me, and it waits for its gate. Begin by showing the plan and asking me what it "
              + "is for.";
     }
+
+    /// <summary>The opening for an agent managing the airspace.</summary>
+    public static string Airspace() => "";
 }

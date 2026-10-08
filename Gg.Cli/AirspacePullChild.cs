@@ -12,6 +12,9 @@ namespace Gg.Cli;
 /// <param name="root">The working copy to render into.</param>
 public delegate PullReport RunPull(string root);
 
+/// <summary>Runs <c>gg airspace &lt;verb...&gt;</c> against a working copy, as a child.</summary>
+public delegate PullReport RunAirspace(IReadOnlyList<string> verb, string root);
+
 /// <summary>What running the verb came to.</summary>
 /// <remarks>
 /// <b>Three facts, because they are three different answers.</b> A child that

@@ -145,6 +145,8 @@ public static class PlatformToolServer
         // here to being supplied - a default is what documentRoot took for its
         // whole life while the tool that needed it refused every call.
         RunPull? pull = null,
+        // HOW `gg airspace diff` AND `apply` ARE RUN, for the airspace agent's two management tools.
+        RunAirspace? airspace = null,
         // THE RULES IN FORCE, rendered by whoever started this server. Null
         // wherever no session read them, which is an ordinary state and not a
         // fault: a console with no reachable control plane still drafts,

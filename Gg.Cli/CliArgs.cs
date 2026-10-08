@@ -900,6 +900,8 @@ public static class CliArgs
         "gg itinerary propose <file>    propose a plan; nothing opens until its gate is answered",
         "gg itinerary tools [--draft <name>]  a tool server any Claude Code session drafts a plan with",
         "gg manage tools                    gg's management layer as tools for a Claude Code session",
+        "gg itineraries [--limit <rows>] [--after <cursor>]  every plan here, and its legs",
+        "gg itinerary show <ITN-n>          one plan, and every leg of it in full",
         "  --print-registration         the `claude mcp add` line that registers it",
         "gg gates                       flights stopped, waiting on somebody",
         // BESIDE GATES, because it is the same question one noun earlier: what
@@ -1170,7 +1172,7 @@ public static class CliArgs
                 "--limit"),
             "--after");
 
-        var pages = rest is ["flights", ..] or ["board"];
+        var pages = rest is ["flights", ..] or ["board"] or ["itineraries"];
 
         if (!pages && (limit is not null || after is not null))
         {
@@ -1509,6 +1511,13 @@ public static class CliArgs
             // THE PLANNING TOOL SERVER (slice sixty-three), one draft per registration.
             ["itinerary", "tools"] => new CliAction.ItineraryTools("draft"),
             ["manage", "tools"] => new CliAction.ManageTools(),
+            ["itineraries"] => new CliAction.Itineraries(json, page, after),
+            ["itineraries", ..] => Unknown(
+                "gg itineraries takes --json, --limit <rows> and --after <cursor>. One plan is "
+              + "gg itinerary show ITN-63."),
+            ["itinerary", "show", var plan] => new CliAction.ItineraryShow(plan, json),
+            ["itinerary", "show", ..] => Unknown(
+                "gg itinerary show needs a plan: gg itinerary show ITN-63. gg itineraries lists them."),
             ["itinerary", "tools", "--print-registration"] => new CliAction.ItineraryRegistration("draft"),
             ["itinerary", "tools", "--draft", var named, "--print-registration"] =>
                 Gg.Client.ItineraryDrafts.Refused(named) is { } badNamed

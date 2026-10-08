@@ -62,6 +62,13 @@ public static class ManageToolServer
             [], _ => ["runners"]),
         new(ManageTool.ListWatches, "The watches that sweep for work, and when each sweeps next. Reads only.",
             [], _ => ["watches"]),
+        new(ManageTool.ListItineraries,
+            "The plans (itineraries) this tenant has: each one's number, what it is about, and its legs "
+          + "in the order it wrote them, with the flight each opened. Reads only.",
+            [], _ => ["itineraries"]),
+        new(ManageTool.ShowItinerary, "One plan in full, by its number: every leg and its whole reason. Reads only.",
+            [new("itinerary", "The plan's number, as list_itineraries shows it: ITN-63.", Required: true)],
+            a => ["itinerary", "show", a("itinerary")!]),
 
         new(ManageTool.DecideGate,
             "Answer a gate on a flight, as the signed-in person: approved or rejected, with a reason. "

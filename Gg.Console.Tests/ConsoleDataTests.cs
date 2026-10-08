@@ -155,6 +155,11 @@ public class ConsoleDataTests
             // session's panel beside the draft, and the console has no draft
             // to check. A port here would answer a question nobody asked it.
             "CheckItineraryAsync",
+            // ONE PLAN AS A VERB'S RESULT, and a decision rather than a gap: the console reads the
+            // same plan through ItineraryAsync (the mux's history screen) and every plan through
+            // its itineraries tab, so this wrapper exists only to give the command line a refusal
+            // by name for a plan the tenant does not have.
+            "ShowItineraryAsync",
             // AND PROPOSING ONE, for the same reason (slice sixty-five): the console's plan session
             // (ADR-0038 step 4) proposes the draft from its panel, and until it exists the console
             // has no draft to propose.

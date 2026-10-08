@@ -402,6 +402,18 @@ public sealed class FlightCommands(
         _client.GetItineraryAsync(Session(), reference, cancellationToken);
 
     /// <summary>
+    /// One plan as a verb's result: <c>gg itinerary show ITN-n</c>. A plan the tenant does not
+    /// have is refused by name rather than shown as an empty listing, which would read as "no
+    /// plans at all".
+    /// </summary>
+    public async Task<VerbResult> ShowItineraryAsync(
+        string reference, CancellationToken cancellationToken = default) =>
+        await ItineraryAsync(reference, cancellationToken) is { } plan
+            ? new VerbResult.Itineraries(plan)
+            : throw new ItineraryRefusedException(
+                $"There is no plan {reference} here. gg itineraries lists the plans this tenant has.");
+
+    /// <summary>
     /// Answers a nomination, then reads the board to see what came of it.
     /// </summary>
     /// <remarks>

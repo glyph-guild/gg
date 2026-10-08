@@ -46,6 +46,9 @@ public sealed class PtyPlanSession
             .First(name => !taken.Contains(name));
     }
 
+    /// <summary>The draft a new plan session starts on.</summary>
+    public static string FreshDraft(ItineraryDrafts drafts, IEnumerable<string> labels) => FreeDraft(labels);
+
     private readonly string _agentCommand;
     private readonly Func<IHostTerminal?> _terminal;
     private readonly SelfInvocation? _self;

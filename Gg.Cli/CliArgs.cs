@@ -892,6 +892,7 @@ public static class CliArgs
         "gg itinerary check <file>      what admission would do with each leg of a plan",
         "gg itinerary propose <file>    propose a plan; nothing opens until its gate is answered",
         "gg itinerary tools [--draft <name>]  a tool server any Claude Code session drafts a plan with",
+        "gg manage tools                    gg's management layer as tools for a Claude Code session",
         "  --print-registration         the `claude mcp add` line that registers it",
         "gg gates                       flights stopped, waiting on somebody",
         // BESIDE GATES, because it is the same question one noun earlier: what
@@ -1500,6 +1501,7 @@ public static class CliArgs
             ["itinerary", "propose", var proposing] => new CliAction.ItineraryPropose(proposing, json),
             // THE PLANNING TOOL SERVER (slice sixty-three), one draft per registration.
             ["itinerary", "tools"] => new CliAction.ItineraryTools("draft"),
+            ["manage", "tools"] => new CliAction.ManageTools(),
             ["itinerary", "tools", "--print-registration"] => new CliAction.ItineraryRegistration("draft"),
             ["itinerary", "tools", "--draft", var named, "--print-registration"] =>
                 Gg.Client.ItineraryDrafts.Refused(named) is { } badNamed

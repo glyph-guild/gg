@@ -29,7 +29,10 @@ public class AGgAgentManagesFromTheMuxTests
             var argvPath = Path.Combine(root.FullName, "argv");
             await Assert.That(MuxFixture.Until(() => File.Exists(argvPath) && File.ReadAllLines(argvPath).Length > 3))
                 .IsTrue();
-            await Assert.That(fixture.Mux.Rows().Select(row => row.Label)).IsEquivalentTo(["gg"]);
+            // WAITED FOR, NOT READ: the child can write its arguments before the mux has its row.
+            await Assert.That(MuxFixture.Until(() => fixture.Mux.Rows() is [{ Label: "gg" }])).IsTrue()
+                .Because("the agent is a tab labelled gg. Rows: "
+                       + string.Join(", ", fixture.Mux.Rows().Select(row => row.Label)));
 
             var argv = File.ReadAllLines(argvPath);
             await Assert.That(argv[0]).IsEqualTo(AgentOpening.Manage())

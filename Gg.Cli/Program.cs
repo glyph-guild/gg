@@ -63,6 +63,10 @@ return await ByName(CliArgs.Parse(args)) switch
     // THE PLANNING TOOL SERVER, registered by a person in their own Claude Code. Stdout is the
     // protocol, so nothing on this path prints.
     CliAction.ItineraryTools itinerary => await ItineraryToolsAsync(itinerary),
+    // GG'S MANAGEMENT LAYER AS TOOLS (owner, 2026-10-08): each re-execs the verb a person would
+    // type, so this process holds no session. Stdout is the protocol; nothing here prints.
+    CliAction.ManageTools => await ManageToolServer.RunAsync(
+        System.Console.In, System.Console.Out, AirspacePullChild.Gg),
     CliAction.ItineraryRegistration registration => PrintRegistration(registration),
     CliAction.RunnerUp or CliAction.RunnerServe => await RunnerUpAsync(),
     CliAction.RunnerMaintain maintain => await RunnerMaintainAsync(maintain.Pool),

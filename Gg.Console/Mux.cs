@@ -255,6 +255,64 @@ public sealed partial class Mux
         return exited;
     }
 
+    /// <summary>
+    /// An agent that manages gg through the <c>gg-manage</c> tools (owner, 2026-10-08): it opens
+    /// on <see cref="AgentOpening.Manage"/>, every read is granted, and no act is - Claude Code asks
+    /// the person before each one.
+    /// </summary>
+    public MuxAgent? StartManaging(string workingDirectory)
+    {
+        if (_self is null)
+        {
+            // SAID BY STARTING NOTHING: a server configured with a path that is not this binary is a
+            // child that fails at startup, after the agent has been told its tools exist.
+            return null;
+        }
+
+        var parts = _agentCommand.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        string? bar = null;
+        HostedRows Panel(int most, int columns) =>
+            new([bar ??= "gg · managing gg — reads are free; you approve every act · ctrl-g then 0 for gg"], false);
+
+        return Start("gg", parts[0],
+            [.. parts.Skip(1),
+             // THE OPENING, BEFORE EVERY FLAG: both flags below take a list, and a prompt after
+             // them is one more tool name.
+             AgentOpening.Manage(),
+             "--mcp-config", ManageConfig(_self),
+             // THE READS, NAMED; NO ACT. An ungranted tool still appears and asks, which is the
+             // confirmation an act needs.
+             "--allowedTools", .. Gg.Local.ManageTool.Reads.Select(Gg.Local.ManageTool.Qualified)],
+            workingDirectory, Panel,
+            (gesture, typed) => gesture == HostedGesture.Typed && typed.Length == 1 && typed.Span[0] == HostedBar.Prefix,
+            ending: state => state);
+    }
+
+    /// <summary>The server: <c>gg manage tools</c>, under its own key.</summary>
+    private static string ManageConfig(Gg.Local.SelfInvocation self)
+    {
+        using var buffer = new MemoryStream();
+        using (var json = new System.Text.Json.Utf8JsonWriter(buffer))
+        {
+            json.WriteStartObject();
+            json.WriteStartObject("mcpServers");
+            json.WriteStartObject(Gg.Local.ManageTool.Server);
+            json.WriteString("command", self.Command);
+            json.WriteStartArray("args");
+            foreach (var argument in self.Under("manage", "tools"))
+            {
+                json.WriteStringValue(argument);
+            }
+
+            json.WriteEndArray();
+            json.WriteEndObject();
+            json.WriteEndObject();
+            json.WriteEndObject();
+        }
+
+        return System.Text.Encoding.UTF8.GetString(buffer.ToArray());
+    }
+
     private Task<int> Started(
         string label,
         string command,

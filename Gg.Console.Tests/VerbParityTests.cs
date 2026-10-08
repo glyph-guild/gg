@@ -407,6 +407,9 @@ public class VerbParityTests
             // A PERSON REGISTERS IT, AND AN AGENT SPEAKS IT (slice sixty-three). The console's
             // half is ADR-0038 build step 4 - the hosted plan session, whose panel reads this
             // server's draft file - and is a slice of its own, not a gap in this one.
+            ["ManageTools"] = "a tool server spoken over stdio by an agent, never by a person; the "
+                + "console reaches it by starting that agent - `g` in the column's + new agent menu - "
+                + "and every act it offers is one the console already has a key for.",
             ["ItineraryTools"] = "a tool server spoken over stdio by an agent, never by a person; "
                                + "the console's plan session (ADR-0038 step 4) will host it.",
             // A PLAN PROPOSED BY HAND (slice sixty-five). The console's plan session (ADR-0038 step

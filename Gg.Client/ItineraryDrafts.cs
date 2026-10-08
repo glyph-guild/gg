@@ -84,6 +84,13 @@ public sealed class ItineraryDrafts(string root)
             : $"'{name}' is not a draft name. A draft is named by one plain word - letters, digits, "
             + "'-' and '_' - because the name is its file under the drafts directory.";
 
+    /// <summary>
+    /// Whether anything has been kept under <paramref name="name"/>: the draft, its last result, or
+    /// what it was proposed as. A name with any of them is not a new draft's to take.
+    /// </summary>
+    public bool Used(string name) =>
+        File.Exists(PathOf(name)) || File.Exists(ResultPathOf(name)) || File.Exists(ProposedPathOf(name));
+
     /// <summary>Where the draft called <paramref name="name"/> is kept.</summary>
     public string PathOf(string name) => Path.Combine(_root, name + ".yaml");
 

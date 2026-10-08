@@ -2196,11 +2196,12 @@ static async Task<int> LaunchConsoleAsync()
                 path: null, typed: current.AirspacePathTyped),
         },
 
-        // A TAB BESIDE GG (slice sixty-nine): the session runs on the mux's thread, on a draft no
-        // other live plan agent holds, and what it left is folded when its agent ends.
+        // A TAB BESIDE GG (slice sixty-nine): the session runs on the mux's thread, on an empty
+        // draft of its own, and what it left is folded when its agent ends.
         planSession: current =>
         {
-            var draft = Gg.Console.PtyPlanSession.FreeDraft(mux.Labels());
+            var draft = Gg.Console.PtyPlanSession.FreshDraft(
+                Gg.Client.ItineraryDrafts.ForThisMachine(), mux.Labels());
             mux.Launch($"plan · {draft}", () =>
             {
                 var said = new Gg.Console.PtyPlanSession(

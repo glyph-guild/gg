@@ -1397,7 +1397,8 @@ public sealed class ConsoleLoop(
 
         mux.Launch($"compose · {picked ?? "flight"}", () =>
         {
-            var intent = compose.Edit("").Trim();
+            // TOLD WHAT WAS CHOSEN, so the agent opens on the flight it is composing for.
+            var intent = compose.Compose("", new ComposeBrief(picked, against)).Trim();
             return later => Flown(later, actions, intent, against, picked);
         });
 

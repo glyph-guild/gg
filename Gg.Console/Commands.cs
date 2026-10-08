@@ -879,6 +879,11 @@ public enum Command
     /// </summary>
     PlanWithAgent,
 
+    /// <summary>
+    /// Start a Claude Code agent in the mux, here, and show it: <c>n</c> then <c>c</c>.
+    /// </summary>
+    StartClaudeCode,
+
     /// <summary>ctrl-g: the next key switches the mux (slice sixty-nine).</summary>
     ArmSwitch,
 

@@ -21,7 +21,9 @@ namespace Gg.Console;
 /// so the verdicts come from the server's own check, read off disk.
 /// </para>
 /// <para>
-/// <b>It drafts <c>console</c></b>, so closing loses nothing and reopening resumes.
+/// <b>It drafts a file of its own</b>, kept when the session closes. A new session starts on an
+/// empty draft (<see cref="FreshDraft"/>); it used to reopen <c>console</c>, which put the last
+/// plan in front of every new agent.
 /// </para>
 /// </remarks>
 public sealed class PtyPlanSession
@@ -30,24 +32,40 @@ public sealed class PtyPlanSession
     public const string Draft = "console";
 
     /// <summary>
-    /// The draft a new plan agent takes: <c>console</c>, or <c>console-2</c> and on while another
-    /// live agent holds it (slice sixty-nine). Two agents never edit one file, which slice
-    /// sixty-eight's one-live-plan-per-draft rule relies on.
+    /// The draft a new plan session starts on: <c>console</c>, or <c>console-2</c> and on - the
+    /// first name no draft, result or proposal has used, and no live plan agent holds.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Always an empty one</b> (owner, 2026-10-07: "the last plan is always stuck whenever I
+    /// start a new itinerary session"). Every session used to draft <c>console</c>, so a plan
+    /// already proposed was in front of each new agent, and its opening prompt told it to carry
+    /// on. Older drafts are kept exactly as they were.
+    /// </para>
+    /// <para>
+    /// <b>Two agents never edit one file</b> (slice sixty-nine), which slice sixty-eight's
+    /// one-live-plan-per-draft rule relies on - so a name a live agent holds is skipped even
+    /// before its agent has written anything.
+    /// </para>
+    /// </remarks>
     /// <param name="labels">The live agents' labels; a plan agent is "plan · &lt;draft&gt;".</param>
-    public static string FreeDraft(IEnumerable<string> labels)
+    public static string FreshDraft(ItineraryDrafts drafts, IEnumerable<string> labels)
     {
-        var taken = labels.Where(label => label.StartsWith("plan · ", StringComparison.Ordinal))
+        ArgumentNullException.ThrowIfNull(drafts);
+
+        var held = labels.Where(label => label.StartsWith("plan · ", StringComparison.Ordinal))
             .Select(label => label["plan · ".Length..])
             .ToHashSet(StringComparer.Ordinal);
 
-        return Enumerable.Range(1, MuxColumn.Most + 1)
-            .Select(n => n == 1 ? Draft : $"{Draft}-{n}")
-            .First(name => !taken.Contains(name));
+        for (var n = 1; ; n++)
+        {
+            var name = n == 1 ? Draft : $"{Draft}-{n}";
+            if (!held.Contains(name) && !drafts.Used(name))
+            {
+                return name;
+            }
+        }
     }
-
-    /// <summary>The draft a new plan session starts on.</summary>
-    public static string FreshDraft(ItineraryDrafts drafts, IEnumerable<string> labels) => FreeDraft(labels);
 
     private readonly string _agentCommand;
     private readonly Func<IHostTerminal?> _terminal;

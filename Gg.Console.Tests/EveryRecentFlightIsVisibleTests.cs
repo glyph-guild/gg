@@ -180,10 +180,12 @@ public class EveryRecentFlightIsVisibleTests
         // makes is unchanged: the tab is there from the start rather than
         // behind a key somebody has to learn. What moved is one seat, and the
         // board earned it by being what the queue is a subset of.
-        await Assert.That(Tabs.Next(new AppState())).IsEqualTo(TabId.Board);
+        // AND THREE SINCE ITINERARIES TOOK SECOND (owner's call, 2026-10-07).
+        await Assert.That(Tabs.Next(new AppState())).IsEqualTo(TabId.Itineraries);
+        await Assert.That(Tabs.Next(new AppState { ActiveTab = TabId.Itineraries })).IsEqualTo(TabId.Board);
         await Assert.That(Tabs.Next(new AppState { ActiveTab = TabId.Board }))
             .IsEqualTo(TabId.Flights)
-            .Because("two presses of tab from where a console opens.");
+            .Because("three presses of tab from where a console opens.");
         await Assert.That(char.IsAsciiLetter(Tabs.KeyFor(TabId.Flights)!.Value.Name[0])).IsFalse()
             .Because("no letter, deliberately: every letter that reads as 'flights' is taken.");
     }

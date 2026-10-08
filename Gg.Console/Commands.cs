@@ -880,7 +880,7 @@ public enum Command
     PlanWithAgent,
 
     /// <summary>
-    /// Start a Claude Code agent in the mux, here, and show it: <c>n</c> then <c>c</c>.
+    /// Start a Claude Code agent in the mux, here, and show it: <c>n</c> then <c>s</c>.
     /// </summary>
     StartClaudeCode,
 
@@ -1439,6 +1439,8 @@ public static class ShellCommands
         Command.FlyForKind,
         // AND PLANNING WITH ONE (slice sixty-six): it hands the terminal to a child.
         Command.PlanWithAgent,
+        // AND STARTING AN AGENT BESIDE GG, which hands the terminal to the mux.
+        Command.StartClaudeCode,
 
         // AND SWITCHING THE MUX TO AN AGENT, A NEW ONE, OR HISTORY (slice sixty-nine): each
         // hands the terminal to the mux, and an ending is folded by the shell because what an

@@ -35,16 +35,20 @@ namespace Gg.Console.Tests;
 public class TheBoardSitsSecondAndSaysWhatIsOverTests
 {
     [Test]
-    public async Task The_board_is_the_second_tab()
+    public async Task The_board_follows_the_queue_and_its_plans()
     {
         await Assert.That(Tabs.All[0]).IsEqualTo(TabId.Queue)
             .Because("what needs somebody comes first, and nothing displaces it.");
 
-        await Assert.That(Tabs.All[1]).IsEqualTo(TabId.Board)
+        // THIRD SINCE 2026-10-07: the owner put the itineraries between the queue and the board,
+        // because a plan is where the queue's work comes from. The board still sits in front of
+        // the flights, for the reason it always did.
+        await Assert.That(Tabs.All[1]).IsEqualTo(TabId.Itineraries);
+        await Assert.That(Tabs.All[2]).IsEqualTo(TabId.Board)
             .Because("the board is where somebody who has just answered a queue row goes "
-                   + "next, so it sits beside the queue rather than behind the flights.");
+                   + "next, so it sits in front of the flights.");
 
-        await Assert.That(Tabs.All[2]).IsEqualTo(TabId.Flights);
+        await Assert.That(Tabs.All[3]).IsEqualTo(TabId.Flights);
     }
 
     [Test]

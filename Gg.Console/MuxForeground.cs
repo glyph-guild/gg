@@ -324,6 +324,7 @@ public sealed partial class Mux
                 "New agent",
                 "",
                 "l    plan several flights with an agent",
+                "a    manage the airspace with an agent",
                 $"c    Claude Code, here: {here}",
                 "n    a new flight (gg asks what kind, as `n` does)",
                 "",
@@ -335,6 +336,7 @@ public sealed partial class Mux
             : typed switch
             {
                 (byte)'l' => (null, MuxLeave.Plan),
+                (byte)'a' => (null, MuxLeave.Airspace),
                 (byte)'n' => (null, MuxLeave.Compose),
                 (byte)'c' => StartClaudeCode(here) is { } started && NumberOf(started) is > 0 and var at
                     ? (MuxTab.Agent(at), null)

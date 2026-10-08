@@ -1301,7 +1301,8 @@ public static class Keymap
         [
             new(KeyStroke.Char('p'), Command.PullEstate, "pull the airspace"),
             new(KeyStroke.Char('s'), Command.AskToApplyEstate, "apply the airspace"),
-            new(KeyStroke.Char('m'), Command.DraftEstate, "draft with an agent"),
+            // NO AGENT KEY HERE ANY MORE (owner, 2026-10-07): the airspace agent runs beside gg,
+            // from the column's "+ new agent" menu, instead of taking the whole terminal.
             new(KeyStroke.Char('o'), Command.ReadOutcome,
                 "what would change, and the last apply"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),

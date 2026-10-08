@@ -190,7 +190,7 @@ public static class PlatformToolServer
 
             using (message)
             {
-                if (Answer(message.RootElement, intentPath, documentRoot, pull, inForce, sweep, several)
+                if (Answer(message.RootElement, intentPath, documentRoot, pull, airspace, inForce, sweep, several)
                         is { } answer)
                 {
                     await output.WriteLineAsync(answer);
@@ -207,7 +207,7 @@ public static class PlatformToolServer
     /// </summary>
     private static string? Answer(
         JsonElement message, string? intentPath, string? documentRoot, RunPull? pull,
-        string? inForce, bool sweep, bool several)
+        RunAirspace? airspace, string? inForce, bool sweep, bool several)
     {
         var method = message.TryGetProperty("method", out var named) ? named.GetString() : null;
 
@@ -224,7 +224,7 @@ public static class PlatformToolServer
             "tools/list" => Listed(id, intentPath, documentRoot, sweep, several),
             "prompts/list" => Offered(id),
             "prompts/get" => Given(id, message),
-            "tools/call" => Called(id, message, intentPath, documentRoot, pull, inForce, sweep),
+            "tools/call" => Called(id, message, intentPath, documentRoot, pull, airspace, inForce, sweep),
 
             // THE ID COMES BACK even on an error, or a client matching
             // responses to requests waits for ever.
@@ -385,6 +385,10 @@ public static class PlatformToolServer
                 Context(writer);
                 Pull(writer);
                 Document(writer);
+
+                // AND MANAGING IT (owner, 2026-10-07): what applying would change, and applying.
+                Diff(writer);
+                Apply(writer);
             }
             else if (!string.IsNullOrEmpty(intentPath))
             {
@@ -1105,7 +1109,7 @@ public static class PlatformToolServer
 
     private static string Called(
         JsonElement id, JsonElement message, string? intentPath, string? documentRoot,
-        RunPull? pull, string? inForce, bool sweep)
+        RunPull? pull, RunAirspace? airspace, string? inForce, bool sweep)
     {
         var parameters = message.TryGetProperty("params", out var given) ? given : default;
 
@@ -1143,6 +1147,21 @@ public static class PlatformToolServer
         if (string.Equals(called, AirspacePullTool.Name, StringComparison.Ordinal))
         {
             return Pulled(id, documentRoot, pull);
+        }
+
+        // THE MANAGEMENT VERBS, each the verb a person would type, re-execed as a child.
+        if (string.Equals(called, AirspaceDiffTool.Name, StringComparison.Ordinal))
+        {
+            return Ran(id, documentRoot, airspace, ["diff"]);
+        }
+
+        if (string.Equals(called, AirspaceApplyTool.Name, StringComparison.Ordinal))
+        {
+            var declare = arguments.ValueKind == JsonValueKind.Object
+                && arguments.TryGetProperty(AirspaceApplyTool.DeclareNamesArgument, out var asked)
+                && asked.ValueKind == JsonValueKind.True;
+
+            return Ran(id, documentRoot, airspace, declare ? ["apply", "--declare-names"] : ["apply"]);
         }
 
         if (string.Equals(called, WorkItemProposalTool.Name, StringComparison.Ordinal))
@@ -1675,6 +1694,84 @@ public static class PlatformToolServer
     /// refuse much later and much less clearly.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Runs one airspace verb on the working copy and relays what gg said, refusals as errors in
+    /// gg's own words - an agent that reads a refusal as a failure retries it or works around it.
+    /// </summary>
+    private static string Ran(
+        JsonElement id, string? documentRoot, RunAirspace? airspace, IReadOnlyList<string> verb)
+    {
+        if (airspace is null)
+        {
+            // SAID, NOT DEFAULTED, for Pulled's reason.
+            return Content(id, isError: true,
+                "Refused: this server was not given a way to run gg's airspace verbs, so nothing "
+              + "was run. This is a wiring fault in gg rather than anything you did.");
+        }
+
+        if (string.IsNullOrEmpty(documentRoot))
+        {
+            return Content(id, isError: true,
+                "Refused: this session has no airspace working copy, so there is nothing to "
+              + "compare or apply. Nothing was run.");
+        }
+
+        var report = airspace(verb, documentRoot);
+
+        if (!report.Started)
+        {
+            return Content(id, isError: true, $"gg airspace {verb[0]} did not run: {report.Said}");
+        }
+
+        var said = report.Said is { Length: > 0 } words ? words : $"gg airspace {verb[0]} said nothing.";
+        return Content(id, isError: report.ExitCode != 0, said);
+    }
+
+    /// <summary>Declares <c>AirspaceDiffTool</c>.</summary>
+    private static void Diff(Utf8JsonWriter writer)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("name", AirspaceDiffTool.Name);
+        writer.WriteString("description",
+            "Say what applying this working copy would change in the tenant's airspace: each "
+          + "document that differs from what the control plane holds, whether it tightens or "
+          + "loosens, and in the order apply would send them. It changes nothing and takes no "
+          + $"arguments. Call it after submitting documents and before {AirspaceApplyTool.Name}, "
+          + "and show the person what it says.");
+        writer.WriteStartObject("inputSchema");
+        writer.WriteString("type", "object");
+        writer.WriteStartObject("properties");
+        writer.WriteEndObject();
+        writer.WriteEndObject();
+        writer.WriteEndObject();
+    }
+
+    /// <summary>Declares <c>AirspaceApplyTool</c>.</summary>
+    private static void Apply(Utf8JsonWriter writer)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("name", AirspaceApplyTool.Name);
+        writer.WriteString("description",
+            "Apply this working copy to the tenant's airspace, as the signed-in person: every "
+          + "changed document is sent, in the safe order. A loosening waits for a person to "
+          + "approve it rather than taking effect. The person is asked before every call - only "
+          + "call it when they have said to apply, after showing them "
+          + $"{AirspaceDiffTool.Name}. If it refuses because documents name things the airspace "
+          + $"has not declared, say which, and call again with {AirspaceApplyTool.DeclareNamesArgument} "
+          + "only if the person agrees to declare them.");
+        writer.WriteStartObject("inputSchema");
+        writer.WriteString("type", "object");
+        writer.WriteStartObject("properties");
+        writer.WriteStartObject(AirspaceApplyTool.DeclareNamesArgument);
+        writer.WriteString("type", "boolean");
+        writer.WriteString("description",
+            "Declare the names the documents use and the airspace lacks, before applying.");
+        writer.WriteEndObject();
+        writer.WriteEndObject();
+        writer.WriteEndObject();
+        writer.WriteEndObject();
+    }
+
     private static string Pulled(JsonElement id, string? documentRoot, RunPull? pull)
     {
         if (pull is null)

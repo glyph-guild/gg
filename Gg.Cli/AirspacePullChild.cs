@@ -71,8 +71,15 @@ public static class AirspacePullChild
     /// <summary>How long a pull may take before it is given up on.</summary>
     private static readonly TimeSpan Longest = TimeSpan.FromMinutes(3);
 
-    public static PullReport Run(string root)
+    public static PullReport Run(string root) => Run(["pull"], root);
+
+    /// <summary>
+    /// Runs <c>gg airspace &lt;verb...&gt;</c> against <paramref name="root"/>: pull, and the
+    /// airspace agent's diff and apply. The same child, the same forced root, the same limits.
+    /// </summary>
+    public static PullReport Run(IReadOnlyList<string> verb, string root)
     {
+        ArgumentNullException.ThrowIfNull(verb);
         ArgumentNullException.ThrowIfNull(root);
 
         if (SelfInvocation.Current is not { } self)
@@ -85,7 +92,7 @@ public static class AirspacePullChild
             {
                 Started = false,
                 ExitCode = -1,
-                Said = "gg cannot name its own executable here, so it cannot run the pull.",
+                Said = $"gg cannot name its own executable here, so it cannot run gg airspace {verb[0]}.",
             };
         }
 
@@ -96,7 +103,7 @@ public static class AirspacePullChild
             UseShellExecute = false,
         };
 
-        foreach (var argument in self.Under("airspace", "pull"))
+        foreach (var argument in self.Under(["airspace", .. verb]))
         {
             start.ArgumentList.Add(argument);
         }
@@ -117,8 +124,8 @@ public static class AirspacePullChild
                 {
                     Started = false,
                     ExitCode = -1,
-                    Said = "The pull did not start, and the operating system said nothing "
-                         + "about why.",
+                    Said = $"gg airspace {verb[0]} did not start, and the operating system said "
+                         + "nothing about why.",
                 };
             }
 
@@ -136,7 +143,7 @@ public static class AirspacePullChild
                 {
                     Started = true,
                     ExitCode = -1,
-                    Said = $"The pull was still running after {Longest.TotalMinutes:0} "
+                    Said = $"gg airspace {verb[0]} was still running after {Longest.TotalMinutes:0} "
                          + "minutes and was stopped. The working copy may be half written; "
                          + "a person should look before anything is drafted into it.",
                 };
@@ -162,7 +169,7 @@ public static class AirspacePullChild
             {
                 Started = false,
                 ExitCode = -1,
-                Said = $"The pull could not be started: {unstartable.Message}",
+                Said = $"gg airspace {verb[0]} could not be started: {unstartable.Message}",
             };
         }
     }

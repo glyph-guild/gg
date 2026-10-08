@@ -4173,7 +4173,6 @@ public static class PaneText
         $"  {Clean(AirspacePath(state))}\n\n"
       + "  p  pull the airspace - render what is applied into the working copy\n"
       + "  s  apply the airspace - submit each changed document as a flight\n"
-      + "  m  draft with an agent - hand the tree to an agent to edit\n"
       + "  o  what would change, and what the last apply came to\n";
 
     /// <summary>

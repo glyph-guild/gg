@@ -95,9 +95,10 @@ public sealed class PtyDraftSession
         _terminal = terminal ?? OwnedTerminal.Open;
         _self = self ?? SelfInvocation.Current;
         _host = host ?? PtyHost.RunAsync;
-        _bar = bar ?? $"gg · drafting the airspace — /{DraftingPrompt.Qualified} to start "
-             + "· ask the agent to submit each document it changes · closing leaves the "
-             + "working copy as it stands";
+        // THE AGENT IS ALREADY TOLD HOW TO START (AgentOpening.Airspace), so the bar says what a
+        // person decides: every apply is theirs to approve.
+        _bar = bar ?? "gg · managing the airspace — the agent drafts and diffs; you approve each "
+             + "apply · ctrl-g then 0 for gg · closing leaves the working copy as it stands";
         _say = say ?? System.Console.WriteLine;
         _envelope = envelope ?? (() => null);
     }
@@ -171,6 +172,9 @@ public sealed class PtyDraftSession
                 terminal,
                 parts[0],
                 [.. parts.Skip(1),
+                 // THE OPENING, BEFORE EVERY FLAG: both flags below take a list, and a prompt
+                 // after them is one more tool name.
+                 AgentOpening.Airspace(),
                  "--mcp-config", ServerConfig(_self, tree, Rules(envelope)),
                  // THE QUALIFIED NAMES, from the one declaration each owns.
                  // Both, and named individually: --allowedTools takes a list,
@@ -183,8 +187,12 @@ public sealed class PtyDraftSession
                  // and still asks - and a permission prompt in front of a
                  // question the agent asked to answer its own uncertainty is
                  // the friction most likely to make it guess instead.
+                 //
+                 // DIFF IS GRANTED, APPLY NEVER IS: applying changes what every flight in the
+                 // tenant is governed by, so Claude Code asks the person before each call, and
+                 // that prompt is the confirmation the console's own apply asks for.
                  "--allowedTools", DocumentTool.Qualified, AirspaceContextTool.Qualified,
-                 AirspacePullTool.Qualified],
+                 AirspacePullTool.Qualified, AirspaceDiffTool.Qualified],
                 tree,
                 (most, wide) =>
                 {

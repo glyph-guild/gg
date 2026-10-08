@@ -1374,6 +1374,14 @@ public sealed class ConsoleLoop(
             {
                 state = Reducer.Reduce(Closed(state), Command.AskHowToCompose);
             }
+            else if (left == MuxLeave.Airspace)
+            {
+                // THE AIRSPACE AGENT, BESIDE GG (owner, 2026-10-07): the shell starts it in the mux,
+                // and what it left is folded - and the airspace re-read - when it ends.
+                state = draftEstate is null
+                    ? state with { LastEstate = "This console is not configured to manage the airspace with an agent." }
+                    : draftEstate(Closed(state));
+            }
         }
 
         return state with { Switching = false };

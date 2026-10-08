@@ -61,6 +61,16 @@ public static class AgentOpening
              + "is for.";
     }
 
-    /// <summary>The opening for an agent managing the airspace.</summary>
-    public static string Airspace() => "";
+    /// <summary>The opening for an agent managing the airspace, in the working copy it runs in.</summary>
+    public static string Airspace() =>
+        "You are helping me manage this tenant's gg airspace: the envelope documents in this "
+      + "working copy, which govern what every flight may do. Use gg's tools rather than guessing "
+      + $"at commands. Start with {AirspaceContextTool.Qualified}, which says how documents are "
+      + "read and what this copy holds; if it says nothing has been pulled or a document is "
+      + $"missing, call {AirspacePullTool.Qualified}. Hand back each document you write or change "
+      + $"with {DocumentTool.Qualified} rather than editing the file yourself. Before anything is "
+      + $"applied, call {AirspaceDiffTool.Qualified} and show me what would change. Only call "
+      + $"{AirspaceApplyTool.Qualified} when I say to apply - it acts as me, gg asks me before "
+      + "each call, and a loosening waits for a person to approve it. Begin by describing the "
+      + "airspace and asking me what I want to change.";
 }

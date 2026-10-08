@@ -346,9 +346,10 @@ public class PlatformToolServerTests
             .IsEquivalentTo((string[])
             [
                 AirspaceContextTool.Name, AirspacePullTool.Name, DocumentTool.Name,
+                AirspaceDiffTool.Name, AirspaceApplyTool.Name,
             ])
-            .Because("a drafting session reads the airspace, pulls it and hands documents "
-                   + "back. It is not a flight: it nominates nothing, asks nobody for a "
+            .Because("a drafting session reads the airspace, pulls it, hands documents "
+                   + "back, says what applying would change and applies with the person's say-so. It is not a flight: it nominates nothing, asks nobody for a "
                    + "decision, proposes no work item and composes no intent.");
     }
 
@@ -633,14 +634,31 @@ public class PlatformToolServerTests
         // DECIDE.
         //
         // A TENTH still has to make its own argument. None of these nine is it.
+        //
+        // TEN AND ELEVEN, AND HERE IS THE ARGUMENT (owner, 2026-10-07: "expose more of gg's
+        // management layer into mcp"). `diff_airspace` and `apply_airspace` are the airspace
+        // agent's management verbs, offered ONLY to a drafting session - the one shape with a
+        // working copy - so no flight and no composer can reach either.
+        //
+        // They are `pull_airspace`'s argument one verb over: a CHILD, never a client. Each re-execs
+        // `gg airspace diff` or `gg airspace apply` with the working copy forced, so the credential
+        // and the network stay in the process whose job they are, and the agent gets gg's own
+        // refusals rather than whatever a guessed command line printed. The agent could already
+        // type both; what the tools add is the right root and a described channel.
+        //
+        // AND THEY ARE GRANTED ON DIFFERENT TERMS FROM EACH OTHER, which is the pattern this count
+        // keeps surfacing. Diff reads, so the launch grants it. Apply changes what every flight in
+        // the tenant is governed by, so NO launch grants it: Claude Code asks the person before
+        // each call, and that prompt is the confirmation the console's own apply asks for. A
+        // loosening it sends still waits at its gate. A twelfth has to argue again.
         var listed = (await OfferedAsync(intentPath: null, documentRoot: "/tmp/tree"))
             .Concat(await OfferedAsync(intentPath: "/tmp/intent", documentRoot: null))
             .Concat(await OfferedAsync(intentPath: null, documentRoot: null))
             .Order(StringComparer.Ordinal)
             .ToList();
 
-        await Assert.That(listed.Count).IsEqualTo(9)
-            .Because("one channel, nine tools. A tenth is a decision somebody has to "
+        await Assert.That(listed.Count).IsEqualTo(11)
+            .Because("one channel, eleven tools. A twelfth is a decision somebody has to "
                    + "argue for, in this comment, where the last seven were argued for. "
                    + "And each appears in exactly one shape, or a session is being offered "
                    + "something it cannot do. Found: " + string.Join(", ", listed));
@@ -648,7 +666,8 @@ public class PlatformToolServerTests
             new[] { NominationTool.Name, HelpTool.Name, IntentTool.Name,
                     WorkItemProposalTool.Name, LandingProposalTool.Name, DocumentTool.Name,
                     DocumentProposalTool.Name,
-                    AirspaceContextTool.Name, AirspacePullTool.Name })
+                    AirspaceContextTool.Name, AirspacePullTool.Name,
+                    AirspaceDiffTool.Name, AirspaceApplyTool.Name })
             .Because("named rather than counted, so a tool cannot arrive by swapping which "
                    + "ones are declared. Found: " + string.Join(", ", listed));
 

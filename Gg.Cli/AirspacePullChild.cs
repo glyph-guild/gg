@@ -12,6 +12,9 @@ namespace Gg.Cli;
 /// <param name="root">The working copy to render into.</param>
 public delegate PullReport RunPull(string root);
 
+/// <summary>Runs <c>gg &lt;arguments...&gt;</c> as a child, and says what it said.</summary>
+public delegate PullReport RunVerb(IReadOnlyList<string> arguments);
+
 /// <summary>Runs <c>gg airspace &lt;verb...&gt;</c> against a working copy, as a child.</summary>
 public delegate PullReport RunAirspace(IReadOnlyList<string> verb, string root);
 

@@ -15,7 +15,8 @@ internal sealed class MuxFixture : IDisposable
         Terminal = new HostedTerminal { Columns = columns, Rows = rows };
         Ledger = new MuxLedger(Path.Combine(_directory, "mux", "sessions.jsonl"));
         Drafts = new Gg.Client.ItineraryDrafts(Path.Combine(_directory, "itineraries"));
-        Mux = new Mux(() => Terminal, Ledger, agentCommand: agentCommand);
+        Mux = new Mux(() => Terminal, Ledger, agentCommand: agentCommand,
+            self: new Gg.Local.SelfInvocation("/usr/local/bin/gg", ["runner", "tools"]));
     }
 
     public HostedTerminal Terminal { get; }

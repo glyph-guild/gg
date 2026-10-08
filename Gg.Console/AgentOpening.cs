@@ -73,4 +73,7 @@ public static class AgentOpening
       + $"{AirspaceApplyTool.Qualified} when I say to apply - it acts as me, gg asks me before "
       + "each call, and a loosening waits for a person to approve it. Begin by describing the "
       + "airspace and asking me what I want to change.";
+
+    /// <summary>The opening for an agent managing gg.</summary>
+    public static string Manage() => "";
 }

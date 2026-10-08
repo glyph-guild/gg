@@ -50,8 +50,10 @@ public sealed partial class Mux
         Func<IHostTerminal?>? terminal = null,
         MuxLedger? ledger = null,
         Func<DateTimeOffset>? clock = null,
-        string? agentCommand = null)
+        string? agentCommand = null,
+        Gg.Local.SelfInvocation? self = null)
     {
+        _self = self ?? Gg.Local.SelfInvocation.Current;
         _terminal = terminal ?? OwnedTerminal.Open;
         _ledger = ledger;
         _clock = clock ?? (() => DateTimeOffset.UtcNow);
@@ -64,6 +66,8 @@ public sealed partial class Mux
     internal event Action? Moved;
 
     /// <summary>Whether any agent is alive.</summary>
+    private readonly Gg.Local.SelfInvocation? _self;
+
     public bool Any
     {
         get

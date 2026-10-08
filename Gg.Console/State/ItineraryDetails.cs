@@ -41,7 +41,7 @@ public static class ItineraryDetails
             : null;
     }
 
-    /// <summary>Every leg of that plan, newest first.</summary>
+    /// <summary>Every leg of that plan, in the order the plan wrote them.</summary>
     public static IReadOnlyList<ItineraryLegRow> Legs(AppState state) =>
         Rows.ItineraryLegs(state);
 
@@ -101,7 +101,7 @@ public static class ItineraryDetails
     }
 
     /// <summary>
-    /// The chosen plan's legs as the control plane sent them, newest first.
+    /// The chosen plan's legs as the control plane sent them, in the order the plan wrote them.
     /// </summary>
     /// <remarks>
     /// <b>NOT the rows.</b> <see cref="Rows.ItineraryLegs"/> clips each
@@ -120,7 +120,7 @@ public static class ItineraryDetails
         [
             .. (state.Itineraries?.Nominations ?? [])
                 .Where(n => string.Equals(n.Nominator, plan.Key, StringComparison.Ordinal))
-                .OrderByDescending(n => n.MadeAt),
+                .OrderBy(n => n.MadeAt),
         ];
     }
 

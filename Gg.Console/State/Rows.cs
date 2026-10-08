@@ -719,8 +719,11 @@ public static class Rows
 
         return
         [
+            // IN THE ORDER THE PLAN WROTE THEM, its first leg at the top. Newest first put
+            // ITN-63's last leg above its first. A pass writes its legs one after another, so
+            // the earliest is the first written.
             .. plans[state.ItinerariesSelected]
-                .OrderByDescending(leg => leg.MadeAt)
+                .OrderBy(leg => leg.MadeAt)
                 .Select(leg => new ItineraryLegRow(
                     leg.NominationId.ToString(),
                     leg.WorkKind,

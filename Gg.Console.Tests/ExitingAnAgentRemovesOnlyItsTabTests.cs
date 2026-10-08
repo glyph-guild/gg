@@ -1,8 +1,8 @@
 namespace Gg.Console.Tests;
 
 /// <summary>
-/// <b>S69.5-01</b> - an agent's exit removes only its row; the last agent's exit leaves gg exactly as
-/// it was before any agent, with no column.
+/// <b>S69.5-01</b> - an agent's exit removes only its row; the last agent's exit leaves gg as it
+/// launches: the column with no agents in it (owner's call, 2026-10-07).
 /// </summary>
 public class ExitingAnAgentRemovesOnlyItsTabTests
 {
@@ -52,7 +52,7 @@ public class ExitingAnAgentRemovesOnlyItsTabTests
 
         var folded = fixture.Mux.Fold(new AppState(), out _);
         await Assert.That(folded.Agents).IsEmpty()
-            .Because("no agent, no column: gg is exactly the console it was before any agent started.");
+            .Because("no agent rows: gg is the mux view it launched as, with nobody in it.");
         await Assert.That(KeymapContext.For(folded).Agents).IsEqualTo(0);
     }
 }

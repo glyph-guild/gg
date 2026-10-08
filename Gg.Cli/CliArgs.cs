@@ -281,6 +281,11 @@ public abstract record CliAction
     public sealed record ItineraryTools(string Draft) : CliAction;
 
     /// <summary>
+    /// gg manage tools: gg's management layer as MCP tools, for an agent a person runs beside gg.
+    /// </summary>
+    public sealed record ManageTools : CliAction;
+
+    /// <summary>
     /// gg itinerary propose: a plan file proposed as the signed-in person. It waits for its gate.
     /// </summary>
     public sealed record ItineraryPropose(string Path, bool Json) : CliAction, IEmitsResult;

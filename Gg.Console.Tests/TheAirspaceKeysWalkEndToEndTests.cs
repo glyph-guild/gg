@@ -210,8 +210,8 @@ public class TheAirspaceKeysWalkEndToEndTests
         await Assert.That(Press(inside, KeyStroke.Char('p')).Shell)
             .IsEqualTo(Command.PullEstate);
 
-        await Assert.That(Press(inside, KeyStroke.Char('m')).Shell)
-            .IsEqualTo(Command.DraftEstate);
+        // NOT `m` ANY MORE: the airspace agent is started from the column (owner, 2026-10-07).
+        await Assert.That(Press(inside, KeyStroke.Char('m')).Shell).IsNull();
 
         await Assert.That(Press(state, KeyStroke.Char('p')).Shell).IsNull()
             .Because("and neither answers from the tab any more, which is the whole point "

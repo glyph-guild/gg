@@ -92,7 +92,6 @@ public class TheHintLineHoldsWhatTheTabCanDoTests
         {
             ("p", "pull the airspace"),
             ("s", "apply the airspace"),
-            ("m", "draft with an agent"),
         })
         {
             await Assert.That(inside).Contains($"{key} {act}", StringComparison.Ordinal)

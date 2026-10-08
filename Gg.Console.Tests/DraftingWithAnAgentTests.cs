@@ -60,10 +60,11 @@ public class DraftingWithAnAgentTests
         new(UiMode.AirspaceActions, TabId.Envelope);
 
     [Test]
-    public async Task The_key_drafts_from_the_airspace_actions()
+    public async Task The_airspace_actions_no_longer_start_an_agent()
     {
-        await Assert.That(Keymap.Resolve(KeyStroke.Char('m'), Behind()))
-            .IsEqualTo(Command.DraftEstate);
+        // OWNER, 2026-10-07: the airspace agent runs beside gg, from the column's "+ new agent"
+        // menu (`a`), instead of taking the whole terminal from this modal.
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('m'), Behind())).IsNull();
     }
 
     [Test]

@@ -124,8 +124,8 @@ public class TheAirspaceTabHasOneActionsKeyTests
         await Assert.That(Keymap.Resolve(KeyStroke.Char('s'), inside))
             .IsEqualTo(Command.AskToApplyEstate);
 
-        await Assert.That(Keymap.Resolve(KeyStroke.Char('m'), inside))
-            .IsEqualTo(Command.DraftEstate);
+        // THREE NOW: the agent moved to the column's "+ new agent" menu (owner, 2026-10-07).
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('m'), inside)).IsNull();
 
         await Assert.That(Keymap.Resolve(KeyStroke.Char('o'), inside))
             .IsEqualTo(Command.ReadOutcome);

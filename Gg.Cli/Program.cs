@@ -51,6 +51,8 @@ return await ByName(CliArgs.Parse(args)) switch
         // is the whole difference between a pull tool that works and one that
         // explains it was never wired.
         pull: AirspacePullChild.Run,
+        // AND THE AIRSPACE AGENT'S DIFF AND APPLY, through the same child.
+        airspace: AirspacePullChild.Run,
         inForce: Environment.GetEnvironmentVariable(AirspaceContextTool.EnvelopeVariable),
         sweep: tools.Sweep,
         several: tools.Several),
@@ -2214,12 +2216,22 @@ static async Task<int> LaunchConsoleAsync()
             return current;
         },
 
-        draftEstate: current => current with
+        // THE AIRSPACE AGENT, A TAB BESIDE GG (owner, 2026-10-07): run on the mux's thread rather
+        // than taking the terminal, and what it left - with the airspace re-read - is folded when
+        // its agent ends. It was the one agent that still took the whole screen.
+        draftEstate: current =>
         {
-            LastEstate = new Gg.Console.PtyDraftSession(
-                Settings.Value("GG_TAKE_COMMAND", InForce.Configuration),
-                envelope: () => ConsoleEnvelope.Read(data, new AppState()).Envelope)
-                .Draft(Airspace()),
+            mux.Launch("airspace", () =>
+            {
+                var said = new Gg.Console.PtyDraftSession(
+                    Settings.Value("GG_TAKE_COMMAND", InForce.Configuration),
+                    host: mux.Host,
+                    say: _ => { },
+                    envelope: () => ConsoleEnvelope.Read(data, new AppState()).Envelope)
+                    .Draft(Airspace());
+                return later => later with { LastEstate = said };
+            });
+            return current;
         },
 
         // THE AGENTS BESIDE GG (slice sixty-nine): shown between sessions, ended on quit.

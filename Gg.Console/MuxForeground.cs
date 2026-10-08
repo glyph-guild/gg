@@ -16,6 +16,9 @@ public enum MuxLeave
 
     /// <summary>A new flight was asked for: gg's console opens with `n`'s question.</summary>
     Compose,
+
+    /// <summary>An airspace agent was asked for: the shell starts it beside gg.</summary>
+    Airspace,
 }
 
 public sealed partial class Mux

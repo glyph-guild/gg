@@ -2491,12 +2491,14 @@ public sealed class ConsoleScreen : Window
             Padding!.GetOrCreateView().Add(_column);
         }
 
-        var alive = State.Agents.Count > 0;
+        // THE COLUMN FROM LAUNCH, agents or none (owner's call, 2026-10-07): gg opens in the mux
+        // view, with gg chosen and a new agent one key away. Slice sixty-nine drew it only while
+        // an agent lived.
         _column.Agents = State.Agents;
         _column.Armed = State.Switching;
-        _column.Visible = alive;
+        _column.Visible = true;
 
-        var left = alive ? MuxColumn.Width : 0;
+        var left = MuxColumn.Width;
         if (Padding!.Thickness.Left != left)
         {
             Padding.Thickness = new Terminal.Gui.Drawing.Thickness(left, Padding.Thickness.Top, Padding.Thickness.Right, Padding.Thickness.Bottom);

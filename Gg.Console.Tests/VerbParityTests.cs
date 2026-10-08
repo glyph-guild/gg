@@ -127,6 +127,10 @@ public class VerbParityTests
             // confirmation it arrived with is the one the door already
             // demanded - a reason, for both answers - so the console asks for a
             // sentence rather than inventing a second yes/no in front of it.
+            ["Itineraries"] = "reachable: the itineraries tab, `'`, lists every plan and its legs in "
+                            + "the order the plan wrote them - the same read.",
+            ["ItineraryShow"] = "reachable: the itineraries tab's modal opens one plan in full, and the "
+                              + "mux's history screen opens one by number.",
             ["Board"] = "reachable: the board tab, `;`, holds every nomination and the "
                       + "watches that make them - one table, because a watch finding an "
                       + "item and the item standing as a nomination are one story.",

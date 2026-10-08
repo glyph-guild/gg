@@ -154,6 +154,11 @@ return await ByName(CliArgs.Parse(args)) switch
     CliAction.Invite invite => await EmitAsync(invite.Json, c => c.InviteAsync()),
     CliAction.Why why => await EmitAsync(why.Json, c => c.WhyAsync(why.Flight, why.Obligation)),
     CliAction.Gates gates => await EmitAsync(gates.Json, c => c.GatesAsync()),
+    // THE PLANS, AND ONE PLAN (owner, 2026-10-08): the reads the console's itineraries tab and
+    // history screen already had, on the command line and so for an agent.
+    CliAction.Itineraries plans => await EmitAsync(
+        plans.Json, c => c.ItinerariesAsync(limit: plans.Limit, after: plans.After)),
+    CliAction.ItineraryShow plan => await EmitAsync(plan.Json, c => c.ShowItineraryAsync(plan.Reference)),
     // THE SAME QUESTION ONE NOUN EARLIER. A gate is a flight that stopped; a
     // standing nomination is work that has not started, and both are waiting on
     // a person.

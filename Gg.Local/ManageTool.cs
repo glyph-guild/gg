@@ -29,6 +29,8 @@ public static class ManageTool
     public const string WhyFlight = "why_flight";
     public const string ListRunners = "list_runners";
     public const string ListWatches = "list_watches";
+    public const string ListItineraries = "list_itineraries";
+    public const string ShowItinerary = "show_itinerary";
 
     public const string DecideGate = "decide_gate";
     public const string AnswerNomination = "answer_nomination";
@@ -39,7 +41,8 @@ public static class ManageTool
 
     /// <summary>The tools that only read: granted at launch.</summary>
     public static IReadOnlyList<string> Reads { get; } =
-        [WhoAmI, ListGates, ListBoard, ListFlights, ShowFlight, FlightLog, WhyFlight, ListRunners, ListWatches];
+        [WhoAmI, ListGates, ListBoard, ListFlights, ShowFlight, FlightLog, WhyFlight, ListRunners, ListWatches,
+         ListItineraries, ShowItinerary];
 
     /// <summary>The tools that act: declared, never granted, so the person is asked each time.</summary>
     public static IReadOnlyList<string> Acts { get; } =

@@ -869,6 +869,7 @@ public static class VerbOutput
     {
         VerbResult.Flights r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightList),
         VerbResult.Board r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.BoardPage),
+        VerbResult.Itineraries r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.BoardPage),
         VerbResult.NominationDecided r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.NominationDecisionReport),
         VerbResult.Flight r => JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.FlightSummary),
@@ -1122,6 +1123,7 @@ public static class VerbOutput
         VerbResult.Why r => WhyText(r.Value),
         VerbResult.Gates r => GatesText(r.Value),
         VerbResult.Board r => BoardText(r.Value),
+        VerbResult.Itineraries r => ItinerariesText(r.Value),
         VerbResult.NominationDecided r => NominationDecidedText(r.Value),
         VerbResult.Identity r => IdentityText(r.Value),
         VerbResult.Decided r => DecidedText(r.Value),
@@ -3459,6 +3461,63 @@ public static class VerbOutput
     /// two things that answer that are "is anybody expected to look at this"
     /// and "what do I type". Everything else on the line is context for those.
     /// </remarks>
+    /// <summary>
+    /// The plans, one block each, newest first; each plan's legs in the order it wrote them.
+    /// </summary>
+    /// <remarks>
+    /// <b>The console's itineraries tab, read the same way</b>: a plan is about what its legs share
+    /// (the intent key), it stands while any leg does, and its legs read first-written first - the
+    /// order ITN-63's modal was fixed to.
+    /// </remarks>
+    private static string ItinerariesText(BoardPage page)
+    {
+        var plans = page.Nominations
+            .GroupBy(n => n.Nominator, StringComparer.Ordinal)
+            .OrderByDescending(plan => plan.Max(n => n.MadeAt))
+            .ToList();
+
+        if (plans.Count == 0)
+        {
+            return "No plans here yet. A plan is proposed from an agent's plan session or with "
+                 + "gg itinerary propose.";
+        }
+
+        var text = new StringBuilder();
+        text.AppendLine($"{plans.Count} plan(s).");
+
+        foreach (var plan in plans)
+        {
+            var legs = plan.OrderBy(n => n.MadeAt).ToList();
+            var number = legs.Select(n => n.ItineraryNumber).FirstOrDefault(n => n is { Length: > 0 })
+                         ?? Clean(plan.Key);
+            var standing = legs.Count(n => n.Ending is null or "");
+
+            text.AppendLine();
+            text.AppendLine(standing > 0
+                ? $"{Clean(number)} - {legs.Count} leg(s), {standing} still standing"
+                : $"{Clean(number)} - {legs.Count} leg(s), every one answered");
+
+            if (legs.Select(n => n.IntentKey).FirstOrDefault(k => k is { Length: > 0 }) is { } about)
+            {
+                text.AppendLine($"  about: {Clean(about)}");
+            }
+
+            foreach (var (leg, at) in legs.Select((leg, at) => (leg, at)))
+            {
+                var state = leg.Ending is { Length: > 0 } ended ? ended : leg.Mode;
+                var flight = leg.FlightNumber is { Length: > 0 } flown ? $" -> {Clean(flown)}" : "";
+                text.AppendLine($"  {at + 1}. {Clean(leg.WorkKind)}, {Clean(state)}{flight}");
+
+                if (leg.Reason is { Length: > 0 } reason)
+                {
+                    text.AppendLine($"     {Clean(reason)}");
+                }
+            }
+        }
+
+        return text.ToString().TrimEnd();
+    }
+
     private static string BoardText(BoardPage board)
     {
         var rows = board.Nominations;

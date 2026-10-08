@@ -96,6 +96,9 @@ public class TheItinerariesVerbListsPlansTests
     {
         var json = VerbOutput.ToJson(new VerbResult.Itineraries(TwoPlans()));
 
-        await Assert.That(json).Contains("\"itineraryNumber\":\"ITN-63\"");
+        using var read = System.Text.Json.JsonDocument.Parse(json);
+        await Assert.That(read.RootElement.GetProperty("nominations").EnumerateArray()
+                .Select(n => n.GetProperty("itineraryNumber").GetString()))
+            .Contains("ITN-63");
     }
 }

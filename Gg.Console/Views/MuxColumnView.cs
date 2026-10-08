@@ -17,6 +17,8 @@ internal sealed class MuxColumnView : View
 {
     private static readonly Color Blue = new(0x7C, 0xB0, 0xCC);
     private static readonly Color Ink = new(16, 24, 32);
+    private static readonly Color Shade = new(56, 79, 92);
+    private static readonly Color Light = new(230, 237, 243);
 
     private readonly Action<MuxTab> _chosen;
 
@@ -38,8 +40,8 @@ internal sealed class MuxColumnView : View
         {
             var line = lines[row];
             SetAttribute(line.Active
-                ? new Terminal.Gui.Drawing.Attribute(Blue, Ink, TextStyle.Bold)
-                : new Terminal.Gui.Drawing.Attribute(Ink, Blue));
+                ? new Terminal.Gui.Drawing.Attribute(Ink, Blue, TextStyle.Bold)
+                : new Terminal.Gui.Drawing.Attribute(Light, Shade));
             AddStr(0, row, line.Text);
         }
 

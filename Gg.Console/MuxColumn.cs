@@ -64,6 +64,12 @@ public static class MuxColumn
     /// <summary>The ink on the blue: near-black, so the blue stays the colour.</summary>
     public const string Ink = "16;24;32";
 
+    /// <summary>The column's ground: the logo's blue at about 45% brightness, so it recedes.</summary>
+    public const string Shade = "56;79;92";
+
+    /// <summary>Light ink for the darker ground.</summary>
+    public const string Light = "230;237;243";
+
     private const string Esc = "\u001b";
 
     /// <summary>The column's rows, top to bottom, exactly <paramref name="height"/> of them.</summary>
@@ -151,8 +157,8 @@ public static class MuxColumn
         {
             var line = lines[row];
             var dress = line.Active
-                ? $"{Esc}[0;1;38;2;{Blue};48;2;{Ink}m"
-                : $"{Esc}[0;38;2;{Ink};48;2;{Blue}m";
+                ? $"{Esc}[0;1;38;2;{Ink};48;2;{Blue}m"
+                : $"{Esc}[0;38;2;{Light};48;2;{Shade}m";
 
             painted.Append($"{Esc}[{row + 1};1H").Append(dress).Append(line.Text).Append($"{Esc}[0m");
         }

@@ -408,6 +408,22 @@ public sealed class ConsoleLoop(
                 case Command.AgentsEnded:
                     break;
 
+                // AN AGENT, STRAIGHT FROM THE NEW-FLIGHT MENU: started here and shown at the top of
+                // the loop, where the terminal is free - what the column's "+ new agent" `c` does.
+                case Command.StartClaudeCode:
+                    state = Closed(state);
+                    if (mux is null)
+                    {
+                        state = state with { LastNomination = "This console has no agents beside it." };
+                    }
+                    else if (mux.StartClaudeCode(Directory.GetCurrentDirectory()) is { } started
+                             && mux.NumberOf(started) is > 0 and var at)
+                    {
+                        mux.Want(MuxTab.Agent(at));
+                    }
+
+                    break;
+
                 // COMPOSING WITH AN AGENT BESIDE GG: the agent runs as a tab, and the flight its
                 // intent asks for is opened when it ends, by the fold (slice sixty-nine).
                 case Command.ComposeWithAgent when mux is not null && compose is not null

@@ -1741,6 +1741,10 @@ public static class Keymap
             // `l` FOR LEGS: free in Normal mode, so nothing one keypress earlier does something else.
             new(KeyStroke.Char('l'), Command.PlanWithAgent, "plan its legs with an agent")
                 { Label = "Plan" },
+            // OR AN AGENT, STRAIGHT AWAY: Claude Code beside gg, here, shown at once. `s` FOR START:
+            // free in Normal mode, which `c` (the column menu's letter) is not - copy has it there.
+            new(KeyStroke.Char('s'), Command.StartClaudeCode, "start a Claude Code agent")
+                { Label = "Claude" },
 
             // THE ONE WAY OUT, the same key it is in every other modal - which
             // is what makes it findable without being learned. Escaping opens
@@ -1848,6 +1852,9 @@ public static class Keymap
             // finds. A plan's kinds are its legs', chosen with the agent, so no kind is picked first.
             new(KeyStroke.Char('l'), Command.PlanWithAgent, "plan several flights with an agent")
                 { Label = "Plan" },
+            // AND AN AGENT, for the plan key's reason: on a tenant with kinds this is what `n` opens.
+            new(KeyStroke.Char('s'), Command.StartClaudeCode, "start a Claude Code agent")
+                { Label = "Claude" },
 
             // THE SECOND HALF OF THE QUESTION. Which repositories a flight
             // names used to be a console-wide switch on another tab, which is

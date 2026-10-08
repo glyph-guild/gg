@@ -43,14 +43,12 @@ public class TheItinerariesTabIsOnTheBarTests
     }
 
     [Test]
-    public async Task It_sits_after_the_three_that_are_pinned()
+    public async Task It_sits_straight_after_the_queue()
     {
-        // QUEUE, BOARD, FLIGHTS hold the first three places and nothing may
-        // displace them - what needs somebody, what was nominated, what has
-        // run. A plan is read after those, so this is appended rather than
-        // inserted.
-        await Assert.That(Tabs.All.ToList().IndexOf(TabId.Itineraries))
-            .IsGreaterThanOrEqualTo(3);
+        // IT WAS APPENDED, so as not to move a bar a person had learned; the owner moved it
+        // second on 2026-10-07, because a plan is where the queue's work comes from.
+        // TheItinerariesTabFollowsTheQueueTests holds the whole order.
+        await Assert.That(Tabs.All.ToList().IndexOf(TabId.Itineraries)).IsEqualTo(1);
     }
 
     [Test]

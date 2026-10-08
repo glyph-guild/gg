@@ -819,6 +819,16 @@ public enum TabId
     Queue,
 
     /// <summary>
+    /// The plans this tenant has, and the legs each one is made of.
+    /// </summary>
+    /// <remarks>
+    /// <b>SECOND, STRAIGHT AFTER THE QUEUE</b> (owner's call, 2026-10-07). It was appended last
+    /// so as not to move the tabs a person had learned; the owner moved it, because a plan is
+    /// where the queue's work comes from. The keys go with the tabs, so only the order changes.
+    /// </remarks>
+    Itineraries,
+
+    /// <summary>
     /// The board: every nomination, and the watches whose sweeps make them.
     /// </summary>
     /// <remarks>
@@ -888,18 +898,6 @@ public enum TabId
     /// a pane for that answer. See <see cref="Tabs.Offered"/>.
     /// </remarks>
     Allowances,
-
-    /// <summary>
-    /// The plans this tenant has, and the legs each one is made of.
-    /// </summary>
-    /// <remarks>
-    /// <b>APPENDED, NEVER INSERTED.</b> Queue, board and flights hold the
-    /// first three places and nothing displaces them - what needs somebody,
-    /// what was nominated, what has run. A plan is read after those, and the
-    /// bar is drawn in this order, so putting one in front would move every
-    /// tab a person has learned.
-    /// </remarks>
-    Itineraries,
 }
 
 /// <summary>

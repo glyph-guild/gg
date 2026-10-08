@@ -2296,7 +2296,11 @@ public sealed class ConsoleScreen : Window
         [
             (TabId.Queue, queueTab),
 
-            // SECOND, BESIDE THE QUEUE. The queue is what needs somebody and a
+            // SECOND, STRAIGHT AFTER THE QUEUE (owner's call, 2026-10-07): a plan is where the
+            // queue's work comes from. It was appended last so as not to move a learned bar.
+            (TabId.Itineraries, itinerariesTab),
+
+            // THIRD, BESIDE THE QUEUE AND ITS PLANS. The queue is what needs somebody and a
             // standing nomination is already one of its rows, so this is where
             // a person goes the moment they have answered one. Declared in the
             // enum's order, which is the rule six lines down.
@@ -2319,12 +2323,6 @@ public sealed class ConsoleScreen : Window
             // all. It is in this list so the source order and Tabs.All agree;
             // whether it reaches the bar is the loop below.
             (TabId.Allowances, Tabbed(_allowancesPane)),
-
-            // LAST, WHERE IT IS DECLARED. Appended rather than put beside the
-            // board it shares a page type with, because the first three places
-            // are pinned and inserting anywhere would move a bar a person has
-            // learned.
-            (TabId.Itineraries, itinerariesTab),
         ];
 
         _bar = new Terminal.Gui.Views.Tabs

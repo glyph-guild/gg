@@ -1,31 +1,31 @@
 namespace Gg.Console.Tests;
 
 /// <summary>
-/// <c>n</c> then <c>c</c> starts a Claude Code agent beside gg and shows it, as <c>n</c> then
+/// <c>n</c> then <c>s</c> starts a Claude Code agent beside gg and shows it, as <c>n</c> then
 /// <c>l</c> starts a plan session (owner's call, 2026-10-07).
 /// </summary>
 /// <remarks>
-/// <b><c>c</c>, because the column's "+ new agent" menu already spells it that way.</b> One
-/// letter for one act in both places.
+/// <b><c>s</c> for start, not the column menu's <c>c</c></b>: <c>c</c> copies in Normal mode, and a
+/// key that did something one keypress earlier is refused in this menu.
 /// </remarks>
 public class AnAgentStartsFromTheNewFlightMenuTests
 {
     [Test]
-    public async Task C_in_the_compose_choice_starts_an_agent()
+    public async Task S_in_the_compose_choice_starts_an_agent()
     {
         var resolved = Keymap.Resolve(
-            KeyStroke.Char('c'), new KeymapContext(UiMode.ComposeChoice, TabId.Flights));
+            KeyStroke.Char('s'), new KeymapContext(UiMode.ComposeChoice, TabId.Flights));
 
         await Assert.That(resolved).IsEqualTo(Command.StartClaudeCode);
     }
 
     [Test]
-    public async Task C_in_the_work_kind_picker_starts_one_too()
+    public async Task S_in_the_work_kind_picker_starts_one_too()
     {
         // `n` opens the work-kind picker first on a tenant with kinds, which is every tenant in
         // the field: a key only the compose choice knew would be a key nobody finds - `l`'s lesson.
         var resolved = Keymap.Resolve(
-            KeyStroke.Char('c'), new KeymapContext(UiMode.WorkKindChoice, TabId.Flights));
+            KeyStroke.Char('s'), new KeymapContext(UiMode.WorkKindChoice, TabId.Flights));
 
         await Assert.That(resolved).IsEqualTo(Command.StartClaudeCode);
     }

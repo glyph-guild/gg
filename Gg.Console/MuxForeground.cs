@@ -325,6 +325,7 @@ public sealed partial class Mux
                 "",
                 "l    plan several flights with an agent",
                 "a    manage the airspace with an agent",
+                "g    manage gg with an agent: gates, the board, flights, runners",
                 $"c    Claude Code, here: {here}",
                 "n    a new flight (gg asks what kind, as `n` does)",
                 "",
@@ -337,6 +338,9 @@ public sealed partial class Mux
             {
                 (byte)'l' => (null, MuxLeave.Plan),
                 (byte)'a' => (null, MuxLeave.Airspace),
+                (byte)'g' => StartManaging(here) is { } managing && NumberOf(managing) is > 0 and var shown
+                    ? (MuxTab.Agent(shown), null)
+                    : (MuxTab.Gg, null),
                 (byte)'n' => (null, MuxLeave.Compose),
                 (byte)'c' => StartClaudeCode(here) is { } started && NumberOf(started) is > 0 and var at
                     ? (MuxTab.Agent(at), null)

@@ -85,6 +85,23 @@ public static class AirspacePullChild
         ArgumentNullException.ThrowIfNull(verb);
         ArgumentNullException.ThrowIfNull(root);
 
+        // FORCED, NEVER INFERRED. The verb falls back to the current directory, and this
+        // process's directory is whatever the MCP client chose - so a pull left to the fallback
+        // succeeds and writes a tree nowhere anybody is looking.
+        return Gg(["airspace", .. verb], new Dictionary<string, string> { [AirspacePullTool.RootVariable] = root });
+    }
+
+    /// <summary>
+    /// Runs <c>gg &lt;arguments...&gt;</c> as a child of this binary and says what it said: the
+    /// management tools' verbs (<c>gg manage tools</c>), and the airspace agent's.
+    /// </summary>
+    public static PullReport Gg(IReadOnlyList<string> arguments) => Gg(arguments, null);
+
+    private static PullReport Gg(IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string>? environment)
+    {
+        ArgumentNullException.ThrowIfNull(arguments);
+        var verb = arguments.Count > 1 && arguments[0] == "airspace" ? arguments.Skip(1).ToList() : arguments;
+
         if (SelfInvocation.Current is not { } self)
         {
             // SAYS SO RATHER THAN GUESSING, for the reason SelfInvocation
@@ -106,16 +123,15 @@ public static class AirspacePullChild
             UseShellExecute = false,
         };
 
-        foreach (var argument in self.Under(["airspace", .. verb]))
+        foreach (var argument in self.Under([.. arguments]))
         {
             start.ArgumentList.Add(argument);
         }
 
-        // FORCED, NEVER INFERRED. The verb falls back to the current directory,
-        // and this process's directory is whatever the MCP client chose - so a
-        // pull left to the fallback succeeds and writes a tree nowhere anybody
-        // is looking.
-        start.Environment[AirspacePullTool.RootVariable] = root;
+        foreach (var (name, value) in environment ?? new Dictionary<string, string>())
+        {
+            start.Environment[name] = value;
+        }
 
         try
         {

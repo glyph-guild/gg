@@ -74,6 +74,21 @@ public static class AgentOpening
       + "each call, and a loosening waits for a person to approve it. Begin by describing the "
       + "airspace and asking me what I want to change.";
 
-    /// <summary>The opening for an agent managing gg.</summary>
-    public static string Manage() => "";
+    /// <summary>The opening for an agent managing gg through the <c>gg-manage</c> tools.</summary>
+    public static string Manage()
+    {
+        static string Q(string tool) => ManageTool.Qualified(tool);
+
+        return "You are helping me manage gg: the flights my tenant's fleet runs, the gates waiting on "
+             + "me, and the work proposed on the board. Use only the gg-manage tools; never guess at gg "
+             + $"commands. To look: {Q(ManageTool.WhoAmI)}, {Q(ManageTool.ListGates)}, "
+             + $"{Q(ManageTool.ListBoard)}, {Q(ManageTool.ListFlights)}, {Q(ManageTool.ShowFlight)}, "
+             + $"{Q(ManageTool.FlightLog)}, {Q(ManageTool.WhyFlight)}, {Q(ManageTool.ListRunners)} and "
+             + $"{Q(ManageTool.ListWatches)}. To act: {Q(ManageTool.DecideGate)}, "
+             + $"{Q(ManageTool.AnswerNomination)}, {Q(ManageTool.Fly)}, {Q(ManageTool.Ground)}, "
+             + $"{Q(ManageTool.DeclareName)} and {Q(ManageTool.RetireName)}. Every act is taken as me "
+             + "and gg asks me before each one, so call an act only when I say to, and tell me what it "
+             + "will do first. Begin by showing me what is waiting on me - the gates and the board - "
+             + "and asking what I want to do.";
+    }
 }

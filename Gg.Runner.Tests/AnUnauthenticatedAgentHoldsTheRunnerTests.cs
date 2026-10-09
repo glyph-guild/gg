@@ -266,8 +266,15 @@ public class AnUnauthenticatedAgentHoldsTheRunnerTests
         _ = await rig.Loop.RunAsync("runner-1", [], rig.Stop.Token);
 
         await Assert.That(agent.Probes).IsEqualTo(0);
-        await Assert.That(rig.Protocol.AgentReadings).IsEmpty()
-            .Because("nothing changed, so nothing was said.");
+
+        // SAID ONCE, THOUGH, and "nothing changed" was the defect (owner, 2026-10-09). From the
+        // control plane's side a process that starts ready IS a change: its last word about this
+        // runner may be a failure from a process long gone. vmlinux002 started ready with a token,
+        // said nothing, and a reading from three weeks earlier kept re-asking a person to log in a
+        // machine that was flying flights - GG-219, then GG-1036.
+        await Assert.That(rig.Protocol.AgentReadings.Select(r => r.Standing))
+            .IsEquivalentTo((string[])[AgentStandings.Ready])
+            .Because("the standing the host measured at startup is reported once, and not on every turn.");
     }
 
     [Test]

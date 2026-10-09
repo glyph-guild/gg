@@ -68,9 +68,26 @@ public sealed class PtyPlanSession
     }
 
     /// <summary>A fresh draft for a plan about <paramref name="seed"/>, its intent already set.</summary>
-    public static string SeedDraft(ItineraryDrafts drafts, IEnumerable<string> labels, PlanSeed seed) =>
-        FreshDraft(drafts, labels);
+    /// <remarks>
+    /// <b>Written before the agent starts</b>, so the draft is taken - no second session can open
+    /// on it - and the agent's first <c>show_plan</c> already shows the item.
+    /// </remarks>
+    public static string SeedDraft(ItineraryDrafts drafts, IEnumerable<string> labels, PlanSeed seed)
+    {
+        ArgumentNullException.ThrowIfNull(drafts);
+        ArgumentNullException.ThrowIfNull(seed);
 
+        var draft = FreshDraft(drafts, labels);
+        _ = drafts.Change(draft, empty => empty with
+        {
+            Intent = Gg.Contracts.FlightIntent.Of(null, provider: seed.Provider, id: seed.Id),
+        });
+
+        return draft;
+    }
+
+    private readonly PlanSeed? _seed;
+    private readonly Gg.Local.IntentReader? _reader;
     private readonly string _agentCommand;
     private readonly Func<IHostTerminal?> _terminal;
     private readonly SelfInvocation? _self;
@@ -90,6 +107,8 @@ public sealed class PtyPlanSession
         PlanSeed? seed = null,
         Gg.Local.IntentReader? reader = null)
     {
+        _seed = seed;
+        _reader = reader;
         _draft = draft;
         _agentCommand = agentCommand
             ?? Environment.GetEnvironmentVariable("GG_TAKE_COMMAND")
@@ -144,10 +163,13 @@ public sealed class PtyPlanSession
                 [.. parts.Skip(1),
                  // THE OPENING, BEFORE EVERY FLAG: --allowedTools takes a list, and a prompt after it
                  // is one more tool name.
-                 AgentOpening.Plan(_draft),
-                 "--mcp-config", ServerConfig(_self, _draft),
+                 AgentOpening.Plan(_draft, _seed),
+                 "--mcp-config", ServerConfig(_self, _draft, _reader),
                  // NAMED, NOT GRANTED BY PREFIX: a prefix widens with every tool the server adds.
-                 "--allowedTools", .. PlanningTool.All.Select(PlanningTool.Qualified)],
+                 // AND THE ITEM'S READER, when the plan starts from one: reading it is the
+                 // agent's first move.
+                 "--allowedTools", .. PlanningTool.All.Select(PlanningTool.Qualified),
+                 .. Reading(_reader)],
                 Directory.GetCurrentDirectory(),
                 (most, wide) =>
                 {
@@ -314,7 +336,13 @@ public sealed class PtyPlanSession
     }
 
     /// <summary>The server: `gg itinerary tools --draft console`, under its own key (rule 2).</summary>
-    private static string ServerConfig(SelfInvocation self, string draft)
+    /// <summary>The reader's three reads, by their qualified names under its key.</summary>
+    private static IReadOnlyList<string> Reading(Gg.Local.IntentReader? reader) =>
+        reader is { Key: { Length: > 0 } key }
+            ? [.. new[] { ItemTool.Name, ItemTool.HistoryName, ItemTool.FieldsName }.Select(tool => $"mcp__{key}__{tool}")]
+            : [];
+
+    private static string ServerConfig(SelfInvocation self, string draft, Gg.Local.IntentReader? reader = null)
     {
         using var buffer = new MemoryStream();
         using (var json = new Utf8JsonWriter(buffer))
@@ -331,6 +359,23 @@ public sealed class PtyPlanSession
 
             json.WriteEndArray();
             json.WriteEndObject();
+
+            // THE TRACKER'S READER, as the console itself runs it: its command and arguments, no
+            // environment - it resolves its own credential.
+            if (reader is { Key: { Length: > 0 } key } item)
+            {
+                json.WriteStartObject(key);
+                json.WriteString("command", item.Command);
+                json.WriteStartArray("args");
+                foreach (var argument in item.Arguments)
+                {
+                    json.WriteStringValue(argument);
+                }
+
+                json.WriteEndArray();
+                json.WriteEndObject();
+            }
+
             json.WriteEndObject();
             json.WriteEndObject();
         }

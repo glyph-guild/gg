@@ -2250,6 +2250,27 @@ static async Task<int> LaunchConsoleAsync()
         // THE AIRSPACE AGENT, A TAB BESIDE GG (owner, 2026-10-07): run on the mux's thread rather
         // than taking the terminal, and what it left - with the airspace re-read - is folded when
         // its agent ends. It was the one agent that still took the whole screen.
+        // A PLAN FROM A WORK ITEM (owner, 2026-10-08): the draft's intent is the item, written before
+        // the agent starts, and the agent is given that tracker's reader to read it with.
+        planFromIntent: (current, seed) =>
+        {
+            var draft = Gg.Console.PtyPlanSession.SeedDraft(
+                Gg.Client.ItineraryDrafts.ForThisMachine(), mux.Labels(), seed);
+            var reader = declaredReaders.FirstOrDefault(r => string.Equals(r.Key, seed.Provider, StringComparison.Ordinal));
+            mux.Launch($"plan · {draft}", () =>
+            {
+                var said = new Gg.Console.PtyPlanSession(
+                    Settings.Value("GG_TAKE_COMMAND", InForce.Configuration),
+                    host: mux.Host,
+                    say: _ => { },
+                    draft: draft,
+                    seed: seed,
+                    reader: string.IsNullOrEmpty(reader.Key) ? null : reader).Run();
+                return later => later with { LastNomination = said };
+            });
+            return current;
+        },
+
         draftEstate: current =>
         {
             mux.Launch("airspace", () =>

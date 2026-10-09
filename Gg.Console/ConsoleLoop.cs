@@ -766,8 +766,17 @@ public sealed class ConsoleLoop(
                         asked: false);
                     break;
 
+                // A PLAN FROM A WORK ITEM: the one the modal is about, else the row under the
+                // cursor, from its own tracker - the flight's when it came off a flight.
                 case Command.PlanFromIntent:
-                    _ = planFromIntent;
+                    state = Closed(state);
+                    state = WorkItemDetails.Item(before) is not { Id.Length: > 0 } item
+                            || (before.WorkItemProvider ?? before.Browse?.ProviderKey) is not { Length: > 0 } tracker
+                        ? state with { LastNomination = "There is no work item here to plan from." }
+                        : planFromIntent is null
+                            ? state with { LastNomination = "This console is not configured to plan with an agent." }
+                            : planFromIntent(state, new PlanSeed(
+                                tracker, item.Id, item.Title is { Length: > 0 } title ? title : null));
                     break;
 
                 case Command.PlanWithAgent:

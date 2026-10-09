@@ -434,6 +434,7 @@ public static class Reducer
             Command.ComposeInEditor => state,
             Command.ComposeWithAgent => state,
             Command.PlanWithAgent => state,
+            Command.PlanFromIntent => state,
             Command.StartClaudeCode => state,
 
             // THE SWITCH ARMS AND DISARMS HERE; WHERE IT GOES IS THE SHELL'S (slice sixty-nine).

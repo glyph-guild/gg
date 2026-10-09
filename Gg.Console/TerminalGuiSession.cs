@@ -37,7 +37,10 @@ public sealed class TerminalGuiSession(
     HeldSecret? held = null,
 
     // THE AGENTS BESIDE GG, for the column (slice sixty-nine). Last and defaulted, like held.
-    Mux? mux = null) : IUiSession
+    Mux? mux = null,
+
+    // THE FLIGHTS ASKED FOR, whose answers the screen folds. Last and defaulted, like mux.
+    Launcher? launcher = null) : IUiSession
 {
     public UiOutcome Run(AppState state)
     {
@@ -52,7 +55,8 @@ public sealed class TerminalGuiSession(
             app, state, tails, runnerLog, refresh, signInLanded, reads, booted,
             expectations,
             held,
-            mux);
+            mux,
+            launcher);
         app.Run(screen);
         return new UiOutcome(screen.ExitCommand, screen.State);
     }

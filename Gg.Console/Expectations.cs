@@ -273,13 +273,30 @@ public sealed class Expectations(
     /// <b>The page does not move under a person reading it</b>; only the count
     /// does. Unfocused, the newest is the one worth drawing.
     /// </remarks>
-    private static AppState Raised(AppState state, Notification notification) => state with
+    private static AppState Raised(AppState state, Notification notification)
     {
-        Notifications = [.. state.Notifications, notification],
-        NotificationAt = state.Mode == UiMode.Notifications
-            ? state.NotificationAt
-            : state.Notifications.Count,
-    };
+        // IN PLACE OF THE LAUNCH'S "ACCEPTED", where there is one. That entry
+        // has been in the corner since the key was pressed, and this is how it
+        // ends - one flight, one entry, from submitting to its number.
+        var at = state.Notifications.ToList().FindIndex(n =>
+            n.Kind == NotificationKind.Accepted
+            && string.Equals(n.FlightId, notification.FlightId, StringComparison.Ordinal));
+
+        if (at >= 0)
+        {
+            var replaced = state.Notifications.ToList();
+            replaced[at] = notification with { Name = notification.Name ?? replaced[at].Said };
+            return state with { Notifications = replaced };
+        }
+
+        return state with
+        {
+            Notifications = [.. state.Notifications, notification],
+            NotificationAt = state.Mode == UiMode.Notifications
+                ? state.NotificationAt
+                : state.Notifications.Count,
+        };
+    }
 
     /// <summary>
     /// Gone when the corner has been quiet for long enough - and never while
@@ -299,7 +316,12 @@ public sealed class Expectations(
             return state;
         }
 
-        if (raised || _notificationsUntil is null)
+        // NOTHING AGES WHILE IT IS STILL MOVING. A corner that cleared itself
+        // halfway through a submit would take away the one thing saying a key
+        // did something; the fifteen seconds start from the last entry
+        // settling.
+        if (raised || _notificationsUntil is null
+            || state.Notifications.Any(Launches.InMotion))
         {
             _notificationsUntil = now + NotificationsLast;
             return state;

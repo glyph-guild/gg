@@ -2579,6 +2579,13 @@ public sealed record AppState
         System.Collections.Immutable.ImmutableHashSet<Guid>.Empty;
 
     /// <summary>What came of the last flight this console opened.</summary>
+    /// <summary>The flights asked for that the door has not answered yet.</summary>
+    /// <remarks>
+    /// <see cref="Launch"/>'s note: each has a corner entry from the moment it
+    /// was asked for, and <c>Launcher</c> sends it from beside the screen.
+    /// </remarks>
+    public IReadOnlyList<Launch> Launches { get; init; } = [];
+
     public string? LastFlightOpened { get; init; }
 
     /// <summary>

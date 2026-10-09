@@ -587,6 +587,7 @@ public sealed class ConsoleScreen : Window
     private readonly List<Button> _notificationButtons = [];
 
     private readonly Expectations? _expectations;
+    private readonly Launcher? _launcher;
 
     /// <summary>How wide the corner is: a flight number, a name, and four buttons.</summary>
     private const int NotificationsWidth = 50;
@@ -771,9 +772,14 @@ public sealed class ConsoleScreen : Window
 
         // THE AGENTS BESIDE GG (slice sixty-nine), read on a tick for the column and never
         // started from here. Last and defaulted, for reads' reason.
-        Mux? mux = null)
+        Mux? mux = null,
+
+        // THE FLIGHTS ASKED FOR, whose answers this folds. The shell starts every send;
+        // a screen never does. Last and defaulted, for reads' reason.
+        Launcher? launcher = null)
     {
         _app = app;
+        _launcher = launcher;
         _mux = mux;
         _expectations = expectations;
         _tails = tails;
@@ -2688,7 +2694,13 @@ public sealed class ConsoleScreen : Window
         // than flickering, quick enough to say something is happening.
         _app.AddTimeout(TimeSpan.FromMilliseconds(50), () =>
         {
-            if (!LoadingArt.Waiting(State) && !Screensaver.Showing(State))
+            var breathing = LoadingArt.Waiting(State) || Screensaver.Showing(State);
+
+            // AND THE CORNER, WHILE A FLIGHT IS ON ITS WAY. Same pulse, so the
+            // spinner and the mark keep one clock.
+            var turning = State.Notifications.Any(Launches.InMotion);
+
+            if (!breathing && !turning)
             {
                 return true;
             }
@@ -2699,10 +2711,39 @@ public sealed class ConsoleScreen : Window
             // second is the cost this console just had taken out of it, put
             // back for one Label - so this redraws that one view and nothing
             // else.
-            Breathe();
-            _waiting.SetNeedsDraw();
+            if (breathing)
+            {
+                Breathe();
+                _waiting.SetNeedsDraw();
+            }
+
+            // AND ONLY THE CORNER, for the same reason.
+            if (turning)
+            {
+                RenderNotifications();
+                _notifications.SetNeedsDraw();
+            }
+
             return true;
         });
+
+        if (_launcher is not null)
+        {
+            // WHAT THE DOOR SAID ABOUT A FLIGHT ASKED FOR. The shell started the
+            // send; this only folds what has landed - Expectations' terms, at
+            // its quarter second.
+            _app.AddTimeout(TimeSpan.FromMilliseconds(250), () =>
+            {
+                if (!_launcher.Landed)
+                {
+                    return true;
+                }
+
+                State = _launcher.Fold(State);
+                Render();
+                return true;
+            });
+        }
 
         if (_expectations is not null)
         {

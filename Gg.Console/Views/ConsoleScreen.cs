@@ -286,6 +286,9 @@ public sealed class ConsoleScreen : Window
     private readonly Label _itemActionSaid;
 
     private readonly Button _itemFly;
+
+    /// <summary>The Actions tab's plan button: an itinerary planned from this item with an agent.</summary>
+    private readonly Button _itemPlan;
     private readonly FrameView _itemChangePane;
     private readonly ListView _itemChange;
     private readonly Label _itemHistoryAbsent;
@@ -1720,6 +1723,16 @@ public sealed class ConsoleScreen : Window
         };
         _itemFly.Accepting += OnFlyTheOpenItem;
 
+        // BESIDE FLY, AND THE SAME KIND OF ACT: one flight, or a plan of several, from this item.
+        _itemPlan = new Button
+        {
+            X = Pos.Right(_itemFly) + 2,
+            Y = 2,
+            Text = WorkItemDetails.PlanLabel,
+            HotKeySpecifier = new System.Text.Rune('\uffff'),
+        };
+        _itemPlan.Accepting += OnPlanFromTheOpenItem;
+
         _itemActionsTab = new View
         {
             Title = WorkItemDetails.ActionsTitle,
@@ -1728,7 +1741,7 @@ public sealed class ConsoleScreen : Window
             CanFocus = true,
             TabStop = TabBehavior.TabStop,
         };
-        _itemActionsTab.Add(_itemActionSaid, _itemFly);
+        _itemActionsTab.Add(_itemActionSaid, _itemFly, _itemPlan);
 
         _itemTabs.Add(_itemDetailsTab);
         _itemTabs.Add(_itemHistoryTab);
@@ -2828,6 +2841,12 @@ public sealed class ConsoleScreen : Window
     private void OnFlyTheOpenItem(object? sender, EventArgs args)
     {
         ExitCommand = Command.FlyPicked;
+        _app.RequestStop(this);
+    }
+
+    private void OnPlanFromTheOpenItem(object? sender, EventArgs args)
+    {
+        ExitCommand = Command.PlanFromIntent;
         _app.RequestStop(this);
     }
 
@@ -5932,6 +5951,7 @@ public sealed class ConsoleScreen : Window
             // says why rather than drawing a button that refuses when pressed.
             _itemActionSaid.Text = WorkItemDetails.ActionsSaid(State);
             _itemFly.Visible = WorkItemDetails.CanFly(State);
+            _itemPlan.Visible = WorkItemDetails.CanPlan(State);
 
             if (!ReferenceEquals(_itemTabs.Value, showing))
             {

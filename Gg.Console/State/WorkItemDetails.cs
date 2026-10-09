@@ -390,8 +390,11 @@ public static class WorkItemDetails
     }
 
     /// <summary>The Actions tab's second button.</summary>
-    public const string PlanLabel = "";
+    public const string PlanLabel = "Plan";
 
     /// <summary>Whether there is an item, from a known tracker, to plan from.</summary>
-    public static bool CanPlan(AppState state) => false;
+    /// <remarks>The loop's own test for PlanFromIntent, so the button and `l` agree.</remarks>
+    public static bool CanPlan(AppState state) =>
+        Item(state) is { Id.Length: > 0 }
+        && (state.WorkItemProvider ?? state.Browse?.ProviderKey) is { Length: > 0 };
 }

@@ -157,7 +157,7 @@ return await ByName(CliArgs.Parse(args)) switch
     // THE PLANS, AND ONE PLAN (owner, 2026-10-08): the reads the console's itineraries tab and
     // history screen already had, on the command line and so for an agent.
     CliAction.Itineraries plans => await EmitAsync(
-        plans.Json, c => c.ItinerariesAsync(limit: plans.Limit, after: plans.After)),
+        plans.Json, c => c.ItinerariesAsync(limit: plans.Limit, after: plans.After, intent: plans.Intent)),
     CliAction.ItineraryShow plan => await EmitAsync(plan.Json, c => c.ShowItineraryAsync(plan.Reference)),
     // THE SAME QUESTION ONE NOUN EARLIER. A gate is a flight that stopped; a
     // standing nomination is work that has not started, and both are waiting on
@@ -1729,6 +1729,22 @@ static async Task<int> LaunchConsoleAsync()
     // to, which is ConsoleLoop's own sentence about this object.
     var browsing = new Gg.Console.ConfiguredWorkBrowser(readers);
 
+    // ONE READ AFTER ANOTHER, folded in order: the reader's answer, then what came of the item.
+    static Func<Gg.Console.AppState, Gg.Console.AppState> Then(
+        Func<Gg.Console.AppState, Gg.Console.AppState> first,
+        Func<Gg.Console.AppState, Gg.Console.AppState> second) => state => second(first(state));
+
+    // WHAT CAME OF THE OPEN WORK ITEM (owner, 2026-10-08): its flights and plans, by its key.
+    Func<Gg.Console.AppState, Gg.Console.AppState> CameOf(Gg.Console.AppState state) =>
+        Gg.Console.ConsoleIntents.CameOfPatch(
+            key => data.FlightsAboutAsync(key).GetAwaiter().GetResult() is Gg.Client.VerbResult.Flights listed
+                ? listed.Value.Flights
+                : null,
+            () => data.ItinerariesAsync().GetAwaiter().GetResult() is Gg.Client.VerbResult.Itineraries plans
+                ? plans.Value
+                : null,
+            state);
+
     // THE TAB IN FRONT OF SOMEBODY, EVERY THIRTY SECONDS. On a task, so the
     // session folds a finished answer rather than waiting for one - the
     // argument for that is written out in AutoRefresh, and the short of it is
@@ -1867,13 +1883,15 @@ static async Task<int> LaunchConsoleAsync()
                     Gg.Console.Command.BrowseFiltered =>
                         Gg.Console.ConsoleBrowsing.Patch(browsing, current),
 
-                    Gg.Console.Command.ShowWorkItem =>
-                        Gg.Console.ConsoleBrowsing.ItemPatch(browsing, current),
+                    // AND WHAT CAME OF IT, for the modal's Flights tab: two control-plane reads by
+                    // the item's key, folded after the reader's.
+                    Gg.Console.Command.ShowWorkItem => Then(
+                        Gg.Console.ConsoleBrowsing.ItemPatch(browsing, current), CameOf(current)),
 
                     // THE SAME READ FROM THE OTHER MODAL, about an id that came
                     // off a flight rather than off a row.
-                    Gg.Console.Command.OpenTheTicket =>
-                        Gg.Console.ConsoleBrowsing.TicketPatch(browsing, current),
+                    Gg.Console.Command.OpenTheTicket => Then(
+                        Gg.Console.ConsoleBrowsing.TicketPatch(browsing, current), CameOf(current)),
 
                     Gg.Console.Command.FilterBrowse =>
                         Gg.Console.ConsoleBrowsing.FacetsPatch(browsing, current),

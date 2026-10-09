@@ -389,6 +389,13 @@ public sealed class ConsoleData(
     /// cannot actually see.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// The flights about one intent, by its key - the work item modal's Flights tab. Every flight,
+    /// not only the open ones: what came of an item includes what landed.
+    /// </summary>
+    public Task<VerbResult> FlightsAboutAsync(string key, CancellationToken cancellationToken = default) =>
+        _commands.ListAsync(all: true, cancellationToken, intent: key);
+
     public Task<VerbResult> FlownAsync(
         string provider, string id, CancellationToken cancellationToken = default) =>
         _commands.ListAsync(all: true, cancellationToken, intent: $"{provider}#{id}");

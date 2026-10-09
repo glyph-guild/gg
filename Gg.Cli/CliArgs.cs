@@ -900,7 +900,7 @@ public static class CliArgs
         "gg itinerary propose <file>    propose a plan; nothing opens until its gate is answered",
         "gg itinerary tools [--draft <name>]  a tool server any Claude Code session drafts a plan with",
         "gg manage tools                    gg's management layer as tools for a Claude Code session",
-        "gg itineraries [--limit <rows>] [--after <cursor>]  every plan here, and its legs",
+        "gg itineraries [--intent <key>] [--limit <rows>] [--after <cursor>]  every plan here, and its legs",
         "gg itinerary show <ITN-n>          one plan, and every leg of it in full",
         "  --print-registration         the `claude mcp add` line that registers it",
         "gg gates                       flights stopped, waiting on somebody",
@@ -1512,8 +1512,11 @@ public static class CliArgs
             ["itinerary", "tools"] => new CliAction.ItineraryTools("draft"),
             ["manage", "tools"] => new CliAction.ManageTools(),
             ["itineraries"] => new CliAction.Itineraries(json, page, after),
+            // ONE INTENT'S PLANS: its key as `gg flights --intent` takes one, or a file's
+            // repository:path[@ref].
+            ["itineraries", "--intent", var key] => new CliAction.Itineraries(json, page, after, key),
             ["itineraries", ..] => Unknown(
-                "gg itineraries takes --json, --limit <rows> and --after <cursor>. One plan is "
+                "gg itineraries takes --json, --limit <rows>, --after <cursor> and --intent <key>. One plan is "
               + "gg itinerary show ITN-63."),
             ["itinerary", "show", var plan] => new CliAction.ItineraryShow(plan, json),
             ["itinerary", "show", ..] => Unknown(

@@ -384,14 +384,21 @@ public sealed class FlightCommands(
     /// to see how it is going, and a leg that has flown is most of what there
     /// is to see.
     /// </remarks>
+    /// <param name="intent">
+    /// One intent's plans only, by its key (<see cref="IntentKeys"/>) - narrowed here, over the
+    /// page read, because the rows already carry the key.
+    /// </param>
     public async Task<VerbResult> ItinerariesAsync(
         CancellationToken cancellationToken = default,
         int? limit = null,
-        string? after = null) =>
-        new VerbResult.Itineraries(
-            await _client.GetItinerariesAsync(
-                Session(), cancellationToken,
-                limit ?? Gg.Contracts.Paging.DefaultLimit, after));
+        string? after = null,
+        string? intent = null)
+    {
+        var page = await _client.GetItinerariesAsync(
+            Session(), cancellationToken, limit ?? Gg.Contracts.Paging.DefaultLimit, after);
+
+        return new VerbResult.Itineraries(intent is { Length: > 0 } key ? IntentKeys.About(page, key) : page);
+    }
 
     /// <summary>
     /// One plan, by the number a person proposed it as: the mux's history screen opens it (slice

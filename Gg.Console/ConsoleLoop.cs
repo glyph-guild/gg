@@ -242,7 +242,14 @@ public sealed class ConsoleLoop(
     // THE AGENTS BESIDE GG (slice sixty-nine). The shell's, like every child here: the loop
     // shows the one asked for between UI sessions, folds what an ended one left, and ends them
     // all when gg quits - asked first.
-    Mux? mux = null)
+    Mux? mux = null,
+
+    // WHERE A FLIGHT ASKED FOR IS SENT FROM. The shell starts each launch on a
+    // task just before the next session runs, and the session folds the answer
+    // - so the corner says "submitting" the moment the key is pressed, and the
+    // request blocks nothing. Null sends inline, between sessions, as flying
+    // always did: one path either way, ask then send then fold.
+    Launcher? launcher = null)
 {
     /// <summary>
     /// Re-reads everything the boot read, keeping what the person was looking
@@ -334,6 +341,34 @@ public sealed class ConsoleLoop(
         }
     }
 
+    /// <summary>Every launch asked for, started - or, with no launcher, sent and folded here.</summary>
+    private AppState Sent(AppState state)
+    {
+        if (launcher is not null)
+        {
+            launcher.Start(state);
+            return state;
+        }
+
+        if (actions is null)
+        {
+            return state;
+        }
+
+        var wanted = state.Refresh.Wanted;
+
+        foreach (var launch in state.Launches)
+        {
+            state = Launches.Landed(state, launch, Launches.Perform(launch, actions));
+        }
+
+        // AND THE READ A NAMELESS ANSWER ASKS FOR, served here: inline, the
+        // loop is the one holding the reload.
+        return state.Refresh.Wanted && !wanted
+            ? Reloaded(state with { Refresh = state.Refresh with { Wanted = false } }, reload, asked: false)
+            : state;
+    }
+
     public AppState Run(AppState initial)
     {
         var state = initial;
@@ -350,6 +385,8 @@ public sealed class ConsoleLoop(
             {
                 state = Shown(state, mux);
             }
+
+            state = Sent(state);
 
             var outcome = ui.Run(state);
             state = outcome.State;
@@ -1443,8 +1480,7 @@ public sealed class ConsoleLoop(
             return state with { LastFlightOpened = "Nothing was opened: no intent was written." };
         }
 
-        var opening = actions.Fly(intent, against, picked);
-        return Expect(state with { LastFlightOpened = opening.Said }, opening);
+        return Launches.Asked(state, Launches.Composed(intent, against, picked));
     }
 
     public static AppState Opened(
@@ -1475,10 +1511,10 @@ public sealed class ConsoleLoop(
 
         // THE CHOSEN REPOSITORY CROSSES ON BOTH DOORS. A setting that worked
         // depending on whether you pasted or picked would be worse than no
-        // setting.
-        var opening = actions.Fly(intent, state.Against, WorkKinds.Picked(state));
-
-        return Expect(state with { LastFlightOpened = opening.Said }, opening);
+        // setting. Asked for here and sent by Launcher, so the console comes
+        // back with the corner already saying it is on its way.
+        return Launches.Asked(
+            state, Launches.Composed(intent, state.Against, WorkKinds.Picked(state)));
     }
 
     /// <summary>
@@ -1526,7 +1562,10 @@ public sealed class ConsoleLoop(
     /// </remarks>
     private static AppState ReadAgainUnlessWatching(
         AppState before, AppState after, Func<AppState, AppState>? reload) =>
+        // A LAUNCH IS WATCHED FOR TOO: it becomes an expectation the moment the
+        // door names its flight, and a reload before then finds nothing.
         after.Expecting.Count > before.Expecting.Count
+        || after.Launches.Count > before.Launches.Count
             ? after
             : Reloaded(after, reload, asked: false);
 
@@ -2096,45 +2135,28 @@ public sealed class ConsoleLoop(
             return Reducer.Asked(state, ComposingFor.WorkItem);
         }
 
-        var id = subject.Id;
-
-        // ASKED BEFORE ANYTHING IS OPENED. Two flights on one work item is
-        // legal and usually a mistake, and it is exactly what pressing a key
-        // twice produces. A console that refused would decide something the
+        // ASKED FOR, NOT SENT. The launch carries everything the door is asked
+        // with - captured now, so a cursor that moves while it is out cannot
+        // change which item it was for - and its corner entry is up before
+        // anything is sent. Launcher sends it beside the screen, and asks first
+        // whether this item has flown before: two flights on one work item is
+        // legal and usually a mistake, exactly what pressing a key twice
+        // produces, and a console that refused would decide something the
         // control plane allows.
-        if (actions.AlreadyFlown(listing.ProviderKey, id) is { Length: > 0 } why)
-        {
-            return state with
-            {
-                Mode = UiMode.ConfirmFlight,
-                PendingFlight = new PendingFlight
-                {
-                    Provider = listing.ProviderKey,
-                    Id = id,
-                    Why = why,
-                },
-            };
-        }
-
-        // TWO VALUES, DECLARED. Not the title, which is what a person read and
-        // not what a flight is called, and not the url, which is not even held.
         //
-        // AND THIS IS THE ONE ENDING THAT OPENED ANYTHING, which is why the flag
-        // is set here rather than inferred from what the sentence says.
+        // AND THIS IS THE ONE ENDING THAT OPENS ANYTHING, which is why the flag
+        // is set here rather than inferred from what the sentence says. The
+        // receipt still says it did not ask how to compose - two of the three
+        // ways into a flight offer a choice and this one cannot (S33.4-04) -
+        // and Launches.Landed writes it when the door answers.
         opened = true;
 
-        // AND IT SAYS IT DID NOT ASK. Two of the three ways into a flight offer
-        // a choice of composer and this one cannot, so the receipt gives the
-        // reason where the person is already looking - S33.4-04.
-        var opening = actions.FlyTicket(
-            listing.ProviderKey, id, state.Against, WorkKinds.Picked(state));
-
-        return Expect(
-            state with
-            {
-                LastFlightOpened = opening.Said + " " + PaneText.ComposedBy(ComposingFor.WorkItem),
-            },
-            opening);
+        return Launches.Asked(state, Launches.Ticket(
+            listing.ProviderKey,
+            subject.Id,
+            $"{subject.Id} {subject.Title}".Trim(),
+            state,
+            check: true));
     }
 
     /// <summary>
@@ -2175,10 +2197,10 @@ public sealed class ConsoleLoop(
             return answered with { LastFlightOpened = "This console is not configured to open flights." };
         }
 
-        var opening = actions.FlyTicket(
-            pending.Provider, pending.Id, state.Against, WorkKinds.Picked(state));
-
-        return Expect(answered with { LastFlightOpened = opening.Said }, opening);
+        // ASKED AGAIN, AND NOT CHECKED AGAIN: a person has just answered that
+        // question.
+        return Launches.Asked(answered, Launches.Ticket(
+            pending.Provider, pending.Id, $"{pending.Provider}#{pending.Id}", state, check: false));
     }
 
     /// <summary>

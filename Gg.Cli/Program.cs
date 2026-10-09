@@ -1786,6 +1786,12 @@ static async Task<int> LaunchConsoleAsync()
     var expectations = new Gg.Console.Expectations(
         expected => Task.Run(() => lookFor(expected)), new SystemClock());
 
+    // THE CONSOLE'S ACTIONS, named once: the loop acts through them, and the
+    // launcher sends flights through the same instance, so the two cannot
+    // come to disagree about which door a flight goes through.
+    var actions = new VerbConsoleActions(data, new ConsoleSecretPrompt());
+    var launcher = Gg.Console.Launcher.Over(actions);
+
     // THE AGENTS BESIDE GG (slice sixty-nine): one mux for the console's life, given to the
     // session for its column and to the loop that shows and ends them. History reads the drafts'
     // records and one plan at a time, here because only this root may name the control plane.
@@ -1937,7 +1943,8 @@ static async Task<int> LaunchConsoleAsync()
             // THE SAME HOLDER THE BROADCAST DELEGATE SPENDS. One instance, because a
             // session that made its own would type into a holder nothing reads.
             held: heldSecret,
-            mux: mux),
+            mux: mux,
+            launcher: launcher),
         // HOSTED, SO GG KEEPS A ROW WHILE THE EDITOR HAS THE SCREEN. The
         // handoff is the same one it always was - text out, a real process, text
         // back - and the difference is that gg mediates the terminal instead of
@@ -1988,7 +1995,7 @@ static async Task<int> LaunchConsoleAsync()
         // what answers the old objection to registering from a console: the
         // escape-hatch rules a modal would need do not apply to a process that owns
         // the screen.
-        actions: new VerbConsoleActions(data, new ConsoleSecretPrompt()),
+        actions: actions,
 
         // THE BROADCAST, AND WHY IT IS A DELEGATE. A push needs the WebRTC channel and
         // its STUN configuration, which are composed here beside the control-plane
@@ -2309,7 +2316,10 @@ static async Task<int> LaunchConsoleAsync()
         },
 
         // THE AGENTS BESIDE GG (slice sixty-nine): shown between sessions, ended on quit.
-        mux: mux)
+        mux: mux,
+
+        // AND THE FLIGHTS ASKED FOR: started by the loop, folded by the screen.
+        launcher: launcher)
         .Run(initial);
 
     // Demo/verification hook: prove the surviving model is the whole truth.

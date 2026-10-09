@@ -3905,6 +3905,12 @@ public static class PaneText
             NotificationKind.FlightOpened => "flight opened",
             NotificationKind.GateWaiting => "a gate is waiting on you",
             NotificationKind.NotListedYet => "not listed yet",
+
+            // MOVING, AND THE TITLE SAYS SO IN MOTION: the spinner is the
+            // difference between "it is on its way" and a corner that froze.
+            NotificationKind.Submitting => $"{Spinner(state)} submitting",
+            NotificationKind.Accepted => $"{Spinner(state)} accepted",
+            NotificationKind.NotOpened => "nothing was opened",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(state), showing.Kind, "unknown notification"),
         };
@@ -3947,6 +3953,24 @@ public static class PaneText
                 $"accepted, and not listed after {(int)Expectations.Patience.TotalSeconds}s",
                 $"flight {unlisted.FlightId}",
             ],
+
+            // WHAT WAS ASKED FOR, BY THE NAME A PERSON GAVE IT. There is no
+            // number yet - the door mints none until the flight materializes -
+            // so the line says where it has got to rather than a blank.
+            { Kind: NotificationKind.Submitting } sending =>
+            [
+                "on its way to the control plane",
+                Clean(sending.Said ?? ""),
+            ],
+            { Kind: NotificationKind.Accepted } accepted =>
+            [
+                "accepted - waiting for its number",
+                Clean(accepted.Said ?? ""),
+            ],
+            { Kind: NotificationKind.NotOpened } refused =>
+            [
+                Clean(refused.Said ?? "the door did not say why"),
+            ],
             { } other => throw new ArgumentOutOfRangeException(
                 nameof(state), other.Kind, "unknown notification"),
         };
@@ -3962,6 +3986,25 @@ public static class PaneText
         string.Join(" · ", Keymap.Bindings(context)
             .Where(b => b.Command is Command.GoToNotification or Command.ShowNotifications)
             .Select(b => $"{b.Key.Name} {b.Description}"));
+
+    /// <summary>The frames a notification in motion turns through.</summary>
+    /// <remarks>
+    /// <b>Braille, because it turns inside one cell</b> and the corner's title is
+    /// one line - a wider spinner would push the words it sits beside.
+    /// </remarks>
+    public static readonly IReadOnlyList<string> SpinnerFrames =
+        ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+    /// <summary>
+    /// The frame for now, off the pulse the loading mark breathes by - one
+    /// frame every two of its fifty-millisecond ticks.
+    /// </summary>
+    public static string Spinner(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return SpinnerFrames[(int)((uint)state.LoadingPulse / 2 % (uint)SpinnerFrames.Count)];
+    }
 
     private static Notification? Showing(AppState state) =>
         state.Notifications.Count == 0

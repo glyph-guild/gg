@@ -10,8 +10,8 @@ namespace Gg.Console.Tests;
 /// </summary>
 public class TheQueueListsWhatYouMayAnswerTests
 {
-    private const string Kevin = "entra:dd4520ce/kevin";
-    private const string Phil = "entra:dd4520ce/phil";
+    private const string Kevin = "fake:kevin";
+    private const string Phil = "fake:phil";
 
     private static PendingGate Gate(string flight, string approver) => new()
     {

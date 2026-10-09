@@ -312,6 +312,12 @@ public sealed class CredentialCommands(
     }
 
     /// <summary>
+    /// What a person adding a tracker's credential needs told about this machine.
+    /// </summary>
+    public static string? TrackerNotice(string tracker, IReadOnlyList<DeclaredTracker> declared) =>
+        null;
+
+    /// <summary>
     /// Every credential reference this tenant has registered, and how each one
     /// rests on this machine.
     /// </summary>

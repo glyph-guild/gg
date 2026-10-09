@@ -400,9 +400,37 @@ public sealed class FileCredentialStore : ICredentialStore
     /// credential is never a reason to decrypt one.
     /// </remarks>
     public string RestingOf(string locator) =>
-        File.Exists(SealedPathFor(locator)) ? CredentialResting.Sealed
+        SealedIsCurrent(locator) ? CredentialResting.Sealed
         : File.Exists(PathFor(locator)) ? CredentialResting.Plaintext
         : CredentialResting.NotHere;
+
+    /// <summary>
+    /// Whether the sealed entry is the value this locator holds.
+    /// </summary>
+    /// <remarks>
+    /// <b>THE NEWER FILE IS THE VALUE.</b> A binary from before sealing sees no
+    /// <c>.sealed</c> file, so when a person rotates a token with one it writes a
+    /// plaintext file beside the sealed entry it cannot see. Preferring the sealed
+    /// entry regardless then answers every read with the token that was replaced -
+    /// measured: a tracker's reader returned 401 for days while the rotated token
+    /// sat one file over, and re-adding it changed nothing. A plaintext file
+    /// written AFTER the envelope is the later act, so it wins and is resealed on
+    /// the read, which also deletes it.
+    /// </remarks>
+    private bool SealedIsCurrent(string locator)
+    {
+        var sealedPath = SealedPathFor(locator);
+
+        if (!File.Exists(sealedPath))
+        {
+            return false;
+        }
+
+        var plaintext = PathFor(locator);
+
+        return !File.Exists(plaintext)
+            || File.GetLastWriteTimeUtc(plaintext) <= File.GetLastWriteTimeUtc(sealedPath);
+    }
 
     /// <summary>
     /// The holders named by the envelope here, or empty when there is none.
@@ -415,7 +443,9 @@ public sealed class FileCredentialStore : ICredentialStore
     /// </remarks>
     public IReadOnlyList<string> HoldersOf(string locator)
     {
-        if (!File.Exists(SealedPathFor(locator)))
+        // A stale envelope's holders are not this value's: the plaintext beside it
+        // is what Read answers, and plaintext is sealed to nobody.
+        if (!SealedIsCurrent(locator))
         {
             return [];
         }
@@ -613,11 +643,9 @@ public sealed class FileCredentialStore : ICredentialStore
 
     public string? Read(string locator)
     {
-        var sealedPath = SealedPathFor(locator);
-
-        if (File.Exists(sealedPath))
+        if (SealedIsCurrent(locator))
         {
-            return Open(locator, File.ReadAllText(sealedPath));
+            return Open(locator, File.ReadAllText(SealedPathFor(locator)));
         }
 
         var path = PathFor(locator);

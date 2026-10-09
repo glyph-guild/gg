@@ -13,6 +13,13 @@ public class AHiddenAgentThatChangedIsMarkedTests
         fixture.Agent("A", fixture.Speaks("a-first", "a", "a-later", "end"));
 
         fixture.Raise("a");
+
+        // WAITED FOR ON ITS SCREEN, NOT ON THE MARK. "a-first" alone sets the mark, so waiting on
+        // the mark let the test show and leave the agent inside the 20ms it takes to notice its
+        // flag - and "a-later" then landed after leaving, a genuine hidden write the last
+        // assertion read as a stray mark. Failed 3 times in CI and 14 runs in 120 locally.
+        await Assert.That(MuxFixture.Until(() => fixture.Mux.Screen(1).Contains("a-later", StringComparison.Ordinal)))
+            .IsTrue();
         await Assert.That(MuxFixture.Until(() => fixture.Mux.Rows() is [{ Changed: true }])).IsTrue()
             .Because("nobody has looked at A since it wrote, which is what the mark says.");
 

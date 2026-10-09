@@ -365,18 +365,27 @@ public static class Rows
     }
 
     /// <summary>
-    /// What a person reads down each column of the board.
+    /// What a person reads down each column of the board's nominations.
     /// </summary>
     /// <remarks>
-    /// <b>The first column says which kind of row this is, because the board
-    /// holds two.</b> A nomination is work somebody could open; a sweep is the
-    /// watch that goes looking for it. They share a pane because they are one
-    /// story - a watch finds an item, the item stands as a nomination, a person
-    /// opens it - and a reader who cannot tell them apart at a glance has a
-    /// list of two things pretending to be one.
+    /// <b>No column saying what kind of row this is, because the table says
+    /// it.</b> The board held nominations and watches in one table, and a first
+    /// column naming the kind was the only way to tell them apart; they are two
+    /// tables now (owner, 2026-10-09), each titled, and a column carrying the
+    /// same word down every row would be width spent on nothing.
     /// </remarks>
-    public static IReadOnlyList<string> BoardColumns { get; } =
-        ["", "subject", "for", "state", "kind", "since", "next", "cost"];
+    public static IReadOnlyList<string> NominationColumns { get; } =
+        ["subject", "for", "state", "kind", "since"];
+
+    /// <summary>What a person reads down each column of the board's sweeps.</summary>
+    /// <remarks>
+    /// <b>A watch's columns, not a nomination's with blanks.</b> One table
+    /// sharing columns put an empty `next' and `cost' on every nomination and an
+    /// empty `for' on every watch; each table now carries only what its rows
+    /// have.
+    /// </remarks>
+    public static IReadOnlyList<string> SweepColumns { get; } =
+        ["watch", "state", "executor", "since", "next", "cost"];
 
     /// <summary>What the plans pane shows, left to right.</summary>
     /// <remarks>
@@ -794,7 +803,8 @@ public static class Rows
             PaneText.AgeOf(plan.Max(n => n.MadeAt)));
     }
 
-    public static IReadOnlyList<BoardRow> Board(AppState state)
+    /// <summary>The board's upper table: every nomination, newest first.</summary>
+    public static IReadOnlyList<BoardRow> Nominations(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
 
@@ -843,6 +853,21 @@ public static class Rows
                     : ""));
         }
 
+        return rows;
+    }
+
+    /// <summary>The board's lower table: every watch in force, by name.</summary>
+    /// <remarks>
+    /// <b>In the order the control plane paged them</b>, which is by name - so
+    /// a page landing underneath adds rows below the ones on screen rather than
+    /// shuffling them, and the sort here only restates that.
+    /// </remarks>
+    public static IReadOnlyList<BoardRow> Sweeps(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var rows = new List<BoardRow>();
+
         foreach (var watch in (state.Watches?.Standings ?? [])
             .OrderBy(w => w.Name, StringComparer.Ordinal))
         {
@@ -872,6 +897,22 @@ public static class Rows
         return rows;
     }
 
+    /// <summary>The rows of whichever of the board's two tables has the keys.</summary>
+    public static IReadOnlyList<BoardRow> BoardDriven(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state.BoardTable is BoardTable.Sweeps ? Sweeps(state) : Nominations(state);
+    }
+
+    /// <summary>The cursor of whichever of the board's two tables has the keys.</summary>
+    public static int BoardCursor(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state.BoardTable is BoardTable.Sweeps ? state.SweepSelected : state.BoardSelected;
+    }
+
     /// <summary>
     /// What a watch has cost, with the scale beside it.
     /// </summary>
@@ -889,11 +930,10 @@ public static class Rows
     /// <remarks>
     /// <para>
     /// <b>Through the rows rather than into the list, because the cursor
-    /// indexes what is on the screen.</b> <see cref="Board"/> orders
-    /// nominations newest first and then puts the watches underneath, so the
-    /// nth nomination and the nth row are different things - and reading the
-    /// second as the first is how a key answers a row somebody is not looking
-    /// at.
+    /// indexes what is on the screen.</b> <see cref="Nominations"/> filters
+    /// and orders newest first, so the nth nomination of the page and the nth
+    /// row are different things - and reading the second as the first is how
+    /// a key answers a row somebody is not looking at.
     /// </para>
     /// <para>
     /// <b>Null for a watch, and null for a row already ended.</b> A watch is
@@ -908,7 +948,15 @@ public static class Rows
 
         // THE MODAL'S BOARD, which from the queue is the standing page.
         state = BoardDetails.Seen(state);
-        var rows = Board(state);
+
+        // ONLY THE UPPER TABLE HOLDS ANYTHING TO ANSWER. A watch is the
+        // machinery that made the rows above it.
+        if (state.BoardTable is not BoardTable.Nominations)
+        {
+            return null;
+        }
+
+        var rows = Nominations(state);
 
         if (state.BoardSelected < 0 || state.BoardSelected >= rows.Count)
         {
@@ -916,11 +964,6 @@ public static class Rows
         }
 
         var row = rows[state.BoardSelected];
-
-        if (!string.Equals(row.What, BoardRow.Nomination, StringComparison.Ordinal))
-        {
-            return null;
-        }
 
         var one = (state.Board?.Nominations ?? [])
             .FirstOrDefault(n => n.NominationId.ToString() == row.Key);

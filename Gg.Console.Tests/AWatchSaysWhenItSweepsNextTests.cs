@@ -53,19 +53,22 @@ public class AWatchSaysWhenItSweepsNextTests
     [Test]
     public async Task The_column_is_called_since()
     {
-        await Assert.That(Rows.BoardColumns).Contains("since");
-        await Assert.That(Rows.BoardColumns).DoesNotContain("when")
-            .Because("it is an age, and on this tab it is the age of two different things - "
-                   + "a nomination since it was made, a watch since it last reported.");
+        foreach (var columns in (IReadOnlyList<string>[])[Rows.NominationColumns, Rows.SweepColumns])
+        {
+            await Assert.That(columns).Contains("since");
+            await Assert.That(columns).DoesNotContain("when")
+                .Because("it is an age, and on this tab it is the age of two different things - "
+                       + "a nomination since it was made, a watch since it last reported.");
+        }
     }
 
     [Test]
-    public async Task The_board_has_a_next_column_after_since()
+    public async Task The_sweeps_have_a_next_column_after_since()
     {
-        await Assert.That(Rows.BoardColumns).Contains("next");
+        await Assert.That(Rows.SweepColumns).Contains("next");
 
-        await Assert.That(Rows.BoardColumns.ToList().IndexOf("next"))
-            .IsEqualTo(Rows.BoardColumns.ToList().IndexOf("since") + 1)
+        await Assert.That(Rows.SweepColumns.ToList().IndexOf("next"))
+            .IsEqualTo(Rows.SweepColumns.ToList().IndexOf("since") + 1)
             .Because("last time and next time read together; a column between them is one "
                    + "an eye has to cross twice.");
     }
@@ -73,7 +76,7 @@ public class AWatchSaysWhenItSweepsNextTests
     [Test]
     public async Task A_watch_shows_how_long_until_its_next_sweep()
     {
-        var row = Rows.Board(WithWatch(Sweeping(next: DateTimeOffset.UtcNow.AddMinutes(4))))
+        var row = Rows.Sweeps(WithWatch(Sweeping(next: DateTimeOffset.UtcNow.AddMinutes(4))))
             .Single();
 
         await Assert.That(row.Next).IsEqualTo("4m")
@@ -86,7 +89,7 @@ public class AWatchSaysWhenItSweepsNextTests
         // WAITING ON A RUNNER, which is the state a person asks about: the
         // control plane has decided nothing is stopping it, and nothing has
         // pulled it yet. "0m" would read as a countdown that has stalled.
-        var row = Rows.Board(WithWatch(Sweeping(next: DateTimeOffset.UtcNow.AddSeconds(-30))))
+        var row = Rows.Sweeps(WithWatch(Sweeping(next: DateTimeOffset.UtcNow.AddSeconds(-30))))
             .Single();
 
         await Assert.That(row.Next).IsEqualTo("now");
@@ -97,7 +100,7 @@ public class AWatchSaysWhenItSweepsNextTests
     {
         // THE ANSWER SOMEBODY NEEDS, in the column they are already reading. A
         // blank here would read as "soon" for a watch nothing will ever pull.
-        var row = Rows.Board(WithWatch(Sweeping(
+        var row = Rows.Sweeps(WithWatch(Sweeping(
             next: null,
             said: "this watch is performed by forge-reader, and nothing sweeps from there"))).Single();
 
@@ -110,7 +113,7 @@ public class AWatchSaysWhenItSweepsNextTests
         // AN OLDER CONTROL PLANE, which is the ordinary case the day this
         // ships: the member is absent, so the column is empty rather than
         // guessing a schedule out of a last-heard.
-        var row = Rows.Board(WithWatch(Sweeping())).Single();
+        var row = Rows.Sweeps(WithWatch(Sweeping())).Single();
 
         await Assert.That(row.Next).IsEqualTo("");
     }
@@ -141,8 +144,10 @@ public class AWatchSaysWhenItSweepsNextTests
             },
         };
 
-        await Assert.That(Rows.Board(state).Single().Next).IsEqualTo("")
+        await Assert.That(Rows.Nominations(state).Single().Next).IsEqualTo("")
             .Because("a nomination has no schedule, and a dash would be a claim about a "
                    + "next run it never had.");
+        await Assert.That(Rows.NominationColumns).DoesNotContain("next")
+            .Because("a column blank on every row of its table is width spent on nothing.");
     }
 }

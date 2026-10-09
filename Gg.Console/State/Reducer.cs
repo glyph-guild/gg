@@ -21,7 +21,7 @@ public static class Reducer
             // BOTH WAYS, because a view a person can widen and not narrow is a
             // door with no handle on the inside. The cursor goes back to the
             // top: the row it indexed is not the row at that index once the
-            // list changes length (Rows.Board's own note about what indexes
+            // list changes length (Rows.Nominations' own note about what indexes
             // what).
             Command.ShowEverybodysRows => state with
             {
@@ -248,8 +248,17 @@ public static class Reducer
             // - without it the guard reads a field nothing on this path sets,
             // and moving off the last row and back would abandon a page already
             // on the wire to ask for it again.
-            Command.LoadMoreFlights or Command.LoadMoreBoard =>
+            Command.LoadMoreFlights or Command.LoadMoreBoard or Command.LoadMoreSweeps =>
                 state with { ReadInFlight = true },
+
+            // THE OTHER OF THE BOARD'S TWO TABLES. Each keeps its own cursor,
+            // so crossing and crossing back lands where the person left it.
+            Command.NextBoardTable => state with
+            {
+                BoardTable = state.BoardTable is BoardTable.Sweeps
+                    ? BoardTable.Nominations
+                    : BoardTable.Sweeps,
+            },
 
             // NO READ IN FLIGHT, because the allowances are already in the
             // model: the runners tab's refresh fetches them, and the boot
@@ -1667,7 +1676,9 @@ public static class Reducer
                 TabId.Credentials => PickRepository(state, state.RepositorySelected + by),
                 TabId.Intents => PickWork(state, state.BrowseSelected + by),
                 TabId.Flights => PickFlight(state, state.FlightSelected + by),
-                TabId.Board => PickBoardRow(state, state.BoardSelected + by),
+                TabId.Board => state.BoardTable is BoardTable.Sweeps
+                    ? PickSweep(state, state.SweepSelected + by)
+                    : PickBoardRow(state, state.BoardSelected + by),
                 TabId.Itineraries => PickLeg(state, state.ItinerariesSelected + by),
                 TabId.Runners => PickRunner(state, state.RunnerSelected + by),
                 TabId.Envelope => PickAirspaceRow(state, state.AirspaceSelected + by),
@@ -1742,10 +1753,10 @@ public static class Reducer
     /// somebody else's.
     /// </para>
     /// <para>
-    /// <b>The end of what is HELD, not the end of the table.</b> The board puts
-    /// the watches underneath its nominations, and three rows of machinery below
-    /// the last nomination are not more of the page - a person who has reached
-    /// the last nomination has seen everything the board brought.
+    /// <b>The end of the table that has the keys.</b> The board is two tables,
+    /// nominations over sweeps, and each pages on its own cursor - so reaching
+    /// the last nomination asks for nominations and reaching the last watch asks
+    /// for watches, and neither is asked for from the other's end.
     /// </para>
     /// <para>
     /// <b>No cursor means that was all of them.</b> Asking anyway would fetch
@@ -1773,13 +1784,17 @@ public static class Reducer
                 && Reached(state.FlightSelected, PaneText.Shown(state.Flights).Count) =>
                 Command.LoadMoreFlights,
 
-            TabId.Board when state.Board?.Next is { Length: > 0 }
-                && Reached(
-                    state.BoardSelected,
-                    Rows.Board(state).Count(
-                        row => string.Equals(
-                            row.What, BoardRow.Nomination, StringComparison.Ordinal))) =>
+            // EACH OF THE BOARD'S TABLES PAGES ON ITS OWN CURSOR, and only the
+            // one with the keys can have reached its end.
+            TabId.Board when state.BoardTable is BoardTable.Nominations
+                && state.Board?.Next is { Length: > 0 }
+                && Reached(state.BoardSelected, Rows.Nominations(state).Count) =>
                 Command.LoadMoreBoard,
+
+            TabId.Board when state.BoardTable is BoardTable.Sweeps
+                && state.Watches?.Next is { Length: > 0 }
+                && Reached(state.SweepSelected, Rows.Sweeps(state).Count) =>
+                Command.LoadMoreSweeps,
 
             // AND EVERY OTHER TAB ASKS FOR NOTHING, including the queue, which
             // is derived from the flights read rather than fetched - there is no
@@ -1892,7 +1907,9 @@ public static class Reducer
             TabId.Credentials => PickRepository(state, row),
             TabId.Intents => PickWork(state, row),
             TabId.Flights => PickFlight(state, row),
-            TabId.Board => PickBoardRow(state, row),
+            TabId.Board => state.BoardTable is BoardTable.Sweeps
+                ? PickSweep(state, row)
+                : PickBoardRow(state, row),
             TabId.Itineraries => PickLeg(state, row),
             TabId.Runners => PickRunner(state, row),
             TabId.Envelope => PickAirspaceRow(state, row),
@@ -1927,17 +1944,25 @@ public static class Reducer
     };
 
     /// <summary>
-    /// Move the board cursor, over the rows a person is looking at.
+    /// Move the board's nominations cursor, over the rows a person is looking at.
     /// </summary>
     /// <remarks>
-    /// <b>Over the ROWS rather than over the nominations</b>, for the reason
-    /// the fleet's cursor is: the board's rows are nominations AND watches, so
-    /// clamping to either list alone would stop the cursor short of the table
-    /// on the screen.
+    /// <b>Over the ROWS rather than over the page</b>, for the reason the
+    /// fleet's cursor is: the table filters to mine and the tenant's unless
+    /// asked otherwise, so clamping to the page would let the cursor leave the
+    /// table on the screen.
     /// </remarks>
     private static AppState PickBoardRow(AppState state, int to) => state with
     {
-        BoardSelected = Rows.Board(state) is { Count: > 0 } rows
+        BoardSelected = Rows.Nominations(state) is { Count: > 0 } rows
+            ? Math.Clamp(to, 0, rows.Count - 1)
+            : 0,
+    };
+
+    /// <summary>Move the board's sweeps cursor, inside the sweeps.</summary>
+    private static AppState PickSweep(AppState state, int to) => state with
+    {
+        SweepSelected = Rows.Sweeps(state) is { Count: > 0 } rows
             ? Math.Clamp(to, 0, rows.Count - 1)
             : 0,
     };

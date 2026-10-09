@@ -56,7 +56,7 @@ public static class BoardLook
 {
     /// <summary>What a watch says while it has swept nothing lately.</summary>
     /// <remarks>
-    /// <c>Rows.Board</c> writes this word rather than the contract, because it
+    /// <c>Rows.Sweeps</c> writes this word rather than the contract, because it
     /// is a derivation — a standing with a <c>QuietSince</c> — rather than
     /// something the control plane said. Named here so the two cannot drift.
     /// </remarks>

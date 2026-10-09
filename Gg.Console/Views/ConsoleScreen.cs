@@ -174,6 +174,8 @@ public sealed class ConsoleScreen : Window
     private readonly FrameView _flightsPane;
     private readonly Label _board;
     private readonly FrameView _boardPane;
+    private readonly Label _sweeps;
+    private readonly FrameView _sweepsPane;
     private readonly Label _itineraries;
     private readonly FrameView _itinerariesPane;
 
@@ -191,6 +193,7 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private readonly TableView _flightsTable;
     private readonly TableView _boardTable;
+    private readonly TableView _sweepsTable;
     private readonly TableView _itinerariesTable;
 
     private readonly TableView _itineraryLegsTable;
@@ -674,6 +677,14 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private bool _landedEmpty;
 
+    /// <summary>Which of the board's two tables focus was last placed in.</summary>
+    /// <remarks>
+    /// <c>_landedRunnerView</c>'s reason one tab over: the board tab can hold
+    /// the focus while the table the keys should drive has changed under it,
+    /// and "the tab already has focus" would leave it in the wrong one.
+    /// </remarks>
+    private BoardTable _landedBoardTable;
+
     /// <summary>
     /// Which of the runner modal's views focus was last placed in.
     /// </summary>
@@ -1063,21 +1074,43 @@ public sealed class ConsoleScreen : Window
         _flightsTable = CollectionViews.Table();
         _flightsPane.Add(_flights, _flightsTable);
 
-        // THE BOARD: nominations and the watches that make them, one table and
-        // one cursor. Built here with the flights pane because it is the same
-        // shape - a table over a label that speaks when there are no rows.
+        // THE BOARD: nominations over the watches that make them, TWO tables
+        // and two cursors (owner, 2026-10-09). Each pages on its own, so one
+        // table walking both would have had a page of nominations push every
+        // watch down a list the cursor was already in. Each is the flights
+        // pane's shape - a table over a label that speaks when there are no
+        // rows - and `v' crosses between them.
         _boardPane = new FrameView
         {
-            Title = "board",
+            Title = "nominations",
             X = 0,
             Y = 0,
             Width = Dim.Fill(),
-            Height = Dim.Fill(1),
-            Visible = false,
+            Height = Dim.Percent(60),
+
+            // THE ITINERARIES TAB'S PAIR, for its reason: a tab built by hand
+            // gets nothing from Tabbed(), and a FrameView created CanFocus
+            // false cannot pass the focus to the table inside it.
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
         };
         _board = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
         _boardTable = CollectionViews.Table();
         _boardPane.Add(_board, _boardTable);
+
+        _sweepsPane = new FrameView
+        {
+            Title = "sweeps",
+            X = 0,
+            Y = Pos.Bottom(_boardPane),
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
+        _sweeps = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
+        _sweepsTable = CollectionViews.Table();
+        _sweepsPane.Add(_sweeps, _sweepsTable);
 
         // THE PLANS, ON THE BOARD'S SHAPE. Its rows are the board's rows read
         // the other way round, so the pane is too - a label for the three
@@ -1242,10 +1275,19 @@ public sealed class ConsoleScreen : Window
         // there is a nomination that ended, never a watch - a watch is the live
         // thing on that tab.
         LookStyles.BoardStates(
-            _boardTable, Rows.BoardColumns.ToList().IndexOf("state"));
+            _boardTable, Rows.NominationColumns.ToList().IndexOf("state"));
+        LookStyles.BoardStates(
+            _sweepsTable, Rows.SweepColumns.ToList().IndexOf("state"));
 
         _flightsTable.ValueChanged += OnRowPointedAt;
         _boardTable.ValueChanged += OnRowPointedAt;
+        _sweepsTable.ValueChanged += OnRowPointedAt;
+
+        // A CLICK MOVES THE KEYS, including a click on the row a table's cursor
+        // is already on - which raises no ValueChanged, so the selection alone
+        // would leave the keys driving the other table.
+        _boardTable.HasFocusChanged += OnBoardTableFocused;
+        _sweepsTable.HasFocusChanged += OnBoardTableFocused;
         // SUBSCRIBED, OR THE ARROWS DO NOTHING. A table binds the arrows
         // itself and marks them handled, so they never reach Keymap - this
         // subscription IS the keyboard for this pane, and without it the
@@ -1282,7 +1324,7 @@ public sealed class ConsoleScreen : Window
         // takes the tables wired to OnRowPointedAt - which IS what makes one a
         // tab's rather than a modal's - and requires each to appear here.
         foreach (var table in (TableView[])
-                 [_flightsTable, _boardTable, _browseTable, _credentialsTable,
+                 [_flightsTable, _boardTable, _sweepsTable, _browseTable, _credentialsTable,
                   _runnersTable, _airspaceTable, _itinerariesTable])
         {
             table.KeyDown += OnTableEdge;
@@ -2353,6 +2395,10 @@ public sealed class ConsoleScreen : Window
             new View { Title = "itineraries", Width = Dim.Fill(), Height = Dim.Fill() };
         itinerariesTab.Add(_itinerariesPane, _itineraryLegsPane);
 
+        // AND THE BOARD, the same way: nominations over sweeps.
+        var boardTab = new View { Title = "board", Width = Dim.Fill(), Height = Dim.Fill() };
+        boardTab.Add(_boardPane, _sweepsPane);
+
         var queueTab = new View { Title = "queue", Width = Dim.Fill(), Height = Dim.Fill() };
         _queuePane.Height = Dim.Fill();
         _flightPane.Height = Dim.Fill();
@@ -2373,7 +2419,7 @@ public sealed class ConsoleScreen : Window
             // standing nomination is already one of its rows, so this is where
             // a person goes the moment they have answered one. Declared in the
             // enum's order, which is the rule six lines down.
-            (TabId.Board, Tabbed(_boardPane)),
+            (TabId.Board, boardTab),
 
             (TabId.Flights, Tabbed(_flightsPane)),
 
@@ -2908,6 +2954,47 @@ public sealed class ConsoleScreen : Window
         _app.RequestStop(this);
     }
 
+    /// <summary>
+    /// The state with the board's keys on the table that sender is, or the
+    /// state unchanged.
+    /// </summary>
+    private AppState Driving(object? sender, AppState state)
+    {
+        var wanted = ReferenceEquals(sender, _sweepsTable) ? BoardTable.Sweeps
+            : ReferenceEquals(sender, _boardTable) ? BoardTable.Nominations
+            : (BoardTable?)null;
+
+        return wanted is { } table && table != state.BoardTable
+            ? state with { BoardTable = table }
+            : state;
+    }
+
+    /// <summary>A board table took the focus, so the keys follow it.</summary>
+    /// <remarks>
+    /// <b>Rendered later, never from inside the focus change.</b> Render ends
+    /// in <c>Focus</c>, and moving focus from inside a focus transition is
+    /// what raises "FocusChanging was not cancelled and the HasFocus value did
+    /// not change".
+    /// </remarks>
+    private void OnBoardTableFocused(object? sender, HasFocusEventArgs args)
+    {
+        if (_syncing || !args.NewValue || State.ActiveTab != TabId.Board
+            || State.Mode is not UiMode.Normal)
+        {
+            return;
+        }
+
+        var driving = Driving(sender, State);
+
+        if (ReferenceEquals(driving, State))
+        {
+            return;
+        }
+
+        State = driving;
+        _app.Invoke(Render);
+    }
+
     private void OnRowPointedAt(object? sender, ValueChangedEventArgs<TableSelection?> args)
     {
         if (_syncing || args.NewValue is not { } selection)
@@ -2920,7 +3007,10 @@ public sealed class ConsoleScreen : Window
         // whether the clicks arrived. This is where they arrive.
         using var clicked = Gg.Local.Timings.Active.Measure("input.row-pointed");
 
-        var pointed = Reducer.Pointed(State, selection.SelectedCell.Y);
+        // ON THE BOARD, WHICH OF ITS TWO TABLES. The row number alone says
+        // nothing about which list it indexes.
+        var on = Driving(sender, State);
+        var pointed = Reducer.Pointed(on, selection.SelectedCell.Y);
 
         if (ReferenceEquals(pointed, State))
         {
@@ -4734,16 +4824,20 @@ public sealed class ConsoleScreen : Window
 
             using (Gg.Local.Timings.Active.Measure("board.rows"))
             {
-                boardRows = Rows.Board(State);
+                boardRows = Rows.Nominations(State);
             }
 
             using (Gg.Local.Timings.Active.Measure(
                        "board.fill",
                        reads: Gg.Local.Timings.Active.Asked ? boardRows.Count : null))
             {
-                Fill(_boardTable, _board, boardRows, Rows.BoardColumns,
+                Fill(_boardTable, _board, boardRows, Rows.NominationColumns,
                     State.BoardSelected,
-                    r => [r.What, r.Subject, r.For, r.State, r.Kind, r.Since, r.Next, r.Cost]);
+                    r => [r.Subject, r.For, r.State, r.Kind, r.Since]);
+
+                Fill(_sweepsTable, _sweeps, Rows.Sweeps(State), Rows.SweepColumns,
+                    State.SweepSelected,
+                    r => [r.Subject, r.State, r.Kind, r.Since, r.Next, r.Cost]);
             }
 
             // THE PLANS, MEASURED SEPARATELY for the board's reason: deriving
@@ -4896,6 +4990,9 @@ public sealed class ConsoleScreen : Window
 
         Pane(_flights, TabId.Flights, PaneText.Flights(State));
         Pane(_board, TabId.Board, PaneText.Board(State));
+        // NO TROUBLE MARK OF ITS OWN: the nominations above carry the tab's,
+        // and two would be one warning said twice.
+        _sweeps.Text = PaneText.Sweeps(State);
         Pane(_itineraries, TabId.Itineraries, PaneText.Itineraries(State));
         Pane(_credentials, TabId.Credentials, PaneText.Repositories(State));
         Pane(_runners, TabId.Runners, PaneText.Runners(State));
@@ -6573,7 +6670,8 @@ public sealed class ConsoleScreen : Window
     private TableView? TableOf(TabId tab) => tab switch
     {
         TabId.Flights => _flightsTable,
-        TabId.Board => _boardTable,
+        // THE ONE OF ITS TWO TABLES THE KEYS DRIVE.
+        TabId.Board => State.BoardTable is BoardTable.Sweeps ? _sweepsTable : _boardTable,
         TabId.Intents => _browseTable,
         TabId.Credentials => _credentialsTable,
         TabId.Runners => _runnersTable,
@@ -6606,6 +6704,7 @@ public sealed class ConsoleScreen : Window
             workKindTab: State.WorkKindTab, landedWorkKindTab: _landedWorkKindTab,
             notificationsHaveFocus: _notifications.HasFocus,
             landedEmpty: _landedEmpty,
+            boardTable: State.BoardTable, landedBoardTable: _landedBoardTable,
             tabIsEmpty: TableOf(State.ActiveTab) is { Visible: false }))
         {
             case FocusTarget.LeaveAlone:
@@ -6851,7 +6950,9 @@ public sealed class ConsoleScreen : Window
         View landing = State.ActiveTab switch
         {
             TabId.Flights => _flightsTable.Visible ? _flightsTable : _flights,
-            TabId.Board => _boardTable.Visible ? _boardTable : _board,
+            TabId.Board => State.BoardTable is BoardTable.Sweeps
+                ? _sweepsTable.Visible ? _sweepsTable : _sweeps
+                : _boardTable.Visible ? _boardTable : _board,
             TabId.Intents => _browseTable.Visible ? _browseTable : _browse,
             TabId.Credentials => _credentialsTable.Visible ? _credentialsTable : _credentials,
 
@@ -6898,6 +6999,7 @@ public sealed class ConsoleScreen : Window
         // AND WHETHER THAT WAS THE EMPTY ONE, so a table that fills afterwards
         // takes the keyboard rather than leaving it on a hidden label.
         _landedEmpty = !ReferenceEquals(landing, TableOf(State.ActiveTab));
+        _landedBoardTable = State.BoardTable;
     }
 
     protected override void Dispose(bool disposing)
@@ -6926,7 +7028,7 @@ public sealed class ConsoleScreen : Window
             _runnersTable.KeyDown -= OnTableKeyDown;
 
             foreach (var table in (TableView[])
-                     [_flightsTable, _boardTable, _browseTable, _credentialsTable,
+                     [_flightsTable, _boardTable, _sweepsTable, _browseTable, _credentialsTable,
                       _runnersTable, _airspaceTable, _itinerariesTable])
             {
                 table.KeyDown -= OnTableEdge;
@@ -6951,6 +7053,9 @@ public sealed class ConsoleScreen : Window
             // be built without a subscription at all.
             _flightsTable.ValueChanged -= OnRowPointedAt;
             _boardTable.ValueChanged -= OnRowPointedAt;
+            _sweepsTable.ValueChanged -= OnRowPointedAt;
+            _boardTable.HasFocusChanged -= OnBoardTableFocused;
+            _sweepsTable.HasFocusChanged -= OnBoardTableFocused;
             _itinerariesTable.ValueChanged -= OnRowPointedAt;
             _browseTable.ValueChanged -= OnRowPointedAt;
             _credentialsTable.ValueChanged -= OnRowPointedAt;

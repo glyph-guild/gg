@@ -54,7 +54,7 @@ public class TheBoardSaysAsWhomAWatchReadTests
     };
 
     private static string WhyOf(WatchStanding standing) =>
-        Rows.Board(WithWatch(standing)).Single(r => r.What == BoardRow.Sweep).Cost;
+        Rows.Sweeps(WithWatch(standing)).Single().Cost;
 
     [Test]
     public async Task A_watchs_row_says_as_whom_it_read()
@@ -95,7 +95,7 @@ public class TheBoardSaysAsWhomAWatchReadTests
         // standing carries no `For`. The day one does, this is the test that
         // should change.
         await Assert.That(
-            Rows.Board(WithWatch(AWatch("kdeenanauth"))).Single(r => r.What == BoardRow.Sweep).For)
+            Rows.Sweeps(WithWatch(AWatch("kdeenanauth"))).Single().For)
             .IsEqualTo("");
     }
 }

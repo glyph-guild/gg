@@ -161,13 +161,112 @@ public class TheTableLoadsMoreAtTheEndTests
     {
         var watched = AtTheEndOfTheBoard("MTIzOmFiYw", watches: 3);
 
-        await Assert.That(Rows.Board(watched).Count).IsEqualTo(5)
-            .Because("the watches are rows on the same table, underneath the nominations.");
+        await Assert.That(Rows.Nominations(watched).Count).IsEqualTo(2)
+            .Because("the watches are a table of their own, under the nominations.");
         await Assert.That(Reducer.WantsMore(watched)).IsEqualTo(Command.LoadMoreBoard)
-            .Because("the page the cursor is walking is the nominations, and the watches sit "
-                   + "below them - so somebody who reaches the last nomination has seen "
-                   + "everything this page brought, and three rows of machinery under it are "
-                   + "not more of it.");
+            .Because("the cursor is on the last nomination, and the sweeps below are another "
+                   + "list rather than more of this one.");
+    }
+
+    // ---- the sweeps page on their own cursor ----
+
+    private static AppState AtTheEndOfTheSweeps(string? next) =>
+        AtTheEndOfTheBoard("MTIzOmFiYw", watches: 3) with
+        {
+            Watches = new WatchStandingList
+            {
+                Standings = [.. Enumerable.Range(1, 3).Select(AConsolePlane.AStanding)],
+                Next = next,
+            },
+            BoardTable = BoardTable.Sweeps,
+            SweepSelected = 2,
+        };
+
+    [Test]
+    public async Task The_last_sweep_asks_for_the_next_page_of_watches()
+    {
+        await Assert.That(Reducer.WantsMore(AtTheEndOfTheSweeps("d2F0Y2gtMw")))
+            .IsEqualTo(Command.LoadMoreSweeps)
+            .Because("the sweeps scroll without end like every other list here, on their own "
+                   + "cursor - and the nominations' cursor sitting on ITS last row asks for "
+                   + "nothing while the keys are down here.");
+    }
+
+    [Test]
+    public async Task The_sweeps_ask_for_nothing_short_of_their_end_or_without_a_cursor()
+    {
+        await Assert.That(Reducer.WantsMore(AtTheEndOfTheSweeps("d2F0Y2gtMw") with { SweepSelected = 1 }))
+            .IsNull();
+        await Assert.That(Reducer.WantsMore(AtTheEndOfTheSweeps(null))).IsNull()
+            .Because("no cursor is all of them - which is also what an older control plane "
+                   + "that does not page this read answers.");
+    }
+
+    [Test]
+    public async Task The_nominations_end_asks_for_nothing_while_the_sweeps_have_the_keys()
+    {
+        var crossed = AtTheEndOfTheBoard("MTIzOmFiYw", watches: 3) with
+        {
+            BoardTable = BoardTable.Sweeps,
+            SweepSelected = 0,
+        };
+
+        await Assert.That(Reducer.WantsMore(crossed)).IsNull()
+            .Because("only the table with the keys can have reached its end.");
+    }
+
+    [Test]
+    public async Task The_sweeps_add_their_next_page_the_same_way()
+    {
+        var (data, _) = AConsolePlane.Console(watches: 150);
+
+        var first = (VerbResult.Watches)await data.WatchesAsync(limit: 2);
+        var state = new AppState
+        {
+            ActiveTab = TabId.Board,
+            Watches = first.Value,
+            BoardTable = BoardTable.Sweeps,
+            SweepSelected = 1,
+        };
+
+        await Assert.That(state.Watches!.Standings.Count).IsEqualTo(2);
+        await Assert.That(state.Watches.Next).IsNotNull();
+
+        var folded = ConsoleMore.SweepsPatch(data, state)(state);
+
+        await Assert.That(folded.Watches!.Standings.Count).IsEqualTo(2 + Paging.DefaultLimit);
+        await Assert.That(folded.Watches.Standings.Select(w => w.Name).Distinct().Count())
+            .IsEqualTo(2 + Paging.DefaultLimit)
+            .Because("no watch twice: the cursor names where the last page stopped.");
+        await Assert.That(folded.SweepSelected).IsEqualTo(1)
+            .Because("the rows arrive below the cursor here too.");
+    }
+
+    [Test]
+    public async Task A_refresh_asks_for_as_many_watches_as_are_on_screen()
+    {
+        var (data, plane) = AConsolePlane.Console(nominations: 5, watches: 400);
+
+        var state = new AppState
+        {
+            ActiveTab = TabId.Board,
+            Board = new BoardPage { Nominations = [], IncludedEnded = true },
+            Watches = new WatchStandingList
+            {
+                Standings = [.. Enumerable.Range(1, 250).Select(AConsolePlane.AStanding)],
+                Next = "MTUx",
+            },
+        };
+
+        var patch = await ConsoleRefresh.ForTabAsync(data, TabId.Board, state);
+
+        await Assert.That(plane.Limits).Contains(250)
+            .Because("two hundred and fifty watches were scrolled to, and a refresh that asked "
+                   + "for a hundred would take away the hundred and fifty below them.");
+        await Assert.That(plane.Limits).Contains(Paging.DefaultLimit)
+            .Because("and the nominations, of which five are held, are asked for on their own "
+                   + "count - the two tables page separately.");
+        await Assert.That(patch(state).Watches!.Standings.Count).IsEqualTo(250);
     }
 
     // ---- what arrives is added to what is there ----

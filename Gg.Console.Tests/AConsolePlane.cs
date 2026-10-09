@@ -28,15 +28,18 @@ internal sealed class AConsolePlane : HttpMessageHandler
     private readonly int _flights;
     private readonly int _inTheAir;
     private readonly int _nominations;
+    private readonly int _watches;
 
     private int _live;
     private int _liveLogs;
 
-    internal AConsolePlane(int flights = DefaultFlights, int inTheAir = 0, int nominations = 0)
+    internal AConsolePlane(
+        int flights = DefaultFlights, int inTheAir = 0, int nominations = 0, int watches = 0)
     {
         _flights = flights;
         _inTheAir = inTheAir;
         _nominations = nominations;
+        _watches = watches;
     }
 
     internal int Peak;
@@ -100,7 +103,7 @@ internal sealed class AConsolePlane : HttpMessageHandler
         MadeAt = T0.AddMinutes(n),
     };
 
-    /// <summary>A watch standing, which is a board row under the nominations.</summary>
+    /// <summary>A watch standing, which is a row of the board's sweeps.</summary>
     internal static WatchStanding AStanding(int n) => new()
     {
         Name = $"watch-{n}",
@@ -109,9 +112,9 @@ internal sealed class AConsolePlane : HttpMessageHandler
     };
 
     internal static (ConsoleData Data, AConsolePlane Plane) Console(
-        int flights = DefaultFlights, int inTheAir = 0, int nominations = 0)
+        int flights = DefaultFlights, int inTheAir = 0, int nominations = 0, int watches = 0)
     {
-        var plane = new AConsolePlane(flights, inTheAir, nominations);
+        var plane = new AConsolePlane(flights, inTheAir, nominations, watches);
         var http = new HttpClient(plane) { BaseAddress = new Uri("http://console.test/") };
         var client = new ControlPlaneClient(http);
         var sessions = new HasSession();
@@ -351,9 +354,7 @@ internal sealed class AConsolePlane : HttpMessageHandler
         {
             "/v1/flights" => Listed(query),
             "/v1/board" => Nominated(query),
-            "/v1/watches" => JsonSerializer.Serialize(
-                new WatchStandingList { Standings = [] },
-                ProtocolJsonContext.Default.WatchStandingList),
+            "/v1/airspace/watch-standings" => Swept(query),
             "/v1/runners" => JsonSerializer.Serialize(
                 new RunnerList { Runners = [] }, ProtocolJsonContext.Default.RunnerList),
             // EMPTY, WHICH IS WHAT A FLEET THAT NAMES NO ALLOWANCE REPORTS.
@@ -397,6 +398,16 @@ internal sealed class AConsolePlane : HttpMessageHandler
         return JsonSerializer.Serialize(
             new FlightList { Flights = [.. rows.Select(AFlight)], Next = next },
             ProtocolJsonContext.Default.FlightList);
+    }
+
+    /// <summary>The watch standings, paged as the board is.</summary>
+    private string Swept(string query)
+    {
+        var (rows, next) = Page(_watches, query, _watches);
+
+        return JsonSerializer.Serialize(
+            new WatchStandingList { Standings = [.. rows.Select(AStanding)], Next = next },
+            ProtocolJsonContext.Default.WatchStandingList);
     }
 
     private string Nominated(string query)

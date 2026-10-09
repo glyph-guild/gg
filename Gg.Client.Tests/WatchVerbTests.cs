@@ -131,6 +131,27 @@ public class WatchVerbTests
     }
 
     [Test]
+    public async Task The_verb_asks_for_a_page_and_says_where_to_carry_on()
+    {
+        var (_, handler) = await WatchesAsync(AStanding());
+
+        await Assert.That(handler.Seen!.RequestUri!.Query)
+            .Contains($"limit={Paging.DefaultLimit}")
+            .Because("the board's own page size: the console scrolls these beside the "
+                   + "nominations, and every list here asks for a page.");
+
+        var text = VerbOutput.ToText(new VerbResult.Watches(new WatchStandingList
+        {
+            Standings = [AStanding()],
+            Next = "d2F0Y2gtMjA",
+        }));
+
+        await Assert.That(text).EndsWith("More: gg watches --after d2F0Y2gtMjA")
+            .Because("rows that stop with nothing said about why read as a tenant with no "
+                   + "more watches.");
+    }
+
+    [Test]
     public async Task A_watch_with_no_budget_shows_its_cost_and_no_bound()
     {
         var (result, _) = await WatchesAsync(AStanding(opened: 7, budgeted: null));

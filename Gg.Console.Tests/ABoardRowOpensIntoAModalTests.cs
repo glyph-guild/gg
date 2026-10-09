@@ -81,6 +81,12 @@ public class ABoardRowOpensIntoAModalTests
             },
             Watches = new WatchStandingList { Standings = watch is null ? [] : [watch] },
             BoardSelected = selected,
+
+            // THE SWEEPS TABLE WHEN A WATCH IS ALL THERE IS. The board is two
+            // tables, and a watch is only under a cursor in the lower one.
+            BoardTable = nomination is null && watch is not null
+                ? BoardTable.Sweeps
+                : BoardTable.Nominations,
         };
 
     private static string Modal(AppState state) =>
@@ -211,24 +217,28 @@ public class ABoardRowOpensIntoAModalTests
     [Test]
     public async Task The_column_is_the_cost_and_the_sentence_is_not_in_it()
     {
-        await Assert.That(Rows.BoardColumns).Contains("cost");
-        await Assert.That(Rows.BoardColumns).DoesNotContain("why")
+        await Assert.That(Rows.SweepColumns).Contains("cost");
+        await Assert.That(Rows.SweepColumns).DoesNotContain("why")
             .Because("what is left in the table is a number; the prose moved.");
+        await Assert.That(Rows.NominationColumns).DoesNotContain("why");
     }
 
     [Test]
     public async Task A_nomination_spends_nothing_so_its_cost_is_blank()
     {
-        var row = Rows.Board(Board(nomination: ANomination())).Single();
+        var row = Rows.Nominations(Board(nomination: ANomination())).Single();
 
         await Assert.That(row.Cost).IsEqualTo("");
         await Assert.That(row.Cost).DoesNotContain(Sentence);
+        await Assert.That(Rows.NominationColumns).DoesNotContain("cost")
+            .Because("a nomination is a question, not a spender - its table has no such "
+                   + "column at all.");
     }
 
     [Test]
     public async Task A_watch_in_trouble_still_shows_its_cost_in_the_table()
     {
-        var row = Rows.Board(Board(watch: AWatch(diagnosis: "has reported nothing"))).Single();
+        var row = Rows.Sweeps(Board(watch: AWatch(diagnosis: "has reported nothing"))).Single();
 
         await Assert.That(row.Cost).IsEqualTo("1 of 5 in 24h, as kdeenanauth")
             .Because("the diagnosis used to replace it, which hid the cost exactly when it "

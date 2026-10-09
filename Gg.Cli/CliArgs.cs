@@ -231,7 +231,8 @@ public abstract record CliAction
     /// no lease, no flight, no queue row while it works - so asking is the only
     /// way to know it is alive. S39.6-01.
     /// </remarks>
-    public sealed record Watches(bool Json) : CliAction, IEmitsResult;
+    public sealed record Watches(bool Json, int? Limit = null, string? After = null)
+        : CliAction, IEmitsResult;
 
     /// <summary>The chart: every environment name an envelope may select.</summary>
     /// <remarks>
@@ -894,7 +895,7 @@ public static class CliArgs
         // kind of machine work: a runner reports by beating, and a watch
         // reports by sweeping. Nobody is watching a sweep while it runs, so
         // asking is the only way to know one is alive.
-        "gg watches                     how each watch is doing: executor, last report, cost",
+        "gg watches [--limit <rows>] [--after <cursor>]  how each watch is doing: executor, last report, cost",
         "gg plan [flight]               what must hold before a flight can start",
         "gg itinerary check <file>      what admission would do with each leg of a plan",
         "gg itinerary propose <file>    propose a plan; nothing opens until its gate is answered",
@@ -1172,13 +1173,13 @@ public static class CliArgs
                 "--limit"),
             "--after");
 
-        var pages = rest is ["flights", ..] or ["board"] or ["itineraries"];
+        var pages = rest is ["flights", ..] or ["board"] or ["itineraries"] or ["watches"];
 
         if (!pages && (limit is not null || after is not null))
         {
             return Unknown(
-                "--limit and --after are flags on the verbs that answer a list - gg flights "
-              + "and gg board. On any other verb they would read as an instruction and do "
+                "--limit and --after are flags on the verbs that answer a list - gg flights, "
+              + "gg board, gg itineraries and gg watches. On any other verb they would read as an instruction and do "
               + "nothing.");
         }
 
@@ -1437,7 +1438,7 @@ public static class CliArgs
             // how each one is doing. `gg runner watch <id>` is a different
             // verb about a flight, and the two have never been confusable
             // because that one takes an id.
-            ["watches"] => new CliAction.Watches(json),
+            ["watches"] => new CliAction.Watches(json, page, after),
             ["environments"] => new CliAction.Environments(json),
             // SINGULAR VERB, PLURAL LIST, the way envelope/envelopes and
             // strategy/strategies already read. The list arm is above this one

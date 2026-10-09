@@ -241,8 +241,13 @@ public sealed class ConsoleData(
     /// quiet when nothing is sweeping - which is the one thing rule 11 of slice
     /// thirty-nine says a board must never do.
     /// </remarks>
-    public Task<VerbResult> WatchesAsync(CancellationToken cancellationToken = default) =>
-        _commands.WatchesAsync(cancellationToken);
+    /// <param name="limit"><see cref="BoardAsync"/>'s page, for the same reason.</param>
+    /// <param name="after">Where the last page of watches stopped.</param>
+    public Task<VerbResult> WatchesAsync(
+        CancellationToken cancellationToken = default,
+        int? limit = null,
+        string? after = null) =>
+        _commands.WatchesAsync(cancellationToken, limit: limit, after: after);
 
     /// <summary>
     /// `gg board open` / `gg board decline` - answers a standing nomination.

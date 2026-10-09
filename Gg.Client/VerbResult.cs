@@ -2524,7 +2524,7 @@ public static class VerbOutput
             }
         }
 
-        return text.ToString().TrimEnd();
+        return text.ToString().TrimEnd() + More("watches", standings.Next);
     }
 
     /// <summary>The cost with its scale, because a bare number says nothing.</summary>

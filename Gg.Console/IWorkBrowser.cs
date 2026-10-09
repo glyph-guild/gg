@@ -23,6 +23,12 @@ public interface IWorkBrowser
     /// <summary>Which tracker this browses, or null when none is configured.</summary>
     string? Key { get; }
 
+    /// <summary>
+    /// This browser bound to the source <paramref name="key"/>, or to its default when null. A
+    /// browser that holds one tracker answers itself.
+    /// </summary>
+    IWorkBrowser For(string? key) => this;
+
     /// <summary>What one work item says, in the reader's own words.</summary>
     /// <remarks>
     /// <b>The same conversation, because it is the same reader.</b> A person

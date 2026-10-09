@@ -1915,6 +1915,17 @@ public sealed record AppState
     public BrowseListing? Browse { get; init; }
 
     /// <summary>
+    /// The intent source the intents tab shows, by key; null is the first one offered.
+    /// </summary>
+    public string? IntentSource { get; init; }
+
+    /// <summary>
+    /// Which tracker the work item modal is about: the listing's source, or the provider of the
+    /// flight or plan a ticket was opened from. Null reads the shown source.
+    /// </summary>
+    public string? WorkItemProvider { get; init; }
+
+    /// <summary>
     /// What this tracker offers to narrow by, or null until somebody asked.
     /// </summary>
     /// <remarks>

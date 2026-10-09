@@ -240,6 +240,9 @@ public enum Command
     /// </remarks>
     ToggleIntents,
 
+    /// <summary>The intents tab's next source, on its left strip: <c>v</c>.</summary>
+    NextIntentSource,
+
     /// <summary>
     /// What must hold before the selected flight can start.
     /// </summary>

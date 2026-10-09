@@ -129,6 +129,11 @@ public class ConsoleLoopTests
         // rebuild losing any of it.
         document.Remove(nameof(AppState.Expecting));
 
+        // AND ITS CORNER ENTRY, up from the moment it was asked for - the write's
+        // own receipt, as the sentence above is.
+        document.Remove(nameof(AppState.Notifications));
+        document.Remove(nameof(AppState.NotificationAt));
+
         return document.ToJsonString();
     }
 

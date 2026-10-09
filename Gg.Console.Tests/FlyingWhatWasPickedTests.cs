@@ -52,7 +52,7 @@ public class FlyingWhatWasPickedTests
     {
         var actions = new ConsoleDoubles.Records();
 
-        var state = ConsoleLoop.FlewPicked(Browsing("18398", "18471"), actions);
+        var state = Sent.Inline(ConsoleLoop.FlewPicked(Browsing("18398", "18471"), actions), actions);
 
         await Assert.That(actions.Flown).Count().IsEqualTo(1);
         await Assert.That(actions.Flown[0].Provider).IsEqualTo("a-tracker");
@@ -66,7 +66,7 @@ public class FlyingWhatWasPickedTests
         var actions = new ConsoleDoubles.Records();
         var picked = Browsing("18398", "18471") with { BrowseSelected = 1 };
 
-        _ = ConsoleLoop.FlewPicked(picked, actions);
+        _ = Sent.Inline(ConsoleLoop.FlewPicked(picked, actions), actions);
 
         await Assert.That(actions.Flown[0].Id).IsEqualTo("18471");
     }
@@ -79,7 +79,7 @@ public class FlyingWhatWasPickedTests
         // it stops there.
         var actions = new ConsoleDoubles.Records();
 
-        _ = ConsoleLoop.FlewPicked(Browsing("18398"), actions);
+        _ = Sent.Inline(ConsoleLoop.FlewPicked(Browsing("18398"), actions), actions);
 
         var sent = string.Join(" ", actions.Flown.Select(f => f.Provider + " " + f.Id));
 
@@ -96,7 +96,7 @@ public class FlyingWhatWasPickedTests
         // here rather than in a review.
         var actions = new ConsoleDoubles.Records();
 
-        _ = ConsoleLoop.FlewPicked(Browsing("18398"), actions);
+        _ = Sent.Inline(ConsoleLoop.FlewPicked(Browsing("18398"), actions), actions);
 
         await Assert.That(string.Join(" ", actions.Flown.Select(f => f.Id)))
             .DoesNotContain("https://");
@@ -109,7 +109,7 @@ public class FlyingWhatWasPickedTests
         // than one without the key.
         var actions = new ConsoleDoubles.Records();
 
-        var state = ConsoleLoop.FlewPicked(new AppState { BrowseVisible = true, ActiveTab = TabId.Intents }, actions);
+        var state = Sent.Inline(ConsoleLoop.FlewPicked(new AppState { BrowseVisible = true, ActiveTab = TabId.Intents }, actions), actions);
 
         await Assert.That(actions.Flown).IsEmpty();
         await Assert.That(state.LastFlightOpened).IsNotNull();
@@ -118,7 +118,7 @@ public class FlyingWhatWasPickedTests
     [Test]
     public async Task A_console_that_cannot_open_flights_says_that_rather_than_nothing()
     {
-        var state = ConsoleLoop.FlewPicked(Browsing("18398"), actions: null);
+        var state = Sent.Inline(ConsoleLoop.FlewPicked(Browsing("18398"), actions: null), null);
 
         await Assert.That(state.LastFlightOpened).IsNotNull();
     }

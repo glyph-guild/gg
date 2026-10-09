@@ -78,7 +78,7 @@ public class TheChosenWorkKindCrossesTests
     {
         var actions = new ConsoleDoubles.Records();
 
-        _ = ConsoleLoop.FlewPicked(Answering(ComposingFor.WorkItem, row: 1), actions);
+        _ = Sent.Inline(ConsoleLoop.FlewPicked(Answering(ComposingFor.WorkItem, row: 1), actions), actions);
 
         await Assert.That(actions.Kinds).Count().IsEqualTo(1);
         await Assert.That(actions.Kinds[0]).IsEqualTo("hal-score");
@@ -92,7 +92,7 @@ public class TheChosenWorkKindCrossesTests
         // sending an empty string would be a name the control plane refuses.
         var actions = new ConsoleDoubles.Records();
 
-        _ = ConsoleLoop.FlewPicked(Answering(ComposingFor.WorkItem, row: 0), actions);
+        _ = Sent.Inline(ConsoleLoop.FlewPicked(Answering(ComposingFor.WorkItem, row: 0), actions), actions);
 
         await Assert.That(actions.Kinds[0]).IsNull();
     }
@@ -104,9 +104,9 @@ public class TheChosenWorkKindCrossesTests
         // and a kind chosen before writing it has to survive the writing.
         var actions = new ConsoleDoubles.Records();
 
-        _ = ConsoleLoop.Opened(
+        _ = Sent.Inline(ConsoleLoop.Opened(
             Answering(ComposingFor.NewFlight, row: 2), actions,
-            new ConsoleDoubles.Writes("fix the thing"));
+            new ConsoleDoubles.Writes("fix the thing")), actions);
 
         await Assert.That(actions.Intents).Count().IsEqualTo(1);
         await Assert.That(actions.Intents[0].WorkKind).IsEqualTo("research");

@@ -387,18 +387,36 @@ public sealed record PoolAction
     public PoolRecipe? Recipe { get; init; }
 
     /// <summary>
-    /// Which member the action is about. Only a destroy names one; null for
-    /// every other action.
+    /// The highest slot this pool may hold. Only a destroy carries one; null
+    /// for every other action.
     /// </summary>
     /// <remarks>
-    /// <b><see cref="Recipe"/>'s shape, for <see cref="Recipe"/>'s reason.</b> A
-    /// refresh and a reset are decided for the POOL and the runner picks the
-    /// slot; a destroy is decided about one member, because whether a member is
-    /// surplus is a question only the side holding the declared size can
-    /// answer. A destroy that named none would be a runner guessing which
-    /// container to remove.
+    /// <para>
+    /// <b>The CEILING rather than a member, and 0.283.0 had this wrong.</b> That
+    /// version carried <c>Member</c> — the name of the container to remove — on
+    /// the reasoning that only the side holding the declared size may decide
+    /// which member is surplus. The reasoning was right and the field was
+    /// unfillable: the control plane does not store member container names.
+    /// <c>identity.gg_runner</c> has an id, a label and a token hash and no
+    /// name, and no reader anywhere returns one; the host knows the names
+    /// because it lists containers, and the control plane sees them only inside
+    /// attestation prose. A declared member nothing could fill is the defect
+    /// this estate keeps finding one field at a time, so it was replaced rather
+    /// than left to rot.
+    /// </para>
+    /// <para>
+    /// <b>The division it keeps.</b> The control plane still decides what may
+    /// exist — this number is the policy, and it comes from the strategy's
+    /// declared size. The host only resolves which of its containers that
+    /// means, which it is the only thing able to do. A runner is not choosing a
+    /// policy; it is enumerating against one.
+    /// </para>
+    /// <para>
+    /// <b>And a destroy carrying none destroys nothing</b>, refused by name. An
+    /// absent ceiling is not "remove anything".
+    /// </para>
     /// </remarks>
-    public string? Member { get; init; }
+    public int? AboveSlot { get; init; }
 }
 
 /// <summary>

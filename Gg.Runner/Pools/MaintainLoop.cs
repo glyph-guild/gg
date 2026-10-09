@@ -430,18 +430,75 @@ public sealed class MaintainLoop(
         // mistake would be a removal nobody asked for.
         if (string.Equals(action.Action, PoolActions.Destroy, StringComparison.Ordinal))
         {
-            if (action.Member is not { Length: > 0 } member)
+            if (action.AboveSlot is not { } ceiling)
             {
                 return new PoolObservation
                 {
                     Outcome = PoolOutcomes.Failed,
-                    Diagnosis = $"a destroy was decided for '{pool}' and it names no member. "
-                              + "Which member is surplus is the control plane's answer, and "
-                              + "nothing here may choose one.",
+                    Diagnosis = $"a destroy was decided for '{pool}' and it carries no ceiling. "
+                              + "How many members the pool may hold is the control plane's "
+                              + "answer, and an absent one is not permission to remove "
+                              + "anything.",
                 };
             }
 
-            return await _adapter.DestroyAsync(member, cancellationToken);
+            // ENUMERATED HERE, DECIDED THERE. The ceiling is the policy and it
+            // came from the strategy's declared size; which containers exist is
+            // something only this side can see, because the control plane
+            // stores no member names at all.
+            var members = await _adapter.ListAsync(pool, cancellationToken);
+
+            // STOPPED AND ABOVE THE CEILING. A running member above it may be
+            // mid-flight, and ending somebody's work to tidy a count is the
+            // wrong trade - it stops eventually and the decision will be made
+            // again. A name this runner cannot read as a slot of this pool is
+            // not a slot it may reclaim: removing a container on a guess is how
+            // a pattern once took twelve nobody meant to lose.
+            var surplus = members
+                .Where(m => !m.Running
+                         && PoolNaming.SlotOf(m.Name) is { } slot
+                         && slot > ceiling)
+                .OrderBy(m => m.Name, StringComparer.Ordinal)
+                .ToList();
+
+            if (surplus.Count == 0)
+            {
+                // VERIFIED, NOT FAILED. The pool holds nothing above its
+                // ceiling, which is the state the destroy was asking for - and
+                // reporting a failure for an act that found nothing to do would
+                // open an escalation about a pool that is correct.
+                return new PoolObservation
+                {
+                    Outcome = PoolOutcomes.Verified,
+                    Diagnosis = $"'{pool}' holds no stopped member above slot {ceiling}.",
+                };
+            }
+
+            foreach (var spent in surplus)
+            {
+                var reclaimed = await _adapter.DestroyAsync(spent.Name, cancellationToken);
+
+                if (!string.Equals(
+                        reclaimed.Outcome, PoolOutcomes.Verified, StringComparison.Ordinal))
+                {
+                    return reclaimed with
+                    {
+                        Diagnosis = $"'{spent.Name}' is above slot {ceiling} and stopped, and "
+                                  + "could not be reclaimed: "
+                                  + (reclaimed.Diagnosis ?? "the adapter did not say why."),
+                    };
+                }
+            }
+
+            return new PoolObservation
+            {
+                Outcome = PoolOutcomes.Verified,
+                Diagnosis = surplus.Count == 1
+                    ? $"'{surplus[0].Name}' was above slot {ceiling} and stopped, and was "
+                    + "reclaimed."
+                    : $"{surplus.Count} members above slot {ceiling} were stopped, and were "
+                    + "reclaimed.",
+            };
         }
 
         return new PoolObservation

@@ -286,7 +286,7 @@ public abstract record CliAction
     public sealed record ManageTools : CliAction;
 
     /// <summary>gg itineraries: every plan this tenant has, and its legs.</summary>
-    public sealed record Itineraries(bool Json, int? Limit = null, string? After = null)
+    public sealed record Itineraries(bool Json, int? Limit = null, string? After = null, string? Intent = null)
         : CliAction, IEmitsResult;
 
     /// <summary>gg itinerary show ITN-n: one plan, and every leg of it.</summary>

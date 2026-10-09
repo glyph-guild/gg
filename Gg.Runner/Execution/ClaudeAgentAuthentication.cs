@@ -103,11 +103,24 @@ public sealed class ClaudeAgentAuthentication(
                             + $"started ({failure.GetType().Name}).");
         }
 
-        if (exit != 0)
-        {
-            return Unmeasured($"`{Path.GetFileName(_binary)} auth status --json` exited {exit}.");
-        }
-
+        // THE EXIT CODE IS A STATUS, NOT A FAILURE, and reading it as one made
+        // the answer below unreachable. `claude auth status --json` EXITS 1 when
+        // it is not logged in and prints perfectly good JSON while doing it -
+        // measured on gg-pool-dev-1, 2026-10-09: exit 1, 196 bytes on stdout,
+        // nothing on stderr, `"loggedIn": false`. So every pool member reported
+        // "whether the agent is logged in could not be measured", which sends a
+        // reader to inspect a container that is fine, while the sentence they
+        // needed - "the agent is not logged in ... gg holds no token for it" -
+        // sat below in a branch nothing could reach. Seven incidents said it,
+        // one per member, and the gate's own text carried the contradiction:
+        // "reports its claude agent IS NOT SIGNED IN: whether the agent is
+        // logged in COULD NOT BE MEASURED".
+        //
+        // WHAT MAKES THE ANSWER TRUSTWORTHY IS THAT IT PARSED, not that the
+        // process was happy - so the exit code is folded into the refusal below
+        // rather than dropped. A crash that exits 1 with no JSON is still a
+        // measurement that did not happen.
+        //
         // PARSED, NEVER QUOTED. The JSON carries the account's email and
         // organisation, and nothing below copies a field into a sentence.
         bool loggedIn;
@@ -123,8 +136,11 @@ public sealed class ClaudeAgentAuthentication(
         }
         catch (JsonException)
         {
-            return Unmeasured($"`{Path.GetFileName(_binary)} auth status --json` printed something "
-                            + "other than JSON.");
+            return Unmeasured(
+                $"`{Path.GetFileName(_binary)} auth status --json` "
+              + (exit == 0
+                    ? "printed something other than JSON."
+                    : $"exited {exit} and printed something other than JSON."));
         }
 
         if (!loggedIn)

@@ -48,6 +48,7 @@ public static class ConsoleBrowsing
         IWorkBrowser? browser, AppState state, string? stateHome = null)
     {
         ArgumentNullException.ThrowIfNull(state);
+        browser = browser?.For(IntentSources.Shown(state)?.Key);
 
         if (browser is null || !state.BrowseVisible)
         {
@@ -109,6 +110,7 @@ public static class ConsoleBrowsing
     public static Func<AppState, AppState> FindPatch(IWorkBrowser? browser, AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
+        browser = browser?.For(IntentSources.Shown(state)?.Key);
 
         var wanted = BrowseFind.Wanted(state.BrowseFindTyped);
 
@@ -175,6 +177,7 @@ public static class ConsoleBrowsing
     public static Func<AppState, AppState> ItemPatch(IWorkBrowser? browser, AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
+        browser = browser?.For(Tracker(state));
 
         if (Under(state) is not { } item)
         {
@@ -346,6 +349,7 @@ public static class ConsoleBrowsing
     public static Func<AppState, AppState> TicketPatch(IWorkBrowser? browser, AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
+        browser = browser?.For(Tracker(state));
 
         if (browser is null || state.WorkItemId is not { Length: > 0 } id)
         {
@@ -370,6 +374,7 @@ public static class ConsoleBrowsing
     public static Func<AppState, AppState> FacetsPatch(IWorkBrowser? browser, AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
+        browser = browser?.For(IntentSources.Shown(state)?.Key);
 
         if (browser is null)
         {
@@ -525,4 +530,11 @@ public static class ConsoleBrowsing
             return ([], "This item's history could not be read: " + problem.Message);
         }
     }
+
+    /// <summary>
+    /// The tracker an open work item is read from: the one a ticket named when it was opened from a
+    /// flight or a plan, otherwise the source on screen.
+    /// </summary>
+    private static string? Tracker(AppState state) =>
+        state.WorkItemProvider is { Length: > 0 } provider ? provider : IntentSources.Shown(state)?.Key;
 }

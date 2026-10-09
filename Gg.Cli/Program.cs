@@ -1863,6 +1863,7 @@ static async Task<int> LaunchConsoleAsync()
                     // ConsoleLoop's own sentence, and a second browser here
                     // would be a second answer to which tracker that is.
                     Gg.Console.Command.ToggleIntents or
+                    Gg.Console.Command.NextIntentSource or
                     Gg.Console.Command.BrowseFiltered =>
                         Gg.Console.ConsoleBrowsing.Patch(browsing, current),
 

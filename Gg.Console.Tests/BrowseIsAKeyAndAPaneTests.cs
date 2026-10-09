@@ -48,7 +48,8 @@ public class BrowseIsAKeyAndAPaneTests
         // SO IT ASKS THE BINDING, WHICH IS WHAT IT WAS ALWAYS ABOUT. Advertised
         // does not mean "on the line" for a tab key; it means the tab carries
         // it, and OffTheHintLine is the claim that something else does.
-        await Assert.That(Keymap.Resolve(KeyStroke.Char('b'), Normal()))
+        // `[` SINCE THE TAB BECAME INTENTS (owner, 2026-10-08); `b` was browse's.
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('['), Normal()))
             .IsEqualTo(Command.ToggleIntents);
 
         var browse = Keymap.Bindings(Normal())
@@ -80,8 +81,8 @@ public class BrowseIsAKeyAndAPaneTests
         string Description(KeymapContext context) => Keymap.Bindings(context)
             .Single(b => b.Command == Command.ToggleIntents).Description;
 
-        await Assert.That(Description(Normal(browsing: false))).IsEqualTo("browse");
-        await Assert.That(Description(Normal(browsing: true))).IsEqualTo("close browse");
+        await Assert.That(Description(Normal(browsing: false))).IsEqualTo("intents");
+        await Assert.That(Description(Normal(browsing: true))).IsEqualTo("close intents");
     }
 
     [Test]
@@ -115,7 +116,7 @@ public class BrowseIsAKeyAndAPaneTests
         // down mid-decision would lose the answer being given.
         foreach (var mode in (UiMode[])[UiMode.Help, UiMode.GateDecision, UiMode.FlightActions])
         {
-            await Assert.That(Keymap.Resolve(KeyStroke.Char('b'), new KeymapContext(mode)))
+            await Assert.That(Keymap.Resolve(KeyStroke.Char('['), new KeymapContext(mode)))
                 .IsNotEqualTo(Command.ToggleIntents);
         }
     }

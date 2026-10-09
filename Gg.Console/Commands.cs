@@ -1336,6 +1336,8 @@ public static class ShellCommands
         // the id came off a flight rather than off a row.
         Command.OpenTheTicket,
         Command.FilterBrowse,
+        // THE NEXT SOURCE'S ROWS, read as the tab's first rows were.
+        Command.NextIntentSource,
 
         // THE FIELD'S ANSWER, and it reads whichever arm it takes: one item by
         // the id somebody typed, or a listing for the words they typed.

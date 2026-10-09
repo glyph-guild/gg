@@ -230,12 +230,12 @@ public class KeymapTests
             .Bindings(context).Single(b => b.Command == command).Description;
 
         await Assert.That(Toggle(new(UiMode.Normal, TabId.Queue), Command.ToggleIntents))
-            .IsEqualTo("browse");
+            .IsEqualTo("intents");
         await Assert.That(Toggle(new(UiMode.Normal, TabId.Intents), Command.ToggleIntents))
-            .IsEqualTo("close browse");
+            .IsEqualTo("close intents");
         await Assert.That(Toggle(new(UiMode.Normal, TabId.Credentials), Command.ToggleIntents))
-            .IsEqualTo("browse")
-            .Because("the browse tab is still there behind this one, and b goes to it.");
+            .IsEqualTo("intents")
+            .Because("the intents tab is still there behind this one, and [ goes to it.");
 
         // THE ANCHOR, AND IT IS OFF THE LINE NOW. The three above moved because
         // their keys moved onto the tabs, not because a toggle stopped saying

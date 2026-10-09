@@ -98,7 +98,7 @@ public class APaneThatNamesItsFilterTests
 
         await Assert.That(PaneText.BrowseTitle(
             Reducer.Browsed(new AppState(), "a-tracker", OneItem(), said: null)))
-            .IsEqualTo("Browse — a-tracker")
+            .IsEqualTo("Intents — a-tracker")
             .Because("an unfiltered listing is the ordinary case and a title that said so "
                    + "every time would be noise where the tracker's name belongs.");
 

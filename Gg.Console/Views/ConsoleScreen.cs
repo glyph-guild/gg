@@ -72,6 +72,16 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private readonly Terminal.Gui.Views.Tabs _airspaceViews;
 
+    /// <summary>
+    /// The intents tab's sources, down its left side (owner, 2026-10-08): one tab per source, each
+    /// an empty page - the listing beside the strip is the chosen source's.
+    /// </summary>
+    private readonly Terminal.Gui.Views.Tabs _intentSources;
+
+    private readonly List<IntentSource> _onTheSourceStrip = [];
+
+    private readonly Dictionary<string, View> _sourcePages = new(StringComparer.Ordinal);
+
     /// <summary>Each view's body, and the list inside it that holds the lines.</summary>
     private readonly (AirspaceView View, View Pane, ListView Said)[] _viewTabbed;
 
@@ -794,14 +804,34 @@ public sealed class ConsoleScreen : Window
         // off rather than trusting the order these are added in.
         _browsePane = new FrameView
         {
-            Title = "browse",
+            Title = "intents",
             X = 0,
             Y = 0,
             Width = Dim.Fill(),
             Height = Dim.Fill(1),
             Visible = false,
         };
-        _browse = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
+        // THE SOURCES DOWN THE LEFT, the window bar's widget turned on its side: not in the tab
+        // ring (`tab` moves between the window's tabs), turned by `v` or a click.
+        _intentSources = new Terminal.Gui.Views.Tabs
+        {
+            X = 0,
+            Y = 0,
+            Width = 0,
+            Height = Dim.Fill(),
+            TabSide = Side.Left,
+            TabStop = TabBehavior.NoStop,
+        };
+        _intentSources.ValueChanged += OnIntentSourceChanged;
+        _browsePane.Add(_intentSources);
+
+        _browse = new Label
+        {
+            X = Pos.Right(_intentSources),
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true,
+        };
         _browsePane.Add(_browse);
 
         // THE FOURTH OCCUPANT OF THAT ONE REGION.
@@ -1155,6 +1185,7 @@ public sealed class ConsoleScreen : Window
         _itineraryLegsTable.CanFocus = false;
         _itineraryLegsPane.Add(_itineraryLegsTable);
         _browseTable = CollectionViews.Table();
+        _browseTable.X = Pos.Right(_intentSources);
         _browsePane.Add(_browseTable);
 
         // THE AIRSPACE FIELD'S SHAPE, one tab over, and for its reasons: a box
@@ -1164,7 +1195,7 @@ public sealed class ConsoleScreen : Window
         _browseFindBox = new FrameView
         {
             Title = "go to or find",
-            X = 0,
+            X = Pos.Right(_intentSources),
             Y = Pos.AnchorEnd(3),
             Width = Dim.Fill(),
             Height = 3,
@@ -3189,6 +3220,62 @@ public sealed class ConsoleScreen : Window
     /// is a person asking, so it goes through the model rather than round it.
     /// `v' walks the same field from the keymap.
     /// </remarks>
+    /// <summary>
+    /// The strip holds exactly the sources offered, as wide as its longest label, with the shown
+    /// one selected. Called inside the render's sync, so the selection it sets is not a click.
+    /// </summary>
+    private void FollowTheSources()
+    {
+        var sources = IntentSources.All(State);
+
+        Follow(_intentSources, _onTheSourceStrip, sources, source =>
+        {
+            if (!_sourcePages.TryGetValue(source.Key, out var page))
+            {
+                page = new View { Width = 0, Height = 0, CanFocus = false };
+                _sourcePages[source.Key] = page;
+            }
+
+            return (page, source.Label);
+        });
+
+        var across = sources.Count == 0 ? 0 : sources.Max(source => source.Label.Length) + 4;
+        if (!Equals(_intentSources.Width, Dim.Absolute(across)))
+        {
+            _intentSources.Width = across;
+        }
+
+        if (IntentSources.Shown(State) is { } shown
+            && _sourcePages.TryGetValue(shown.Key, out var showing)
+            && !ReferenceEquals(_intentSources.Value, showing))
+        {
+            _intentSources.Value = showing;
+        }
+    }
+
+    /// <summary>
+    /// A person clicked a source on the strip: show it, and read it - through the same command `v`
+    /// is, so a click and a key cannot disagree about what changing source does.
+    /// </summary>
+    private void OnIntentSourceChanged(object? sender, ValueChangedEventArgs<View?> args)
+    {
+        if (_syncing || args.NewValue is not { } chosen)
+        {
+            return;
+        }
+
+        var picked = _sourcePages.FirstOrDefault(page => ReferenceEquals(page.Value, chosen)).Key;
+        if (picked is null || picked == IntentSources.Shown(State)?.Key)
+        {
+            return;
+        }
+
+        // ONE STEP BEFORE IT, THEN THE STEP: NextIntentSource lands on the source clicked and asks
+        // for its rows, exactly as `v` would.
+        State = State with { IntentSource = IntentSources.Before(State, picked) };
+        Dispatch(Command.NextIntentSource);
+    }
+
     private void OnAirspaceViewChanged(object? sender, ValueChangedEventArgs<View?> args)
     {
         if (_syncing || args.NewValue is not { } chosen)
@@ -4651,6 +4738,8 @@ public sealed class ConsoleScreen : Window
             Fill(_browseTable, null, Rows.Browse(State), Rows.BrowseColumns,
                 State.BrowseSelected,
                 r => [r.Id, r.State, r.Where ?? "", r.Title]);
+
+            FollowTheSources();
 
             // THE LABEL IS THE EMPTY CASE, and passing null left it visible
             // underneath the table - which was invisible while both said the
@@ -6805,6 +6894,7 @@ public sealed class ConsoleScreen : Window
             _airspacePath.KeyDown -= OnAirspacePathKeyDown;
             _airspaceTable.ValueChanged -= OnRowPointedAt;
             _airspaceViews.ValueChanged -= OnAirspaceViewChanged;
+            _intentSources.ValueChanged -= OnIntentSourceChanged;
 
             foreach (var (_, _, said) in _viewTabbed)
             {

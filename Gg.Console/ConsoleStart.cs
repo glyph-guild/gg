@@ -373,8 +373,12 @@ public static class ConsoleStart
 
             var board = await nominated is VerbResult.Board standing ? standing.Value : null;
 
+            // ONLY WHAT THIS PERSON MAY ANSWER needs them (QueueGates). Who they are came back in
+            // round one, which is already awaited, so the first queue is already theirs rather than
+            // waiting for a refresh to learn whose it is.
+            var subject = await identity is VerbResult.Identity who ? who.Value.Subject ?? "" : "";
             var queue = ConsoleProjection.Queue(
-                flights.Value, logs, runners.Value, gates, board);
+                flights.Value, logs, runners.Value, QueueGates.Answerable(gates, subject), board);
 
             // THE PRINCIPAL AND THE SEED, which is what makes the takeover key do
             // anything. Before this, ConsoleStart returned a queue and nothing

@@ -348,8 +348,9 @@ public static class ConsoleRefresh
             // these is what somebody is actually watching happen.
             return Announcements.Folded(Reducer.Detail(folded with
             {
+                // ONLY WHAT THIS PERSON MAY ANSWER needs them; the gates tab keeps every gate.
                 Queue = ConsoleProjection.Queue(
-                    flights.Value, logs, runners.Value, gates, board),
+                    flights.Value, logs, runners.Value, QueueGates.Answerable(gates, folded.Subject), board),
                 Gates = gates,
                 Logs = logs,
             }));

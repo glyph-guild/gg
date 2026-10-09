@@ -126,4 +126,15 @@ public class FlightsByIntentTests
 
         await Assert.That(usage).Contains("--intent");
     }
+
+    [Test]
+    public async Task A_file_key_asks_about_a_file()
+    {
+        // THE CONTROL PLANE READS repository:path[@ref] SINCE good-grief#751, and the client must not
+        // refuse what the server answers: a forge path, a colon, the file's path.
+        var action = CliArgs.Parse(["flights", "--intent", "JDX/JDNext:docs/upgrade.md@main"]);
+
+        await Assert.That(action).IsTypeOf<CliAction.Flights>();
+        await Assert.That(((CliAction.Flights)action).Intent).IsEqualTo("JDX/JDNext:docs/upgrade.md@main");
+    }
 }

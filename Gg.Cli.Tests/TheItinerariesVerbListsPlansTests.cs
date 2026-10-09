@@ -101,4 +101,19 @@ public class TheItinerariesVerbListsPlansTests
                 .Select(n => n.GetProperty("itineraryNumber").GetString()))
             .Contains("ITN-63");
     }
+
+    [Test]
+    public async Task Intent_narrows_the_listing_to_one_intents_plans()
+    {
+        await Assert.That(CliArgs.Parse(["itineraries", "--intent", "ado#18678"]))
+            .IsEqualTo(new CliAction.Itineraries(false, null, null, "ado#18678"));
+
+        var page = TwoPlans() with
+        {
+            Nominations = [.. TwoPlans().Nominations.Select(n => n.ItineraryNumber == "ITN-63" ? n with { IntentKey = "ado#18678" } : n)],
+        };
+        var about = IntentKeys.About(page, "ado#18678");
+
+        await Assert.That(about.Nominations.Select(n => n.ItineraryNumber ?? "").Distinct()).IsEquivalentTo(["ITN-63"]);
+    }
 }

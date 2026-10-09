@@ -4342,4 +4342,7 @@ public static class PaneText
     }
 
     private static string Clean(string? value, bool lines = false) => ControlText.Strip(value, lines);
+
+    /// <summary>The work item modal's Flights tab: what came of the item.</summary>
+    public static string WorkItemCameOf(AppState state) => "";
 }

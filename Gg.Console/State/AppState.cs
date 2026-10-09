@@ -806,6 +806,9 @@ public enum WorkItemTab
     /// reaching anything that writes.
     /// </para>
     /// </remarks>
+    /// <summary>What came of it: the flights about it, and the plans (owner, 2026-10-08).</summary>
+    Flights,
+
     Actions,
 }
 
@@ -1924,6 +1927,18 @@ public sealed record AppState
     /// flight or plan a ticket was opened from. Null reads the shown source.
     /// </summary>
     public string? WorkItemProvider { get; init; }
+
+    /// <summary>The flights about the open work item, newest first; null until read.</summary>
+    public IReadOnlyList<FlightSummary>? WorkItemFlights { get; init; }
+
+    /// <summary>The plans whose legs are about the open work item, by number.</summary>
+    public IReadOnlyList<string> WorkItemPlans { get; init; } = [];
+
+    /// <summary>Why what came of the item could not be read, or null.</summary>
+    public string? WorkItemFlightsSaid { get; init; }
+
+    /// <summary>The cursor on the work item modal's Flights tab.</summary>
+    public int WorkItemFlightSelected { get; init; }
 
     /// <summary>
     /// What this tracker offers to narrow by, or null until somebody asked.

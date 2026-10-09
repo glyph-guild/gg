@@ -397,4 +397,10 @@ public static class WorkItemDetails
     public static bool CanPlan(AppState state) =>
         Item(state) is { Id.Length: > 0 }
         && (state.WorkItemProvider ?? state.Browse?.ProviderKey) is { Length: > 0 };
+
+    /// <summary>The open item's intent key, from its tracker; null with no item.</summary>
+    public static string? Key(AppState state) => null;
+
+    /// <summary>The id of the flight under the Flights tab's cursor, when it is loaded here.</summary>
+    public static string? FlightInTheList(AppState state) => null;
 }

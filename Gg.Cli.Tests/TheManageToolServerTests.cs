@@ -81,6 +81,7 @@ public class TheManageToolServerTests
     [Arguments("list_runners", "", "runners --json")]
     [Arguments("list_watches", "", "watches --json")]
     [Arguments("list_itineraries", "", "itineraries --json")]
+    [Arguments("list_itineraries", "intent=ado#18678", "itineraries --intent ado#18678 --json")]
     [Arguments("show_itinerary", "itinerary=ITN-63", "itinerary show ITN-63 --json")]
     [Arguments("decide_gate", "flight=GG-42;obligation=widen-root;outcome=approved;reason=looks right", "decide GG-42 widen-root approved looks right --json")]
     [Arguments("decide_gate", "flight=GG-42;obligation=widen-root;outcome=rejected", "decide GG-42 widen-root rejected --json")]

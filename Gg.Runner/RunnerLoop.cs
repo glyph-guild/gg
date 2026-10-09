@@ -2255,7 +2255,11 @@ public sealed class RunnerLoop(
             // obligation verdict - the nearest string rather than a chosen one.
             invoked.Run?.Reason,
             // AND WHAT THE AGENT ACTUALLY ASKED FOR, which outranks it.
-            invoked.Run?.Landing, cancellationToken);
+            invoked.Run?.Landing,
+            // AND WHETHER IT FINISHED. On a run that did not, the reason above is
+            // the runner's sentence about how it stopped, not an account of a change.
+            finished: invoked.Run is null || invoked.Run.Outcome == LoopOutcomes.Completed,
+            cancellationToken);
 
         // WHAT THE PERSON DECIDED, and the disposition that matches it. Only an
         // attended flight has one: an agent's outcome was measured and shipped
@@ -3315,6 +3319,7 @@ public sealed class RunnerLoop(
         IReadOnlyDictionary<string, Gg.Contracts.WorkItemProposal> proposed,
         string? account,
         Gg.Contracts.LandingProposal? proposedLanding,
+        bool finished,
         CancellationToken cancellationToken)
     {
         // THREE GATES NOW, AND THE THIRD DOES NOT PASS THROUGH THE OTHER TWO.
@@ -3401,6 +3406,14 @@ public sealed class RunnerLoop(
             return Refused("this runner is not configured to land anywhere", tracker);
         }
 
+        // WHAT IT WAS ASKED TO DO, for naming a run that did not finish: the
+        // operator's own words, or the work item's reference - never the item's
+        // text, which this binary does not hold.
+        var about = lease.IntentText is { Length: > 0 } words ? words
+                  : lease.IntentProvider is { Length: > 0 } source
+                    && lease.IntentId is { Length: > 0 } item ? $"{source}#{item}"
+                  : null;
+
         var request = new LandingRequest
         {
             WorkingDirectory = tree.Path,
@@ -3413,8 +3426,10 @@ public sealed class RunnerLoop(
             // land; it is written for an audit trail and reads as nonsense on a
             // list of changes.
             Title = LandingTitle.For(
-                lease.FlightNumber, account, admission?.Reason ?? push.Reason, proposedLanding),
-            Description = proposedLanding?.Description,
+                lease.FlightNumber, account, admission?.Reason ?? push.Reason, proposedLanding,
+                finished, about),
+            Description = LandingTitle.DescriptionFor(
+                proposedLanding?.Description, finished, account),
             Secret = secretsByLocator[reference.Locator],
 
             // FROM THE LEASE, which has carried it since a flight could be

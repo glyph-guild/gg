@@ -61,5 +61,11 @@ public static class IntentSources
     }
 
     /// <summary>What the column on the intents tab's left draws: each source's label, and which is shown.</summary>
-    public static (IReadOnlyList<string> Labels, int Shown) Column(AppState state) => ([], -1);
+    public static (IReadOnlyList<string> Labels, int Shown) Column(AppState state)
+    {
+        var all = All(state);
+        var shown = Shown(state);
+
+        return ([.. all.Select(source => source.Label)], shown is null ? -1 : all.ToList().IndexOf(shown));
+    }
 }

@@ -73,14 +73,14 @@ public sealed class ConsoleScreen : Window
     private readonly Terminal.Gui.Views.Tabs _airspaceViews;
 
     /// <summary>
-    /// The intents tab's sources, down its left side (owner, 2026-10-08): one tab per source, each
-    /// an empty page - the listing beside the strip is the chosen source's.
+    /// The intents tab's sources, down its left side (owner, 2026-10-08): a boxed list, one label a
+    /// row, so it reads left to right - a side tab's title is drawn top to bottom, with no setting.
     /// </summary>
-    private readonly Terminal.Gui.Views.Tabs _intentSources;
+    private readonly FrameView _intentSourceBox;
 
-    private readonly List<IntentSource> _onTheSourceStrip = [];
+    private readonly ListView _intentSources;
 
-    private readonly Dictionary<string, View> _sourcePages = new(StringComparer.Ordinal);
+    private IReadOnlyList<string> _sourceLabels = [];
 
     /// <summary>Each view's body, and the list inside it that holds the lines.</summary>
     private readonly (AirspaceView View, View Pane, ListView Said)[] _viewTabbed;
@@ -819,23 +819,26 @@ public sealed class ConsoleScreen : Window
             Height = Dim.Fill(1),
             Visible = false,
         };
-        // THE SOURCES DOWN THE LEFT, the window bar's widget turned on its side: not in the tab
-        // ring (`tab` moves between the window's tabs), turned by `v` or a click.
-        _intentSources = new Terminal.Gui.Views.Tabs
+        // THE SOURCES DOWN THE LEFT, a boxed list: one label a row, left to right. Not in the tab
+        // ring (`tab` moves between the window's tabs); turned by `v` or a click.
+        _intentSources = CollectionViews.List();
+        _intentSources.CanFocus = false;
+        _intentSources.ValueChanged += OnIntentSourceChanged;
+        _intentSourceBox = new FrameView
         {
+            Title = "from",
             X = 0,
             Y = 0,
             Width = 0,
             Height = Dim.Fill(),
-            TabSide = Side.Left,
             TabStop = TabBehavior.NoStop,
         };
-        _intentSources.ValueChanged += OnIntentSourceChanged;
-        _browsePane.Add(_intentSources);
+        _intentSourceBox.Add(_intentSources);
+        _browsePane.Add(_intentSourceBox);
 
         _browse = new Label
         {
-            X = Pos.Right(_intentSources),
+            X = Pos.Right(_intentSourceBox),
             Width = Dim.Fill(),
             Height = Dim.Fill(),
             CanFocus = true,
@@ -1193,7 +1196,7 @@ public sealed class ConsoleScreen : Window
         _itineraryLegsTable.CanFocus = false;
         _itineraryLegsPane.Add(_itineraryLegsTable);
         _browseTable = CollectionViews.Table();
-        _browseTable.X = Pos.Right(_intentSources);
+        _browseTable.X = Pos.Right(_intentSourceBox);
         _browsePane.Add(_browseTable);
 
         // THE AIRSPACE FIELD'S SHAPE, one tab over, and for its reasons: a box
@@ -1203,7 +1206,7 @@ public sealed class ConsoleScreen : Window
         _browseFindBox = new FrameView
         {
             Title = "go to or find",
-            X = Pos.Right(_intentSources),
+            X = Pos.Right(_intentSourceBox),
             Y = Pos.AnchorEnd(3),
             Width = Dim.Fill(),
             Height = 3,
@@ -3265,46 +3268,41 @@ public sealed class ConsoleScreen : Window
     /// </summary>
     private void FollowTheSources()
     {
-        var sources = IntentSources.All(State);
+        var (labels, shown) = IntentSources.Column(State);
 
-        Follow(_intentSources, _onTheSourceStrip, sources, source =>
+        if (!labels.SequenceEqual(_sourceLabels))
         {
-            if (!_sourcePages.TryGetValue(source.Key, out var page))
-            {
-                page = new View { Width = 0, Height = 0, CanFocus = false };
-                _sourcePages[source.Key] = page;
-            }
-
-            return (page, source.Label);
-        });
-
-        var across = sources.Count == 0 ? 0 : sources.Max(source => source.Label.Length) + 4;
-        if (!Equals(_intentSources.Width, Dim.Absolute(across)))
-        {
-            _intentSources.Width = across;
+            _sourceLabels = labels;
+            _intentSources.SetSource(new ObservableCollection<string>(labels.Select(label => " " + label)));
         }
 
-        if (IntentSources.Shown(State) is { } shown
-            && _sourcePages.TryGetValue(shown.Key, out var showing)
-            && !ReferenceEquals(_intentSources.Value, showing))
+        // AS WIDE AS ITS LONGEST LABEL, its border included, and never narrower than its title
+        // ("from"); nothing at all with no source.
+        var across = labels.Count == 0 ? 0 : Math.Max(labels.Max(label => label.Length) + 4, 8);
+        if (!Equals(_intentSourceBox.Width, Dim.Absolute(across)))
         {
-            _intentSources.Value = showing;
+            _intentSourceBox.Width = across;
+        }
+
+        if (shown >= 0 && _intentSources.SelectedItem != shown)
+        {
+            _intentSources.SelectedItem = shown;
         }
     }
 
     /// <summary>
-    /// A person clicked a source on the strip: show it, and read it - through the same command `v`
+    /// A person clicked a source in the column: show it, and read it - through the same command `v`
     /// is, so a click and a key cannot disagree about what changing source does.
     /// </summary>
-    private void OnIntentSourceChanged(object? sender, ValueChangedEventArgs<View?> args)
+    private void OnIntentSourceChanged(object? sender, ValueChangedEventArgs<int?> args)
     {
-        if (_syncing || args.NewValue is not { } chosen)
+        if (_syncing || args.NewValue is not { } row || row < 0 || row >= _sourceLabels.Count)
         {
             return;
         }
 
-        var picked = _sourcePages.FirstOrDefault(page => ReferenceEquals(page.Value, chosen)).Key;
-        if (picked is null || picked == IntentSources.Shown(State)?.Key)
+        var picked = IntentSources.All(State)[row].Key;
+        if (picked == IntentSources.Shown(State)?.Key)
         {
             return;
         }

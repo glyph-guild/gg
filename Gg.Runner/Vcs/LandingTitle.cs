@@ -70,8 +70,11 @@ public static class LandingTitle
     /// </remarks>
     public static string For(
         string flightNumber, string? runReason, string fallback,
-        Gg.Contracts.LandingProposal? proposed = null)
+        Gg.Contracts.LandingProposal? proposed = null, bool finished = true, string? about = null)
     {
+        _ = finished;
+        _ = about;
+
         // WHAT THE AGENT CHOSE, and the contract has already refused anything
         // that is not a title - one line, bounded, not blank - before it could
         // reach here, because the extractor throws on an answered call carrying
@@ -84,6 +87,14 @@ public static class LandingTitle
         var said = Sentence(runReason);
 
         return $"{flightNumber}: {(said is { Length: > 0 } ? said : fallback)}";
+    }
+
+    /// <summary>What the proposal says beyond its title, or null.</summary>
+    public static string? DescriptionFor(string? proposed, bool finished, string? runReason)
+    {
+        _ = finished;
+        _ = runReason;
+        return proposed;
     }
 
     /// <summary>The first sentence of an account, bounded, or null.</summary>

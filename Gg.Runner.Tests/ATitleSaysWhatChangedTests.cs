@@ -100,4 +100,66 @@ public class ATitleSaysWhatChangedTests
         await Assert.That(LandingTitle.For(Flight, "Did the thing.", Verdict)).StartsWith(Flight);
         await Assert.That(LandingTitle.For(Flight, null, Verdict)).StartsWith(Flight);
     }
+
+    private const string RanOut =
+        "The loop used its whole wall-clock budget of 20m and stopped. This flight is waiting "
+      + "for a person.";
+
+    [Test]
+    public async Task A_run_that_did_not_finish_is_not_titled_by_how_it_stopped()
+    {
+        // Measured: a pull request went up titled "GG-1031: The loop used its whole
+        // wall-clock budget of 20m and stopped." That sentence is the RUNNER'S, written
+        // when the budget ran out - it is no account of a change, and it says nothing
+        // about which work item the proposal answers.
+        var title = LandingTitle.For(
+            Flight, RanOut, Verdict, finished: false, about: "tracker#4471");
+
+        await Assert.That(title).DoesNotContain("budget");
+        await Assert.That(title).IsEqualTo($"{Flight}: Unfinished: tracker#4471")
+            .Because("a reviewer must be able to tell from the list that this is not finished "
+                   + "work, and which item it was for.");
+    }
+
+    [Test]
+    public async Task An_unfinished_text_flight_is_titled_by_what_was_asked()
+    {
+        var title = LandingTitle.For(
+            Flight, RanOut, Verdict, finished: false,
+            about: "Scope the retry to transient failures. Leave the rest alone.");
+
+        await Assert.That(title)
+            .IsEqualTo($"{Flight}: Unfinished: Scope the retry to transient failures.");
+    }
+
+    [Test]
+    public async Task An_unfinished_run_with_nothing_to_name_keeps_the_true_sentence()
+    {
+        var title = LandingTitle.For(Flight, RanOut, Verdict, finished: false, about: null);
+
+        await Assert.That(title).IsEqualTo($"{Flight}: Unfinished: {Verdict}");
+    }
+
+    [Test]
+    public async Task An_unfinished_proposal_says_how_the_run_stopped()
+    {
+        // The title drops the runner's sentence; the description is where it belongs,
+        // so the person who opens the proposal learns why it is unfinished.
+        var description = LandingTitle.DescriptionFor(
+            proposed: "Added a spec for the hook.", finished: false, runReason: RanOut);
+
+        await Assert.That(description).IsNotNull();
+        await Assert.That(description!).StartsWith("Unfinished: the run stopped before it was done.");
+        await Assert.That(description!).Contains(RanOut);
+        await Assert.That(description!).Contains("Added a spec for the hook.");
+    }
+
+    [Test]
+    public async Task A_finished_proposal_says_only_what_the_agent_wrote()
+    {
+        await Assert.That(LandingTitle.DescriptionFor("Did it.", finished: true, runReason: "Did it."))
+            .IsEqualTo("Did it.");
+        await Assert.That(LandingTitle.DescriptionFor(null, finished: true, runReason: "Did it."))
+            .IsNull();
+    }
 }

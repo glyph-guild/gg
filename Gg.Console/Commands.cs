@@ -1389,7 +1389,9 @@ public static class ShellCommands
     /// one that no longer exists, and is owed.
     /// </remarks>
     public static Command? ReadOnArrival(AppState state) =>
-        null;
+        state is { Mode: UiMode.WorkKindChoice, ReadInFlight: true }
+            ? Command.AskHowToCompose
+            : null;
 
     /// <summary>The commands whose effect lives in <c>ConsoleLoop</c>.</summary>
     /// <summary>

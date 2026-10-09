@@ -662,6 +662,27 @@ public sealed record FlightSummary
     /// </para>
     /// </remarks>
     public string State { get; init; } = FlightStates.Unknown;
+
+    /// <summary>
+    /// How far this flight got: one of <see cref="FlightStages.All"/>, as its story reads - or null
+    /// from a control plane that does not say.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The story's stage, carried on the summary</b> (owner, 2026-10-09: the flights tab should
+    /// show it). A list cannot read every flight's story to learn it, so the control plane says it
+    /// here, by the same rule <see cref="FlightStoryStages.Reached"/> applies to the story.
+    /// </para>
+    /// <para>
+    /// <b>A different axis from <see cref="State"/></b>, for the story's reason: a flight is open
+    /// while it is created, leased, worked and evaluated, and the stage is which of those it reached.
+    /// </para>
+    /// <para>
+    /// <b>Optional</b>: null is every summary from a control plane before this member, and a
+    /// reader shows nothing rather than inventing a stage.
+    /// </para>
+    /// </remarks>
+    public string? Stage { get; init; }
 }
 
 /// <summary>

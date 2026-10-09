@@ -106,4 +106,13 @@ public class TheFlightTableSaysWhatKindOfWorkTests
         // would have shipped without it.
         await Assert.That(AFlight("GG-4", "triage").WorkKind).IsEqualTo("triage");
     }
+
+    [Test]
+    public async Task Each_row_says_what_stage_its_flight_is_at()
+    {
+        var flight = new AConsolePlane().AFlight(1031) with { Stage = "leased" };
+        var state = new AppState { Flights = new FlightList { Flights = [flight] } };
+
+        await Assert.That(Rows.Flights(state).Single().Stage).IsEqualTo("leased");
+    }
 }

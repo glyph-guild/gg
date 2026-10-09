@@ -95,8 +95,8 @@ public class ASurplusMemberIsReclaimedTests
 
     private const string Pinned = "acr.example/gg-member@sha256:pinned";
 
-    /// <summary>Serves one destroy, naming its member, then nothing.</summary>
-    private sealed class OneDestroy(string member) : IPoolProtocol
+    /// <summary>Serves one destroy carrying a ceiling, then nothing.</summary>
+    private sealed class OneDestroy(int? ceiling) : IPoolProtocol
     {
         private bool _served;
 
@@ -120,7 +120,7 @@ public class ASurplusMemberIsReclaimedTests
                         ActionId = Guid.CreateVersion7(),
                         Pool = pool,
                         Action = PoolActions.Destroy,
-                        Member = member,
+                        AboveSlot = ceiling,
                         Image = Pinned,
                         StrategyVersion = $"{pool}@v1",
                         DecidedAt = DateTimeOffset.Parse("2026-09-14T10:00:00Z"),
@@ -143,7 +143,7 @@ public class ASurplusMemberIsReclaimedTests
     }
 
     private static async Task<(FakePool Pool, OneDestroy Protocol)>
-        SweptAsync(string destroy, params (string Name, bool Running)[] members)
+        SweptAsync(int? ceiling, params (string Name, bool Running)[] members)
     {
         var adapter = new FakePool();
         foreach (var (name, running) in members)
@@ -151,7 +151,7 @@ public class ASurplusMemberIsReclaimedTests
             adapter.Members[name] = running;
         }
 
-        var protocol = new OneDestroy(destroy);
+        var protocol = new OneDestroy(ceiling);
         using var stop = new CancellationTokenSource();
         var loop = new MaintainLoop(
             protocol, adapter,
@@ -167,10 +167,10 @@ public class ASurplusMemberIsReclaimedTests
     }
 
     [Test]
-    public async Task The_member_it_names_is_destroyed()
+    public async Task The_stopped_member_above_the_ceiling_is_destroyed()
     {
         var (pool, _) = await SweptAsync(
-            "gg-pool-ui-3",
+            ceiling: 2,
             ("gg-pool-ui-1", true), ("gg-pool-ui-2", true), ("gg-pool-ui-3", false));
 
         await Assert.That(pool.Destroyed).Contains("gg-pool-ui-3")
@@ -182,7 +182,7 @@ public class ASurplusMemberIsReclaimedTests
     public async Task And_nothing_is_created_in_its_place()
     {
         var (pool, _) = await SweptAsync(
-            "gg-pool-ui-3",
+            ceiling: 2,
             ("gg-pool-ui-1", true), ("gg-pool-ui-2", true), ("gg-pool-ui-3", false));
 
         await Assert.That(pool.Calls.Any(c => c.StartsWith("refresh:", StringComparison.Ordinal)))
@@ -198,7 +198,7 @@ public class ASurplusMemberIsReclaimedTests
     public async Task The_running_members_are_left_alone()
     {
         var (pool, _) = await SweptAsync(
-            "gg-pool-ui-3",
+            ceiling: 2,
             ("gg-pool-ui-1", true), ("gg-pool-ui-2", true), ("gg-pool-ui-3", false));
 
         await Assert.That(pool.Destroyed).DoesNotContain("gg-pool-ui-1");
@@ -209,17 +209,18 @@ public class ASurplusMemberIsReclaimedTests
     }
 
     [Test]
-    public async Task A_destroy_that_names_nobody_is_refused_rather_than_guessed()
+    public async Task A_destroy_carrying_no_ceiling_removes_nothing()
     {
         // THE POISON TWIN. A runner that picked a container itself would be
         // deciding what only the declared size can decide - and the failure
         // would be a removal nobody asked for.
         var (pool, protocol) = await SweptAsync(
-            destroy: null!,
+            ceiling: null,
             ("gg-pool-ui-1", true), ("gg-pool-ui-2", false));
 
         await Assert.That(pool.Destroyed).IsEmpty()
-            .Because("there is no member to destroy, and the runner may not choose one.");
+            .Because("an absent ceiling is not permission to remove anything, and how many "
+                   + "members the pool may hold is the control plane's answer.");
 
         await Assert.That(protocol.Attested.Any(a =>
                 string.Equals(a.Outcome, PoolOutcomes.Failed, StringComparison.Ordinal)))

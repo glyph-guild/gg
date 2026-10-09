@@ -2395,7 +2395,7 @@ public static class ProtocolSurface
                  "recipeCommit"],
             [typeof(PoolAction)] =
                 ["actionId", "pool", "action", "image", "strategyVersion", "decidedAt",
-                 "recipe", "member"],
+                 "recipe", "aboveSlot"],
             [typeof(PoolRecipe)] = ["repository", "path", "dockerfile"],
             [typeof(PoolActionList)] = ["actions"],
             // The sweeps surface. The action carries a pinned commit and never

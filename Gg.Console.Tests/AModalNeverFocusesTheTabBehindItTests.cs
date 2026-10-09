@@ -44,6 +44,25 @@ namespace Gg.Console.Tests;
 public class AModalNeverFocusesTheTabBehindItTests
 {
     [Test]
+    public async Task A_repositories_tab_with_nothing_drawn_holds_the_frame_not_the_kinds()
+    {
+        // REPORTED FROM USE A SECOND TIME, same sentence. With the registry not
+        // yet read the table is hidden, and the arm fell back to the KINDS
+        // table - in the other tab. A click on "repositories" began focusing
+        // that tab, the render answering it put the keyboard back in "kind",
+        // and Terminal.Gui threw. Reproduced in a pty by clicking the tab after
+        // `f' on the intents tab, which opens the modal with no read.
+        await Assert.That(FocusChange.KindWidget(WorkKindTab.Repositories, repositoriesDrawn: false))
+            .IsEqualTo(WorkKindWidget.Frame);
+
+        await Assert.That(FocusChange.KindWidget(WorkKindTab.Repositories, repositoriesDrawn: true))
+            .IsEqualTo(WorkKindWidget.Repositories);
+
+        await Assert.That(FocusChange.KindWidget(WorkKindTab.Kind, repositoriesDrawn: false))
+            .IsEqualTo(WorkKindWidget.Kinds);
+    }
+
+    [Test]
     public async Task Every_arm_of_the_focus_switch_returns()
     {
         var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");

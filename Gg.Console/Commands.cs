@@ -1377,6 +1377,20 @@ public static class ShellCommands
         Command.LoadMoreSweeps,
     };
 
+    /// <summary>
+    /// The read a session owes the state it opens on, or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>A question the loop opened still wants its read.</b> <see cref="Reads"/>
+    /// start when a command is pressed inside a session, and `f` asks what a
+    /// flight is for between sessions - so the next session opened on a
+    /// repositories tab waiting for a registry nothing had asked for. Nothing is
+    /// running when a session starts, so a ReadInFlight it inherits was left by
+    /// one that no longer exists, and is owed.
+    /// </remarks>
+    public static Command? ReadOnArrival(AppState state) =>
+        null;
+
     /// <summary>The commands whose effect lives in <c>ConsoleLoop</c>.</summary>
     /// <summary>
     /// Commands the SCREEN performs on a widget, rather than the shell or the

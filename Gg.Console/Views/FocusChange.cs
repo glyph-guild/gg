@@ -355,4 +355,40 @@ public static class FocusChange
 
             _ => FocusTarget.Tab,
         };
+
+    /// <summary>
+    /// Where the keyboard goes in the compose modal, given the tab showing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>THE FRAME WHEN THE REPOSITORIES TABLE IS NOT DRAWN, never the kinds
+    /// table.</b> It fell back to the kinds, which live in the OTHER tab - so a
+    /// click on "repositories" before the registry had landed started focusing
+    /// that tab, the render answering the click put the keyboard back in the
+    /// kinds tab, and Terminal.Gui threw "FocusChanging was not cancelled and
+    /// the HasFocus value did not change". The flight modal's and the runner
+    /// modal's fallback, for their reason.
+    /// </para>
+    /// <para>
+    /// <b>And a frame is not a landing.</b> The caller records the tab as
+    /// landed only when a table took the keyboard, so the render after the
+    /// rows arrive places it on them rather than leaving it on the frame.
+    /// </para>
+    /// </remarks>
+    public static WorkKindWidget KindWidget(WorkKindTab tab, bool repositoriesDrawn) => tab switch
+    {
+        WorkKindTab.Repositories when repositoriesDrawn => WorkKindWidget.Repositories,
+        _ => WorkKindWidget.Kinds,
+    };
+}
+
+/// <summary>Which of the compose modal's views takes the keyboard.</summary>
+public enum WorkKindWidget
+{
+    Kinds,
+
+    Repositories,
+
+    /// <summary>The modal itself, because the tab showing has nothing drawn to hold it.</summary>
+    Frame,
 }

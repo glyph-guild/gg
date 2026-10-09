@@ -62,7 +62,7 @@ public class TheChosenRepositoryCrossesTests
     {
         var actions = new ConsoleDoubles.Records();
 
-        _ = ConsoleLoop.FlewPicked(Picked(Chose()), actions);
+        _ = Sent.Inline(ConsoleLoop.FlewPicked(Picked(Chose()), actions), actions);
 
         await Assert.That(actions.Tickets).Count().IsEqualTo(1);
         await Assert.That(actions.Tickets[0].Repositories).Contains("acme/widgets");
@@ -77,7 +77,7 @@ public class TheChosenRepositoryCrossesTests
         // the console asserting a flight names none.
         var actions = new ConsoleDoubles.Records();
 
-        _ = ConsoleLoop.FlewPicked(Picked(new AppState()), actions);
+        _ = Sent.Inline(ConsoleLoop.FlewPicked(Picked(new AppState()), actions), actions);
 
         await Assert.That(actions.Tickets[0].Repositories).IsEmpty();
     }
@@ -89,7 +89,7 @@ public class TheChosenRepositoryCrossesTests
         // would be a setting that works depending on how you started.
         var actions = new ConsoleDoubles.Records();
 
-        _ = ConsoleLoop.Opened(Chose(), actions, new ConsoleDoubles.Writes("fix the thing"));
+        _ = Sent.Inline(ConsoleLoop.Opened(Chose(), actions, new ConsoleDoubles.Writes("fix the thing")), actions);
 
         await Assert.That(actions.Intents).Count().IsEqualTo(1);
         await Assert.That(actions.Intents[0].Repositories).Contains("acme/widgets");
@@ -103,7 +103,7 @@ public class TheChosenRepositoryCrossesTests
         // other is content, and only one of them belongs in a write.
         var actions = new ConsoleDoubles.Records();
 
-        _ = ConsoleLoop.FlewPicked(Picked(Chose()), actions);
+        _ = Sent.Inline(ConsoleLoop.FlewPicked(Picked(Chose()), actions), actions);
 
         var sent = string.Join(
             " ", actions.Tickets.Select(t => $"{t.Provider} {t.Id} {string.Join('+', t.Repositories)}"));
@@ -119,8 +119,8 @@ public class TheChosenRepositoryCrossesTests
         // that was chosen when the question was asked.
         var actions = new ConsoleDoubles.Records(alreadyFlown: "gg-14 is already open.");
 
-        var asked = ConsoleLoop.FlewPicked(Picked(Chose()), actions);
-        var opened = ConsoleLoop.ConfirmedFlight(asked, actions);
+        var asked = Sent.Inline(ConsoleLoop.FlewPicked(Picked(Chose()), actions), actions);
+        var opened = Sent.Inline(ConsoleLoop.ConfirmedFlight(asked, actions), actions);
 
         await Assert.That(actions.Tickets).Count().IsEqualTo(1);
         await Assert.That(actions.Tickets[0].Repositories).Contains("acme/widgets");

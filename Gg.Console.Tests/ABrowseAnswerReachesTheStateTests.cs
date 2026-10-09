@@ -68,7 +68,7 @@ public class ABrowseAnswerReachesTheStateTests
 
         var flying = new ConsoleDoubles.Records();
 
-        _ = ConsoleLoop.FlewPicked(state with { BrowseVisible = true }, flying);
+        _ = Sent.Inline(ConsoleLoop.FlewPicked(state with { BrowseVisible = true }, flying), flying);
 
         await Assert.That(flying.Tickets).Count().IsEqualTo(1);
         await Assert.That(flying.Tickets[0].Id).DoesNotContain("http")

@@ -57,7 +57,7 @@ public class TheButtonFliesWhatTheModalShowsTests
         // always meant the row under the cursor and still does.
         var actions = new ConsoleDoubles.Records();
 
-        ConsoleLoop.FlewPicked(Browsing(), actions);
+        Sent.Inline(ConsoleLoop.FlewPicked(Browsing(), actions), actions);
 
         await Assert.That(actions.Flown.Select(f => f.Id)).IsEquivalentTo(["2002"]);
     }
@@ -75,7 +75,7 @@ public class TheButtonFliesWhatTheModalShowsTests
 
         var actions = new ConsoleDoubles.Records();
 
-        ConsoleLoop.FlewPicked(held, actions);
+        Sent.Inline(ConsoleLoop.FlewPicked(held, actions), actions);
 
         await Assert.That(actions.Flown.Select(f => f.Id)).IsEquivalentTo(["3003"])
             .Because("the pane says 'Open a flight on a-tracker 3003' and the button under it "
@@ -96,7 +96,7 @@ public class TheButtonFliesWhatTheModalShowsTests
 
         var actions = new ConsoleDoubles.Records();
 
-        ConsoleLoop.FlewPicked(held, actions);
+        Sent.Inline(ConsoleLoop.FlewPicked(held, actions), actions);
 
         await Assert.That(WorkItemDetails.ActionsSaid(held)).Contains(actions.Flown[0].Id);
     }

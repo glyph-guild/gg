@@ -41,7 +41,7 @@ public class ASecondFlightIsWarnedAboutTests
     {
         var actions = new ConsoleDoubles.Records(alreadyFlown: null);
 
-        var state = ConsoleLoop.FlewPicked(Picked(), actions);
+        var state = Sent.Inline(ConsoleLoop.FlewPicked(Picked(), actions), actions);
 
         await Assert.That(actions.Asked).IsEqualTo(1)
             .Because("the question is asked every time, or the warning is a coin toss.");
@@ -54,7 +54,7 @@ public class ASecondFlightIsWarnedAboutTests
     {
         var actions = new ConsoleDoubles.Records(alreadyFlown: "gg-14 is already open for this item.");
 
-        var state = ConsoleLoop.FlewPicked(Picked(), actions);
+        var state = Sent.Inline(ConsoleLoop.FlewPicked(Picked(), actions), actions);
 
         await Assert.That(actions.Flown).IsEmpty()
             .Because("the whole point is that it has not happened yet.");
@@ -69,8 +69,8 @@ public class ASecondFlightIsWarnedAboutTests
     {
         var actions = new ConsoleDoubles.Records(alreadyFlown: "gg-14 is already open for this item.");
 
-        var asked = ConsoleLoop.FlewPicked(Picked(), actions);
-        var opened = ConsoleLoop.ConfirmedFlight(asked, actions);
+        var asked = Sent.Inline(ConsoleLoop.FlewPicked(Picked(), actions), actions);
+        var opened = Sent.Inline(ConsoleLoop.ConfirmedFlight(asked, actions), actions);
 
         await Assert.That(actions.Flown).Count().IsEqualTo(1);
         await Assert.That(actions.Flown[0].Id).IsEqualTo("18398");
@@ -83,7 +83,7 @@ public class ASecondFlightIsWarnedAboutTests
     {
         var actions = new ConsoleDoubles.Records(alreadyFlown: "gg-14 is already open for this item.");
 
-        var asked = ConsoleLoop.FlewPicked(Picked(), actions);
+        var asked = Sent.Inline(ConsoleLoop.FlewPicked(Picked(), actions), actions);
         var dropped = Reducer.FlightDeclined(asked);
 
         await Assert.That(actions.Flown).IsEmpty();
@@ -97,7 +97,7 @@ public class ASecondFlightIsWarnedAboutTests
         // would otherwise open a flight for whatever was last selected.
         var actions = new ConsoleDoubles.Records();
 
-        var state = ConsoleLoop.ConfirmedFlight(new AppState(), actions);
+        var state = Sent.Inline(ConsoleLoop.ConfirmedFlight(new AppState(), actions), actions);
 
         await Assert.That(actions.Flown).IsEmpty();
         await Assert.That(state.PendingFlight).IsNull();
@@ -110,7 +110,7 @@ public class ASecondFlightIsWarnedAboutTests
         // underneath is a modal about nothing in particular.
         var actions = new ConsoleDoubles.Records(alreadyFlown: "gg-14 is already open for this item.");
 
-        var state = ConsoleLoop.FlewPicked(Picked(), actions);
+        var state = Sent.Inline(ConsoleLoop.FlewPicked(Picked(), actions), actions);
 
         var shown = PaneText.Modal(state with { Mode = UiMode.ConfirmFlight });
 
@@ -128,7 +128,7 @@ public class ASecondFlightIsWarnedAboutTests
         var actions = new ConsoleDoubles.Records(alreadyFlown:
             "This console could not check whether it has already been flown.");
 
-        var state = ConsoleLoop.FlewPicked(Picked(), actions);
+        var state = Sent.Inline(ConsoleLoop.FlewPicked(Picked(), actions), actions);
 
         await Assert.That(actions.Flown).IsEmpty();
         await Assert.That(state.PendingFlight).IsNotNull()

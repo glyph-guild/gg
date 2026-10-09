@@ -90,7 +90,7 @@ public class AFlightIsAskedWhatItIsForTests
         // between sessions - so the branch that asks lives where the confirm
         // modal's does, and a reducer test would be testing nothing.
         var actions = new ConsoleDoubles.Records(alreadyFlown: null);
-        var asked = ConsoleLoop.FlewPicked(Browsing("hal-score", "research"), actions);
+        var asked = Sent.Inline(ConsoleLoop.FlewPicked(Browsing("hal-score", "research"), actions), actions);
 
         await Assert.That(actions.Flown).IsEmpty()
             .Because("the whole point is that it has not happened yet.");
@@ -149,7 +149,7 @@ public class AFlightIsAskedWhatItIsForTests
     public async Task A_tenant_with_no_kinds_is_not_asked_at_all()
     {
         var actions = new ConsoleDoubles.Records(alreadyFlown: null);
-        var flown = ConsoleLoop.FlewPicked(Browsing(), actions);
+        var flown = Sent.Inline(ConsoleLoop.FlewPicked(Browsing(), actions), actions);
 
         await Assert.That(flown.Mode).IsNotEqualTo(UiMode.WorkKindChoice)
             .Because("one possible answer is not a question, and a modal with one answer is "

@@ -496,15 +496,24 @@ public sealed class MuxAgent
     internal Action? Painted { get; set; }
 
     /// <summary>On screen or not. Showing it clears the mark.</summary>
+    /// <remarks>
+    /// <b>Under the screen's lock, as the reader's mark is.</b> Unlocked, the reader could find the
+    /// agent hidden, lose the processor while this showed it and cleared the mark, then set the mark
+    /// anyway - left on for an agent that had written nothing since it was looked at. A race read
+    /// off the code, not one a test has caught.
+    /// </remarks>
     internal bool Shown
     {
         get => _shown;
         set
         {
-            _shown = value;
-            if (value)
+            lock (Screen)
             {
-                _changed = false;
+                _shown = value;
+                if (value)
+                {
+                    _changed = false;
+                }
             }
         }
     }
@@ -624,11 +633,13 @@ public sealed class MuxAgent
                     // replacement characters.
                     var count = decoder.GetChars(buffer, 0, read, chars, 0);
                     Emulator.Write(new string(chars, 0, count));
-                }
 
-                if (!_shown)
-                {
-                    _changed = true;
+                    // MARKED IN THE SAME LOCK THAT SHOWING CLEARS IT IN: the check and the set are
+                    // one step, or a show between them leaves a mark nobody earned.
+                    if (!_shown)
+                    {
+                        _changed = true;
+                    }
                 }
 
                 Painted?.Invoke();

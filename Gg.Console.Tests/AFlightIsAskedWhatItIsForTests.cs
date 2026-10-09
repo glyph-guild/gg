@@ -105,6 +105,47 @@ public class AFlightIsAskedWhatItIsForTests
     }
 
     [Test]
+    public async Task The_browse_door_opens_the_same_question_the_new_flight_door_does()
+    {
+        // REPORTED FROM USE: `f' on the intents tab, then the repositories tab,
+        // crashed the console. The loop opened its own copy of this question,
+        // which set the kind and nothing else - no repositories, no tab, and no
+        // read - so the tab it offered had nothing to draw.
+        var browsing = Browsing("hal-score") with { ChosenRepositories = ["glyph-guild/gg"] };
+
+        var viaF = ConsoleLoop.FlewPicked(browsing, new ConsoleDoubles.Records(alreadyFlown: null));
+        var viaN = Press(browsing, KeyStroke.Char('n'));
+
+        await Assert.That(viaF.FlyingWith).IsEquivalentTo(viaN.FlyingWith!)
+            .Because("the repositories tab starts from the registry's marks whichever door asked.");
+        await Assert.That(viaF.FlyingWith).IsEquivalentTo(["glyph-guild/gg"]);
+        await Assert.That(viaF.WorkKindTab).IsEqualTo(WorkKindTab.Kind);
+        await Assert.That(viaF.RepositorySelected).IsEqualTo(0);
+        await Assert.That(viaF.ReadInFlight).IsTrue()
+            .Because("the registry has not been read, and the tab has to say so rather than "
+                   + "draw an empty table.");
+    }
+
+    [Test]
+    public async Task A_session_opening_on_the_question_starts_the_registry_read()
+    {
+        // `f' IS THE SHELL'S, so the question opens in a NEW session - and reads
+        // start when a key is pressed inside one. Without this the tab said
+        // "reading" for as long as the modal was open.
+        var asked = ConsoleLoop.FlewPicked(
+            Browsing("hal-score"), new ConsoleDoubles.Records(alreadyFlown: null));
+
+        var owed = ShellCommands.ReadOnArrival(asked);
+
+        await Assert.That(owed).IsNotNull();
+        await Assert.That(ShellCommands.Reads.Contains(owed!.Value)).IsTrue()
+            .Because("only a command in Reads starts a read when the screen is asked.");
+
+        await Assert.That(ShellCommands.ReadOnArrival(Browsing("hal-score"))).IsNull()
+            .Because("a session opening on nothing that waits is owed nothing.");
+    }
+
+    [Test]
     public async Task A_tenant_with_no_kinds_is_not_asked_at_all()
     {
         var actions = new ConsoleDoubles.Records(alreadyFlown: null);

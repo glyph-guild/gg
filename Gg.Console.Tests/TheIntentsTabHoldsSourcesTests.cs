@@ -95,6 +95,20 @@ public class TheIntentsTabHoldsSourcesTests
             .Contains("Intents — jira");
     }
 
+    [Test]
+    public async Task The_column_reads_left_to_right_with_the_shown_source_marked()
+    {
+        // OWNER, 2026-10-08: "is it possible for the tab on the left to have its text left to
+        // right?" Terminal.Gui draws a side tab's title top to bottom and offers no way round it, so
+        // the strip is a list column: one label per row, the shown one selected.
+        var (labels, shown) = IntentSources.Column(TwoTrackers("jira"));
+
+        await Assert.That(labels).IsEquivalentTo((string[])["ado", "jira"]);
+        await Assert.That(shown).IsEqualTo(1);
+        await Assert.That(IntentSources.Column(TwoTrackers()).Shown).IsEqualTo(0);
+        await Assert.That(IntentSources.Column(new AppState()).Labels).IsEmpty();
+    }
+
     private static BrowseListing Listing(string key) => new() { ProviderKey = key, Items = [] };
 
     /// <summary>A browser per key, recording which keys it was asked to read.</summary>

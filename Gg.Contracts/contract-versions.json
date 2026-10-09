@@ -1449,5 +1449,11 @@
     "surface": "98533b8c54cf3c81eeda8f6ae6aabee9e07d53d4b209c0a020e075ebf85a28f8",
     "endpoints": "073872f37069624b8f1f8708b897cd8a9b7820144c84b0a78c5d0da67d1c7ee1",
     "note": "A proposal can name the plan it replaces. Slice sixty-eight, found on ITN-61 and ITN-62: the mux's draft was proposed, edited and proposed again, and the second plan carried the first's three legs again, because the door is exactly-once per draft CONTENT and an edited draft is a different one. ItineraryProposal gains Supersedes, an ITN reference or absent, refused by Validate when it is anything else. The tool server sends it from the draft's local record of what it last proposed, and the door withdraws that plan in the same request. POST /v1/itineraries declares 409 for a supersede it cannot honour: the plan is not the caller's, its gate was answered, or another proposal already replaced it. The control plane pins this version in the PR that serves it."
+  },
+  {
+    "version": "0.283.0",
+    "surface": "2d461c1cbfaa55b9d3230cb3f64267e1839588c8e91737ebd398e7b0a489a629",
+    "endpoints": "073872f37069624b8f1f8708b897cd8a9b7820144c84b0a78c5d0da67d1c7ee1",
+    "note": "A surplus pool member can be reclaimed. Measured on GG-1016: the ui pool is declared size 2, gg-pool-ui-3 exited cleanly, and nothing in the product could take it away - the only destroy lives inside a roll and is gated on the member being off the image pin, and the refresh that would reuse its slot needs the live count below the ceiling, which it is not while the running members fill the pool. So it stayed, failing verify every five seconds, and the time before the same container survived thirty-three hours. PoolActions gains Destroy, classified OutwardAct because removing a member cannot be undone by attesting differently; PoolAction gains Member, which only a destroy carries, because whether a member is surplus is a question about the DECLARED SIZE and the loop does not have it. A destroy removes the member it names and creates nothing in its place, which is what makes it not a reset: a reset creates a running member in place of the one it removed, and resetting a surplus corpse is how a pool bounded at two came to hold three. No route changes. The control plane pins this version in the PR that decides destroys."
   }
 ]

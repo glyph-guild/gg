@@ -415,6 +415,35 @@ public sealed class MaintainLoop(
             return await RollAsync(pool, image, cancellationToken);
         }
 
+        // REMOVING A MEMBER THE POOL SHOULD NOT HAVE, and creating nothing in
+        // its place. Measured on GG-1016: a member that exits cleanly is
+        // reclaimed by nothing - the destroy inside a roll is gated on the
+        // member being off the pin, and the refresh that would reuse its slot
+        // needs the live count below the ceiling, which it is not while the
+        // running members fill the pool. So it stayed, failing verify every
+        // five seconds, for hours.
+        //
+        // AND IT IS TOLD WHICH ONE. Whether a member is surplus is a question
+        // about the DECLARED SIZE, which this loop does not have - PoolMax
+        // appears here only in a comment. A runner that picked a container
+        // itself would be deciding what only the control plane can, and the
+        // mistake would be a removal nobody asked for.
+        if (string.Equals(action.Action, PoolActions.Destroy, StringComparison.Ordinal))
+        {
+            if (action.Member is not { Length: > 0 } member)
+            {
+                return new PoolObservation
+                {
+                    Outcome = PoolOutcomes.Failed,
+                    Diagnosis = $"a destroy was decided for '{pool}' and it names no member. "
+                              + "Which member is surplus is the control plane's answer, and "
+                              + "nothing here may choose one.",
+                };
+            }
+
+            return await _adapter.DestroyAsync(member, cancellationToken);
+        }
+
         return new PoolObservation
         {
             Outcome = PoolOutcomes.Failed,

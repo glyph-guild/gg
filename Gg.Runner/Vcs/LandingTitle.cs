@@ -63,17 +63,41 @@ public static class LandingTitle
     /// What the agent asked for through the tool, or null when it was not
     /// granted the move or never called it.
     /// </param>
+    /// <param name="finished">
+    /// Whether the loop completed. A run that ran out of budget, failed or
+    /// stopped to ask is not, and neither is its reason an account of a change.
+    /// </param>
+    /// <param name="about">
+    /// What the flight was asked to do - a text flight's words or a ticket's
+    /// reference - for naming an unfinished run, or null.
+    /// </param>
     /// <remarks>
+    /// <para>
     /// <b>The flight number leads all three.</b> An agent asked for wording, not
     /// for the record - and a proposal nobody can trace back to a flight is a
     /// branch nobody will ever delete.
+    /// </para>
+    /// <para>
+    /// <b>An unfinished run's reason is the RUNNER'S sentence</b> - "the loop used
+    /// its whole wall-clock budget" - and titling a proposal with it put that
+    /// sentence on a reviewer's list in place of the change and the work item it
+    /// answers. So it is never a title: an unfinished run is named by what it was
+    /// asked to do, and says it is unfinished, and the reason goes in the
+    /// description where the person who opens it will read why.
+    /// </para>
     /// </remarks>
     public static string For(
         string flightNumber, string? runReason, string fallback,
         Gg.Contracts.LandingProposal? proposed = null, bool finished = true, string? about = null)
     {
-        _ = finished;
-        _ = about;
+        if (!finished)
+        {
+            var subject = proposed?.Title is { Length: > 0 } chosen
+                ? chosen.Trim()
+                : Sentence(about) ?? fallback;
+
+            return $"{flightNumber}: Unfinished: {subject}";
+        }
 
         // WHAT THE AGENT CHOSE, and the contract has already refused anything
         // that is not a title - one line, bounded, not blank - before it could
@@ -90,11 +114,24 @@ public static class LandingTitle
     }
 
     /// <summary>What the proposal says beyond its title, or null.</summary>
+    /// <remarks>
+    /// <b>Where an unfinished run's reason belongs.</b> The title no longer carries
+    /// it, and a person opening a proposal from a run that stopped early needs to
+    /// read that before they read the diff - so it leads, and whatever the agent
+    /// wrote follows.
+    /// </remarks>
     public static string? DescriptionFor(string? proposed, bool finished, string? runReason)
     {
-        _ = finished;
-        _ = runReason;
-        return proposed;
+        if (finished)
+        {
+            return proposed;
+        }
+
+        var why = (runReason ?? "").Trim();
+        var lead = "Unfinished: the run stopped before it was done."
+                 + (why.Length > 0 ? " " + why : "");
+
+        return proposed is { Length: > 0 } wrote ? lead + "\n\n" + wrote.Trim() : lead;
     }
 
     /// <summary>The first sentence of an account, bounded, or null.</summary>

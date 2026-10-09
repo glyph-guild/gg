@@ -4344,5 +4344,42 @@ public static class PaneText
     private static string Clean(string? value, bool lines = false) => ControlText.Strip(value, lines);
 
     /// <summary>The work item modal's Flights tab: what came of the item.</summary>
-    public static string WorkItemCameOf(AppState state) => "";
+    public static string WorkItemCameOf(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var key = WorkItemDetails.Key(state) ?? "this item";
+
+        if (state.WorkItemFlightsSaid is { Length: > 0 } unread)
+        {
+            return Clean(unread);
+        }
+
+        if (state.WorkItemFlights is not { } flights)
+        {
+            return $"Reading what came of {Clean(key)}…";
+        }
+
+        if (flights.Count == 0 && state.WorkItemPlans.Count == 0)
+        {
+            return $"Nothing has been flown or planned from {Clean(key)} yet. f in the list flies it; "
+                 + "l plans from it with an agent.";
+        }
+
+        var text = new System.Text.StringBuilder();
+        if (state.WorkItemPlans.Count > 0)
+        {
+            text.AppendLine($"Plans about it: {string.Join(", ", state.WorkItemPlans.Select(plan => Clean(plan)))}");
+            text.AppendLine();
+        }
+
+        text.AppendLine(flights.Count == 0 ? "No flights yet." : $"{flights.Count} flight(s):");
+        foreach (var (flight, at) in flights.Select((flight, at) => (flight, at)))
+        {
+            var mark = at == state.WorkItemFlightSelected ? "›" : " ";
+            text.AppendLine($"{mark} {Clean(flight.FlightNumber)}  {Clean(flight.State)}  {Clean(flight.Name)}");
+        }
+
+        return text.ToString().TrimEnd();
+    }
 }

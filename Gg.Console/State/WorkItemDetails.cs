@@ -151,6 +151,9 @@ public static class WorkItemDetails
     /// </remarks>
     public const string FieldsTitle = "other fields";
 
+    /// <summary>The tab that lists what came of the item.</summary>
+    public const string FlightsTitle = "flights";
+
     /// <summary>The heading over the actions tab.</summary>
     public const string ActionsTitle = "actions";
 
@@ -399,8 +402,36 @@ public static class WorkItemDetails
         && (state.WorkItemProvider ?? state.Browse?.ProviderKey) is { Length: > 0 };
 
     /// <summary>The open item's intent key, from its tracker; null with no item.</summary>
-    public static string? Key(AppState state) => null;
+    public static string? Key(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return Item(state) is { Id.Length: > 0 } item
+               && (state.WorkItemProvider ?? state.Browse?.ProviderKey) is { Length: > 0 } tracker
+            ? Gg.Client.IntentKeys.Ticket(tracker, item.Id)
+            : null;
+    }
 
     /// <summary>The id of the flight under the Flights tab's cursor, when it is loaded here.</summary>
-    public static string? FlightInTheList(AppState state) => null;
+    /// <remarks>
+    /// <b>Only where the flights tab has it</b> - <c>BoardDetails.FlightInTheList</c>'s rule: the
+    /// list is paged, and moving the cursor onto a row that is not there would leave it nowhere.
+    /// </remarks>
+    public static string? FlightInTheList(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.WorkItemTab is not WorkItemTab.Flights
+            || state.WorkItemFlights is not { Count: > 0 } flights
+            || state.WorkItemFlightSelected < 0
+            || state.WorkItemFlightSelected >= flights.Count)
+        {
+            return null;
+        }
+
+        var wanted = flights[state.WorkItemFlightSelected].FlightId;
+        return Rows.Flights(state).Any(r => string.Equals(r.FlightId, wanted, StringComparison.OrdinalIgnoreCase))
+            ? wanted
+            : null;
+    }
 }

@@ -102,6 +102,11 @@ public class TheWorkItemModalIsTabbedTests
         var fields = details with { WorkItemTab = WorkItemTab.Fields };
 
         await Assert.That(Reducer.Reduce(fields, Command.NextWorkItemTab).WorkItemTab)
+            .IsEqualTo(WorkItemTab.Flights);
+
+        var flights = details with { WorkItemTab = WorkItemTab.Flights };
+
+        await Assert.That(Reducer.Reduce(flights, Command.NextWorkItemTab).WorkItemTab)
             .IsEqualTo(WorkItemTab.Actions);
 
         var actions = details with { WorkItemTab = WorkItemTab.Actions };

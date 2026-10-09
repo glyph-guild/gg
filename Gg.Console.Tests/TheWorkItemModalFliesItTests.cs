@@ -71,8 +71,12 @@ public class TheWorkItemModalFliesItTests
     {
         // A TAB A KEY CANNOT ARRIVE AT IS A TAB NOBODY FINDS - the sentence the
         // third tab was added under, and the fourth is no different.
+        // THROUGH FLIGHTS SINCE 2026-10-08: what came of the item sits between its fields and what
+        // can be done with it.
         var fields = Reading() with { WorkItemTab = WorkItemTab.Fields };
-        var actions = Reducer.Reduce(fields, Command.NextWorkItemTab);
+        var flights = Reducer.Reduce(fields, Command.NextWorkItemTab);
+        await Assert.That(flights.WorkItemTab).IsEqualTo(WorkItemTab.Flights);
+        var actions = Reducer.Reduce(flights, Command.NextWorkItemTab);
 
         await Assert.That(actions.WorkItemTab).IsEqualTo(WorkItemTab.Actions);
 

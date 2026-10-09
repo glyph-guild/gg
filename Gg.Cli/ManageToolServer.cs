@@ -65,7 +65,9 @@ public static class ManageToolServer
         new(ManageTool.ListItineraries,
             "The plans (itineraries) this tenant has: each one's number, what it is about, and its legs "
           + "in the order it wrote them, with the flight each opened. Reads only.",
-            [], _ => ["itineraries"]),
+            [new("intent", "Only the plans about one intent, by its key: ado#18678, a link, or "
+                         + "repository:path for a file.", Required: false)],
+            a => a("intent") is { } key ? ["itineraries", "--intent", key] : ["itineraries"]),
         new(ManageTool.ShowItinerary, "One plan in full, by its number: every leg and its whole reason. Reads only.",
             [new("itinerary", "The plan's number, as list_itineraries shows it: ITN-63.", Required: true)],
             a => ["itinerary", "show", a("itinerary")!]),

@@ -598,6 +598,8 @@ public readonly record struct KeymapContext(
             // paged and this console has not loaded it.
             TheRowsFlightIsLoaded = (state.Mode is UiMode.ItineraryDetail
                 ? ItineraryDetails.FlightInTheList(state)
+                : state.Mode is UiMode.WorkItemDetail
+                ? WorkItemDetails.FlightInTheList(state)
                 : BoardDetails.FlightInTheList(state)) is not null,
 
             // AND WHETHER THERE IS A PLAN TO OPEN AT ALL, which is
@@ -1785,6 +1787,16 @@ public static class Keymap
 
             new(KeyStroke.Char('o'), Command.OpenWorkItem, "open it in a browser"),
             new(KeyStroke.Char('l'), Command.PlanFromIntent, "plan from it with an agent"),
+
+            // THE FLIGHT THIS ITEM BECAME, from the Flights tab: BoardDetail's `f`, for the same
+            // question, and only where the flights tab has it loaded.
+            .. context.TheRowsFlightIsLoaded
+                ? (KeyBinding[])
+                [
+                    new(KeyStroke.Char('f'), Command.GoToTheFlight, "go to the flight")
+                        { When = "on the flights tab, on a flight loaded here" },
+                ]
+                : [],
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 

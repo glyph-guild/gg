@@ -268,6 +268,11 @@ public sealed class ConsoleScreen : Window
     /// </remarks>
     private readonly View _itemFieldsTab;
 
+    /// <summary>What came of the item: its flights and plans, the cursor on a flight.</summary>
+    private readonly View _itemFlightsTab;
+
+    private readonly Label _itemCameOf;
+
     private readonly TableView _itemFieldsTable;
 
     private readonly Label _itemFieldsAbsent;
@@ -1694,6 +1699,19 @@ public sealed class ConsoleScreen : Window
         };
         _itemFieldsTab.Add(_itemFieldsTable, _itemFieldsAbsent);
 
+        // WHAT CAME OF IT (owner, 2026-10-08): the flights about the item and the plans, a marker on
+        // the flight `f` would go to - prose, like the plan modal, so it can be copied out of.
+        _itemCameOf = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
+        _itemFlightsTab = new View
+        {
+            Title = WorkItemDetails.FlightsTitle,
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
+        _itemFlightsTab.Add(_itemCameOf);
+
         // WHAT FLYING THIS WOULD DO, above the button that does it. The
         // sentence is the pane's because a caption cannot say which tracker,
         // which id and against what - see WorkItemDetails.ActionsSaid.
@@ -1746,6 +1764,7 @@ public sealed class ConsoleScreen : Window
         _itemTabs.Add(_itemDetailsTab);
         _itemTabs.Add(_itemHistoryTab);
         _itemTabs.Add(_itemFieldsTab);
+        _itemTabs.Add(_itemFlightsTab);
         _itemTabs.Add(_itemActionsTab);
         _itemTabs.ValueChanged += OnWorkItemTabChanged;
 
@@ -3077,6 +3096,7 @@ public sealed class ConsoleScreen : Window
 
         var wanted = ReferenceEquals(chosen, _itemHistoryTab) ? WorkItemTab.History
             : ReferenceEquals(chosen, _itemFieldsTab) ? WorkItemTab.Fields
+            : ReferenceEquals(chosen, _itemFlightsTab) ? WorkItemTab.Flights
             : ReferenceEquals(chosen, _itemActionsTab) ? WorkItemTab.Actions
             : WorkItemTab.Details;
 
@@ -5942,6 +5962,8 @@ public sealed class ConsoleScreen : Window
                 ? _itemHistoryTab
                 : State.WorkItemTab is WorkItemTab.Fields
                     ? _itemFieldsTab
+                    : State.WorkItemTab is WorkItemTab.Flights
+                    ? _itemFlightsTab
                     : State.WorkItemTab is WorkItemTab.Actions
                         ? _itemActionsTab
                         : _itemDetailsTab;
@@ -5950,6 +5972,7 @@ public sealed class ConsoleScreen : Window
             // the model's answer, so a tab opened over an item with no tracker
             // says why rather than drawing a button that refuses when pressed.
             _itemActionSaid.Text = WorkItemDetails.ActionsSaid(State);
+            _itemCameOf.Text = PaneText.WorkItemCameOf(State);
             _itemFly.Visible = WorkItemDetails.CanFly(State);
             _itemPlan.Visible = WorkItemDetails.CanPlan(State);
 
@@ -6721,6 +6744,8 @@ public sealed class ConsoleScreen : Window
                     WorkItemTab.Fields when _itemFieldsTable.Visible => _itemFieldsTable,
 
                     WorkItemTab.History when _itemHistory.Visible => _itemHistory,
+
+                    WorkItemTab.Flights => _itemCameOf,
 
                     // THE BUTTON, which is the one thing on this tab a person
                     // came to press - so enter does it without a tab-stop walk

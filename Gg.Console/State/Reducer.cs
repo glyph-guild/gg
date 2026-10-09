@@ -116,6 +116,10 @@ public static class Reducer
                 WorkItemRow = null,
                 WorkItemSelected = 0,
                 WorkItemTab = WorkItemTab.Details,
+                WorkItemFlights = null,
+                WorkItemPlans = [],
+                WorkItemFlightsSaid = null,
+                WorkItemFlightSelected = 0,
             },
 
             // THE FLIGHT'S OWN ITEM, HELD BESIDE THE LISTING. The row is
@@ -150,6 +154,10 @@ public static class Reducer
                     WorkItemFieldsSaid = null,
                     WorkItemSelected = 0,
                     WorkItemTab = WorkItemTab.Details,
+                    WorkItemFlights = null,
+                    WorkItemPlans = [],
+                    WorkItemFlightsSaid = null,
+                    WorkItemFlightSelected = 0,
                 }
                 : state,
 
@@ -170,7 +178,8 @@ public static class Reducer
                 {
                     WorkItemTab.Details => WorkItemTab.History,
                     WorkItemTab.History => WorkItemTab.Fields,
-                    WorkItemTab.Fields => WorkItemTab.Actions,
+                    WorkItemTab.Fields => WorkItemTab.Flights,
+                    WorkItemTab.Flights => WorkItemTab.Actions,
                     _ => WorkItemTab.Details,
                 },
             },
@@ -766,6 +775,11 @@ public static class Reducer
     /// would scroll behind a dialog about one of its rows - and which row that
     /// is is what the modal is about.
     /// </remarks>
+    private static AppState PickWorkItemFlight(AppState state, int row) =>
+        state.WorkItemFlights is not { Count: > 0 } flights
+            ? state
+            : state with { WorkItemFlightSelected = Math.Clamp(row, 0, flights.Count - 1) };
+
     private static AppState PickWorkItemChange(AppState state, int row) =>
         state.WorkItemChanges.Count == 0
             ? state
@@ -822,6 +836,8 @@ public static class Reducer
         // has it loaded - so the rest of this method does not care which asked.
         var found = state.Mode is UiMode.ItineraryDetail
             ? ItineraryDetails.FlightInTheList(state)
+            : state.Mode is UiMode.WorkItemDetail
+            ? WorkItemDetails.FlightInTheList(state)
             : BoardDetails.FlightInTheList(state);
 
         if (found is not { } wanted)
@@ -1635,6 +1651,8 @@ public static class Reducer
             ? PickCredentialRepository(state, state.CredentialRepoSelected + by)
             : state.Mode is UiMode.BrowseFilter
             ? PickFilterRow(state, BrowseFilters.Cursor(state) + by)
+            : state.Mode is UiMode.WorkItemDetail && state.WorkItemTab is WorkItemTab.Flights
+            ? PickWorkItemFlight(state, state.WorkItemFlightSelected + by)
             : state.Mode is UiMode.WorkItemDetail
             ? PickWorkItemChange(state, state.WorkItemSelected + by)
 

@@ -77,7 +77,37 @@ public static class PoolActions
     /// </remarks>
     public const string Build = "build";
 
-    public static IReadOnlyList<string> All { get; } = [Verify, Refresh, Reset, Roll, Build];
+    /// <summary>
+    /// Remove a member and create nothing in its place.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>For a member the pool should not have.</b> A member that exits
+    /// cleanly is reclaimed by nothing today: the only destroy in the product
+    /// is inside a roll and is gated on the member being off the image pin, and
+    /// the refresh that would reuse its slot needs the live count to be below
+    /// the ceiling - which it is not, when the running members already fill the
+    /// pool. So the member stays, fails verify every five seconds, and is
+    /// unreachable by both paths. Measured on GG-1016: `gg-pool-ui-3` in a pool
+    /// declared `size: 2`, and the time before it ran for thirty-three hours.
+    /// </para>
+    /// <para>
+    /// <b>NOT a reset, and the difference is the whole point.</b> A reset
+    /// creates a running member in place of the one it removes, so resetting a
+    /// surplus corpse grows the pool to three - which is exactly how one got
+    /// there. Destroy takes the member away and leaves the slot to the refresh
+    /// that the live count will now allow.
+    /// </para>
+    /// <para>
+    /// <b>It names its member</b>, because the only side that knows a member is
+    /// surplus is the side that knows the declared size, and that is the
+    /// control plane. The loop is told which one, as it is told everything else.
+    /// </para>
+    /// </remarks>
+    public const string Destroy = "destroy";
+
+    public static IReadOnlyList<string> All { get; } =
+        [Verify, Refresh, Reset, Roll, Build, Destroy];
 }
 
 /// <summary>
@@ -128,6 +158,11 @@ public static class PoolActionKinds
             // attestation is not its whole product - an image is - and because
             // it reaches the daemon through an allowance the probe must prove.
             [PoolActions.Build] = OutwardAct,
+
+            // AND REMOVING ONE IS AS OUTWARD AS MAKING ONE. It changes the
+            // customer's infrastructure and cannot be undone by attesting
+            // differently, which is what this column is about.
+            [PoolActions.Destroy] = OutwardAct,
         };
 
     /// <summary>The kind, or a throw for an action nobody classified.</summary>
@@ -350,6 +385,20 @@ public sealed record PoolAction
     /// build carries one; null for every other action.
     /// </summary>
     public PoolRecipe? Recipe { get; init; }
+
+    /// <summary>
+    /// Which member the action is about. Only a destroy names one; null for
+    /// every other action.
+    /// </summary>
+    /// <remarks>
+    /// <b><see cref="Recipe"/>'s shape, for <see cref="Recipe"/>'s reason.</b> A
+    /// refresh and a reset are decided for the POOL and the runner picks the
+    /// slot; a destroy is decided about one member, because whether a member is
+    /// surplus is a question only the side holding the declared size can
+    /// answer. A destroy that named none would be a runner guessing which
+    /// container to remove.
+    /// </remarks>
+    public string? Member { get; init; }
 }
 
 /// <summary>

@@ -34,7 +34,7 @@ public class PoolActionKindsTests
         await Assert.That(PoolActions.All)
             .IsEquivalentTo((string[])
                 [PoolActions.Verify, PoolActions.Refresh, PoolActions.Reset, PoolActions.Roll,
-                 PoolActions.Build]);
+                 PoolActions.Build, PoolActions.Destroy]);
     }
 
     [Test]
@@ -59,7 +59,7 @@ public class PoolActionKindsTests
     }
 
     [Test]
-    public async Task The_outward_set_is_exactly_refresh_reset_roll_and_build()
+    public async Task The_outward_set_is_exactly_refresh_reset_roll_build_and_destroy()
     {
         var outward = PoolActionKinds.Table
             .Where(entry => entry.Value == PoolActionKinds.OutwardAct)
@@ -67,13 +67,22 @@ public class PoolActionKindsTests
             .Order(StringComparer.Ordinal)
             .ToList();
 
-        await Assert.That(outward).IsEquivalentTo((string[])["build", "refresh", "reset", "roll"])
+        await Assert.That(outward)
+            .IsEquivalentTo((string[])["build", "destroy", "refresh", "reset", "roll"])
             .Because("refresh, reset and roll change a container on a customer's host; "
                    + "verify only looks. Article VI is the axis - and a roll DESTROYS "
                    + "members that are off the pin, so it is the most outward of the three. "
                    + "Build is the fourth, from slice forty-one's step 0: it runs a recipe on "
                    + "the host's daemon and pushes an image, so the attestation is not its "
-                   + "whole product, and it passes a proxy allowance the probe must prove.");
+                   + "whole product, and it passes a proxy allowance the probe must prove. "
+                   + "DESTROY IS THE FIFTH, and it is outward for the plainest reason of any "
+                   + "of them: it removes a member and attesting differently afterwards does "
+                   + "not bring it back. It exists because a member that exits cleanly is "
+                   + "reclaimed by nothing - the roll's destroy is gated on the member being "
+                   + "off the pin, and the refresh that would reuse its slot needs the live "
+                   + "count below the ceiling, which it is not while the running members fill "
+                   + "the pool. Measured on GG-1016, and for thirty-three hours the time "
+                   + "before.");
         await Assert.That(PoolActionKinds.Of(PoolActions.Verify))
             .IsEqualTo(PoolActionKinds.RecordOnly);
     }

@@ -42,7 +42,7 @@ public static class AgentOpening
     }
 
     /// <summary>The opening for an agent drafting a plan in <paramref name="draft"/>.</summary>
-    public static string Plan(string draft)
+    public static string Plan(string draft, PlanSeed? seed = null)
     {
         static string Q(string tool) => PlanningTool.Qualified(tool);
 

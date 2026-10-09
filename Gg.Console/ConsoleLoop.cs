@@ -223,6 +223,9 @@ public sealed class ConsoleLoop(
     // A PLAN DRAFTED WITH AN AGENT IN THE MUX (slice sixty-six). Like draftEstate, the composition
     // root builds the session; the loop runs it between sessions with the terminal free.
     Func<AppState, AppState>? planSession = null,
+    // A PLAN STARTED FROM A WORK ITEM (owner, 2026-10-08): the draft's intent is the item, and the
+    // agent can read it.
+    Func<AppState, PlanSeed, AppState>? planFromIntent = null,
 
     /// <summary>
     /// Writes the path the airspace field collected into the configuration.
@@ -761,6 +764,10 @@ public sealed class ConsoleLoop(
                             : setAirspace(Closed(state)),
                         reload,
                         asked: false);
+                    break;
+
+                case Command.PlanFromIntent:
+                    _ = planFromIntent;
                     break;
 
                 case Command.PlanWithAgent:

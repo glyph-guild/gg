@@ -12,7 +12,7 @@ namespace Gg.Console;
 /// and leaves the alignment to something that can measure the screen.
 /// </remarks>
 public sealed record FlightRow(
-    string FlightId, string Number, string State, string Kind, string Loop, string Age, string Work);
+    string FlightId, string Number, string State, string Kind, string Stage, string Age, string Work);
 
 /// <summary>
 /// One registered repository: what it is, whether this console is flying

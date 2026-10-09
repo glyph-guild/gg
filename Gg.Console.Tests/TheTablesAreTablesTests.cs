@@ -83,8 +83,10 @@ public class TheTablesAreTablesTests
         // `kind` sits with the facts about the flight rather than beside the
         // prose, because it is not the same question as `work`: that column is
         // what somebody CALLED this flight, and the kind is what governs it.
+        // STAGE, NOT LOOP (owner, 2026-10-09): where a flight is in its life - created, leased,
+        // landed - beside its state, and the loop's ending left to the flight's own modal.
         await Assert.That(Rows.FlightColumns).IsEquivalentTo((string[])
-            ["flight", "state", "kind", "loop", "age", "work"]);
+            ["flight", "state", "stage", "kind", "age", "work"]);
         await Assert.That(Rows.BrowseColumns).IsEquivalentTo((string[])
             ["item", "state", "where", "title"]);
         // AND THE BROWSE ROWS WERE ALREADY ROWS. BrowseRow has held these

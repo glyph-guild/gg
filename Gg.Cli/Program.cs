@@ -258,8 +258,7 @@ return await ByName(CliArgs.Parse(args)) switch
     CliAction.ConfigAccept accept => await OfferAsync(
         accept.Json, o => ConfigCommands.Accept(o, accept.Version)),
 
-    CliAction.CredentialAdd add =>
-        await CredentialAsync(add.Json, c => c.AddAsync(add.Named, add.Scopes, add.Identity, add.Subject)),
+    CliAction.CredentialAdd add => await CredentialAddAsync(add),
     CliAction.CredentialSend send => await SendCredentialAsync(send),
     CliAction.CredentialSendWhereNeeded everywhere => await SendWhereNeededAsync(everywhere),
     CliAction.AgentCredentialSend send => await SendAgentCredentialAsync(send),
@@ -1166,6 +1165,28 @@ static async Task<int> CredentialAsync(bool json, Func<CredentialCommands, Task<
             $"Could not reach the control plane at {baseAddress}: {failure.Message}. Try gg doctor.");
         return ExitCodes.Unavailable;
     }
+}
+
+/// <summary>
+/// Adds a credential, and says where a tracker's will and will not be read.
+/// </summary>
+/// <remarks>
+/// <b>On stderr, after the result</b>, so `--json` stays one document and a person
+/// still sees the step that decides whether what they just typed is used.
+/// </remarks>
+static async Task<int> CredentialAddAsync(CliAction.CredentialAdd add)
+{
+    var code = await CredentialAsync(
+        add.Json, c => c.AddAsync(add.Named, add.Scopes, add.Identity, add.Subject));
+
+    if (code == 0
+        && add.Subject == CredentialSubjects.Tracker
+        && CredentialCommands.TrackerNotice(add.Named, TrackersDeclared().Trackers) is { } notice)
+    {
+        Console.Error.WriteLine(notice);
+    }
+
+    return code;
 }
 
 /// <summary>

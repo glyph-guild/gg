@@ -766,14 +766,37 @@ public sealed class Doctor(
             .Select(t => $"{t.Key} ({t.Locator})")
             .ToList();
 
-        var lacking = role.Trackers
-            .Where(t => t.Locator is { Length: > 0 } locator
-                     && CredentialLocator.Validate(locator) is null
-                     && unresolved(locator))
-            .Select(t => $"{t.Key} ({t.Locator})")
-            .ToList();
+        // HELD AND NOT OPENABLE IS ITS OWN ANSWER, not a crash and not "absent". A
+        // credential sealed to its person rather than to this machine is the shape
+        // `gg credential add` leaves, and the store's refusal names the one command
+        // that fixes it. Measured: this threw out of the doctor, so the sentence
+        // reached the person as a stack trace.
+        var unopened = new List<DeclaredTracker>();
+        var lacking = new List<DeclaredTracker>();
 
-        if (role.TrackerProblems.Count > 0 || misspelled.Count > 0 || lacking.Count > 0)
+        foreach (var tracker in role.Trackers)
+        {
+            if (tracker.Locator is not { Length: > 0 } locator
+                || CredentialLocator.Validate(locator) is not null)
+            {
+                continue;
+            }
+
+            try
+            {
+                if (unresolved(locator))
+                {
+                    lacking.Add(tracker);
+                }
+            }
+            catch (CredentialUnavailableException)
+            {
+                unopened.Add(tracker);
+            }
+        }
+
+        if (role.TrackerProblems.Count > 0 || misspelled.Count > 0 || lacking.Count > 0
+            || unopened.Count > 0)
         {
             var wrong = new List<string>(role.TrackerProblems);
 
@@ -788,7 +811,14 @@ public sealed class Doctor(
             {
                 wrong.Add(
                     "declared here with a credential this machine does not hold: "
-                  + string.Join(", ", lacking));
+                  + string.Join(", ", lacking.Select(t => $"{t.Key} ({t.Locator})")));
+            }
+
+            if (unopened.Count > 0)
+            {
+                wrong.Add(
+                    "declared here with a credential this machine holds and cannot open: "
+                  + string.Join(", ", unopened.Select(t => $"{t.Key} ({t.Locator})")));
             }
 
             return new DoctorCheck
@@ -806,9 +836,10 @@ public sealed class Doctor(
                 // to correct and a credential to add are two different days'
                 // work, and the wrong one of them is a person opening a
                 // credential store to look for something that was never there.
-                Fix = lacking.Count > 0 && misspelled.Count == 0
-                    ? "gg credential add --repo <slug>, on this machine, for each one listed - "
-                    + "the slug is the locator without its 'local:' prefix."
+                Fix = (lacking.Count > 0 || unopened.Count > 0) && misspelled.Count == 0
+                    ? string.Join(
+                        " ",
+                        lacking.Select(LackingFix).Concat(unopened.Select(UnopenedFix)))
                     : "Correct the entry the sentence names, with `gg config set intent-hosts` "
                     + "or `gg config set tracker-apis` - and if a profile wrote it, the "
                     + "document it came from as well.",
@@ -865,6 +896,43 @@ public sealed class Doctor(
             Fixable = false,
         };
     }
+
+    /// <summary>The command that puts a lacking tracker credential where it is read.</summary>
+    /// <remarks>
+    /// <b>`--tracker`, never `--repo`.</b> This said `--repo &lt;slug&gt;` and how to
+    /// make the slug, so a person following it filed a tracker's token at a
+    /// repository's locator - and `--tracker` files at <c>local:tracker/&lt;key&gt;</c>,
+    /// so a declaration reading anything else needs pointing there too, or the add
+    /// stores a secret nothing reads.
+    /// </remarks>
+    private static string LackingFix(DeclaredTracker tracker)
+    {
+        var add = $"`gg credential add --tracker {tracker.Key}`";
+        var filed = TrackerLocatorOrNull(tracker.Key);
+
+        return filed is null || string.Equals(filed, tracker.Locator, StringComparison.Ordinal)
+            ? $"{add}, on this machine."
+            : $"{add}, which files it at {filed}, then change '|{tracker.Locator}' to "
+            + $"'|{filed}' in `gg config set intent-hosts`.";
+    }
+
+    /// <summary>Where `--tracker` files a key's credential, or null for a key it refuses.</summary>
+    internal static string? TrackerLocatorOrNull(string key)
+    {
+        try
+        {
+            return CredentialLocator.ForTracker(key);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The command that lets this machine open what it holds.</summary>
+    private static string UnopenedFix(DeclaredTracker tracker) =>
+        $"`gg credential trust-this-machine {tracker.Locator}` if it is sealed to you; "
+      + "otherwise ask whoever holds it to send it here with `gg credential send`.";
 
     /// <summary>The two sides, said apart, and only the ones there are.</summary>
     private static IEnumerable<string> Sides(IReadOnlyList<DeclaredTracker> trackers)

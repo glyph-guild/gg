@@ -314,8 +314,50 @@ public sealed class CredentialCommands(
     /// <summary>
     /// What a person adding a tracker's credential needs told about this machine.
     /// </summary>
-    public static string? TrackerNotice(string tracker, IReadOnlyList<DeclaredTracker> declared) =>
-        null;
+    /// <remarks>
+    /// <para>
+    /// <b>The add succeeds either way, and that is why this is needed.</b> Measured:
+    /// <c>--tracker ado</c> filed a rotated token at <c>local:tracker/ado</c> while
+    /// the tracker this machine declared read <c>local:hrtms/jdx</c>, so the console
+    /// went on answering 401 after a person had done exactly what they were told.
+    /// </para>
+    /// <para>
+    /// <b>And the machine cannot open it yet.</b> The add seals to its person
+    /// (ADR-0037 Decision 2), and a reader resolves a credential as the machine, so
+    /// the step that makes this machine a holder is part of finishing the add here.
+    /// Null when this machine declares no tracker by that key: then it has nothing
+    /// to say about where the credential goes.
+    /// </para>
+    /// </remarks>
+    public static string? TrackerNotice(string tracker, IReadOnlyList<DeclaredTracker> declared)
+    {
+        ArgumentNullException.ThrowIfNull(declared);
+
+        var filed = CredentialLocator.ForTracker(tracker);
+        var named = declared.Where(t => string.Equals(t.Key, tracker, StringComparison.Ordinal))
+            .ToList();
+
+        if (named.Count == 0)
+        {
+            return null;
+        }
+
+        var elsewhere = named
+            .Where(t => t.Locator is { Length: > 0 } locator
+                     && !string.Equals(locator, filed, StringComparison.Ordinal))
+            .Select(t => t.Locator!)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        return elsewhere.Count > 0
+            ? $"The tracker '{tracker}' declared on this machine reads "
+            + string.Join(" and ", elsewhere) + $", not {filed}, so it will not use this "
+            + $"credential. Change '|{elsewhere[0]}' to '|{filed}' in "
+            + "`gg config set intent-hosts`, then run "
+            + $"`gg credential trust-this-machine {filed}` so this machine can open it."
+            : $"This machine reads '{tracker}' as itself, and the credential is sealed to you: "
+            + $"run `gg credential trust-this-machine {filed}` so it can open it.";
+    }
 
     /// <summary>
     /// Every credential reference this tenant has registered, and how each one

@@ -62,7 +62,11 @@ public static class Announcements
         }
 
         var mine = list.Gates
-            .Where(gate => string.Equals(gate.Approver, state.Principal, StringComparison.Ordinal))
+            // BY NAME OR BY SUBJECT: a role gate names the person's display, a person's gate names
+            // their subject - a runner's maintenance gate is spelled that way (owner, 2026-10-09).
+            .Where(gate => string.Equals(gate.Approver, state.Principal, StringComparison.Ordinal)
+                || (state.Subject.Length > 0
+                    && string.Equals(gate.Approver, state.Subject, StringComparison.Ordinal)))
             .ToList();
 
         var remember = mine.Select(KeyOf).ToArray();

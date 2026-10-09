@@ -884,7 +884,7 @@ public static class CliArgs
         "  --environment <name>         which charted environment it runs in",
         "  --attended                   and watch it from wherever you are",
         "  --file <repo>:<path>[@ref]   about a file in a registered repository, read by the runner",
-        "gg flights [--all] [--intent <provider>#<id>|<uri>]  flights in the air, or every one",
+        "gg flights [--all] [--intent <provider>#<id>|<uri>|<repo>:<path>]  flights in the air, or every one",
         "  --limit <rows> --after <cursor>  one page of them, and where to carry on",
         "gg show <flight>               one flight, by GG-42 or by id",
         "gg log <flight>                a flight's log",
@@ -2013,11 +2013,16 @@ public static class CliArgs
         // anything would turn a typo into a filter matching nothing and report
         // it as success.
         || Uri.TryCreate(token, UriKind.Absolute, out _)
+        // AND A FILE, as the control plane keys one: a forge path (so a slash before the colon),
+        // the file's path, and @ref when pinned.
+        || (token.IndexOf(':', StringComparison.Ordinal) is > 0 and var colon
+            && token[..colon].Contains('/', StringComparison.Ordinal)
+            && colon < token.Length - 1)
             ? new CliAction.Flights(json, all, token, page, after)
             : Unknown(
-                $"gg flights --intent takes <provider>#<id> or an absolute uri, and '{token}' "
-              + "is neither. Both halves of a work item are needed: the id alone does not say "
-              + "which tracker it is in.");
+                $"gg flights --intent takes <provider>#<id>, an absolute uri, or a file as "
+              + $"<repository>:<path>[@<ref>], and '{token}' is none of them. Both halves of a work "
+              + "item are needed: the id alone does not say which tracker it is in.");
 
     /// <summary>
     /// The two halves of a work item token, or nulls when it is not one.

@@ -1779,7 +1779,7 @@ public static class Keymap
             // AND THE HINT NAMES BOTH, because there are three tabs now and a
             // hint that named only the next one would leave the third
             // reachable and undiscoverable - which is the same as absent.
-            new(KeyStroke.Char('v'), Command.NextWorkItemTab, "history, fields, then actions"),
+            new(KeyStroke.Char('v'), Command.NextWorkItemTab, "history, fields, flights, then actions"),
 
             // The same key the reading modes use, and it takes whichever tab
             // is showing - see PaneText.WorkItem.

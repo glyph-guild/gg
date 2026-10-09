@@ -1613,6 +1613,16 @@ public sealed class RunnerLoop(
     private async Task<bool> HeldForLoginAsync(
         string runnerId, IReadOnlyList<string> labels, CancellationToken cancellationToken)
     {
+        // A RUNNER THAT STARTED READY SAYS SO, ONCE (owner, 2026-10-09). Not a probe - the host
+        // already measured it - but a process starting ready IS news on the other side: the
+        // control plane's last reading of this runner may be a failure from a process long gone,
+        // and a decider reading that keeps asking a person to log in a machine that works. Until
+        // it lands, because only what arrived counts as said.
+        if (_agent is not null && !_agentHeld && _standing is { Authenticated: true } && _heard is null)
+        {
+            await ReportAgentAsync(runnerId, _standing, cancellationToken);
+        }
+
         if (_agent is null || (!_agentHeld && !_kept))
         {
             return false;

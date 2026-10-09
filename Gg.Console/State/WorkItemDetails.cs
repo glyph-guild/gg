@@ -388,4 +388,10 @@ public static class WorkItemDetails
                 ? ControlText.Strip(why)
                 : "Nothing has happened to this item yet.";
     }
+
+    /// <summary>The Actions tab's second button.</summary>
+    public const string PlanLabel = "";
+
+    /// <summary>Whether there is an item, from a known tracker, to plan from.</summary>
+    public static bool CanPlan(AppState state) => false;
 }

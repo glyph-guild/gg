@@ -2208,7 +2208,7 @@ public static class Keymap
             new(KeyStroke.Char('\''), Command.ShowItinerariesTab, "itineraries")
                 { OffTheHintLine = true },
 
-            new(KeyStroke.Char('b'), Command.ToggleIntents, Closes(context, TabId.Intents, "browse"))
+            new(KeyStroke.Char('['), Command.ToggleIntents, Closes(context, TabId.Intents, "intents"))
                 { OffTheHintLine = true },
 
             // THE MARK, ON PURPOSE AND ON AN OBSCURE KEY. Five minutes of
@@ -2315,7 +2315,12 @@ public static class Keymap
             .. context.Showing == TabId.Intents
                 ? (KeyBinding[])[
                     new(KeyStroke.Char('f'), Command.FlyPicked, "fly this")
-                        { When = "while the browse tab is showing" },
+                        { When = "while the intents tab is showing" },
+
+                    // THE NEXT SOURCE ON THE LEFT STRIP, the airspace tab's `v` one tab over: a
+                    // view of the same tab, never a different tab.
+                    new(KeyStroke.Char('v'), Command.NextIntentSource, "next source")
+                        { When = "while the intents tab is showing" },
 
                     // CHOSEN FOR BEING FREE, AND SAID TO BE. Every letter this
                     // console binds was taken before this key was needed, and a
@@ -2324,7 +2329,7 @@ public static class Keymap
                     // It also says the right thing: it is what narrows a list
                     // everywhere else a person has narrowed one.
                     new(KeyStroke.Char('/'), Command.FilterBrowse, "narrow the list")
-                        { When = "while the browse tab is showing" },
+                        { When = "while the intents tab is showing" },
 
                     // THE PAIR. `/` picks from what the tracker offers; this
                     // says what you are after, which is the half a facet cannot
@@ -2332,7 +2337,7 @@ public static class Keymap
                     // ctrl+/ reaches the keymap on every terminal - see
                     // KeyTranslator, where the two encodings become one.
                     new(KeyStroke.Control('/'), Command.FindInBrowse, "go to or find")
-                        { When = "while the browse tab is showing" },
+                        { When = "while the intents tab is showing" },
                 ]
                 : [],
             // Only offered when there is something to take. A key advertised
@@ -2769,7 +2774,7 @@ public static class Keymap
         TabId.Intents =>
         [
             new(KeyStroke.EnterKey, Command.ShowWorkItem, "read this item")
-                { OffTheHintLine = true, When = "on the browse tab" },
+                { OffTheHintLine = true, When = "on the intents tab" },
         ],
 
         // OFF THE LINE LIKE ITS SIBLINGS, once the field it focuses became a

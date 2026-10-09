@@ -175,7 +175,7 @@ public class TabsTakeTheWholeScreenTests
         // The component marks the one showing itself, so what the model owes it
         // is which tab that is - and Tabs.Showing is where that is asserted,
         // one test up. What is left here is the titles, which are the model's.
-        await Assert.That(Tabs.Title(state, TabId.Intents)).Contains("browse", StringComparison.OrdinalIgnoreCase);
+        await Assert.That(Tabs.Title(state, TabId.Intents)).Contains("intents", StringComparison.OrdinalIgnoreCase);
         // NAMED FOR WHAT THE VERBS ARE CALLED, not for the enum member. The tab
         // renders as Airspace because that is the word on the verbs it acts on;
         // Envelope stays the name of one document, and of the key.

@@ -2575,10 +2575,10 @@ public static class PaneText
 
         if (state.Browse is not { ProviderKey.Length: > 0 } listing)
         {
-            return "Browse";
+            return "Intents";
         }
 
-        return $"Browse — {listing.ProviderKey}"
+        return $"Intents — {listing.ProviderKey}"
              + (listing.FilterSaid is { Length: > 0 } narrowed ? $" — {Clean(narrowed)}" : "");
     }
 

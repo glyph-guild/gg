@@ -16,8 +16,47 @@ public sealed record IntentSource(string Key, IntentSourceKind Kind, string Labe
 /// <summary>The intent sources this console offers.</summary>
 public static class IntentSources
 {
-    public static IReadOnlyList<IntentSource> All(AppState state) => [];
+    /// <remarks>
+    /// <b>One tracker source per declared reader</b>, in the order they were declared - the reader
+    /// is what makes a tracker readable here at all. A directory of documents will be a second
+    /// kind beside these.
+    /// </remarks>
+    public static IReadOnlyList<IntentSource> All(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return [.. state.ReaderKeys.Select(key => new IntentSource(key, IntentSourceKind.Tracker, key))];
+    }
 
     /// <summary>The source the tab shows: the chosen one, or the first offered; null for none.</summary>
-    public static IntentSource? Shown(AppState state) => null;
+    public static IntentSource? Shown(AppState state)
+    {
+        var all = All(state);
+
+        return all.FirstOrDefault(source => string.Equals(source.Key, state.IntentSource, StringComparison.Ordinal))
+               ?? all.FirstOrDefault();
+    }
+
+    /// <summary>The key of the source just before <paramref name="key"/>, wrapping.</summary>
+    public static string? Before(AppState state, string key)
+    {
+        var all = All(state);
+        var at = all.Select((source, index) => (source, index))
+            .FirstOrDefault(pair => string.Equals(pair.source.Key, key, StringComparison.Ordinal)).index;
+
+        return all.Count == 0 ? null : all[(at - 1 + all.Count) % all.Count].Key;
+    }
+
+    /// <summary>The source after the shown one, wrapping; null when there is none.</summary>
+    public static IntentSource? Next(AppState state)
+    {
+        var all = All(state);
+        if (all.Count == 0)
+        {
+            return null;
+        }
+
+        var at = Shown(state) is { } shown ? all.ToList().IndexOf(shown) : -1;
+        return all[(at + 1) % all.Count];
+    }
 }

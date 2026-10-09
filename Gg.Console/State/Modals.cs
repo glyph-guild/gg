@@ -119,7 +119,7 @@ public static class Modals
             [UiMode.Normal] = "nothing owns the keyboard; the keymap answers the tab.",
 
             [UiMode.BrowseFind] =
-                "a field at the bottom of the browse tab owns it, for the airspace path's "
+                "a field at the bottom of the intents tab owns it, for the airspace path's "
               + "reason: a title has letters in it, so a dialog whose keys answered them "
               + "would make them untypeable.",
 

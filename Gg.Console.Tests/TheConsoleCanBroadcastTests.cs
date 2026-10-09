@@ -53,15 +53,15 @@ public class TheConsoleCanBroadcastTests
     }
 
     [Test]
-    public async Task And_b_is_still_the_browse_tab_everywhere_including_this_tab()
+    public async Task And_the_intents_key_is_still_the_intents_tab_everywhere_including_this_tab()
     {
         // THE HALF THAT KEEPS THE KEYBOARD HONEST. A tab key that stopped working on one
         // tab is a key that means two things, and the hint line prints the tab keys on
         // the tabs themselves - so this would be a lie on screen as well as under it.
         await Assert.That(Keymap.Resolve(
-                KeyStroke.Char('b'), KeymapContext.For(OnTheCredentialsTab())))
+                KeyStroke.Char('['), KeymapContext.For(OnTheCredentialsTab())))
             .IsEqualTo(Command.ToggleIntents)
-            .Because("in Normal mode `b` is the browse tab's toggle from every tab, which is why "
+            .Because("in Normal mode `[` is the intents tab's toggle from every tab, which is why "
                    + "the broadcast lives inside the acts modal rather than beside it.");
     }
 

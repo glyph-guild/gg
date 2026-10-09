@@ -131,7 +131,9 @@ public static class Tabs
         // EveryTabIsOnTheBarTests.
         TabId.Queue => KeyStroke.Char(','),
         TabId.Flights => KeyStroke.Char('.'),
-        TabId.Intents => KeyStroke.Char('b'),
+        // PUNCTUATION, LIKE THE OTHER LISTS (owner, 2026-10-08): `[` is free in every mode and
+        // unshifted. `b` was browse's, and browse is a source inside this tab now.
+        TabId.Intents => KeyStroke.Char('['),
         TabId.Credentials => KeyStroke.Char('r'),
         // `u' because every letter that reads is taken: r is repositories, n is
         // new flight, e is envelope and s says nothing about runners. It is in
@@ -269,7 +271,7 @@ public static class Tabs
     {
         TabId.Queue => "queue",
         TabId.Flights => "flights",
-        TabId.Intents => "browse",
+        TabId.Intents => "intents",
         TabId.Credentials => "credentials",
         TabId.Runners => "runners",
         // NOT "Envelope", WHICH IS THE ONE DOCUMENT IN IT. This tab is what

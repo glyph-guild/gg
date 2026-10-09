@@ -72,11 +72,19 @@ public interface IWorkBrowser
 /// the processes and is disposed by whoever composed the console.
 /// </para>
 /// </remarks>
-public sealed class ConfiguredWorkBrowser(ReaderSessions readers) : IWorkBrowser
+public sealed class ConfiguredWorkBrowser(ReaderSessions readers, string? key = null) : IWorkBrowser
 {
     private readonly ReaderSessions _readers = readers;
 
-    public string? Key => _readers.Keys.Count > 0 ? _readers.Keys[0] : null;
+    /// <remarks>
+    /// <b>The source asked for, when it is declared; otherwise the first.</b> One tracker used to be
+    /// all this could read; the intents tab's strip chooses among them now (owner, 2026-10-08).
+    /// </remarks>
+    public string? Key => key is { Length: > 0 } chosen && _readers.Keys.Contains(chosen, StringComparer.Ordinal)
+        ? chosen
+        : _readers.Keys.Count > 0 ? _readers.Keys[0] : null;
+
+    public IWorkBrowser For(string? chosen) => new ConfiguredWorkBrowser(_readers, chosen);
 
     public async Task<BrowseOutcome> BrowseAsync(
         string? cursor, int limit, WorkItemFilter? filter, CancellationToken cancellationToken)

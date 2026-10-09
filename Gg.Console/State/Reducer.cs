@@ -93,12 +93,20 @@ public static class Reducer
             // holds is about this very row. Stale prose under a new title is
             // worse than an empty pane, because it cannot be told from an
             // answer.
+            // THE NEXT INTENT SOURCE: the rows on screen are the last source's, so they go, and the
+            // tab reads again (NextIntentSource is a read).
+            Command.NextIntentSource => IntentSources.Next(state) is { } next
+                ? state with { IntentSource = next.Key, Browse = null, BrowseSelected = 0 }
+                : state,
+
             Command.ShowWorkItem => Holding(state, Under(state)) ? state with
             {
                 Mode = UiMode.WorkItemDetail,
+                WorkItemProvider = null,
             } : state with
             {
                 Mode = UiMode.WorkItemDetail,
+                WorkItemProvider = null,
                 WorkItemId = null,
                 WorkItemSaid = null,
                 WorkItemChanges = [],
@@ -126,6 +134,8 @@ public static class Reducer
                 ? state with
                 {
                     Mode = UiMode.WorkItemDetail,
+                    // ITS OWN TRACKER, which need not be the source on screen.
+                    WorkItemProvider = ticket.Value.Provider,
                     WorkItemId = ticket.Value.Id,
                     WorkItemRow = new BrowseRow
                     {

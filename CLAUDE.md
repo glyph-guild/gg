@@ -217,12 +217,17 @@ number and its own rules — see the two-versions note under Non-negotiables —
 it can contain a string that happens to match this one.
 
 **The control plane's advertised version is separate, and hand-set.**
-`Gg__CurrentVersion` on `ca-gg-api` is what `/v1/version` reports and what tells
-a runner an update exists. Move it **after** the release has published:
+`Gg__CurrentVersion` is what `/v1/version` reports (`ca-gg-api` answers it) and what
+tells a runner an update exists. **All three container apps carry it** - `ca-gg-api`,
+`ca-gg-flight` and `ca-gg-web` - and moving only the api's is how the other two drifted
+sixteen releases behind, where the next person to read one is told something false.
+Move all three, **after** the release has published:
 
     gh release view v<ver>          # wait for this to answer
-    az containerapp update -g rg-goodgrief-dev-001 -n ca-gg-api \
-      --set-env-vars Gg__CurrentVersion=<ver>
+    for app in ca-gg-api ca-gg-flight ca-gg-web; do
+      az containerapp update -g rg-goodgrief-dev-001 -n "$app" \
+        --set-env-vars Gg__CurrentVersion=<ver>
+    done
 
 Setting it first points the fleet at something that does not exist yet.
 

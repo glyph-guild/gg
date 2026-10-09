@@ -77,7 +77,7 @@ public class ABrowseRestoresWhatWasNarrowedTests
 
     private static AppState Browsing() => new()
     {
-        ActiveTab = TabId.Browse,
+        ActiveTab = TabId.Intents,
         BrowseVisible = true,
     };
 

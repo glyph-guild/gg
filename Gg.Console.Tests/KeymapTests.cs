@@ -229,11 +229,11 @@ public class KeymapTests
         string Toggle(KeymapContext context, Command command) => Keymap
             .Bindings(context).Single(b => b.Command == command).Description;
 
-        await Assert.That(Toggle(new(UiMode.Normal, TabId.Queue), Command.ToggleBrowse))
+        await Assert.That(Toggle(new(UiMode.Normal, TabId.Queue), Command.ToggleIntents))
             .IsEqualTo("browse");
-        await Assert.That(Toggle(new(UiMode.Normal, TabId.Browse), Command.ToggleBrowse))
+        await Assert.That(Toggle(new(UiMode.Normal, TabId.Intents), Command.ToggleIntents))
             .IsEqualTo("close browse");
-        await Assert.That(Toggle(new(UiMode.Normal, TabId.Credentials), Command.ToggleBrowse))
+        await Assert.That(Toggle(new(UiMode.Normal, TabId.Credentials), Command.ToggleIntents))
             .IsEqualTo("browse")
             .Because("the browse tab is still there behind this one, and b goes to it.");
 
@@ -243,9 +243,9 @@ public class KeymapTests
         // says it. It is read from the binding rather than from the line
         // because the line is capped at seven keys and freeze is advertised on
         // the frozen screen itself.
-        await Assert.That(Description(new(UiMode.Normal, TabId.Browse), Command.ToggleFreeze))
+        await Assert.That(Description(new(UiMode.Normal, TabId.Intents), Command.ToggleFreeze))
             .IsEqualTo("freeze to select");
-        await Assert.That(Description(new(UiMode.Normal, TabId.Browse, Frozen: true), Command.ToggleFreeze))
+        await Assert.That(Description(new(UiMode.Normal, TabId.Intents, Frozen: true), Command.ToggleFreeze))
             .IsEqualTo("unfreeze");
     }
 

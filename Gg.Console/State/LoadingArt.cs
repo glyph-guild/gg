@@ -239,7 +239,7 @@ public static class LoadingArt
             // opened, which is the right answer to HasRead's question and the
             // wrong one to this: opening it is what STARTS the read, so the
             // whole time it is in the air the pane was showing its empty words.
-            TabId.Browse => state.Browse is null,
+            TabId.Intents => state.Browse is null,
 
             _ => !Tabs.HasRead(state, state.ActiveTab),
         };

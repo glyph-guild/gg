@@ -90,7 +90,7 @@ public class WhatItSaidCanBeReadAndTakenTests
 
     private static AppState Item(WorkItemTab tab = WorkItemTab.History) => new()
     {
-        ActiveTab = TabId.Browse,
+        ActiveTab = TabId.Intents,
         Mode = UiMode.WorkItemDetail,
         WorkItemTab = tab,
         BrowseSelected = 0,
@@ -160,7 +160,7 @@ public class WhatItSaidCanBeReadAndTakenTests
         var flight = Keymap.Resolve(
             KeyStroke.Char('c'), new KeymapContext(UiMode.FlightDetail, TabId.Flights));
         var item = Keymap.Resolve(
-            KeyStroke.Char('c'), new KeymapContext(UiMode.WorkItemDetail, TabId.Browse));
+            KeyStroke.Char('c'), new KeymapContext(UiMode.WorkItemDetail, TabId.Intents));
 
         await Assert.That(flight).IsEqualTo(Command.CopyModal);
         await Assert.That(item).IsEqualTo(Command.CopyModal);

@@ -119,9 +119,9 @@ public class ReducerTests
     {
         // Otherwise the screen shows a view nobody opened and every key appears
         // to do nothing, which is the same symptom as a hang.
-        var state = new AppState { BrowseVisible = true, ActiveTab = TabId.Browse };
+        var state = new AppState { BrowseVisible = true, ActiveTab = TabId.Intents };
 
-        var closed = Reducer.Reduce(state, Command.ToggleBrowse);
+        var closed = Reducer.Reduce(state, Command.ToggleIntents);
 
         await Assert.That(closed.BrowseVisible).IsFalse();
         await Assert.That(closed.ActiveTab).IsEqualTo(TabId.Queue);

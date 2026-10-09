@@ -32,7 +32,7 @@ public class TheButtonFliesWhatTheModalShowsTests
 {
     private static AppState Browsing() => new()
     {
-        ActiveTab = TabId.Browse,
+        ActiveTab = TabId.Intents,
         Mode = UiMode.WorkItemDetail,
         WorkItemTab = WorkItemTab.Actions,
 

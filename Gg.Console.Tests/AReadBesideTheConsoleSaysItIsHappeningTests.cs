@@ -33,7 +33,7 @@ public class AReadBesideTheConsoleSaysItIsHappeningTests
 {
     private static AppState Listed() => new()
     {
-        ActiveTab = TabId.Browse,
+        ActiveTab = TabId.Intents,
         BrowseVisible = true,
         BrowseSelected = 0,
         Browse = new BrowseListing

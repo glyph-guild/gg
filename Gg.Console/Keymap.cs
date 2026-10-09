@@ -2208,7 +2208,7 @@ public static class Keymap
             new(KeyStroke.Char('\''), Command.ShowItinerariesTab, "itineraries")
                 { OffTheHintLine = true },
 
-            new(KeyStroke.Char('b'), Command.ToggleBrowse, Closes(context, TabId.Browse, "browse"))
+            new(KeyStroke.Char('b'), Command.ToggleIntents, Closes(context, TabId.Intents, "browse"))
                 { OffTheHintLine = true },
 
             // THE MARK, ON PURPOSE AND ON AN OBSCURE KEY. Five minutes of
@@ -2312,7 +2312,7 @@ public static class Keymap
                         { When = "while the board is showing" },
                 ]
                 : [],
-            .. context.Showing == TabId.Browse
+            .. context.Showing == TabId.Intents
                 ? (KeyBinding[])[
                     new(KeyStroke.Char('f'), Command.FlyPicked, "fly this")
                         { When = "while the browse tab is showing" },
@@ -2766,7 +2766,7 @@ public static class Keymap
         // the arm for tabs with nothing to open, which was true while the row
         // was a headline and nothing else - an id, a state and a title, chosen
         // from without ever being read.
-        TabId.Browse =>
+        TabId.Intents =>
         [
             new(KeyStroke.EnterKey, Command.ShowWorkItem, "read this item")
                 { OffTheHintLine = true, When = "on the browse tab" },

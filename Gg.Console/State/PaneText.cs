@@ -221,7 +221,7 @@ public static class PaneText
             TabId.Flights => Flights(state),
             TabId.Board => Board(state),
             TabId.Runners => Runners(state),
-            TabId.Browse => Browse(state),
+            TabId.Intents => Browse(state),
             TabId.Credentials => CredentialsPane(state),
             TabId.Envelope => AirspaceAbsence(state),
             TabId.Allowances => FleetAllowances(state),
@@ -297,7 +297,7 @@ public static class PaneText
             // separate process and answers for itself, so browse can fail
             // while the control plane is perfectly reachable - its absence is
             // the refusal, whatever the console's own diagnosis says.
-            TabId.Browse => state.Browse?.Absence is { Length: > 0 }
+            TabId.Intents => state.Browse?.Absence is { Length: > 0 }
                          || (said && state.Browse is null),
 
             _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "unknown tab"),

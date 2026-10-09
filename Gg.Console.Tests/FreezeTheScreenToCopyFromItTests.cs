@@ -96,7 +96,7 @@ public class FreezeTheScreenToCopyFromItTests
         // was the half that could not be found from anywhere else. The tab has
         // since gone entirely and freezing is the whole screen's, so the key
         // must not have come back anywhere.
-        await Assert.That(Keymap.Resolve(KeyStroke.Char('f'), KeymapContext.For(On(TabId.Browse))))
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('f'), KeymapContext.For(On(TabId.Intents))))
             .IsNotEqualTo(Command.ToggleFreeze);
     }
 

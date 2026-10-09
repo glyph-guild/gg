@@ -868,7 +868,7 @@ public enum TabId
 
 
     /// <summary>The tracker's work items, to fly one.</summary>
-    Browse,
+    Intents,
 
     /// <summary>
     /// Every credential this tenant has, how each rests here, and who can open it.

@@ -60,7 +60,7 @@ public class TheConsoleCanBroadcastTests
         // the tabs themselves - so this would be a lie on screen as well as under it.
         await Assert.That(Keymap.Resolve(
                 KeyStroke.Char('b'), KeymapContext.For(OnTheCredentialsTab())))
-            .IsEqualTo(Command.ToggleBrowse)
+            .IsEqualTo(Command.ToggleIntents)
             .Because("in Normal mode `b` is the browse tab's toggle from every tab, which is why "
                    + "the broadcast lives inside the acts modal rather than beside it.");
     }

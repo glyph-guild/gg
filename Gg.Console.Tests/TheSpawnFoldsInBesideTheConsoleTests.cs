@@ -69,7 +69,7 @@ public class TheSpawnFoldsInBesideTheConsoleTests
     public async Task Browsing_is_a_read_and_only_a_read()
     {
         foreach (var command in (Command[])
-                 [Command.ToggleBrowse, Command.ShowWorkItem, Command.FilterBrowse,
+                 [Command.ToggleIntents, Command.ShowWorkItem, Command.FilterBrowse,
                   Command.BrowseFiltered])
         {
             await Assert.That(ShellCommands.Reads).Contains(command);

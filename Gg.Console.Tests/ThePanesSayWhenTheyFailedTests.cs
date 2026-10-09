@@ -59,7 +59,7 @@ public class ThePanesSayWhenTheyFailedTests
 
         foreach (var tab in (TabId[])
             [TabId.Queue, TabId.Flights, TabId.Board, TabId.Itineraries,
-             TabId.Runners, TabId.Browse])
+             TabId.Runners, TabId.Intents])
         {
             await Assert.That(PaneText.Trouble(quiet, tab)).IsFalse()
                 .Because($"{tab} answered and had nothing to show, which is the ordinary "
@@ -95,7 +95,7 @@ public class ThePanesSayWhenTheyFailedTests
             },
         };
 
-        await Assert.That(PaneText.Trouble(refused, TabId.Browse)).IsTrue();
+        await Assert.That(PaneText.Trouble(refused, TabId.Intents)).IsTrue();
 
         await Assert.That(PaneText.Trouble(refused, TabId.Flights)).IsFalse()
             .Because("one reader refusing says nothing about the flights pane, and marking "

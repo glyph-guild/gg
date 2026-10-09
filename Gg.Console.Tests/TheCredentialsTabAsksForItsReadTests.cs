@@ -75,7 +75,7 @@ public class TheCredentialsTabAsksForItsReadTests
     public async Task The_tick_is_not_told_to_skip_this_tab()
     {
         // AutoRefresh's predicate NAMES THE TABS THAT ASK NOBODY - it is
-        // `tab is not TabId.Browse`, because a filter is local - so inclusion is
+        // `tab is not TabId.Intents`, because a filter is local - so inclusion is
         // the default and what matters is that nothing excluded this one. Read as
         // source because the predicate is private, and making it public for a test
         // would be widening a mechanism to assert a fact about a tab.

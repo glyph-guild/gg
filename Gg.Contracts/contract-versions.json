@@ -1461,5 +1461,11 @@
     "surface": "5f560aedb86fe8a5600ffa051ba5dc39cda70d15f916f80706e75a5a80e50aea",
     "endpoints": "073872f37069624b8f1f8708b897cd8a9b7820144c84b0a78c5d0da67d1c7ee1",
     "note": "A destroy carries the ceiling rather than the member, and 0.283.0 had this wrong. That version gave PoolAction a Member - the container to remove - on the reasoning that only the side holding the declared size may decide which member is surplus. The reasoning was right and the field was UNFILLABLE: the control plane stores no member container names. identity.gg_runner has an id, a label and a token hash and no name, and no reader anywhere returns one; the host knows them because it lists containers, and the control plane sees them only inside attestation prose. A declared member nothing can fill is the defect this estate keeps finding one field at a time (FlightNomination.Itinerary, fixed the same day), so it was replaced rather than left to rot. AboveSlot is the highest slot the pool may hold: the control plane still decides what may exist, and the host resolves which of its containers that means, destroying every stopped member above it and creating nothing. A destroy carrying no ceiling removes nothing and says so - an absent ceiling is not permission to remove anything. No route changes."
+  },
+  {
+    "version": "0.285.0",
+    "surface": "920b3be81d7ae20a012b85d9fc749ee9ac2cc46c79390963fa3f01636fddef0d",
+    "endpoints": "073872f37069624b8f1f8708b897cd8a9b7820144c84b0a78c5d0da67d1c7ee1",
+    "note": "A flight summary says the stage its flight reached. FlightSummary gains Stage, optional: one of FlightStages - created, ready, leased, worked, evaluated, ended - by the rule FlightStoryStages.Reached applies to the story, so a list can show where each flight is without reading every story (owner, 2026-10-09: the console's flights tab should show the stage instead of the loop's ending). A different axis from State, which is open for all of the first five. Null is every summary from a control plane before this member, and a reader shows nothing rather than inventing one. No route changes. The control plane pins this version in the PR that fills it."
   }
 ]

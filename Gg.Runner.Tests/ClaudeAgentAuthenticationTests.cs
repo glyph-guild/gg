@@ -55,6 +55,73 @@ public class ClaudeAgentAuthenticationTests
         return (adapter, launched);
     }
 
+    /// <summary>
+    /// What `claude auth status --json` actually prints when nobody is signed
+    /// in, byte for byte off gg-pool-dev-1 on 2026-10-09.
+    /// </summary>
+    private const string NotSignedIn = """
+        {
+          "loggedIn": false,
+          "authMethod": "none",
+          "apiProvider": "firstParty",
+          "analyticsDisabled": false,
+          "projectsDirectory": "/root/.claude/projects",
+          "configDirectory": "/root/.claude"
+        }
+        """;
+
+    [Test]
+    public async Task Not_signed_in_is_an_answer_rather_than_a_failed_measurement()
+    {
+        // MEASURED ON THE FLEET. `claude auth status --json` EXITS 1 when it is
+        // not logged in, and prints perfectly good JSON while doing it: exit 1,
+        // 196 bytes on stdout, nothing on stderr. The exit code is the status,
+        // not a failure.
+        //
+        // So the early `exit != 0` return fired first and every pool member
+        // reported "whether the agent is logged in could not be measured",
+        // which sends a reader to look at the container - while the sentence
+        // they needed, "the agent is not logged in ... gg holds no token for
+        // it", sat in a branch nothing could reach. Seven incidents said it:
+        // GG-1000, 1011, 1012, 1022, 1024, 1025, 1027, every one on a different
+        // member, all of them unmeasurable and none of them unmeasured.
+        //
+        // The gate's own text carried the contradiction: "reports its claude
+        // agent IS NOT SIGNED IN: whether the agent is logged in COULD NOT BE
+        // MEASURED".
+        var (adapter, _) = Answering(1, NotSignedIn);
+
+        var standing = await adapter.ProbeAsync(token: null, CancellationToken.None);
+
+        await Assert.That(standing.Authenticated).IsFalse();
+
+        await Assert.That(standing.Diagnosis).Contains("not logged in")
+            .Because("that sentence names the remedy - send it a token - and the one it "
+                   + "replaced sent a person to inspect a container that was fine.");
+
+        // THE TWO STANDINGS DIFFER ONLY IN THEIR SENTENCE - Unmeasured carries
+        // Source None as well - so the sentence is the whole of what a reader
+        // gets, and this is the assertion that holds it.
+        await Assert.That(standing.Diagnosis).DoesNotContain("could not be measured")
+            .Because("the measurement SUCCEEDED and said loggedIn:false; reporting it as "
+                   + "unmeasured is gg calling its own working probe broken.");
+    }
+
+    [Test]
+    public async Task A_crash_with_no_json_is_still_unmeasured()
+    {
+        // THE RULE THAT MUST SURVIVE. Ignoring the exit code wholesale would
+        // read a crash as an answer; what makes the JSON trustworthy is that it
+        // PARSED, not that the process was happy.
+        var (adapter, _) = Answering(1, "Segmentation fault");
+
+        var standing = await adapter.ProbeAsync(token: null, CancellationToken.None);
+
+        await Assert.That(standing.Diagnosis).Contains("could not be measured")
+            .Because("output that is not JSON is a measurement that did not happen, whatever "
+                   + "the exit code was.");
+    }
+
     [Test]
     public async Task A_token_in_the_environment_reads_as_ready_from_the_token()
     {

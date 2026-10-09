@@ -141,6 +141,15 @@ public class APlanStartsFromAWorkItemTests
             .Because("an unseeded plan opens as it always did.");
     }
 
+    [Test]
+    public async Task The_modal_offers_a_plan_button_where_there_is_an_item_to_plan_from()
+    {
+        await Assert.That(WorkItemDetails.CanPlan(Listed() with { Mode = UiMode.WorkItemDetail })).IsTrue();
+        await Assert.That(WorkItemDetails.CanPlan(new AppState { Mode = UiMode.WorkItemDetail })).IsFalse()
+            .Because("with no item there is nothing for the button to plan from.");
+        await Assert.That(WorkItemDetails.PlanLabel).IsEqualTo("Plan");
+    }
+
     /// <summary>What the loop hands the plan launcher for a PlanFromIntent in this state.</summary>
     private static PlanSeed? Seeded(AppState state)
     {

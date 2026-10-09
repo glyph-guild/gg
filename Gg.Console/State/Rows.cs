@@ -263,8 +263,13 @@ public static class Rows
     /// them apart belongs with the other facts about the flight rather than
     /// tucked beside the prose.
     /// </remarks>
+    /// <remarks>
+    /// <b><c>stage</c> beside <c>state</c>, and no <c>loop</c></b> (owner, 2026-10-09): how far a
+    /// flight got - created, leased, worked, evaluated - says more down a list than the loop's
+    /// ending, which the flight's own modal still shows.
+    /// </remarks>
     public static IReadOnlyList<string> FlightColumns { get; } =
-        ["flight", "state", "kind", "loop", "age", "work"];
+        ["flight", "state", "stage", "kind", "age", "work"];
 
     /// <summary>
     /// What a person reads down each column of the work list.
@@ -594,7 +599,9 @@ public static class Rows
                     // does not send this yet - on the field that says which
                     // envelope governs.
                     f.WorkKind is { Length: > 0 } kind ? kind : "(not said)",
-                    PaneText.LoopEndingOf(f),
+                    // THE STAGE THE CONTROL PLANE READ OFF THE STORY, or blank from one that does
+                    // not say yet - never guessed here, where the story is not.
+                    f.Stage ?? "",
                     PaneText.AgeOf(f.CreatedAt),
                     f.Name)),
         ];

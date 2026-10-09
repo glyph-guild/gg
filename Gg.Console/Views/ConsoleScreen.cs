@@ -4723,7 +4723,7 @@ public sealed class ConsoleScreen : Window
             {
                 Fill(_flightsTable, _flights, Rows.Flights(State), Rows.FlightColumns,
                     State.FlightSelected,
-                    r => [r.Number, r.State, r.Kind, r.Stage, r.Age, r.Work]);
+                    r => [r.Number, r.State, r.Stage, r.Kind, r.Age, r.Work]);
             }
 
             // SPLIT, because "the board render is slow" is two different

@@ -33,7 +33,7 @@ public class TheWorkItemModalFliesItTests
 {
     private static AppState Reading() => new()
     {
-        ActiveTab = TabId.Browse,
+        ActiveTab = TabId.Intents,
         Mode = UiMode.WorkItemDetail,
         BrowseSelected = 0,
         Browse = new BrowseListing

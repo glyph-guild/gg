@@ -44,7 +44,7 @@ public class BrowsingFoldsInBesideTheConsoleTests
         // guard asserting browsing is the shell's went on passing and nothing
         // changed. Moving it has to be a removal as well as an addition.
         foreach (var command in (Command[])
-                 [Command.ToggleBrowse, Command.ShowWorkItem, Command.FilterBrowse,
+                 [Command.ToggleIntents, Command.ShowWorkItem, Command.FilterBrowse,
                   Command.BrowseFiltered])
         {
             await Assert.That(ShellCommands.Reads).Contains(command);
@@ -73,10 +73,10 @@ public class BrowsingFoldsInBesideTheConsoleTests
         // go on behaving as it did rather than routing the key to a shell that
         // has nothing to serve it with either. The pane opens and says what it
         // is waiting for; it does not cost a terminal.
-        var opened = Reducer.Reduce(new AppState(), Command.ToggleBrowse);
+        var opened = Reducer.Reduce(new AppState(), Command.ToggleIntents);
 
         await Assert.That(opened.BrowseVisible).IsTrue();
-        await Assert.That(opened.ActiveTab).IsEqualTo(TabId.Browse);
+        await Assert.That(opened.ActiveTab).IsEqualTo(TabId.Intents);
     }
 
     [Test]
@@ -90,7 +90,7 @@ public class BrowsingFoldsInBesideTheConsoleTests
         // AND IT NOW COVERS THE SPAWN AS WELL AS THE ASK, which is the slowest
         // moment there is: the first press starts a process and waits for it to
         // answer, and that is precisely the press that used to be a blink.
-        var reading = new AppState { ActiveTab = TabId.Browse, ReadInFlight = true };
+        var reading = new AppState { ActiveTab = TabId.Intents, ReadInFlight = true };
 
         await Assert.That(PaneText.Browse(reading)).Contains("Reading")
             .Because("a pane that is waiting has to say so, or the person reading it cannot "

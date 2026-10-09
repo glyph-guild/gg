@@ -39,7 +39,7 @@ public class EnterShowsTheWorkItemTests
 {
     private static AppState Browsing() =>
         Reducer.Browsed(
-            new AppState { BrowseVisible = true, ActiveTab = TabId.Browse },
+            new AppState { BrowseVisible = true, ActiveTab = TabId.Intents },
             "a-tracker",
             new BrowseOutcome.Listed(new Gg.Local.WorkItemPage(
                 [
@@ -230,7 +230,7 @@ public class EnterShowsTheWorkItemTests
         var reader = new Answers(
             new ItemOutcome.Read("never reached"), new HistoryOutcome.Read([]));
 
-        var empty = new AppState { ActiveTab = TabId.Browse };
+        var empty = new AppState { ActiveTab = TabId.Intents };
         var shown = ConsoleBrowsing.ItemPatch(reader, empty)(empty);
 
         await Assert.That(reader.Asked).IsEqualTo(0)

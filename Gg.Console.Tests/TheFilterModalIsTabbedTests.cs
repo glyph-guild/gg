@@ -33,7 +33,7 @@ public class TheFilterModalIsTabbedTests
 {
     private static AppState Offering() => new()
     {
-        ActiveTab = TabId.Browse,
+        ActiveTab = TabId.Intents,
         Mode = UiMode.BrowseFilter,
         Facets = new BrowseFacets
         {

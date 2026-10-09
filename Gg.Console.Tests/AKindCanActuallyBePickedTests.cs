@@ -30,7 +30,7 @@ public class AKindCanActuallyBePickedTests
 {
     private static AppState Asking() => new()
     {
-        ActiveTab = TabId.Browse,
+        ActiveTab = TabId.Intents,
         Mode = UiMode.WorkKindChoice,
         BrowseSelected = 3,
         Browse = new BrowseListing

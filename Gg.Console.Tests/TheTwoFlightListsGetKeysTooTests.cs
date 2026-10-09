@@ -80,7 +80,7 @@ public class TheTwoFlightListsGetKeysTooTests
         await Assert.That(Keymap.Resolve(Tabs.KeyFor(TabId.Queue)!.Value, Anywhere(TabId.Envelope)))
             .IsEqualTo(Tabs.CommandFor(TabId.Queue));
 
-        await Assert.That(Keymap.Resolve(Tabs.KeyFor(TabId.Flights)!.Value, Anywhere(TabId.Browse)))
+        await Assert.That(Keymap.Resolve(Tabs.KeyFor(TabId.Flights)!.Value, Anywhere(TabId.Intents)))
             .IsEqualTo(Tabs.CommandFor(TabId.Flights));
     }
 

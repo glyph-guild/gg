@@ -86,7 +86,7 @@ public static class Tabs
             // and one of them arriving alone is a board that looks complete
             // and is not - so it says "not read yet" until both have answered.
             TabId.Board => state.Board is not null && state.Watches is not null,
-            TabId.Browse => state.BrowseVisible,
+            TabId.Intents => state.BrowseVisible,
             TabId.Credentials => state.CredentialsVisible,
             TabId.Envelope => state.EnvelopeVisible,
             // WHETHER THE LIST HAS ARRIVED, not whether the pane is open. The
@@ -131,7 +131,7 @@ public static class Tabs
         // EveryTabIsOnTheBarTests.
         TabId.Queue => KeyStroke.Char(','),
         TabId.Flights => KeyStroke.Char('.'),
-        TabId.Browse => KeyStroke.Char('b'),
+        TabId.Intents => KeyStroke.Char('b'),
         TabId.Credentials => KeyStroke.Char('r'),
         // `u' because every letter that reads is taken: r is repositories, n is
         // new flight, e is envelope and s says nothing about runners. It is in
@@ -177,7 +177,7 @@ public static class Tabs
         // six below they are the reducer's own.
         TabId.Queue => Command.ShowQueueTab,
         TabId.Flights => Command.ShowFlightsTab,
-        TabId.Browse => Command.ToggleBrowse,
+        TabId.Intents => Command.ToggleIntents,
         TabId.Credentials => Command.ToggleCredentials,
         // NOT A SHELL COMMAND, unlike the four below it. Showing this reads
         // nothing: the fleet is already in the model, fetched at boot.
@@ -269,7 +269,7 @@ public static class Tabs
     {
         TabId.Queue => "queue",
         TabId.Flights => "flights",
-        TabId.Browse => "browse",
+        TabId.Intents => "browse",
         TabId.Credentials => "credentials",
         TabId.Runners => "runners",
         // NOT "Envelope", WHICH IS THE ONE DOCUMENT IN IT. This tab is what

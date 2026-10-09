@@ -1862,7 +1862,7 @@ static async Task<int> LaunchConsoleAsync()
                     // item is talking to the tracker they listed it from -
                     // ConsoleLoop's own sentence, and a second browser here
                     // would be a second answer to which tracker that is.
-                    Gg.Console.Command.ToggleBrowse or
+                    Gg.Console.Command.ToggleIntents or
                     Gg.Console.Command.BrowseFiltered =>
                         Gg.Console.ConsoleBrowsing.Patch(browsing, current),
 

@@ -31,7 +31,7 @@ public class ABrowseFilterIsPickedTests
 {
     private static AppState Offering() => new()
     {
-        ActiveTab = TabId.Browse,
+        ActiveTab = TabId.Intents,
         Mode = UiMode.BrowseFilter,
         Facets = new BrowseFacets
         {
@@ -45,7 +45,7 @@ public class ABrowseFilterIsPickedTests
     public async Task The_browse_tab_has_a_key_that_opens_the_filter()
     {
         await Assert.That(Keymap.Resolve(
-            KeyStroke.Char('/'), new KeymapContext(UiMode.Normal, TabId.Browse)))
+            KeyStroke.Char('/'), new KeymapContext(UiMode.Normal, TabId.Intents)))
             .IsEqualTo(Command.FilterBrowse);
     }
 
@@ -57,7 +57,7 @@ public class ABrowseFilterIsPickedTests
         // must still resolve to nothing rather than to somebody else's command.
         foreach (var tab in Enum.GetValues<TabId>())
         {
-            if (tab == TabId.Browse)
+            if (tab == TabId.Intents)
             {
                 continue;
             }
@@ -174,7 +174,7 @@ public class ABrowseFilterIsPickedTests
         var drawn = PaneText.Modal(
             new AppState
             {
-                ActiveTab = TabId.Browse,
+                ActiveTab = TabId.Intents,
                 Mode = UiMode.BrowseFilter,
                 Facets = new BrowseFacets
                 {

@@ -238,14 +238,14 @@ public enum Command
     /// So the session ends, the loop reads, and the next session is rebuilt
     /// from the model. TakeFlight's shape, for a much smaller reason.
     /// </remarks>
-    ToggleBrowse,
+    ToggleIntents,
 
     /// <summary>
     /// What must hold before the selected flight can start.
     /// </summary>
     /// <remarks>
     /// The shell's, because showing it is a read. Same reason as
-    /// <see cref="ToggleBrowse"/>, for a much smaller request.
+    /// <see cref="ToggleIntents"/>, for a much smaller request.
     /// </remarks>
 
     /// <summary>The rules in force. The shell's, because showing it is a read.</summary>
@@ -1046,7 +1046,7 @@ public enum Command
     /// </summary>
     /// <remarks>
     /// <b>The shell's, because it is a browse.</b> It is the same spawn
-    /// <see cref="ToggleBrowse"/> performs and it earns its own name because it
+    /// <see cref="ToggleIntents"/> performs and it earns its own name because it
     /// closes the modal first: a filter applied under a dialog that stays up is
     /// a person looking at choices instead of at what they chose.
     /// </remarks>
@@ -1325,7 +1325,7 @@ public static class ShellCommands
         // The exception is granted and scoped in LiveStreamingTests, beside the
         // clipboard's - which is where it has to be, because the scan there
         // cannot see a spawn reached through a Func composed in the root.
-        Command.ToggleBrowse,
+        Command.ToggleIntents,
         Command.ShowWorkItem,
 
         // THE SAME READ, REACHED FROM THE OTHER MODAL. It asks the same reader

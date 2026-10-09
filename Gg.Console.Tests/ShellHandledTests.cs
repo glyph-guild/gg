@@ -141,7 +141,7 @@ public class ShellHandledTests
     [Test]
     public async Task A_command_is_the_shells_or_a_read_and_never_both()
     {
-        // THE HOLE THAT LET A MISTAKE THROUGH. Moving ToggleBrowse into `Reads`
+        // THE HOLE THAT LET A MISTAKE THROUGH. Moving ToggleIntents into `Reads`
         // failed nothing, because it was still in `Handled` too - so the key
         // would have ended the session AND started a background read, and the
         // guard asserting browsing is the shell's went on passing.
@@ -169,11 +169,11 @@ public class ShellHandledTests
         // itself was measured - no credential, no stream of the terminal, no
         // block - and granted an exception in LiveStreamingTests beside the
         // clipboard's. Nothing about this key ends the session now.
-        await Assert.That(ShellCommands.Reads.Contains(Command.ToggleBrowse)).IsTrue()
+        await Assert.That(ShellCommands.Reads.Contains(Command.ToggleIntents)).IsTrue()
             .Because("asking a reader is what LiveTails already does, and starting one over "
                    + "a pipe turns out to be the same kind of act.");
 
-        await Assert.That(ShellCommands.Handled.Contains(Command.ToggleBrowse)).IsFalse()
+        await Assert.That(ShellCommands.Handled.Contains(Command.ToggleIntents)).IsFalse()
             .Because("no press of this key costs the screen, first one included.");
     }
 

@@ -52,7 +52,7 @@ public class TheHintLineHoldsWhatTheTabCanDoTests
     /// not to have. A tab belongs in one of these two on the day it arrives.
     /// </remarks>
     private static readonly TabId[] Elsewhere =
-        [TabId.Runners, TabId.Browse,
+        [TabId.Runners, TabId.Intents,
 
          // CREDENTIALS LEFT THIS LIST IN SLICE SIXTY, and the rule it is on this
          // list for is unchanged: `a` is not advertised on a tab with no flight

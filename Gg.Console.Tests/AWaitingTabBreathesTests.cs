@@ -248,7 +248,7 @@ public class AWaitingTabBreathesTests
         // OPENING IT IS WHAT STARTS THE READ, so `BrowseVisible' is true for the
         // whole time the listing is in the air - which is the right answer to
         // HasRead's question and the wrong one to this.
-        var opened = new AppState { ActiveTab = TabId.Browse, BrowseVisible = true };
+        var opened = new AppState { ActiveTab = TabId.Intents, BrowseVisible = true };
 
         await Assert.That(LoadingArt.Waiting(opened)).IsTrue();
     }
@@ -261,7 +261,7 @@ public class AWaitingTabBreathesTests
         // why nothing is coming, and would breathe over it for ever.
         var failed = new AppState
         {
-            ActiveTab = TabId.Browse,
+            ActiveTab = TabId.Intents,
             BrowseVisible = true,
             Diagnosis = "the tracker refused: this machine holds no credential for it",
         };

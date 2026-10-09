@@ -41,13 +41,13 @@ public class TabsTakeTheWholeScreenTests
         // THE WHOLE POINT. Under one shared region this was impossible, and the
         // reducer enforced it by clearing the other flags.
         var state = Reducer.Reduce(new AppState(), Command.ToggleCredentials);
-        state = Reducer.Reduce(state, Command.ToggleBrowse);
+        state = Reducer.Reduce(state, Command.ToggleIntents);
 
         await Assert.That(state.CredentialsVisible).IsTrue()
             .Because("opening the browser is not a reason to throw away the evidence "
                    + "somebody was reading beside it.");
         await Assert.That(state.BrowseVisible).IsTrue();
-        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Browse)
+        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Intents)
             .Because("the one just opened is the one showing.");
     }
 
@@ -58,11 +58,11 @@ public class TabsTakeTheWholeScreenTests
         // rather than as a sentence in a comment. Six panes drawn over one
         // region is what this replaces.
         var state = Reducer.Reduce(new AppState(), Command.ToggleCredentials);
-        state = Reducer.Reduce(state, Command.ToggleBrowse);
+        state = Reducer.Reduce(state, Command.ToggleIntents);
 
         var drawn = Enum.GetValues<TabId>().Where(tab => Tabs.Showing(state, tab)).ToList();
 
-        await Assert.That(drawn).IsEquivalentTo((TabId[])[TabId.Browse])
+        await Assert.That(drawn).IsEquivalentTo((TabId[])[TabId.Intents])
             .Because("exactly one tab is on the screen. Found: " + string.Join(", ", drawn));
     }
 
@@ -96,9 +96,9 @@ public class TabsTakeTheWholeScreenTests
         // start there and step to browse. Browse is the anchor now and
         // repositories is what follows it - the pair that made this test worth
         // having is intact, one tab along.
-        var state = Reducer.Reduce(new AppState(), Command.ToggleBrowse);
+        var state = Reducer.Reduce(new AppState(), Command.ToggleIntents);
 
-        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Browse);
+        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Intents);
 
         state = Reducer.Reduce(state, Command.FocusNextPane);
         await Assert.That(state.ActiveTab).IsEqualTo(TabId.Credentials)
@@ -154,7 +154,7 @@ public class TabsTakeTheWholeScreenTests
         // already what you are looking at. Pressing `v` while reading the browse
         // tab should not silently discard the evidence tab.
         var state = Reducer.Reduce(new AppState(), Command.ToggleCredentials);
-        state = Reducer.Reduce(state, Command.ToggleBrowse);
+        state = Reducer.Reduce(state, Command.ToggleIntents);
         state = Reducer.Reduce(state, Command.ToggleCredentials);
 
         await Assert.That(state.ActiveTab).IsEqualTo(TabId.Credentials);
@@ -169,13 +169,13 @@ public class TabsTakeTheWholeScreenTests
     public async Task The_bar_marks_the_one_showing_and_names_the_rest()
     {
         var state = Reducer.Reduce(new AppState(), Command.ToggleCredentials);
-        state = Reducer.Reduce(state, Command.ToggleBrowse);
+        state = Reducer.Reduce(state, Command.ToggleIntents);
 
         // WAS ABOUT A STRING IN THE TITLE, which is what the bar used to be.
         // The component marks the one showing itself, so what the model owes it
         // is which tab that is - and Tabs.Showing is where that is asserted,
         // one test up. What is left here is the titles, which are the model's.
-        await Assert.That(Tabs.Title(state, TabId.Browse)).Contains("browse", StringComparison.OrdinalIgnoreCase);
+        await Assert.That(Tabs.Title(state, TabId.Intents)).Contains("browse", StringComparison.OrdinalIgnoreCase);
         // NAMED FOR WHAT THE VERBS ARE CALLED, not for the enum member. The tab
         // renders as Airspace because that is the word on the verbs it acts on;
         // Envelope stays the name of one document, and of the key.
@@ -183,7 +183,7 @@ public class TabsTakeTheWholeScreenTests
             .Contains("airspace", StringComparison.OrdinalIgnoreCase)
             .Because("every tab is on the bar now, including the views nobody has opened - "
                    + "the bar's job is to say what there is.");
-        await Assert.That(Tabs.Showing(state, TabId.Browse)).IsTrue();
+        await Assert.That(Tabs.Showing(state, TabId.Intents)).IsTrue();
     }
 
     [Test]

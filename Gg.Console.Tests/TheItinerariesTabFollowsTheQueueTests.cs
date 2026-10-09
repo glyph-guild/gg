@@ -17,6 +17,6 @@ public class TheItinerariesTabFollowsTheQueueTests
     public async Task The_rest_keep_their_order()
     {
         await Assert.That(string.Join(" ", Tabs.All.Skip(2))).IsEqualTo(
-            "Board Flights Runners Browse Credentials Envelope Allowances");
+            "Board Flights Runners Intents Credentials Envelope Allowances");
     }
 }

@@ -564,7 +564,7 @@ public static class Reducer
             // AND THE READ RUNS AFTER THIS, on the state this returns - so a
             // press that shuts the pane leaves ConsoleBrowsing.Patch with
             // nothing to fetch, which is the sentence that file already keeps.
-            Command.ToggleBrowse => BrowseToggled(state),
+            Command.ToggleIntents => BrowseToggled(state),
 
             // WHOLLY HERE, because showing the fleet reads nothing - it is in
             // the model from the boot. Its four neighbours are the shell's
@@ -894,7 +894,7 @@ public static class Reducer
     private static AppState Showing(AppState state, TabId tab, bool open) => Arrived(state with
     {
         ActiveTab = open ? tab : TabId.Queue,
-        BrowseVisible = tab == TabId.Browse ? open : state.BrowseVisible,
+        BrowseVisible = tab == TabId.Intents ? open : state.BrowseVisible,
         CredentialsVisible = tab == TabId.Credentials ? open : state.CredentialsVisible,
         EnvelopeVisible = tab == TabId.Envelope ? open : state.EnvelopeVisible,
         AllowancesVisible = tab == TabId.Allowances ? open : state.AllowancesVisible,
@@ -1416,7 +1416,7 @@ public static class Reducer
     /// </para>
     /// <para>
     /// <b>REACHED BOTH WAYS, and it used to be reached one.</b> While
-    /// <c>ToggleBrowse</c> was the shell's, this was deliberately absent from
+    /// <c>ToggleIntents</c> was the shell's, this was deliberately absent from
     /// <see cref="Reduce"/>: a shell command with a reducer arm too has two
     /// effects, the local one happening whether or not the remote one did. The
     /// command is a read now and only the FIRST press of a console lifetime
@@ -1636,7 +1636,7 @@ public static class Reducer
             : state.ActiveTab switch
             {
                 TabId.Credentials => PickRepository(state, state.RepositorySelected + by),
-                TabId.Browse => PickWork(state, state.BrowseSelected + by),
+                TabId.Intents => PickWork(state, state.BrowseSelected + by),
                 TabId.Flights => PickFlight(state, state.FlightSelected + by),
                 TabId.Board => PickBoardRow(state, state.BoardSelected + by),
                 TabId.Itineraries => PickLeg(state, state.ItinerariesSelected + by),
@@ -1861,7 +1861,7 @@ public static class Reducer
         return state.ActiveTab switch
         {
             TabId.Credentials => PickRepository(state, row),
-            TabId.Browse => PickWork(state, row),
+            TabId.Intents => PickWork(state, row),
             TabId.Flights => PickFlight(state, row),
             TabId.Board => PickBoardRow(state, row),
             TabId.Itineraries => PickLeg(state, row),
@@ -2053,7 +2053,7 @@ public static class Reducer
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return Toggled(state, TabId.Browse);
+        return Toggled(state, TabId.Intents);
     }
 
     /// <summary>Shows or hides the envelope, and gives it the region.</summary>

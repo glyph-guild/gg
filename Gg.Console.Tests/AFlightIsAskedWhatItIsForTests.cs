@@ -70,7 +70,7 @@ public class AFlightIsAskedWhatItIsForTests
 
     private static AppState Browsing(params string[] kinds) => new()
     {
-        ActiveTab = TabId.Browse,
+        ActiveTab = TabId.Intents,
         BrowseVisible = true,
         Browse = new BrowseListing
         {

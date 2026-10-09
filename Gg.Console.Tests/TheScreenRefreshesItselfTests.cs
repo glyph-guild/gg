@@ -214,7 +214,7 @@ public class TheScreenRefreshesItselfTests
         // The browser is a child process this console already owns, so it is
         // not a thing to go and ask about. The live view was the other one, and
         // it is a modal now rather than a tab a refresh could land on.
-        var state = refresh.Advance(new AppState { ActiveTab = TabId.Browse });
+        var state = refresh.Advance(new AppState { ActiveTab = TabId.Intents });
 
         await Assert.That(reads.Asked).IsEmpty();
         await Assert.That(state.Refresh.NextIn).IsEqualTo(30)

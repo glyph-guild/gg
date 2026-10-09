@@ -86,7 +86,7 @@ public class TheKeyboardFollowsTheModalsTabTests
         // THE SAME DEFECT ONE MODAL OVER, and it arrived the same evening: the
         // history became a tab and the landing still named the history.
         var wanted = FocusChange.Wanted(
-            UiMode.WorkItemDetail, TabId.Browse, landed: null, modalHasFocus: true,
+            UiMode.WorkItemDetail, TabId.Intents, landed: null, modalHasFocus: true,
             workItemTab: WorkItemTab.History, landedWorkItemTab: WorkItemTab.Details);
 
         await Assert.That(wanted).IsEqualTo(FocusTarget.WorkItemTab);
@@ -96,7 +96,7 @@ public class TheKeyboardFollowsTheModalsTabTests
     public async Task A_work_item_tab_that_did_not_turn_is_left_alone()
     {
         var wanted = FocusChange.Wanted(
-            UiMode.WorkItemDetail, TabId.Browse, landed: null, modalHasFocus: true,
+            UiMode.WorkItemDetail, TabId.Intents, landed: null, modalHasFocus: true,
             workItemTab: WorkItemTab.History, landedWorkItemTab: WorkItemTab.History);
 
         await Assert.That(wanted).IsEqualTo(FocusTarget.LeaveAlone);
@@ -106,7 +106,7 @@ public class TheKeyboardFollowsTheModalsTabTests
     public async Task Opening_a_work_item_lands_in_the_tab_it_opens_on()
     {
         var wanted = FocusChange.Wanted(
-            UiMode.WorkItemDetail, TabId.Browse, landed: null, modalHasFocus: false,
+            UiMode.WorkItemDetail, TabId.Intents, landed: null, modalHasFocus: false,
             workItemTab: WorkItemTab.Details, landedWorkItemTab: WorkItemTab.Details);
 
         await Assert.That(wanted).IsEqualTo(FocusTarget.WorkItemTab);

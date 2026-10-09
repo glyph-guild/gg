@@ -29,7 +29,7 @@ namespace Gg.Console.Tests;
 public class BrowseIsAKeyAndAPaneTests
 {
     private static KeymapContext Normal(bool browsing = false) =>
-        new(UiMode.Normal, browsing ? TabId.Browse : TabId.Queue);
+        new(UiMode.Normal, browsing ? TabId.Intents : TabId.Queue);
 
     [Test]
     public async Task The_key_is_bound_and_advertised_in_the_same_breath()
@@ -49,10 +49,10 @@ public class BrowseIsAKeyAndAPaneTests
         // does not mean "on the line" for a tab key; it means the tab carries
         // it, and OffTheHintLine is the claim that something else does.
         await Assert.That(Keymap.Resolve(KeyStroke.Char('b'), Normal()))
-            .IsEqualTo(Command.ToggleBrowse);
+            .IsEqualTo(Command.ToggleIntents);
 
         var browse = Keymap.Bindings(Normal())
-            .Single(b => b.Command == Command.ToggleBrowse);
+            .Single(b => b.Command == Command.ToggleIntents);
 
         await Assert.That(browse.Description).IsNotEmpty()
             .Because("the description is what help and the tab both render, so a key with "
@@ -78,7 +78,7 @@ public class BrowseIsAKeyAndAPaneTests
         // any other tab the key BRINGS THIS ONE FORWARD rather than hiding it,
         // and the word only changes where the behaviour does.
         string Description(KeymapContext context) => Keymap.Bindings(context)
-            .Single(b => b.Command == Command.ToggleBrowse).Description;
+            .Single(b => b.Command == Command.ToggleIntents).Description;
 
         await Assert.That(Description(Normal(browsing: false))).IsEqualTo("browse");
         await Assert.That(Description(Normal(browsing: true))).IsEqualTo("close browse");
@@ -99,11 +99,11 @@ public class BrowseIsAKeyAndAPaneTests
         // measured, it places no credential and holds no stream of the terminal
         // - so the key costs no screen at all. See
         // TheSpawnFoldsInBesideTheConsoleTests for the exception that allows it.
-        await Assert.That(ShellCommands.Reads).Contains(Command.ToggleBrowse)
+        await Assert.That(ShellCommands.Reads).Contains(Command.ToggleIntents)
             .Because("talking to a reader is what LiveTails already does, and starting one "
                    + "over a pipe turns out to be the same kind of act.");
 
-        await Assert.That(ShellCommands.Handled).DoesNotContain(Command.ToggleBrowse)
+        await Assert.That(ShellCommands.Handled).DoesNotContain(Command.ToggleIntents)
             .Because("no press of this key ends the session now, first one included.");
     }
 
@@ -116,7 +116,7 @@ public class BrowseIsAKeyAndAPaneTests
         foreach (var mode in (UiMode[])[UiMode.Help, UiMode.GateDecision, UiMode.FlightActions])
         {
             await Assert.That(Keymap.Resolve(KeyStroke.Char('b'), new KeymapContext(mode)))
-                .IsNotEqualTo(Command.ToggleBrowse);
+                .IsNotEqualTo(Command.ToggleIntents);
         }
     }
 
@@ -140,7 +140,7 @@ public class BrowseIsAKeyAndAPaneTests
         // A person who hides the pane and opens it again should not pay for a
         // second read of the tracker to see what they just saw.
         var listed = Reducer.Browsed(
-            new AppState { BrowseVisible = true, ActiveTab = TabId.Browse },
+            new AppState { BrowseVisible = true, ActiveTab = TabId.Intents },
             "a-tracker",
             new BrowseOutcome.Listed(new WorkItemPage(
                 [new WorkItemSummary("18398", "A draft job fails", "New", "", null)], null)));
@@ -169,7 +169,7 @@ public class BrowseIsAKeyAndAPaneTests
 
         var drawn = Enum.GetValues<TabId>().Where(tab => Tabs.Showing(state, tab)).ToList();
 
-        await Assert.That(drawn).IsEquivalentTo((TabId[])[TabId.Browse])
+        await Assert.That(drawn).IsEquivalentTo((TabId[])[TabId.Intents])
             .Because("one screen, one view. Found: " + string.Join(", ", drawn));
     }
 }

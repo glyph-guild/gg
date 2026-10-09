@@ -67,7 +67,7 @@ public class EnterBelongsToATabTests
         // until it had one. A browse row is an id, a state and a title; the
         // thing it is ABOUT was reachable only by leaving the console, which
         // made choosing work choosing by headline.
-        await Assert.That(Enter(TabId.Browse)).IsEqualTo(Command.ShowWorkItem);
+        await Assert.That(Enter(TabId.Intents)).IsEqualTo(Command.ShowWorkItem);
     }
 
     [Test]
@@ -75,7 +75,7 @@ public class EnterBelongsToATabTests
     {
         foreach (var tab in Tabs.All.Where(t =>
                      t is not (TabId.Flights or TabId.Queue or TabId.Runners
-                            or TabId.Envelope or TabId.Browse)))
+                            or TabId.Envelope or TabId.Intents)))
         {
             await Assert.That(Enter(tab)).IsNull()
                 .Because($"the {tab} tab has no row enter could open, and a key offered "

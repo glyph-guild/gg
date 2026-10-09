@@ -30,7 +30,7 @@ public class TheBrowseTabGoesToOrFindsTests
 {
     private static AppState Browsing() => new()
     {
-        ActiveTab = TabId.Browse,
+        ActiveTab = TabId.Intents,
         BrowseVisible = true,
         ReaderKeys = ["a-tracker"],
     };

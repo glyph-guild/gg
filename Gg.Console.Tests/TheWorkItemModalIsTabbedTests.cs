@@ -34,7 +34,7 @@ public class TheWorkItemModalIsTabbedTests
 {
     private static AppState Reading(int change = 0) => new()
     {
-        ActiveTab = TabId.Browse,
+        ActiveTab = TabId.Intents,
         Mode = UiMode.WorkItemDetail,
         BrowseSelected = 0,
         WorkItemSelected = change,

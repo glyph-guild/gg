@@ -2316,7 +2316,7 @@ public sealed class ConsoleScreen : Window
             // walks the enum - reached it third, and `tab' skipped six tabs.
             // TabGoesLeftToRightTests holds the two orders together now.
             (TabId.Runners, Tabbed(_runnersPane)),
-            (TabId.Browse, Tabbed(_browsePane)),
+            (TabId.Intents, Tabbed(_browsePane)),
             (TabId.Credentials, Tabbed(_credentialsPane)),
             (TabId.Envelope, Tabbed(_envelopePane)),
 
@@ -4580,11 +4580,11 @@ public sealed class ConsoleScreen : Window
         // Frozen means the pixels stop moving, so the terminal's own selection
         // can survive being made. Held lines are already kept in the model;
         // this is the half of the promise the view owes.
-        if (State.ActiveTab == TabId.Browse)
+        if (State.ActiveTab == TabId.Intents)
         {
             using (Gg.Local.Timings.Active.Measure("paint.browse-pane"))
             {
-                Pane(_browse, TabId.Browse, PaneText.Browse(State));
+                Pane(_browse, TabId.Intents, PaneText.Browse(State));
             }
         }
 
@@ -6444,7 +6444,7 @@ public sealed class ConsoleScreen : Window
     {
         TabId.Flights => _flightsTable,
         TabId.Board => _boardTable,
-        TabId.Browse => _browseTable,
+        TabId.Intents => _browseTable,
         TabId.Credentials => _credentialsTable,
         TabId.Runners => _runnersTable,
         TabId.Envelope => _airspaceTable,
@@ -6720,7 +6720,7 @@ public sealed class ConsoleScreen : Window
         {
             TabId.Flights => _flightsTable.Visible ? _flightsTable : _flights,
             TabId.Board => _boardTable.Visible ? _boardTable : _board,
-            TabId.Browse => _browseTable.Visible ? _browseTable : _browse,
+            TabId.Intents => _browseTable.Visible ? _browseTable : _browse,
             TabId.Credentials => _credentialsTable.Visible ? _credentialsTable : _credentials,
 
             // THE TABLE, NOT THE BUTTON ABOVE IT. Terminal.Gui would pick the

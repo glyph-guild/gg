@@ -13,7 +13,7 @@ namespace Gg.Console.Tests;
 /// running, so it falls to the shell — and the shell's arm calls
 /// <see cref="Reducer.BrowseToggled"/> directly. Every press after it is a
 /// read served beside the console, which goes through <see cref="Reducer.Reduce"/>
-/// — and <c>Reduce</c> has no arm for <c>ToggleBrowse</c> at all.
+/// — and <c>Reduce</c> has no arm for <c>ToggleIntents</c> at all.
 /// </para>
 /// <para>
 /// <b>So the pane toggled once and then stopped, while still asking the tracker
@@ -25,7 +25,7 @@ namespace Gg.Console.Tests;
 /// <para>
 /// <b>The arm was deliberately absent, and the reason expired.</b>
 /// <c>BrowseToggled</c>'s own remark says it: <i>"NOT REACHABLE THROUGH Reduce,
-/// and a ratchet says so. ToggleBrowse is a shell command because showing this
+/// and a ratchet says so. ToggleIntents is a shell command because showing this
 /// pane starts a reader, and a shell command that ALSO has a reducer arm has
 /// two effects — the local one happening whether or not the remote one did."</i>
 /// That was true while the command was the shell's. It is a read now, and a
@@ -53,7 +53,7 @@ public class TheBrowseKeyTogglesEveryPressTests
         await Assert.That(open.BrowseVisible).IsTrue()
             .Because("the shell's arm is what the first press takes, and it worked.");
 
-        var closed = Reducer.Reduce(open, Command.ToggleBrowse);
+        var closed = Reducer.Reduce(open, Command.ToggleIntents);
 
         await Assert.That(closed.BrowseVisible).IsFalse()
             .Because("a toggle that only ever opens is not a toggle, and this is the press "
@@ -67,11 +67,11 @@ public class TheBrowseKeyTogglesEveryPressTests
         // THE WHOLE CYCLE THROUGH THE PATH THAT WAS SILENT, because a fix that
         // only closed would be the same defect facing the other way.
         var state = Reducer.Reduce(
-            Reducer.Reduce(Reducer.BrowseToggled(new AppState()), Command.ToggleBrowse),
-            Command.ToggleBrowse);
+            Reducer.Reduce(Reducer.BrowseToggled(new AppState()), Command.ToggleIntents),
+            Command.ToggleIntents);
 
         await Assert.That(state.BrowseVisible).IsTrue();
-        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Browse);
+        await Assert.That(state.ActiveTab).IsEqualTo(TabId.Intents);
     }
 
     [Test]
@@ -83,7 +83,7 @@ public class TheBrowseKeyTogglesEveryPressTests
         foreach (var start in (AppState[])
                  [new AppState(), Reducer.BrowseToggled(new AppState())])
         {
-            await Assert.That(Reducer.Reduce(start, Command.ToggleBrowse))
+            await Assert.That(Reducer.Reduce(start, Command.ToggleIntents))
                 .IsEqualTo(Reducer.BrowseToggled(start))
                 .Because("the loop calls one and the screen calls the other, for the same "
                        + "keypress.");
@@ -98,7 +98,7 @@ public class TheBrowseKeyTogglesEveryPressTests
         // handed the reduced state - so a toggle that shuts the pane has to
         // leave Patch with nothing to do.
         var open = Reducer.BrowseToggled(new AppState());
-        var closed = Reducer.Reduce(open, Command.ToggleBrowse);
+        var closed = Reducer.Reduce(open, Command.ToggleIntents);
 
         var patch = ConsoleBrowsing.Patch(new ConsoleDoubles.NeverAsked(), closed);
 

@@ -812,6 +812,16 @@ public enum WorkItemTab
     Actions,
 }
 
+/// <summary>The board tab's two tables.</summary>
+public enum BoardTable
+{
+    /// <summary>What has been nominated, newest first. The default, because it is what a person answers.</summary>
+    Nominations,
+
+    /// <summary>The watches whose sweeps nominate, by name.</summary>
+    Sweeps,
+}
+
 public enum TabId
 {
     /// <summary>Flights needing me, and the detail of the selected one.</summary>
@@ -1414,13 +1424,32 @@ public sealed record AppState
     /// <remarks>
     /// <b>Beside the board rather than under it.</b> A watch is not a
     /// nomination - it makes them - so folding it into the same list at the
-    /// wire would lose which is which. The pane puts them in one table with a
-    /// column that says.
+    /// wire would lose which is which. The pane draws them as two tables, and
+    /// this one is paged on its own cursor.
     /// </remarks>
     public WatchStandingList? Watches { get; init; }
 
-    /// <summary>Which board row the cursor is on.</summary>
+    /// <summary>Which nomination the board's upper table has the cursor on.</summary>
     public int BoardSelected { get; init; }
+
+    /// <summary>Which watch the board's lower table, the sweeps, has the cursor on.</summary>
+    /// <remarks>
+    /// <b>Its own, not <see cref="BoardSelected"/>.</b> Each of the two tables
+    /// pages separately, so one index over both would move the sweeps every time
+    /// a page of nominations landed above them.
+    /// </remarks>
+    public int SweepSelected { get; init; }
+
+    /// <summary>Which of the board's two tables the keys drive.</summary>
+    /// <remarks>
+    /// <b>Two cursors on one screen, deliberately this time</b> (owner,
+    /// 2026-10-09: nominations and sweeps are two tables, each scrolling without
+    /// end). One table walking both was possible only while neither list
+    /// paged: a nomination page landing would have pushed every watch further
+    /// down a list the cursor was already in. So exactly one table is driven,
+    /// this says which, and the hint line says how to cross.
+    /// </remarks>
+    public BoardTable BoardTable { get; init; }
 
     /// <summary>
     /// Each flight's log, keyed by flight id, exactly as `gg log` returned them.

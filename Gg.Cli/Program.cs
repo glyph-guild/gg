@@ -92,7 +92,8 @@ return await ByName(CliArgs.Parse(args)) switch
     CliAction.Facts facts =>
         await EmitAsync(facts.Json, c => c.FactsAsync(facts.Reference)),
     CliAction.Runners runners => await EmitAsync(runners.Json, c => c.RunnersAsync()),
-    CliAction.Watches watches => await EmitAsync(watches.Json, c => c.WatchesAsync()),
+    CliAction.Watches watches => await EmitAsync(
+        watches.Json, c => c.WatchesAsync(limit: watches.Limit, after: watches.After)),
     CliAction.Environments charted =>
         await EmitAsync(charted.Json, c => c.EnvironmentsAsync()),
     CliAction.EnvironmentChart charting => await EmitAsync(
@@ -1906,6 +1907,9 @@ static async Task<int> LaunchConsoleAsync()
 
                     Gg.Console.Command.LoadMoreBoard =>
                         Gg.Console.ConsoleMore.BoardPatch(data, current),
+
+                    Gg.Console.Command.LoadMoreSweeps =>
+                        Gg.Console.ConsoleMore.SweepsPatch(data, current),
 
                     // THE FIELD'S TWO ARMS, both reads, and which one is
                     // decided by what was typed rather than by a second key.

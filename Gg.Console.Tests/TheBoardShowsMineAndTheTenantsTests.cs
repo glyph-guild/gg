@@ -62,7 +62,7 @@ public class TheBoardShowsMineAndTheTenantsTests
     [Test]
     public async Task Somebody_elses_row_is_not_shown_by_default()
     {
-        var rows = Rows.Board(Board());
+        var rows = Rows.Nominations(Board());
 
         await Assert.That(rows.Select(r => r.Subject))
             .IsEquivalentTo((string[])["work-item:tenant-one", "work-item:mine-one"])
@@ -73,7 +73,7 @@ public class TheBoardShowsMineAndTheTenantsTests
     [Test]
     public async Task Everybodys_rows_are_shown_on_request()
     {
-        var rows = Rows.Board(Board(everybody: true));
+        var rows = Rows.Nominations(Board(everybody: true));
 
         await Assert.That(rows.Count).IsEqualTo(3)
             .Because("one board: what is hidden by default is still there to be asked for.");
@@ -82,7 +82,7 @@ public class TheBoardShowsMineAndTheTenantsTests
     [Test]
     public async Task A_row_says_whose_it_is_and_a_tenant_row_says_nothing()
     {
-        var rows = Rows.Board(Board(everybody: true));
+        var rows = Rows.Nominations(Board(everybody: true));
 
         await Assert.That(rows.Single(r => r.Subject.EndsWith("mine-one", StringComparison.Ordinal)).For)
             .IsEqualTo("Kevin")
@@ -107,7 +107,7 @@ public class TheBoardShowsMineAndTheTenantsTests
             },
         };
 
-        await Assert.That(Rows.Board(state).Single().For).IsEqualTo(Theirs)
+        await Assert.That(Rows.Nominations(state).Single().For).IsEqualTo(Theirs)
             .Because("a display is dropped when somebody leaves the tenant, and a blank "
                    + "there would read as a tenant row - which is the one thing it is not.");
     }

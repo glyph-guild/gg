@@ -146,6 +146,59 @@ public static class ConsoleMore
         }
     }
 
+    /// <summary>What to fold once the next page of watches has landed.</summary>
+    /// <remarks>
+    /// <b>By name, the key the control plane pages them on</b>, so a refresh
+    /// landing between the ask and the answer cannot hold one watch twice.
+    /// </remarks>
+    public static Func<AppState, AppState> SweepsPatch(ConsoleData data, AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Watches?.Next is not { Length: > 0 } cursor)
+        {
+            return Nothing;
+        }
+
+        try
+        {
+            if (data.WatchesAsync(after: cursor).GetAwaiter().GetResult()
+                is not VerbResult.Watches page)
+            {
+                return Nothing;
+            }
+
+            return current =>
+            {
+                if (current.Watches is not { } held)
+                {
+                    return ConsoleProjection.Apply(current, page);
+                }
+
+                var already = held.Standings
+                    .Select(w => w.Name)
+                    .ToHashSet(StringComparer.Ordinal);
+
+                return ConsoleProjection.Apply(
+                    current,
+                    new VerbResult.Watches(new WatchStandingList
+                    {
+                        Standings =
+                        [
+                            .. held.Standings,
+                            .. page.Value.Standings.Where(w => already.Add(w.Name)),
+                        ],
+                        Next = page.Value.Next,
+                    }));
+            };
+        }
+        catch (Exception failed)
+        {
+            return Said(failed);
+        }
+    }
+
     /// <summary>The page it was already on.</summary>
     private static AppState Nothing(AppState state) => state;
 

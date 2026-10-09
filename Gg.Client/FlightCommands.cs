@@ -615,8 +615,20 @@ public sealed class FlightCommands(
         new VerbResult.Strategies(await _client.ListStrategiesAsync(Session(), cancellationToken));
 
     /// <summary>How every watch in force is doing. Empty is a state, not an error.</summary>
-    public async Task<VerbResult> WatchesAsync(CancellationToken cancellationToken = default) =>
-        new VerbResult.Watches(await _client.WatchStandingsAsync(Session(), cancellationToken));
+    /// <remarks>
+    /// <b>A page, as the board's is</b>, and for the board's reason: the
+    /// console scrolls this list beside the nominations, and a read that
+    /// answered every watch would cost a tenant with many of them every sweep
+    /// row's reads at once.
+    /// </remarks>
+    public async Task<VerbResult> WatchesAsync(
+        CancellationToken cancellationToken = default,
+        int? limit = null,
+        string? after = null) =>
+        new VerbResult.Watches(
+            await _client.WatchStandingsAsync(
+                Session(), cancellationToken,
+                limit ?? Gg.Contracts.Paging.DefaultLimit, after));
 
     /// <summary>
     /// Grants or revokes administration, then answers with who this is.

@@ -149,6 +149,21 @@ public enum Command
     /// </remarks>
     LoadMoreBoard,
 
+    /// <summary>The next page of watches, under the board's sweeps.</summary>
+    /// <remarks>
+    /// <b>Its own command, as <see cref="LoadMoreBoard"/> is its own</b>: the
+    /// board's two tables page separately, and the read cannot see which one
+    /// reached its end.
+    /// </remarks>
+    LoadMoreSweeps,
+
+    /// <summary>Cross between the board's two tables, nominations and sweeps.</summary>
+    /// <remarks>
+    /// A reducer step and nothing else: both tables are already on screen and
+    /// each keeps its own cursor, so crossing reads nothing.
+    /// </remarks>
+    NextBoardTable,
+
     /// <summary>Open the nominated work. Posts; decides nothing locally.</summary>
     /// <remarks>
     /// <b>The word the CONTRACT uses for this ending</b>, so the console is not
@@ -1359,6 +1374,7 @@ public static class ShellCommands
         // which is the worst moment to move somebody's screen.
         Command.LoadMoreFlights,
         Command.LoadMoreBoard,
+        Command.LoadMoreSweeps,
     };
 
     /// <summary>The commands whose effect lives in <c>ConsoleLoop</c>.</summary>

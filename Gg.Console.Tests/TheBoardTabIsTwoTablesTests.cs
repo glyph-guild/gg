@@ -3,7 +3,8 @@ using Gg.Contracts;
 namespace Gg.Console.Tests;
 
 /// <summary>
-/// The board tab: every nomination, and the watches whose sweeps make them.
+/// The board tab: every nomination in one table, and the watches whose sweeps
+/// make them in another beneath it.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -13,11 +14,13 @@ namespace Gg.Console.Tests;
 /// own holds both without asking the queue's row to mean a third thing.
 /// </para>
 /// <para>
-/// <b>One table, because they are one story.</b> A watch finds an item, the
-/// item stands as a nomination, a person opens it. Two stacked tables would be
-/// two cursors on one screen, which this console has already met once and
-/// wrote down - so the first column says which kind of row this is and the
-/// cursor walks both.
+/// <b>Two tables, and that was the owner's call too (2026-10-09).</b> This
+/// was one table whose first column said which kind of row it was, because
+/// two would be two cursors on one screen. What changed is paging: both lists
+/// scroll without end now, and in one table a page of nominations landing
+/// pushed every watch further down a list the cursor was already in. So each
+/// table has its own cursor and pages on it, exactly one is driven, and `v`
+/// crosses.
 /// </para>
 /// <para>
 /// <b>What the queue is a subset of.</b> The queue shows what needs somebody
@@ -84,16 +87,11 @@ public class TheBoardTabHoldsBothKindsOfRowTests
     };
 
     [Test]
-    public async Task Both_kinds_of_row_are_in_one_table_and_say_which_they_are()
+    public async Task Nominations_and_sweeps_are_two_tables()
     {
-        var rows = Rows.Board(Board());
+        var state = Board();
 
-        await Assert.That(rows.Select(r => r.What))
-            .IsEquivalentTo((string[])["nomination", "sweep"])
-            .Because("a reader who cannot tell them apart at a glance has a list of two "
-                   + "things pretending to be one.");
-
-        var nomination = rows[0];
+        var nomination = Rows.Nominations(state).Single();
 
         await Assert.That(nomination.Subject).Contains("4242");
         await Assert.That(nomination.State).IsEqualTo("auto")
@@ -101,7 +99,7 @@ public class TheBoardTabHoldsBothKindsOfRowTests
                    + "person is the thing somebody is deciding whether to answer.");
         await Assert.That(nomination.Kind).IsEqualTo("review");
 
-        var sweep = rows[1];
+        var sweep = Rows.Sweeps(state).Single();
 
         await Assert.That(sweep.Subject).IsEqualTo("nightly-triage");
         await Assert.That(sweep.State).IsEqualTo(WatchOutcomes.Swept);
@@ -114,9 +112,19 @@ public class TheBoardTabHoldsBothKindsOfRowTests
     }
 
     [Test]
+    public async Task Neither_table_spends_a_column_saying_what_its_rows_are()
+    {
+        await Assert.That(Rows.NominationColumns).DoesNotContain("")
+            .Because("a column carrying `nomination` down every row of a table titled "
+                   + "nominations is width spent on nothing.");
+        await Assert.That(Rows.SweepColumns).DoesNotContain("");
+        await Assert.That(Rows.SweepColumns[0]).IsEqualTo("watch");
+    }
+
+    [Test]
     public async Task An_ended_nomination_shows_what_happened_rather_than_its_mode()
     {
-        var rows = Rows.Board(Board(
+        var rows = Rows.Nominations(Board(
             [ANomination(ending: "refused", because: "'review' is not on this watch's menu")]));
 
         await Assert.That(rows[0].State).IsEqualTo("refused")
@@ -132,9 +140,9 @@ public class TheBoardTabHoldsBothKindsOfRowTests
     [Test]
     public async Task A_watch_that_has_gone_quiet_reads_as_a_state_not_a_timestamp()
     {
-        var rows = Rows.Board(Board(watches: [AWatch(quietSince: Noon.AddHours(-5))]));
+        var rows = Rows.Sweeps(Board(watches: [AWatch(quietSince: Noon.AddHours(-5))]));
 
-        await Assert.That(rows.Single(r => r.What == "sweep").State).IsEqualTo("quiet")
+        await Assert.That(rows.Single().State).IsEqualTo("quiet")
             .Because("making a person subtract two clocks to find out nothing is sweeping is "
                    + "how a board comes to look healthy while it is blind - rule 11.");
     }
@@ -142,11 +150,11 @@ public class TheBoardTabHoldsBothKindsOfRowTests
     [Test]
     public async Task A_watch_that_could_not_sweep_carries_the_runners_own_sentence()
     {
-        var rows = Rows.Board(Board(watches:
+        var rows = Rows.Sweeps(Board(watches:
             [AWatch(outcome: WatchOutcomes.Unreachable,
                     diagnosis: "the tracker refused all 3 of this sweep's reads")]));
 
-        var sweep = rows.Single(r => r.What == "sweep");
+        var sweep = rows.Single();
 
         await Assert.That(sweep.State).IsEqualTo(WatchOutcomes.Unreachable);
 
@@ -161,19 +169,19 @@ public class TheBoardTabHoldsBothKindsOfRowTests
     [Test]
     public async Task A_watch_with_no_budget_shows_its_cost_and_no_bound()
     {
-        var rows = Rows.Board(Board(watches: [AWatch(opened: 7, budgeted: null)]));
+        var rows = Rows.Sweeps(Board(watches: [AWatch(opened: 7, budgeted: null)]));
 
-        await Assert.That(rows.Single(r => r.What == "sweep").Cost).IsEqualTo("7 in 24h")
+        await Assert.That(rows.Single().Cost).IsEqualTo("7 in 24h")
             .Because("unbounded is a state rather than a bound of zero.");
     }
 
     [Test]
     public async Task A_watch_that_has_never_swept_says_so_rather_than_nothing()
     {
-        var rows = Rows.Board(Board(watches:
+        var rows = Rows.Sweeps(Board(watches:
             [AWatch(executor: null, outcome: null)]));
 
-        await Assert.That(rows.Single(r => r.What == "sweep").State).IsEqualTo("never swept")
+        await Assert.That(rows.Single().State).IsEqualTo("never swept")
             .Because("a watch applied a minute ago and one whose runner never came both "
                    + "render as an empty column unless somebody decides otherwise.");
     }
@@ -203,21 +211,34 @@ public class TheBoardTabHoldsBothKindsOfRowTests
     }
 
     [Test]
-    public async Task A_board_with_watches_and_no_nominations_still_draws_a_table()
+    public async Task Each_table_says_its_own_empty()
     {
-        // ONLY ONE EMPTY CASE IS REACHABLE, and the first version of this pane
-        // had two sentences for it. A watch in force is always a row - it is on
-        // the board whether or not it has found anything - so a tenant whose
-        // watches have nominated nothing is looking at a working board rather
-        // than an empty one.
-        await Assert.That(Rows.Board(Board(nominations: [])).Count).IsEqualTo(1);
-        await Assert.That(PaneText.Board(Board(nominations: []))).IsEmpty()
-            .Because("the table speaks when there are rows, and there is one.");
+        // TWO SENTENCES, ONE PER TABLE. One table needed one sentence for a
+        // tenant with neither; now each speaks for what it holds, and a board
+        // with watches and no nominations says so above a table of watches.
+        var noNominations = Board(nominations: []);
 
-        await Assert.That(PaneText.Board(Board(nominations: [], watches: [])))
+        await Assert.That(PaneText.Board(noNominations)).Contains("nothing has been nominated");
+        await Assert.That(PaneText.Sweeps(noNominations)).IsEmpty()
+            .Because("the sweeps table has a row, and the table speaks when there is one.");
+
+        await Assert.That(PaneText.Sweeps(Board(watches: [])))
             .Contains("no watch is in force")
-            .Because("a tenant with neither is waiting for somebody to declare a watch, which "
-                   + "is a different next step from waiting for one to find something.");
+            .Because("a tenant watching nothing is waiting for somebody to declare a watch, "
+                   + "which is a different next step from waiting for one to find something.");
+        await Assert.That(PaneText.Board(Board(watches: []))).IsEmpty();
+    }
+
+    [Test]
+    public async Task A_filtered_board_says_it_is_filtered_rather_than_empty()
+    {
+        var somebodyElses = Board([ANomination() with { For = "a-directory:ana-1" }])
+            with { BoardShowsEverybody = false, Subject = "a-directory:me-1" };
+
+        await Assert.That(Rows.Nominations(somebodyElses)).IsEmpty();
+        await Assert.That(PaneText.Board(somebodyElses)).Contains("`*`")
+            .Because("a board of somebody else's rows read as one where nothing had happened "
+                   + "would send a person away from rows that are one key from view.");
     }
 
     [Test]
@@ -234,24 +255,48 @@ public class TheBoardTabHoldsBothKindsOfRowTests
     }
 
     [Test]
-    public async Task The_cursor_walks_both_kinds_and_stops_at_the_ends()
+    public async Task The_keys_drive_the_nominations_until_v_crosses_to_the_sweeps()
     {
         var state = Board(
             [ANomination(subject: "one"), ANomination(subject: "two")],
-            [AWatch(name: "a-watch")]);
+            [AWatch(name: "a-watch"), AWatch(name: "b-watch")]);
+
+        await Assert.That(state.BoardTable).IsEqualTo(BoardTable.Nominations);
 
         var moved = Reducer.Reduce(state, Command.SelectNext);
         moved = Reducer.Reduce(moved, Command.SelectNext);
-        moved = Reducer.Reduce(moved, Command.SelectNext);
 
-        await Assert.That(moved.BoardSelected).IsEqualTo(2)
-            .Because("three rows, two of them nominations and one a watch: the cursor walks "
-                   + "the table a person is looking at rather than either list.");
+        await Assert.That(moved.BoardSelected).IsEqualTo(1)
+            .Because("two nominations: the cursor stops at the end of its own table rather "
+                   + "than running on into the watches.");
+        await Assert.That(moved.SweepSelected).IsEqualTo(0);
 
-        var back = Reducer.Reduce(
-            Reducer.Reduce(moved, Command.SelectPrevious), Command.SelectPrevious);
-        back = Reducer.Reduce(back, Command.SelectPrevious);
+        await Assert.That(Keymap.Resolve(
+                KeyStroke.Char('v'), KeymapContext.For(moved)))
+            .IsEqualTo(Command.NextBoardTable);
 
-        await Assert.That(back.BoardSelected).IsEqualTo(0);
+        var crossed = Reducer.Reduce(moved, Command.NextBoardTable);
+        crossed = Reducer.Reduce(crossed, Command.SelectNext);
+
+        await Assert.That(crossed.BoardTable).IsEqualTo(BoardTable.Sweeps);
+        await Assert.That(crossed.SweepSelected).IsEqualTo(1);
+        await Assert.That(crossed.BoardSelected).IsEqualTo(1)
+            .Because("each table keeps its own cursor, so crossing back lands where the "
+                   + "person left it.");
+
+        await Assert.That(BoardDetails.WatchUnder(crossed)!.Name).IsEqualTo("b-watch")
+            .Because("the row a modal opens is the one under the cursor of the table that has "
+                   + "the keys.");
+        await Assert.That(Rows.StandingUnder(crossed)).IsNull()
+            .Because("a watch has nothing to answer, even with a standing nomination under "
+                   + "the other table's cursor.");
+
+        var back = Reducer.Reduce(crossed, Command.NextBoardTable);
+
+        await Assert.That(back.BoardTable).IsEqualTo(BoardTable.Nominations);
+        await Assert.That(BoardDetails.NominationUnder(back)!.Subject)
+            .IsEqualTo(Rows.Nominations(back)[1].Subject)
+            .Because("back on the nominations, the modal is about the row that table's own "
+                   + "cursor was left on.");
     }
 }

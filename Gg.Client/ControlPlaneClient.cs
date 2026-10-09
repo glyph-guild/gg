@@ -1246,10 +1246,35 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     /// pulled from; this one answers how it is going, and the two change on
     /// completely different clocks.
     /// </remarks>
+    /// <param name="limit">
+    /// One page's worth. A control plane that does not page this read ignores
+    /// it and answers every watch with no cursor, which reads as the end.
+    /// </param>
+    /// <param name="after">Where the last page of watches stopped.</param>
     public async Task<WatchStandingList> WatchStandingsAsync(
-        string sessionToken, CancellationToken cancellationToken = default)
+        string sessionToken,
+        CancellationToken cancellationToken = default,
+        int? limit = null,
+        string? after = null)
     {
-        using var request = Request(HttpMethod.Get, "/v1/airspace/watch-standings", sessionToken);
+        var query = new List<string>();
+
+        if (limit is { } rows)
+        {
+            query.Add("limit=" + rows.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        if (after is { Length: > 0 })
+        {
+            query.Add("after=" + Uri.EscapeDataString(after));
+        }
+
+        using var request = Request(
+            HttpMethod.Get,
+            query.Count == 0
+                ? "/v1/airspace/watch-standings"
+                : "/v1/airspace/watch-standings?" + string.Join('&', query),
+            sessionToken);
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         await ThrowIfProtocolRefusedAsync(response, cancellationToken);

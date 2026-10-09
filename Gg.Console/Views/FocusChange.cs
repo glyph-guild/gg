@@ -238,7 +238,9 @@ public static class FocusChange
         // and a parameter inserted mid-list silently rebinds their arguments -
         // which is exactly what adding it in the middle just did.
         bool landedEmpty = false,
-        bool tabIsEmpty = false) => (mode, landed) switch
+        bool tabIsEmpty = false,
+        BoardTable boardTable = BoardTable.Nominations,
+        BoardTable landedBoardTable = BoardTable.Nominations) => (mode, landed) switch
         {
             // THE CORNER, FOR THE AIRSPACE PATH'S REASON: not a modal, so the
             // arms below would hand the keyboard to a dialog nobody can see.
@@ -342,6 +344,8 @@ public static class FocusChange
             // down arrow goes to the bar and selects the next tab.
             (_, { } already) when already == showing && landedReading == readingTheDocument
                                                      && landedEmpty == tabIsEmpty
+                                                     && (showing != TabId.Board
+                                                         || landedBoardTable == boardTable)
                 => FocusTarget.LeaveAlone,
 
             // THE HALF TURNED. Crossing to the document is its own target; crossing

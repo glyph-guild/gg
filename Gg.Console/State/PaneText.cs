@@ -491,7 +491,8 @@ public static class PaneText
     }
 
     /// <summary>
-    /// The board when it has no rows, or could not be read.
+    /// The board's nominations when there are none, or the board could not be
+    /// read.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -501,10 +502,10 @@ public static class PaneText
     /// when the second happened stops looking.
     /// </para>
     /// <para>
-    /// <b>And the empty sentence names the watches too.</b> A tenant with no
-    /// nominations AND no watches is not waiting for a person - it is waiting
-    /// for somebody to declare a watch, which is a different next step from
-    /// "nothing has come in yet".
+    /// <b>Each table speaks for itself now.</b> While nominations and watches
+    /// shared one table a single sentence had to cover a tenant with neither;
+    /// the sweeps table below says when no watch is in force, so this one only
+    /// has to say that nothing has been nominated.
     /// </para>
     /// </remarks>
     public static string Board(AppState state)
@@ -529,20 +530,41 @@ public static class PaneText
                 : "  (reading the board…)";
         }
 
-        if (Rows.Board(state).Count > 0)
+        if (Rows.Nominations(state).Count > 0)
         {
             // THE TABLE DRAWS THE ROWS. This sentence is the other two cases,
             // which is the shape every list pane here has.
             return string.Empty;
         }
 
-        // AND ONLY ONE EMPTY CASE IS REACHABLE, which is worth saying because
-        // the first version of this had two. A watch in force is always a row -
-        // it is on the board whether or not it has found anything - so "no
-        // nominations but some watches" draws a table rather than a sentence.
-        // The empty pane means neither, and the next step is not to wait.
-        return "  nothing has been nominated, and no watch is in force. A watch is what goes "
-             + "looking - `gg airspace apply` declares one.";
+        // FILTERED IS NOT EMPTY. A board of somebody else's personal rows,
+        // with the tenant's hidden, would otherwise read as a board where
+        // nothing has happened.
+        return state.Board.Nominations.Count > 0 && !state.BoardShowsEverybody
+            ? "  nothing of yours or the tenant's has been nominated - `*` shows everybody's rows."
+            : "  nothing has been nominated. What a watch finds stands here until somebody "
+            + "answers it.";
+    }
+
+    /// <summary>The board's sweeps when no watch is in force, or nothing has been read.</summary>
+    /// <remarks>
+    /// <b>Silent until the board is read</b>, because the nominations table above
+    /// already says it is reading or why it could not - two panes saying the
+    /// same "reading" is one sentence twice.
+    /// </remarks>
+    public static string Sweeps(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Board is null || state.Watches is null || Rows.Sweeps(state).Count > 0)
+        {
+            return string.Empty;
+        }
+
+        // A TENANT WATCHING NOTHING is waiting for somebody to declare a watch,
+        // which is a different next step from waiting for one to find something.
+        return "  no watch is in force. A watch is what goes looking - `gg airspace apply` "
+             + "declares one.";
     }
 
     /// <summary>What the plans pane says when there is no table to draw.</summary>

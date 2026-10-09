@@ -45,6 +45,19 @@ public class AVerbAsksForAPageTests
     }
 
     [Test]
+    public async Task The_watches_take_them_too()
+    {
+        // THE BOARD'S SWEEPS PAGE IN THE CONSOLE, so the verb that answers the
+        // same read pages the same way - a listing that printed `More:` with no
+        // flag to follow it would be an instruction nobody could carry out.
+        var sized = CliArgs.Parse(["watches", "--limit", "20"]) as CliAction.Watches;
+        await Assert.That(sized!.Limit).IsEqualTo(20);
+
+        var continued = CliArgs.Parse(["watches", "--after", "d2F0Y2gtMjA"]) as CliAction.Watches;
+        await Assert.That(continued!.After).IsEqualTo("d2F0Y2gtMjA");
+    }
+
+    [Test]
     public async Task Neither_verb_loses_what_it_already_took()
     {
         // THE FLAGS THAT WERE THERE FIRST. A parameter added to a verb that

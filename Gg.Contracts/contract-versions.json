@@ -1467,5 +1467,11 @@
     "surface": "920b3be81d7ae20a012b85d9fc749ee9ac2cc46c79390963fa3f01636fddef0d",
     "endpoints": "073872f37069624b8f1f8708b897cd8a9b7820144c84b0a78c5d0da67d1c7ee1",
     "note": "A flight summary says the stage its flight reached. FlightSummary gains Stage, optional: one of FlightStages - created, ready, leased, worked, evaluated, ended - by the rule FlightStoryStages.Reached applies to the story, so a list can show where each flight is without reading every story (owner, 2026-10-09: the console's flights tab should show the stage instead of the loop's ending). A different axis from State, which is open for all of the first five. Null is every summary from a control plane before this member, and a reader shows nothing rather than inventing one. No route changes. The control plane pins this version in the PR that fills it."
+  },
+  {
+    "version": "0.286.0",
+    "surface": "8e1993c12f36199e77d7baff7bd165390b84fc40a5c1eb5d30d9f72a782be129",
+    "endpoints": "073872f37069624b8f1f8708b897cd8a9b7820144c84b0a78c5d0da67d1c7ee1",
+    "note": "The watch standings read pages. WatchStandingList gains Next, optional: BoardPage.Next's member read the same way - opaque, composed by the side that ordered the rows, absent on the last page. GET /v1/airspace/watch-standings takes limit and after as GET /v1/board does (owner, 2026-10-09: the board's nominations and sweeps are two tables, and both scroll without end like every other list). A control plane before this member answers every watch and no cursor, which a reader takes as the end. No route changes. The control plane pins this version in the PR that serves the page."
   }
 ]

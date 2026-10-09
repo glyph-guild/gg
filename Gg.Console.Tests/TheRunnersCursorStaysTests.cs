@@ -191,8 +191,10 @@ public class TheRunnersCursorStaysTests
         var wired = screen.Split("ValueChanged += OnRowPointedAt").Length - 1;
         var released = screen.Split("ValueChanged -= OnRowPointedAt").Length - 1;
 
-        await Assert.That(built).IsEqualTo(19)
-            .Because("The nineteenth is the PLAN MODAL's legs table - a modal table, so it "
+        await Assert.That(built).IsEqualTo(20)
+            .Because("The twentieth is the BOARD's sweeps, the second of that tab's two "
+                   + "tables (owner, 2026-10-09) - wired, so `wired` moved with it. "
+                   + "The nineteenth is the PLAN MODAL's legs table - a modal table, so it "
                    + "subscribes OnModalRowPointedAt and `wired` stays where it is. It "
                    + "carries a cursor and is focused directly (FocusTarget.PlanLegs), "
                    + "because the modal is two regions and only the top one is driven. "
@@ -227,10 +229,10 @@ public class TheRunnersCursorStaysTests
                    + "nothing. The fourteenth is the compose modal's repositories, which is "
                    + "the second list in a modal that used to be one question - a flight may "
                    + "name several repositories and there was nowhere to say which. The "
-                   + "fifteenth is the BOARD's, which carries two kinds of row in one table "
-                   + "- a nomination somebody could open and a watch that goes looking for "
-                   + "them - because two stacked tables would be two cursors on one screen, "
-                   + "which this console has already met and written down.");
+                   + "fifteenth is the BOARD's nominations. It carried watches too, in one "
+                   + "table, to keep one cursor on one screen; once both lists paged, a page "
+                   + "of nominations pushed every watch down a list the cursor was in, so "
+                   + "the watches became the twentieth.");
 
         // AND THE GAP BETWEEN THESE TWO NUMBERS IS THREE, ALL OF WHICH ARE
         // WIRED TO A HANDLER OF THEIR OWN. "Built but not subscribed to THIS
@@ -244,7 +246,7 @@ public class TheRunnersCursorStaysTests
         // The reason they cannot share OnRowPointedAt is real: it routes by
         // ACTIVE TAB, and the tab behind that modal is Runners. The conclusion
         // drawn from it was not.
-        await Assert.That(wired).IsEqualTo(7)
+        await Assert.That(wired).IsEqualTo(8)
             .Because($"a tab's table that nobody subscribed is a table whose cursor the model "
                    + $"never learns about. Built {built}, wired {wired}.");
         await Assert.That(released).IsEqualTo(wired)

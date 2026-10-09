@@ -2323,6 +2323,13 @@ public static class Keymap
                     // bound in no mode and reads as "all" in a list.
                     new(KeyStroke.Char('*'), Command.ShowEverybodysRows, "everybody's rows")
                         { When = "while the board is showing" },
+
+                    // THE OTHER TABLE, the intents tab's `v' one tab over: a
+                    // view of the same tab, never a different tab. The board is
+                    // nominations over sweeps, each with its own cursor, and
+                    // this is how the keys cross between them.
+                    new(KeyStroke.Char('v'), Command.NextBoardTable, "nominations / sweeps")
+                        { When = "while the board is showing" },
                 ]
                 : [],
             .. context.Showing == TabId.Intents

@@ -561,6 +561,24 @@ public sealed record WatchStanding
 public sealed record WatchStandingList
 {
     public required IReadOnlyList<WatchStanding> Standings { get; init; }
+
+    /// <summary>
+    /// Where this page stopped, to ask for the next one - or null when this is
+    /// all of them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="BoardPage.Next"/>'s member, read the same way: opaque,
+    /// composed by the side that ordered the rows, and absent on the last page.
+    /// </para>
+    /// <para>
+    /// <b>Absent from a control plane that does not page this read</b>, which
+    /// answered every watch at once - so a console asking an older one for a
+    /// page gets all of them and no cursor, and reads that correctly as the
+    /// end.
+    /// </para>
+    /// </remarks>
+    public string? Next { get; init; }
 }
 
 /// <summary>Every watch in force for the tenant.</summary>

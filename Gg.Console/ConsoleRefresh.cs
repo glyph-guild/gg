@@ -86,6 +86,7 @@ public static class ConsoleRefresh
                 TabId.Board => await TheBoardAndItsWatchesAsync(
                     data,
                     AsManyAsAreShown(on.Board?.Nominations.Count ?? 0),
+                    AsManyAsAreShown(on.Watches?.Standings.Count ?? 0),
                     cancellationToken),
                 // BOTH HALVES, because a credential row is keyed on repositories
                 // UNION credentials. Reading only the credentials draws a list
@@ -139,16 +140,18 @@ public static class ConsoleRefresh
     /// nothing is sweeping, which is the state slice thirty-nine's rule 11
     /// exists to make impossible.
     /// </remarks>
+    /// <param name="page">How many nominations are held, and so asked for again.</param>
+    /// <param name="watches">How many watches are held, on their own count: the two tables page separately.</param>
     private static async Task<Func<AppState, AppState>> TheBoardAndItsWatchesAsync(
-        ConsoleData data, int page, CancellationToken cancellationToken)
+        ConsoleData data, int page, int watches, CancellationToken cancellationToken)
     {
         // ENDED ROWS TOO. The queue already shows what is standing; what this
         // pane adds is what happened to the rest, and a board that dropped
         // every answered row would be the queue with a second name.
         var board = Apply(await data.BoardAsync(ended: true, cancellationToken, limit: page));
-        var watches = await data.WatchesAsync(cancellationToken);
+        var standings = await data.WatchesAsync(cancellationToken, limit: watches);
 
-        return state => ConsoleProjection.Apply(board(state), watches);
+        return state => ConsoleProjection.Apply(board(state), standings);
     }
 
     /// <summary>

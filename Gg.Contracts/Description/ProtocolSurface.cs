@@ -2363,7 +2363,7 @@ public static class ProtocolSurface
                 ["name", "version", "executor", "lastHeardAt", "outcome", "nominated",
                  "diagnosis", "quietSince", "opened", "window", "budgeted",
                  "nextSweepAt", "nextSweepSaid", "account"],
-            [typeof(WatchStandingList)] = ["standings"],
+            [typeof(WatchStandingList)] = ["standings", "next"],
             [typeof(EnvironmentStrategy)] =
                 ["kind", "environment", "inventory", "pullPoint", "image", "bounds", "build",
                  "builtFrom", "hooks", "filesystem"],

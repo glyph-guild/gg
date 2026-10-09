@@ -73,27 +73,27 @@ public static class BoardDetails
             Board = standing,
             Watches = null,
             BoardShowsEverybody = true,
+            BoardTable = BoardTable.Nominations,
         };
 
         var key = id.ToString();
 
         return looking with
         {
-            BoardSelected = Rows.Board(looking).ToList().FindIndex(r => r.Key == key),
+            BoardSelected = Rows.Nominations(looking).ToList().FindIndex(r => r.Key == key),
         };
     }
 
-    /// <summary>The row under the cursor, whichever kind it is.</summary>
+    /// <summary>The row under the cursor of whichever table has the keys.</summary>
     public static BoardRow? Under(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
 
         state = Seen(state);
-        var rows = Rows.Board(state);
+        var rows = Rows.BoardDriven(state);
+        var cursor = Rows.BoardCursor(state);
 
-        return state.BoardSelected >= 0 && state.BoardSelected < rows.Count
-            ? rows[state.BoardSelected]
-            : null;
+        return cursor >= 0 && cursor < rows.Count ? rows[cursor] : null;
     }
 
     /// <summary>The nomination under the cursor, standing or ended.</summary>

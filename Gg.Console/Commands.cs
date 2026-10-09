@@ -1450,6 +1450,8 @@ public static class ShellCommands
         Command.FlyForKind,
         // AND PLANNING WITH ONE (slice sixty-six): it hands the terminal to a child.
         Command.PlanWithAgent,
+        // AND PLANNING FROM A WORK ITEM, which hands it to the mux the same way.
+        Command.PlanFromIntent,
         // AND STARTING AN AGENT BESIDE GG, which hands the terminal to the mux.
         Command.StartClaudeCode,
 

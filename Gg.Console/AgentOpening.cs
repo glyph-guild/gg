@@ -46,9 +46,21 @@ public static class AgentOpening
     {
         static string Q(string tool) => PlanningTool.Qualified(tool);
 
+        // FROM A WORK ITEM (owner, 2026-10-08): its intent is set before the agent starts, and the
+        // agent reads the item through its tracker's reader before it drafts anything.
+        var from = seed is null
+            ? ""
+            : $" It starts from work item {seed.Provider}#{seed.Id}"
+            + (seed.Title is { Length: > 0 } title ? $" \"{title}\"" : "")
+            + $": the plan's intent is already set to it, so do not call {Q(PlanningTool.SetIntent)} "
+            + $"unless I ask. Read the item first with mcp__{seed.Provider}__{ItemTool.Name} (and its "
+            + $"history with mcp__{seed.Provider}__{ItemTool.HistoryName}), then propose legs that "
+            + "deliver it.";
+
         return $"You are helping me draft a gg plan, the draft '{draft}': one intent and a list of "
-             + "legs, each leg a piece of work one flight will do. Draft it only with the "
-             + $"{PlanningTool.Server} tools. Start with {Q(PlanningTool.ShowPlan)}: the draft may "
+             + "legs, each leg a piece of work one flight will do."
+             + from
+             + $" Draft it only with the {PlanningTool.Server} tools. Start with {Q(PlanningTool.ShowPlan)}: the draft may "
              + "already have legs, so carry on from what is there. Use "
              + $"{Q(PlanningTool.SetIntent)} to say what the plan is about, {Q(PlanningTool.DraftLeg)} "
              + "to add each leg (a subject saying which piece, a work_kind from its menu, a reason, "
@@ -57,8 +69,10 @@ public static class AgentOpening
              + "the same draft from gg's panel (ctrl-g), so show the plan again before changing a "
              + "leg you have not just seen. Do not write the plan file yourself and do not start any "
              + $"of the work. Only call {Q(PlanningTool.Propose)} when I say so: it proposes the plan "
-             + "as me, and it waits for its gate. Begin by showing the plan and asking me what it "
-             + "is for.";
+             + "as me, and it waits for its gate. "
+             + (seed is null
+                 ? "Begin by showing the plan and asking me what it is for."
+                 : "Begin by reading the item, then show me the plan you would propose for it.");
     }
 
     /// <summary>The opening for an agent managing the airspace, in the working copy it runs in.</summary>

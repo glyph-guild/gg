@@ -39,7 +39,8 @@ public class APlanStartsFromAWorkItemTests
     public async Task It_is_the_shells_to_run_and_the_reducers_to_leave()
     {
         await Assert.That(ShellCommands.Handled).Contains(Command.PlanFromIntent);
-        await Assert.That(Reducer.Reduce(Listed(), Command.PlanFromIntent)).IsEqualTo(Listed());
+        var before = Listed();
+        await Assert.That(Reducer.Reduce(before, Command.PlanFromIntent)).IsEqualTo(before);
     }
 
     [Test]

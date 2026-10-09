@@ -1784,6 +1784,7 @@ public static class Keymap
             new(KeyStroke.Char('c'), Command.CopyModal, "copy"),
 
             new(KeyStroke.Char('o'), Command.OpenWorkItem, "open it in a browser"),
+            new(KeyStroke.Char('l'), Command.PlanFromIntent, "plan from it with an agent"),
             new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 
@@ -2320,6 +2321,10 @@ public static class Keymap
                     // THE NEXT SOURCE ON THE LEFT STRIP, the airspace tab's `v` one tab over: a
                     // view of the same tab, never a different tab.
                     new(KeyStroke.Char('v'), Command.NextIntentSource, "next source")
+                        { When = "while the intents tab is showing" },
+
+                    // A PLAN FROM THIS ITEM (owner, 2026-10-08): `l`, the plan key everywhere else.
+                    new(KeyStroke.Char('l'), Command.PlanFromIntent, "plan from this")
                         { When = "while the intents tab is showing" },
 
                     // CHOSEN FOR BEING FREE, AND SAID TO BE. Every letter this

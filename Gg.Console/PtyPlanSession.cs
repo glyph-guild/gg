@@ -67,6 +67,10 @@ public sealed class PtyPlanSession
         }
     }
 
+    /// <summary>A fresh draft for a plan about <paramref name="seed"/>, its intent already set.</summary>
+    public static string SeedDraft(ItineraryDrafts drafts, IEnumerable<string> labels, PlanSeed seed) =>
+        FreshDraft(drafts, labels);
+
     private readonly string _agentCommand;
     private readonly Func<IHostTerminal?> _terminal;
     private readonly SelfInvocation? _self;
@@ -82,7 +86,9 @@ public sealed class PtyPlanSession
         HostRun? host = null,
         ItineraryDrafts? drafts = null,
         Action<string>? say = null,
-        string draft = Draft)
+        string draft = Draft,
+        PlanSeed? seed = null,
+        Gg.Local.IntentReader? reader = null)
     {
         _draft = draft;
         _agentCommand = agentCommand

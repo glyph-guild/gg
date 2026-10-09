@@ -883,6 +883,12 @@ public enum Command
     PlanWithAgent,
 
     /// <summary>
+    /// Plan an itinerary with an agent, starting from the work item under the cursor or open in
+    /// the modal: <c>l</c>.
+    /// </summary>
+    PlanFromIntent,
+
+    /// <summary>
     /// Start a Claude Code agent in the mux, here, and show it: <c>n</c> then <c>s</c>.
     /// </summary>
     StartClaudeCode,

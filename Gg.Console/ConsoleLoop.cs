@@ -2086,14 +2086,14 @@ public sealed class ConsoleLoop(
         //
         // ONCE. The question sets AskingKindFor, and answering clears it before
         // coming back through here, so this cannot ask about its own answer.
+        //
+        // AND THROUGH THE REDUCER'S QUESTION, NOT A COPY OF IT. The copy that
+        // stood here set the kind and nothing else, so the repositories tab
+        // opened with no registry read and nothing to draw - and turning to it
+        // crashed the console.
         if (state.AskingKindFor is ComposingFor.Nothing && WorkKinds.Declared(state).Count > 0)
         {
-            return state with
-            {
-                Mode = UiMode.WorkKindChoice,
-                AskingKindFor = ComposingFor.WorkItem,
-                KindSelected = 0,
-            };
+            return Reducer.Asked(state, ComposingFor.WorkItem);
         }
 
         var id = subject.Id;

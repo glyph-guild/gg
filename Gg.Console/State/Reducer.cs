@@ -1509,8 +1509,16 @@ public static class Reducer
     /// answer is not a question; for those tenants this is exactly the modal it
     /// always was.
     /// </para>
+    /// <para>
+    /// <b>Public because the browse door asks it from the loop.</b> `f` is the
+    /// shell's, so its question is opened between sessions - and it opened its
+    /// own copy, which seeded the kind and nothing else: no repositories, no
+    /// tab, no read. The repositories tab then had nothing to draw, and
+    /// turning to it crashed the console. One door, so the seeding cannot be
+    /// half-copied again.
+    /// </para>
     /// </remarks>
-    private static AppState Asked(AppState state, ComposingFor door) =>
+    public static AppState Asked(AppState state, ComposingFor door) =>
         WorkKinds.Declared(state).Count > 0
             ? Modal(state, UiMode.WorkKindChoice) with
             {

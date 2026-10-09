@@ -378,6 +378,7 @@ public static class FocusChange
     public static WorkKindWidget KindWidget(WorkKindTab tab, bool repositoriesDrawn) => tab switch
     {
         WorkKindTab.Repositories when repositoriesDrawn => WorkKindWidget.Repositories,
+        WorkKindTab.Repositories => WorkKindWidget.Frame,
         _ => WorkKindWidget.Kinds,
     };
 }

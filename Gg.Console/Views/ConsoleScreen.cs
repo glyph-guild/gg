@@ -2574,6 +2574,16 @@ public sealed class ConsoleScreen : Window
         Columned();
         Render();
         Watch();
+
+        // A QUESTION OPENED BY THE LOOP STILL WANTS ITS READ. Reads start when
+        // a command is pressed in a session, and `f` asks what a flight is for
+        // between sessions - so this session opened on a repositories tab
+        // waiting for a registry nothing had asked for, and it said "reading"
+        // forever.
+        if (ShellCommands.ReadOnArrival(State) is { } wanted)
+        {
+            Asked(wanted);
+        }
     }
 
     /// <summary>
@@ -6806,9 +6816,14 @@ public sealed class ConsoleScreen : Window
                 // modal - the flight modal and the work item modal each learned
                 // this the same way, by putting the keyboard in a tab nobody
                 // had turned to and dragging the bar after it.
-                (State.WorkKindTab is WorkKindTab.Repositories && _composeRepos.Visible
-                    ? _composeRepos
-                    : (View)_kindChoices).SetFocus();
+                var widget = FocusChange.KindWidget(State.WorkKindTab, _composeRepos.Visible);
+
+                (widget switch
+                {
+                    WorkKindWidget.Repositories => _composeRepos,
+                    WorkKindWidget.Kinds => _kindChoices,
+                    _ => (View)_modal,
+                }).SetFocus();
 
                 // RETURNS, LIKE EVERY ARM AROUND IT. It ended in `break', which
                 // falls through to the TAB landing below - so placing the
@@ -6816,7 +6831,12 @@ public sealed class ConsoleScreen : Window
                 // Terminal.Gui threw on the second move. Harmless while this
                 // arm almost never ran; the tab made it run on every turn.
                 _landed = null;
-                _landedWorkKindTab = State.WorkKindTab;
+
+                if (widget is not WorkKindWidget.Frame)
+                {
+                    _landedWorkKindTab = State.WorkKindTab;
+                }
+
                 return;
 
             case FocusTarget.CredentialRepositoryChoices:

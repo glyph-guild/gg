@@ -2134,6 +2134,9 @@ public static class ProtocolSurface
             [typeof(LandingProposal)] = ["title", "description"],
             [typeof(PreviewUrl)] = ["url", "exposure", "slot"],
             [typeof(EnvelopeVariable)] = ["name", "value"],
+            [typeof(McpServer)] = ["key", "type", "command", "args", "env", "url", "headers"],
+            [typeof(McpSetting)] = ["name", "value"],
+            [typeof(LoopMcp)] = ["server", "allow"],
             [typeof(LeasePreview)] = ["exposure", "slot", "hostname", "credential", "port", "scheme"],
             [typeof(LeaseLanding)] = ["title", "description"],
             [typeof(WorkItemFieldEdit)] = ["path", "value"],
@@ -2153,7 +2156,7 @@ public static class ProtocolSurface
             [typeof(LeaseLoop)] =
                 ["loopId", "instance", "executor", "moves", "wallClockSeconds", "onExhaustion",
                  "resumesFrom", "instructions", "brief", "landing", "variables", "produces",
-                 "learned", "instanceHold", "hooks"],
+                 "learned", "instanceHold", "hooks", "mcpServers", "mcp"],
             [typeof(LoopOutcome)] =
                 ["loopId", "outcome", "reason", "executor", "attempts", "durationMs", "movesUsed",
                  "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
@@ -2191,7 +2194,7 @@ public static class ProtocolSurface
             [typeof(Obligation)] = ["id", "check", "when", "rule", "approver", "provenance", "evidence"],
             [typeof(LoopBudget)] = ["wallClock", "attempts"],
             [typeof(Loop)] =
-                ["id", "executor", "discharges", "moves", "budget", "onExhaustion"],
+                ["id", "executor", "discharges", "moves", "budget", "onExhaustion", "mcp"],
             [typeof(Destination)] =
                 ["id", "kind", "requires", "preserveUnadmitted", "branch", "title", "description",
                  "opens", "opensAs", "capPerPass", "maySelect", "mayPerform", "mayWrite"],
@@ -2200,7 +2203,7 @@ public static class ProtocolSurface
                 ["description", "brief", "context", "obligations", "instructions", "loops",
                  "destinations", "environments", "repositories", "environment", "repository",
                  "accepts", "produces", "learned", "targeting", "hosts", "variables",
-                 "offers"],
+                 "offers", "mcpServers"],
             [typeof(EnvelopeInstruction)] = ["text", "provenance"],
             [typeof(EnvelopeState)] = ["version", "envelope", "updatedAt", "updatedBy"],
             [typeof(EnvelopeApplied)] = ["version", "appliedAt", "changed", "widens", "flight", "awaiting"],

@@ -285,6 +285,33 @@ public static class EnvelopeComposition
         // tells an agent something was learned about its environment when nothing was.
         var learned = learnedEntries.Count == 0 ? null : learnedEntries;
 
+        // THE EXTERNAL SERVERS, FROM THE FLOOR AND ONLY THE FLOOR (ADR-0040
+        // Amendment 1). Named here because this composer reads no attribute: a
+        // root-only member it does not mention rides from the base, and the base
+        // is the work kind, so root's definitions would vanish for every flight
+        // that has one - exactly how `learned` went missing.
+        //
+        // A NAME ROOT DOES NOT DEFINE IS REFUSED HERE, where both documents are in
+        // hand. Later, it would be a flight launched without the tool its loop was
+        // promised, which is the silence this product exists to name.
+        var mcpServers = root?.Document?.McpServers;
+
+        foreach (var loop in baseDocument.Loops)
+        {
+            foreach (var use in loop.Mcp ?? [])
+            {
+                if (mcpServers?.Any(s => string.Equals(s.Key, use.Server, StringComparison.Ordinal)) != true)
+                {
+                    return new Composition
+                    {
+                        Refused = $"Loop '{loop.Id}' in '{@base.Name}' names the MCP server "
+                                + $"'{use.Server}' under 'mcp:', and root defines no server by that "
+                                + "name under 'mcp-servers:'. Define it in root, or correct the name.",
+                    };
+                }
+            }
+        }
+
         var instructions = new List<EnvelopeInstruction>();
 
         foreach (var layer in layers
@@ -403,6 +430,7 @@ public static class EnvelopeComposition
                 Obligations = composed,
                 Instructions = instructions,
                 Learned = learned,
+                McpServers = mcpServers,
                 Destinations = destinations,
             },
         };

@@ -188,6 +188,18 @@ public static class EnvelopeText
             }
         }
 
+        // EXTERNAL MCP SERVERS, RENDERED ONLY WHEN DEFINED, and in the order the
+        // author wrote them: a definition is passed to the agent as written, and
+        // its arguments are a command line, where order is meaning.
+        if (envelope.McpServers is { } servers)
+        {
+            text.Append("mcp-servers:\n");
+            foreach (var server in servers)
+            {
+                McpServerBlock(text, server);
+            }
+        }
+
         // HOW THIS KIND PICKS A MACHINE, when it says. Written only when
         // present, and absence means `any` - which is what every envelope
         // written before the line existed already meant, so nothing renders
@@ -269,6 +281,16 @@ public static class EnvelopeText
                 text.Append($"{Indent}{Indent}{Indent}attempts: {attempts.ToString(System.Globalization.CultureInfo.InvariantCulture)}\n");
             }
             text.Append($"{Indent}{Indent}on-exhaustion: {Scalar(loop.OnExhaustion)}\n");
+
+            if (loop.Mcp is { } uses)
+            {
+                text.Append($"{Indent}{Indent}mcp:\n");
+                foreach (var use in uses)
+                {
+                    text.Append($"{Indent}{Indent}{Indent}{Scalar(use.Server)}:\n");
+                    Sequence(text, "allow", use.Allow, depth: 4);
+                }
+            }
         }
 
         text.Append("destinations:\n");
@@ -456,6 +478,54 @@ public static class EnvelopeText
     /// call sites do not have.
     /// </para>
     /// </remarks>
+    private static void McpServerBlock(StringBuilder text, McpServer server)
+    {
+        text.Append($"{Indent}{Scalar(server.Key)}:\n");
+
+        foreach (var (key, value) in ((string, string?)[])
+                 [("type", server.Type), ("command", server.Command)])
+        {
+            if (value is not null)
+            {
+                text.Append($"{Indent}{Indent}{key}: {Scalar(value)}\n");
+            }
+        }
+
+        if (server.Args is { } args)
+        {
+            AsWritten(text, "args", args, depth: 2);
+        }
+
+        Settings(text, "env", server.Env);
+
+        if (server.Url is { } url)
+        {
+            text.Append($"{Indent}{Indent}url: {Scalar(url)}\n");
+        }
+
+        Settings(text, "headers", server.Headers);
+    }
+
+    private static void Settings(StringBuilder text, string key, IReadOnlyList<McpSetting>? settings)
+    {
+        if (settings is null)
+        {
+            return;
+        }
+
+        if (settings.Count == 0)
+        {
+            text.Append($"{Indent}{Indent}{key}: {{}}\n");
+            return;
+        }
+
+        text.Append($"{Indent}{Indent}{key}:\n");
+        foreach (var setting in settings)
+        {
+            text.Append($"{Indent}{Indent}{Indent}{setting.Name}: {Scalar(setting.Value)}\n");
+        }
+    }
+
     private static void DestinationBlock(StringBuilder text, Destination destination)
     {
         text.Append($"{Indent}{Scalar(destination.Id)}:\n");

@@ -71,7 +71,7 @@ public static class CredentialWizard
         [.. CredentialProviders.All.Where(p => p.TokenPage is not null)];
 
     /// <summary>The last row on the first step, for a service gg does not know.</summary>
-    public const string SomethingElse = "something else";
+    public const string SomethingElse = "Other";
 
     /// <summary>The service the draft names, or null for something else or none yet.</summary>
     public static CredentialProvider? Service(CredentialDraft? draft) =>
@@ -96,7 +96,7 @@ public static class CredentialWizard
         if (service is null)
         {
             return [.. repositories.Select(r => new CredentialTarget(
-                CredentialSubjects.Repository, r.Path, r.Path))];
+                CredentialSubjects.Repository, r.Path, $"The {r.Path} repository"))];
         }
 
         var subjects = service.Accesses.Keys.Select(k => k.Subject).ToHashSet(StringComparer.Ordinal);
@@ -107,7 +107,7 @@ public static class CredentialWizard
             targets.AddRange(repositories
                 .Where(r => CredentialProviders.Find(r.Provider) == service)
                 .Select(r => new CredentialTarget(
-                    CredentialSubjects.Repository, r.Path, $"{r.Path}, its code")));
+                    CredentialSubjects.Repository, r.Path, $"The {r.Path} repository")));
         }
 
         if (subjects.Contains(CredentialSubjects.Tracker))
@@ -116,13 +116,13 @@ public static class CredentialWizard
             // one its declarations read - `ado`, not the catalog's own key.
             var key = service.Aliases.FirstOrDefault() ?? service.Key;
             targets.Add(new CredentialTarget(
-                CredentialSubjects.Tracker, key, $"its work items, read as '{key}'"));
+                CredentialSubjects.Tracker, key, "Work items (tickets)"));
         }
 
         if (subjects.Contains(CredentialSubjects.Analysis))
         {
             targets.Add(new CredentialTarget(
-                CredentialSubjects.Analysis, service.Key, "its findings about your code"));
+                CredentialSubjects.Analysis, service.Key, "Code analysis results"));
         }
 
         return targets;
@@ -164,7 +164,7 @@ public static class CredentialWizard
         {
             CredentialWizardStep.Service => [.. Services.Select(s => s.Name), SomethingElse],
             CredentialWizardStep.For => [.. Targets(state).Select(t => t.Said)],
-            CredentialWizardStep.Access => [.. Accesses(state).Select(a => a.Words)],
+            CredentialWizardStep.Access => [.. Accesses(state).Select(a => Offered(state, a))],
             _ => [],
         };
     }
@@ -194,7 +194,34 @@ public static class CredentialWizard
             CredentialPlaces.From(state.Repositories?.Repositories ?? [], []));
     }
 
+    /// <summary>
+    /// An access in plain words, with the service's own label beside it so a person
+    /// can find the same box on the page that makes the token.
+    /// </summary>
+    private static string Offered(AppState state, CredentialAccess access)
+    {
+        var plain = Plainly(access.Scope);
+
+        return Service(state.CredentialDraft) is { } service
+            ? $"{plain} (on {service.Name}: {access.Words})"
+            : plain;
+    }
+
+    /// <summary>What a scope lets gg do, as a person would say it.</summary>
+    private static string Plainly(string scope) =>
+        scope == CredentialScopes.Write ? "Read and make changes" : "Read only";
+
+    /// <summary>What the chosen target is, as its row said it.</summary>
+    private static string UsedFor(AppState state, CredentialDraft draft) =>
+        Targets(state).FirstOrDefault(t => t.Subject == draft.Subject && t.Named == draft.Named)
+            ?.Said ?? draft.Named ?? "";
+
     /// <summary>What the step showing asks, above its list or its fields.</summary>
+    /// <remarks>
+    /// <b>Plain English, by the owner's word</b> ("the text in the wizard is not friendly").
+    /// A person adding a token should never need gg's own vocabulary - registering,
+    /// subjects, scopes, sealing, flights - and a test holds every step to that.
+    /// </remarks>
     public static string Said(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -206,26 +233,32 @@ public static class CredentialWizard
         return draft?.Step switch
         {
             CredentialWizardStep.Service =>
-                "Which service is this token for? It is sent nowhere else.",
+                "Which service did this token come from?",
 
             CredentialWizardStep.For => Targets(state).Count == 0
-                ? $"Nothing registered here is on {called}. Register the repository first, "
-                + "or go back and choose another service."
-                : $"What on {called} is it for?",
+                ? $"gg doesn't have any {called} repositories set up yet. Add one first, "
+                + "or press Back and pick a different service."
+                : "What should gg use this token for?",
 
             CredentialWizardStep.Access => service?.TokenPage is { } page
-                ? $"How much may it do? These are {called}'s own words: make the token at\n"
-                + $"  {page}\nand tick the same there."
-                : "How much may it do?",
+                ? "How much should gg be allowed to do with it?\n"
+                + $"When you make the token on {called}, give it the same permission:\n"
+                + $"  {page}"
+                : "How much should gg be allowed to do with it?",
 
             CredentialWizardStep.Account =>
-                $"Which account does it act as - {service?.IdentityHint ?? "the account the token belongs to"}? "
-              + "Then paste the token. It is not shown, and it is never part of gg's state.",
+                $"Which {called} account does this token belong to? Type the username, "
+              + "then paste the token.\n"
+              + "The token is hidden as you type, and gg keeps it encrypted on this computer.",
 
-            CredentialWizardStep.Review => Named(state) is { } name
-                ? $"{name.Sentence}\nThe token stays on this machine, sealed to you. "
-                + "Enter registers it."
-                : "Something is missing; go back a step.",
+            CredentialWizardStep.Review when draft is { Scope: { } scope, Identity: { } identity } =>
+                "Check this is right, then press Enter to save it.\n\n"
+              + $"  Service    {service?.Name ?? "Other"}\n"
+              + $"  Used for   {UsedFor(state, draft)}\n"
+              + $"  Access     {Plainly(scope)}\n"
+              + $"  Account    {identity}",
+
+            CredentialWizardStep.Review => "Something is missing. Press Back to fill it in.",
 
             _ => "",
         };
@@ -234,16 +267,16 @@ public static class CredentialWizard
     /// <summary>The short help beside each step.</summary>
     public static string Help(CredentialWizardStep step) => step switch
     {
-        CredentialWizardStep.Service => "The services gg knows by name. Anything else is "
-                                      + "named by what it is for.",
-        CredentialWizardStep.For => "A repository's code, a tracker's work items, or an "
-                                  + "analysis service's findings.",
-        CredentialWizardStep.Access => "The narrowest that will do. A flight cannot use more "
+        CredentialWizardStep.Service => "Pick the service where you made the token, or "
+                                      + "where you will make it. If it isn't listed, "
+                                      + "choose Other.",
+        CredentialWizardStep.For => "gg only uses the token for what you pick here.",
+        CredentialWizardStep.Access => "Pick the least that will work. gg can never do more "
                                      + "than the token allows.",
-        CredentialWizardStep.Account => "The account is what a flight log names. The token "
-                                      + "is held for this one registration and then sealed.",
-        CredentialWizardStep.Review => "Nothing has been registered yet. Back changes an "
-                                     + "answer; esc drops all of it.",
+        CredentialWizardStep.Account => "The username shows up in gg's history, so it's clear "
+                                      + "whose access was used.",
+        CredentialWizardStep.Review => "Nothing is saved until you press Enter. Press Back "
+                                     + "to change something, or Esc to cancel.",
         _ => "",
     };
 }

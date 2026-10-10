@@ -2623,8 +2623,8 @@ public sealed class ConsoleScreen : Window
             {
                 Title = WizardStepTitle(step),
                 HelpText = CredentialWizard.Help(step),
-                BackButtonText = "back",
-                NextButtonText = step is CredentialWizardStep.Review ? "register" : "next",
+                BackButtonText = "Back",
+                NextButtonText = step is CredentialWizardStep.Review ? "Save" : "Next",
             };
 
             var said = new Label { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Auto() };
@@ -2653,12 +2653,12 @@ public sealed class ConsoleScreen : Window
         // secret field in this program, beside the broadcast's passphrase, and on
         // the same terms: what is typed goes to the holder, never to the model.
         var accountSaid = _wizardSaid[CredentialWizardStep.Account];
-        var accountLabel = new Label { Text = "account", X = 0, Y = Pos.Bottom(accountSaid) + 1 };
-        _wizardIdentity = new TextField { X = 9, Y = Pos.Top(accountLabel), Width = Dim.Fill() };
-        var tokenLabel = new Label { Text = "token", X = 0, Y = Pos.Bottom(accountLabel) + 1 };
+        var accountLabel = new Label { Text = "Username", X = 0, Y = Pos.Bottom(accountSaid) + 1 };
+        _wizardIdentity = new TextField { X = 10, Y = Pos.Top(accountLabel), Width = Dim.Fill() };
+        var tokenLabel = new Label { Text = "Token", X = 0, Y = Pos.Bottom(accountLabel) + 1 };
         _wizardToken = new TextField
         {
-            X = 9,
+            X = 10,
             Y = Pos.Top(tokenLabel),
             Width = Dim.Fill(),
             Secret = true,
@@ -6348,11 +6348,11 @@ public sealed class ConsoleScreen : Window
     /// <summary>What each step is called, on the wizard's title and its list's column.</summary>
     private static string WizardStepTitle(CredentialWizardStep step) => step switch
     {
-        CredentialWizardStep.Service => "service",
-        CredentialWizardStep.For => "what for",
-        CredentialWizardStep.Access => "access",
-        CredentialWizardStep.Account => "account",
-        _ => "review",
+        CredentialWizardStep.Service => "Service",
+        CredentialWizardStep.For => "Used for",
+        CredentialWizardStep.Access => "Access",
+        CredentialWizardStep.Account => "Account",
+        _ => "Review",
     };
 
     /// <summary>

@@ -325,7 +325,13 @@ public static class RunnerHost
         //
         // Null is a machine that serves no preview, which is every machine
         // whose tenant has declared no exposure.
-        Func<string, string?>? secretFor = null)
+        Func<string, string?>? secretFor = null,
+        // WHERE AN AD HOC AGENT SESSION GETS ITS TERMINAL, and the roots it may
+        // start under - both null unless this machine's own file opted in
+        // (accept-agent-sessions; slice seventy, ADR-0039). The CLI builds the
+        // host because this project may not allocate a terminal.
+        IHostAgentSessions? agentHost = null,
+        IReadOnlyList<string>? agentRoots = null)
     {
         // Longer than the claim's long poll, or the client aborts every idle
         // claim and the long poll becomes a busy loop with extra steps.
@@ -470,13 +476,28 @@ public static class RunnerHost
                 agent, login, new SystemClock(), kept: Kept,
                 saying: line => System.Console.WriteLine($"gg: {line}"));
 
+        // THE SESSIONS, OR NOTHING: a host only if the machine opted in, and only
+        // reachable at all if the runner can be driven. The agent authenticates as
+        // a flight's does - the machine's own token, in the environment.
+        using var agentSessions = agentHost is null || identityKey is null
+            ? null
+            : new AgentSessions(
+                agentHost,
+                agentRoots ?? [],
+                flying: () => says.Flying,
+                now: () => DateTimeOffset.UtcNow,
+                environment: () => agent is not null && agentToken?.Invoke() is { Length: > 0 } token
+                    ? new Dictionary<string, string> { [agent.TokenVariable] = token }
+                    : new Dictionary<string, string>());
+
         using var attended = identityKey is null
             ? null
             : new AttendedSession(
                 identityKey,
                 new RunnerChannel(stunServers ?? [], TimeSpan.FromSeconds(20)),
                 new AskDispatch(says, keepCredential, ceremony, kept: Kept),
-                says);
+                says,
+                agentSessions is null ? null : new AgentChannelServer(agentSessions));
 
         // ONE CLIENT, SO THE SWEEP IS THIS RUNNER. A second one would be a
         // second reading of the credential, and the sweep is served to a
@@ -537,7 +558,8 @@ public static class RunnerHost
             environments: environments is null ? null : environments.Read,
             // HOW A SLOT'S CREDENTIAL IS FOUND ON THIS MACHINE. Passed straight
             // through: the root routes by scheme, and the loop only asks.
-            secretFor: secretFor)
+            secretFor: secretFor,
+            agentSessions: agentSessions)
         {
             HoldFor = holdFor,
             FileReader = fileReader,

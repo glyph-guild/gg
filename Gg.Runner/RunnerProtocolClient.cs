@@ -158,7 +158,9 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
         string runnerId,
         IReadOnlyList<string> labels,
         bool? acceptsConfiguration,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool? acceptsAgentSessions = null,
+        IReadOnlyList<AgentSessionStanding>? agentSessions = null)
     {
         using var request = Request(HttpMethod.Post, $"/v1/runners/{runnerId}/heartbeat");
         request.Content = JsonContent.Create(
@@ -166,6 +168,8 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
             {
                 Labels = labels,
                 AcceptsConfiguration = acceptsConfiguration,
+                AcceptsAgentSessions = acceptsAgentSessions,
+                AgentSessions = agentSessions,
             },
             RunnerJsonContext.Default.RunnerHeartbeat);
 

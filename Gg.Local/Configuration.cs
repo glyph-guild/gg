@@ -220,6 +220,26 @@ public sealed record Configuration
     /// </remarks>
     public bool? AcceptAgentLogin { get; init; }
 
+    /// <summary>
+    /// Whether a person may start or attach to an ad hoc agent session on this
+    /// machine - the `claude` CLI as it is, in a terminal of its own, driven from
+    /// their console (slice seventy, ADR-0039).
+    /// </summary>
+    /// <remarks>
+    /// <b>accept-agent-login's three rules</b> - off unless it is here and true, no
+    /// environment variable, never offerable - and a reason of its own: this is a
+    /// standing way for a person to type into a process on this machine, and a
+    /// control plane that could turn it on would be granting itself that.
+    /// </remarks>
+    public bool? AcceptAgentSessions { get; init; }
+
+    /// <summary>
+    /// Where an ad hoc session may start, comma-separated; absent is the home
+    /// directory.
+    /// </summary>
+    /// <remarks>File-only, like <see cref="AcceptAgentSessions"/>, for its reason.</remarks>
+    public string? AgentSessionRoots { get; init; }
+
     /// <summary>Relay addresses for the runner and console peer connection.</summary>
     public string? StunServers { get; init; }
 

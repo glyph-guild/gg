@@ -267,11 +267,18 @@ public interface IRunnerProtocol
     /// composed without a credential store has nothing to say - but it has to
     /// be said on purpose.
     /// </remarks>
+    /// <param name="acceptsAgentSessions">
+    /// Whether this machine takes ad hoc agent sessions; null from a machine that
+    /// did not opt in (slice seventy).
+    /// </param>
+    /// <param name="agentSessions">The sessions it holds, when it takes them.</param>
     Task<HeartbeatAccepted> HeartbeatAsync(
         string runnerId,
         IReadOnlyList<string> labels,
         bool? acceptsConfiguration,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        bool? acceptsAgentSessions = null,
+        IReadOnlyList<AgentSessionStanding>? agentSessions = null);
 
     /// <summary>
     /// Says what the allowance this machine spends from has left.

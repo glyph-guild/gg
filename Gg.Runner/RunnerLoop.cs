@@ -457,8 +457,14 @@ public sealed class RunnerLoop(
     // need a tunnel to assert.
     //
     // LAST and defaulted, because every existing caller passes positionally.
-    Exposures.IExposureConnector? connector = null)
+    Exposures.IExposureConnector? connector = null,
+    // THE AD HOC AGENT SESSIONS THIS MACHINE HOLDS, or null for one whose owner
+    // did not opt in (slice seventy, ADR-0039). Every beat says whether it takes
+    // them, lists them, and sweeps the idle ones first.
+    AgentSessions? agentSessions = null)
 {
+    private readonly AgentSessions? _agentSessions = agentSessions;
+
     /// <summary>Seconds the control plane may hold a claim open.</summary>
     public const int ClaimWaitSeconds = 30;
 
@@ -1002,8 +1008,15 @@ public sealed class RunnerLoop(
     {
         try
         {
+            // THE AD HOC SESSIONS, IF THIS MACHINE TAKES THEM (slice seventy):
+            // swept first, so a session ended for idling is reported as ended on
+            // the beat that ended it.
+            _agentSessions?.Sweep();
+
             var beat = await _protocol.HeartbeatAsync(
-                runnerId, labels, acceptsConfiguration, cancellationToken);
+                runnerId, labels, acceptsConfiguration, cancellationToken,
+                acceptsAgentSessions: _agentSessions is null ? null : true,
+                agentSessions: _agentSessions?.Standings());
 
             // SAID AS SOON AS IT WAS ACCEPTED. What this records is that the
             // control plane was reached, which is a different fact from this

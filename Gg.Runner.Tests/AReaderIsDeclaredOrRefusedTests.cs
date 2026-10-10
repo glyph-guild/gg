@@ -142,8 +142,9 @@ public class AWorkItemToolIsHandedOverTests
         var arguments = ArgumentsFor(ARequest(), "a-tracker=tracker-mcp --stdio");
 
         await Assert.That(arguments).Contains("--mcp-config");
-        await Assert.That(string.Join(" ", arguments)).Contains("tracker-mcp")
-            .Because("a server configured and never passed is configuration that does nothing.");
+        await Assert.That(McpLaunch.ConfigText(arguments)).Contains("tracker-mcp")
+            .Because("a server configured and never passed is configuration that does nothing. "
+                   + "The configuration is the file the argument names (S72.5-03).");
     }
 
     [Test]

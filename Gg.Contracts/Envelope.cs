@@ -1329,6 +1329,13 @@ public sealed record Loop
     /// <summary>One of <see cref="ExhaustionPolicies"/>.</summary>
     [Composes(MergeOperators.RootOnly)]
     public required string OnExhaustion { get; init; }
+
+    /// <summary>
+    /// The servers root defines that this loop uses, and the tools it may call
+    /// on each, or null when it uses none (ADR-0040).
+    /// </summary>
+    [Composes(MergeOperators.Intersect)]
+    public IReadOnlyList<LoopMcp>? Mcp { get; init; }
 }
 
 /// <summary>
@@ -2113,6 +2120,13 @@ public sealed record Envelope
     public IReadOnlyList<EnvelopeVariable>? Variables { get; init; }
 
     /// <summary>
+    /// The external MCP servers loops may use, defined once, or null when the
+    /// document defines none. Root only (ADR-0040 Amendment 1).
+    /// </summary>
+    [Composes(MergeOperators.RootOnly)]
+    public IReadOnlyList<McpServer>? McpServers { get; init; }
+
+    /// <summary>
     /// The environments this envelope's flights may be about: charted names, or
     /// null when unbounded.
     /// </summary>
@@ -2286,6 +2300,17 @@ public sealed record Envelope
 
         var isWorkKind = string.Equals(role, Roles.WorkKind, StringComparison.Ordinal);
 
+        // ONE FILE SAYS WHERE EVERY CREDENTIAL MAY GO (ADR-0040 Amendment 1).
+        // Airspace is trusted to direct a credential because it is reviewed, and
+        // a definition in any document but the floor would scatter what the
+        // review has to read.
+        if (envelope.McpServers is not null && !string.Equals(role, Roles.Root, StringComparison.Ordinal))
+        {
+            return $"A '{role}' declares 'mcp-servers:', and only '{Roles.Root}' may. A loop names "
+                 + "the servers it uses under 'mcp:'; root defines them once, so the one file that "
+                 + "says where a credential may go is the one a reviewer reads.";
+        }
+
         if (isWorkKind && envelope.Accepts is null)
         {
             return "A work kind must declare 'accepts:' - the subject kinds it takes, or '[]' "
@@ -2336,6 +2361,14 @@ public sealed record Envelope
     {
         ArgumentNullException.ThrowIfNull(envelope);
         ArgumentNullException.ThrowIfNull(moveKindOf);
+
+        // THE EXTERNAL SERVERS, AND WHAT A LOOP SAYS ABOUT THEM (ADR-0040). Asked
+        // before anything else reads a loop, because a secret written where its
+        // locator belongs must be refused before any other diagnosis repeats it.
+        if (McpRules.Refuse(envelope) is { } mcp)
+        {
+            return mcp;
+        }
 
         // WHAT EVERY MACHINE HERE IS OFFERED, and only what one will take. A
         // key outside OfferableKeys is a document that cannot do what it says:

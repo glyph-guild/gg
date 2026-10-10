@@ -7,13 +7,18 @@ namespace Gg.Runner;
 /// <param name="SessionId">The id the agent is started with, so it can be resumed by it.</param>
 /// <param name="Resume">Whether to carry an ended conversation on rather than start one.</param>
 /// <param name="Environment">What goes in the child's environment: the agent's own token, never an argument.</param>
+/// <param name="Tools">
+/// Whether a person delegated a credential to this session, so it is started with gg's tool
+/// servers, which act through it (ADR-0039 Amendment 2).
+/// </param>
 public sealed record AgentSessionStart(
     string Directory,
     int Columns,
     int Rows,
     string SessionId,
     bool Resume,
-    IReadOnlyDictionary<string, string> Environment);
+    IReadOnlyDictionary<string, string> Environment,
+    bool Tools = false);
 
 /// <summary>
 /// Starts the machine's agent in a terminal of its own.
@@ -64,17 +69,40 @@ public interface IAgentViewer
 /// </para>
 /// <para>
 /// <b>The refusals are this machine's to say</b>, in sentences, because they are
-/// facts about this machine: it is flying, the directory is not one its owner
-/// allowed, it already holds as many as it will.
+/// facts about this machine: it is flying, it already holds as many as it will, the
+/// session asked for is running or unknown.
+/// </para>
+/// <para>
+/// <b>Each session has a directory of its own, and the machine writes its sessions
+/// down</b> (slice seventy-one, ADR-0039 Decisions 7 and 8). The directory is
+/// <c>home/&lt;id&gt;</c>, made empty for a new session; the ledger is
+/// <c>home/sessions.json</c>. A restart forgets nothing, nothing is forgotten on a
+/// timer, and a resume runs in the directory Claude filed the conversation under.
 /// </para>
 /// </remarks>
+/// <param name="home">Where session directories and the ledger live; made on first use.</param>
+/// <param name="transcripts">Where Claude keeps conversations by directory; the user's <c>~/.claude/projects</c> when null.</param>
+/// <param name="controlPlane">The control plane a delegated session's tools talk to.</param>
+/// <param name="revoke">Revokes a delegated credential once its session's agent has ended.</param>
 public sealed class AgentSessions(
     IHostAgentSessions host,
-    IReadOnlyList<string> roots,
+    string home,
     Func<bool> flying,
     Func<DateTimeOffset> now,
-    Func<IReadOnlyDictionary<string, string>>? environment = null) : IDisposable
+    Func<IReadOnlyDictionary<string, string>>? environment = null,
+    string? transcripts = null,
+    string? controlPlane = null,
+    Func<string, Task>? revoke = null) : IDisposable
 {
+    /// <summary>Where a delegated credential goes in the agent's environment: gg's own session variable.</summary>
+    public const string TokenVariable = "GG_SESSION_TOKEN";
+
+    /// <summary>Where the control plane's address goes beside it, so the tools reach the right one.</summary>
+    public const string ControlPlaneVariable = "GG_CONTROL_PLANE";
+
+    // HELD IN MEMORY, by session, until its agent ends: never in the ledger, never on disk.
+    private readonly Dictionary<string, string> _delegated = new(StringComparer.Ordinal);
+
     /// <summary>How many live sessions one machine holds at once.</summary>
     public const int MostSessions = 3;
 
@@ -84,20 +112,42 @@ public sealed class AgentSessions(
     /// <summary>How long a session may go with no byte either way before it is ended.</summary>
     public static readonly TimeSpan IdleLimit = TimeSpan.FromHours(4);
 
-    /// <summary>How long an ended session is still listed, so it can be resumed by its id.</summary>
-    public static readonly TimeSpan EndedKept = TimeSpan.FromHours(24);
-
     private readonly List<AgentSession> _sessions = [];
     private readonly Lock _gate = new();
+    private readonly string _home = Path.TrimEndingDirectorySeparator(Path.GetFullPath(home));
+    private readonly string _transcripts = transcripts
+        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "projects");
 
-    private readonly IReadOnlyList<string> _roots =
-        [.. roots.Select(r => Path.TrimEndingDirectorySeparator(Path.GetFullPath(r)))];
+    private Dictionary<string, AgentSessionLedger.Kept>? _kept;
+
+    /// <summary>
+    /// Where a machine keeps its sessions unless told otherwise:
+    /// <c>$XDG_DATA_HOME/good-grief/agent-sessions</c>, or <c>~/.local/share/...</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not under the flights' working-tree root</b>, which the runner sweeps on every
+    /// start: a session has to be resumed in the directory it ran in.
+    /// </remarks>
+    public static string DefaultHome()
+    {
+        var data = Environment.GetEnvironmentVariable("XDG_DATA_HOME") is { Length: > 0 } xdg
+            ? xdg
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share");
+
+        return Path.Combine(data, "good-grief", "agent-sessions");
+    }
+    private bool _disposed;
 
     /// <summary>A session, or why there is not one.</summary>
     public sealed record Opened(AgentSession? Session, string? Refused);
 
-    /// <summary>Start the agent, or resume an ended session asked for by its id.</summary>
-    public async Task<Opened> StartAsync(StartAgentSession asked, CancellationToken cancellationToken)
+    /// <summary>Start a new session, or resume an ended one asked for by its id, in its own directory.</summary>
+    /// <param name="delegated">
+    /// A person's credential for this session, when the console sent one: handed to the agent's
+    /// environment with gg's tools, and revoked when the agent ends (ADR-0039 Amendment 2).
+    /// </param>
+    public async Task<Opened> StartAsync(
+        StartAgentSession asked, CancellationToken cancellationToken, DelegateAgentSession? delegated = null)
     {
         ArgumentNullException.ThrowIfNull(asked);
 
@@ -107,25 +157,21 @@ public sealed class AgentSessions(
                          + "does: one agent subscription and one working tree. Try again when it lands.");
         }
 
-        if (Where(asked.Directory) is not { } directory)
+        var sessionId = asked.SessionId is { Length: > 0 } given ? given : Guid.NewGuid().ToString();
+
+        // THE ID NAMES A DIRECTORY, so it may not name a path.
+        if (!AgentSessionLedger.IsPlainName(sessionId))
         {
-            return Refused($"'{asked.Directory}' is not under a root this machine's owner allowed "
-                         + $"(agent-session-roots: {string.Join(", ", _roots)}).");
+            return Refused($"'{sessionId}' is not a session id this machine can name a directory after.");
         }
 
-        AgentSession? ended = null;
+        AgentSessionLedger.Kept? ended;
 
         lock (_gate)
         {
-            if (asked.SessionId is { Length: > 0 } id
-                && _sessions.FirstOrDefault(s => s.Id == id) is { } existing)
+            if (_sessions.Any(s => s.Id == sessionId && s.Alive))
             {
-                if (existing.Alive)
-                {
-                    return Refused($"Session {id} is already running here; attach to it instead.");
-                }
-
-                ended = existing;
+                return Refused($"Session {sessionId} is already running here; attach to it instead.");
             }
 
             if (_sessions.Count(s => s.Alive) >= MostSessions)
@@ -133,9 +179,28 @@ public sealed class AgentSessions(
                 return Refused($"This machine already holds {MostSessions} sessions, which is as "
                              + "many as it will. End one first.");
             }
+
+            ended = Kept().GetValueOrDefault(sessionId);
         }
 
-        var sessionId = asked.SessionId is { Length: > 0 } given ? given : Guid.NewGuid().ToString();
+        var directory = ended?.Directory ?? Path.Combine(_home, sessionId);
+        AgentSessionLedger.Private(_home);
+        AgentSessionLedger.Private(directory);
+
+        var handed = new Dictionary<string, string>(environment?.Invoke() ?? new Dictionary<string, string>());
+
+        // A LAPSED CREDENTIAL IS NONE: the agent would start with tools that refuse everything.
+        var token = delegated is { } d && d.ExpiresAt > now() ? d.Token : null;
+
+        if (token is not null)
+        {
+            handed[TokenVariable] = token;
+
+            if (controlPlane is { Length: > 0 } address)
+            {
+                handed[ControlPlaneVariable] = address;
+            }
+        }
 
         var child = await host.StartAsync(
             new AgentSessionStart(
@@ -144,19 +209,24 @@ public sealed class AgentSessions(
                 Math.Max(asked.Rows, 5),
                 sessionId,
                 Resume: ended is not null,
-                environment?.Invoke() ?? new Dictionary<string, string>()),
+                handed,
+                Tools: token is not null),
             cancellationToken);
 
-        var session = new AgentSession(sessionId, directory, now(), child, now);
+        var started = now();
+        var session = new AgentSession(sessionId, directory, started, child, now, Ended);
 
         lock (_gate)
         {
-            if (ended is not null)
-            {
-                _sessions.Remove(ended);
-            }
-
+            _sessions.RemoveAll(s => s.Id == sessionId);
             _sessions.Add(session);
+
+            if (token is not null)
+            {
+                _delegated[sessionId] = token;
+            }
+            Kept()[sessionId] = new AgentSessionLedger.Kept(sessionId, directory, ended?.StartedAt ?? started, EndedAt: null);
+            Save();
         }
 
         return new Opened(session, null);
@@ -167,25 +237,97 @@ public sealed class AgentSessions(
     {
         lock (_gate)
         {
-            return _sessions.FirstOrDefault(s => s.Id == sessionId) switch
+            if (_sessions.FirstOrDefault(s => s.Id == sessionId && s.Alive) is { } live)
             {
-                { Alive: true } live => new Opened(live, null),
-                { } => Refused($"Session {sessionId} has ended. Start it again by its id to resume it."),
-                null => Refused($"This machine holds no session {sessionId}."),
-            };
+                return new Opened(live, null);
+            }
+
+            return Kept().ContainsKey(sessionId)
+                ? Refused($"Session {sessionId} has ended. Start it again by its id to resume it.")
+                : Refused($"This machine holds no session {sessionId}.");
         }
     }
 
-    /// <summary>What this machine holds, for a list frame and the heartbeat.</summary>
+    /// <summary>What this machine holds, live and ended, for a list frame and the heartbeat.</summary>
     public IReadOnlyList<AgentSessionStanding> Standings()
     {
         lock (_gate)
         {
-            return [.. _sessions.Select(s => s.Standing())];
+            return
+            [
+                .. Kept().Values.OrderBy(k => k.StartedAt).Select(k =>
+                {
+                    var alive = _sessions.Any(s => s.Id == k.Id && s.Alive);
+                    return new AgentSessionStanding
+                    {
+                        SessionId = k.Id,
+                        Directory = k.Directory,
+                        StartedAt = k.StartedAt,
+                        Alive = alive,
+                        EndedAt = alive ? null : k.EndedAt,
+                    };
+                }),
+            ];
         }
     }
 
-    /// <summary>Ends what has been idle past the limit, and forgets what ended long ago. Called on the beat.</summary>
+    /// <summary>
+    /// Deletes an ended session - its ledger entry, its directory and Claude's transcript of
+    /// it - or every ended one when <paramref name="sessionId"/> is null. Answers why not, or
+    /// null when it is done.
+    /// </summary>
+    public string? Forget(string? sessionId)
+    {
+        List<AgentSessionLedger.Kept> forgotten;
+
+        lock (_gate)
+        {
+            var kept = Kept();
+
+            if (sessionId is not null)
+            {
+                if (!kept.TryGetValue(sessionId, out var one))
+                {
+                    return $"This machine holds no session {sessionId}.";
+                }
+
+                if (_sessions.Any(s => s.Id == sessionId && s.Alive))
+                {
+                    return $"Session {sessionId} is still running. End it, then forget it.";
+                }
+
+                forgotten = [one];
+            }
+            else
+            {
+                forgotten = [.. kept.Values.Where(k => !_sessions.Any(s => s.Id == k.Id && s.Alive))];
+            }
+
+            foreach (var gone in forgotten)
+            {
+                kept.Remove(gone.Id);
+                _sessions.RemoveAll(s => s.Id == gone.Id);
+            }
+
+            Save();
+        }
+
+        foreach (var gone in forgotten)
+        {
+            // ONLY UNDER HOME: the ledger is a file on disk, and a directory it names is
+            // deleted only if this machine could have made it.
+            if (gone.Directory.StartsWith(_home + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            {
+                AgentSessionLedger.Delete(gone.Directory);
+            }
+
+            AgentSessionLedger.Delete(Path.Combine(_transcripts, AgentSessionLedger.TranscriptName(gone.Directory)));
+        }
+
+        return null;
+    }
+
+    /// <summary>Ends what has been idle past the limit. Called on the beat; ended sessions stay.</summary>
     public void Sweep()
     {
         List<AgentSession> idle;
@@ -194,7 +336,6 @@ public sealed class AgentSessions(
         {
             var at = now();
             idle = [.. _sessions.Where(s => s.Alive && at - s.LastActivity > IdleLimit)];
-            _sessions.RemoveAll(s => !s.Alive && at - s.LastActivity > EndedKept);
         }
 
         foreach (var session in idle)
@@ -209,6 +350,9 @@ public sealed class AgentSessions(
 
         lock (_gate)
         {
+            // NOTHING WRITTEN AFTER THIS: a session killed here is read as ended when the
+            // ledger is next loaded, and a late write could land over the next runner's.
+            _disposed = true;
             all = [.. _sessions];
         }
 
@@ -217,30 +361,89 @@ public sealed class AgentSessions(
             session.Kill();
             session.Dispose();
         }
+
+        List<string> held;
+
+        lock (_gate)
+        {
+            held = [.. _delegated.Values];
+            _delegated.Clear();
+        }
+
+        foreach (var token in held)
+        {
+            Revoke(token);
+        }
+    }
+
+    /// <summary>Revokes a delegated credential, best effort: the control plane's heartbeat and the expiry back it up.</summary>
+    private void Revoke(string? token)
+    {
+        if (token is null || revoke is null)
+        {
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await revoke(token);
+            }
+            catch (Exception unreachable) when (unreachable is HttpRequestException or TaskCanceledException
+                                                     or InvalidOperationException)
+            {
+            }
+        });
     }
 
     private static Opened Refused(string because) => new(null, because);
 
-    /// <summary>The directory to run in, when it is a root or under one; null otherwise.</summary>
-    private string? Where(string? asked)
+    private void Ended(AgentSession session)
     {
-        if (_roots.Count == 0)
+        string? token;
+
+        lock (_gate)
         {
-            return null;
+            _delegated.Remove(session.Id, out token);
         }
 
-        if (asked is not { Length: > 0 })
+        Revoke(token);
+
+        lock (_gate)
         {
-            return _roots[0];
+            if (_disposed || !Kept().TryGetValue(session.Id, out var kept))
+            {
+                return;
+            }
+
+            Kept()[session.Id] = kept with { EndedAt = now() };
+            Save();
+        }
+    }
+
+    /// <summary>The ledger, read once: a session it says is running died with the last runner.</summary>
+    private Dictionary<string, AgentSessionLedger.Kept> Kept()
+    {
+        if (_kept is null)
+        {
+            var at = now();
+            _kept = AgentSessionLedger.Read(Path.Combine(_home, AgentSessionLedger.FileName))
+                .ToDictionary(k => k.Id, k => k.EndedAt is null ? k with { EndedAt = at } : k, StringComparer.Ordinal);
         }
 
-        var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(asked));
+        return _kept;
+    }
 
-        var under = _roots.Any(root =>
-            string.Equals(full, root, StringComparison.Ordinal)
-            || full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal));
+    private void Save()
+    {
+        if (_disposed)
+        {
+            return;
+        }
 
-        return under && Directory.Exists(full) ? full : null;
+        AgentSessionLedger.Private(_home);
+        AgentSessionLedger.Write(Path.Combine(_home, AgentSessionLedger.FileName), [.. Kept().Values]);
     }
 }
 
@@ -260,9 +463,13 @@ public sealed class AgentSession : IDisposable
     private int _columns;
     private int _rows;
 
+    private readonly Action<AgentSession>? _ended;
+
     internal AgentSession(
-        string id, string directory, DateTimeOffset started, IAgentSessionChild child, Func<DateTimeOffset> now)
+        string id, string directory, DateTimeOffset started, IAgentSessionChild child, Func<DateTimeOffset> now,
+        Action<AgentSession>? ended = null)
     {
+        _ended = ended;
         Id = id;
         Directory = directory;
         StartedAt = started;
@@ -407,14 +614,6 @@ public sealed class AgentSession : IDisposable
 
     public void Dispose() => _child.Dispose();
 
-    internal AgentSessionStanding Standing() => new()
-    {
-        SessionId = Id,
-        Directory = Directory,
-        StartedAt = StartedAt,
-        Alive = Alive,
-    };
-
     private void Pump()
     {
         var buffer = new byte[16 * 1024];
@@ -462,6 +661,8 @@ public sealed class AgentSession : IDisposable
             LastActivity = _now();
             told = [.. _viewers];
         }
+
+        _ended?.Invoke(this);
 
         foreach (var viewer in told)
         {

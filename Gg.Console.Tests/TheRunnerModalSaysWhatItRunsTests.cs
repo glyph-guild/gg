@@ -113,11 +113,14 @@ public class TheRunnerModalSaysWhatItRunsTests
     };
 
     [Test]
-    public async Task The_modal_has_three_views_and_the_log_is_the_first()
+    public async Task The_modal_has_five_views_and_the_log_is_the_first()
     {
+        // FIVE SINCE SLICE SEVENTY-ONE: flights and sessions follow these three,
+        // and RemoteControlShowsARunnerTests says why.
         await Assert.That(RunnerViews.All)
             .IsEquivalentTo((RunnerView[])
-                [RunnerView.Log, RunnerView.Environments, RunnerView.Members]);
+                [RunnerView.Log, RunnerView.Environments, RunnerView.Members,
+                 RunnerView.Flights, RunnerView.Sessions]);
 
         await Assert.That(RunnerViews.Title(RunnerView.Log)).IsEqualTo("log")
             .Because("the log is what this modal has always shown, and it stays first so "
@@ -133,7 +136,8 @@ public class TheRunnerModalSaysWhatItRunsTests
         var at = RunnerView.Log;
 
         foreach (var expected in (RunnerView[])
-                 [RunnerView.Environments, RunnerView.Members, RunnerView.Log])
+                 [RunnerView.Environments, RunnerView.Members, RunnerView.Flights,
+                  RunnerView.Sessions, RunnerView.Log])
         {
             at = RunnerViews.Next(at);
             await Assert.That(at).IsEqualTo(expected);

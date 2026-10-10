@@ -48,6 +48,8 @@ public static class AgentFrameKinds
     public const byte Resize = 4;
     public const byte Kill = 5;
     public const byte List = 6;
+    public const byte Forget = 7;
+    public const byte Delegate = 8;
 
     public const byte Started = 65;
     public const byte Output = 66;
@@ -111,6 +113,31 @@ public sealed record KillAgentSession : AgentFrame;
 [PinnedId("d1dc5452-b1aa-4430-9791-ae7f5a3d82b2")]
 public sealed record ListAgentSessions : AgentFrame;
 
+/// <summary>
+/// Delete an ended session: its ledger entry, its directory and Claude's transcript of it
+/// (slice seventy-one, ADR-0039 Decision 9). The machine answers with its sessions after, or
+/// refuses a live one.
+/// </summary>
+[PinnedId("0ec70056-30d5-41b6-9cfb-7a2e715cce01")]
+public sealed record ForgetAgentSession : AgentFrame
+{
+    /// <summary>The session to forget; null forgets every ended one.</summary>
+    public string? SessionId { get; init; }
+}
+
+/// <summary>
+/// A person's credential for the session this channel starts or resumes next, so gg's tools
+/// in it act as that person (ADR-0039 Amendment 2, Decision 13). Sent immediately before the
+/// start; the machine holds it in memory and never writes it down.
+/// </summary>
+[PinnedId("dfedf64c-dcb2-431a-9c5d-b0700a0efa12")]
+public sealed record DelegateAgentSession : AgentFrame
+{
+    public required string Token { get; init; }
+
+    public required DateTimeOffset ExpiresAt { get; init; }
+}
+
 /// <summary>The session this channel is now attached to.</summary>
 [PinnedId("5a2e6427-1ba8-426a-b083-fe6e28199da1")]
 public sealed record AgentSessionStarted : AgentFrame
@@ -165,6 +192,15 @@ public sealed record AgentSessionStanding
 
     /// <summary>Whether its agent is still running; false is a session that ended and can be resumed.</summary>
     public required bool Alive { get; init; }
+
+    /// <summary>When its agent ended; null while it runs.</summary>
+    /// <remarks>
+    /// <b>JSON only: the heartbeat and the fleet read carry it, the channel does not.</b>
+    /// <see cref="AgentFrameCodec"/> reads a session list field by field and refuses bytes left
+    /// over, so a field added there would make every console already installed read a newer
+    /// machine's list as nothing.
+    /// </remarks>
+    public DateTimeOffset? EndedAt { get; init; }
 }
 
 /// <summary>
@@ -204,6 +240,12 @@ public static class AgentFrameCodec
                 break;
             case ListAgentSessions:
                 writer.Kind(AgentFrameKinds.List);
+                break;
+            case ForgetAgentSession f:
+                writer.Kind(AgentFrameKinds.Forget).Text(f.SessionId);
+                break;
+            case DelegateAgentSession d:
+                writer.Kind(AgentFrameKinds.Delegate).Text(d.Token).Long(d.ExpiresAt.ToUnixTimeMilliseconds());
                 break;
             case AgentSessionStarted s:
                 writer.Kind(AgentFrameKinds.Started).Text(s.SessionId);
@@ -262,6 +304,10 @@ public static class AgentFrameCodec
                 : null,
             AgentFrameKinds.Kill => new KillAgentSession(),
             AgentFrameKinds.List => new ListAgentSessions(),
+            AgentFrameKinds.Forget => reader.Text(out var forgotten) ? new ForgetAgentSession { SessionId = forgotten } : null,
+            AgentFrameKinds.Delegate => reader.Text(out var token) && token is not null && reader.Long(out var expires)
+                ? new DelegateAgentSession { Token = token, ExpiresAt = DateTimeOffset.FromUnixTimeMilliseconds(expires) }
+                : null,
             AgentFrameKinds.Started => reader.Text(out var id) && id is not null
                 ? new AgentSessionStarted { SessionId = id }
                 : null,

@@ -326,12 +326,13 @@ public static class RunnerHost
         // Null is a machine that serves no preview, which is every machine
         // whose tenant has declared no exposure.
         Func<string, string?>? secretFor = null,
-        // WHERE AN AD HOC AGENT SESSION GETS ITS TERMINAL, and the roots it may
-        // start under - both null unless this machine's own file opted in
-        // (accept-agent-sessions; slice seventy, ADR-0039). The CLI builds the
-        // host because this project may not allocate a terminal.
+        // WHERE AN AD HOC AGENT SESSION GETS ITS TERMINAL, and where its
+        // directories and ledger live - the host null unless this machine's own
+        // file opted in (accept-agent-sessions; slice seventy, ADR-0039), the home
+        // the user's data directory when null (slice seventy-one). The CLI builds
+        // the host because this project may not allocate a terminal.
         IHostAgentSessions? agentHost = null,
-        IReadOnlyList<string>? agentRoots = null)
+        string? agentSessionHome = null)
     {
         // Longer than the claim's long poll, or the client aborts every idle
         // claim and the long poll becomes a busy loop with extra steps.
@@ -483,12 +484,16 @@ public static class RunnerHost
             ? null
             : new AgentSessions(
                 agentHost,
-                agentRoots ?? [],
+                agentSessionHome ?? AgentSessions.DefaultHome(),
                 flying: () => says.Flying,
                 now: () => DateTimeOffset.UtcNow,
                 environment: () => agent is not null && agentToken?.Invoke() is { Length: > 0 } token
                     ? new Dictionary<string, string> { [agent.TokenVariable] = token }
-                    : new Dictionary<string, string>());
+                    : new Dictionary<string, string>(),
+                // A PERSON'S DELEGATED CREDENTIAL reaches this control plane, and is
+                // revoked through it when its session's agent ends (ADR-0039 Amendment 2).
+                controlPlane: http.BaseAddress?.ToString(),
+                revoke: token => new RunnerProtocolClient(http, runnerToken).RevokeDelegationAsync(token));
 
         using var attended = identityKey is null
             ? null

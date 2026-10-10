@@ -1315,7 +1315,7 @@ public static class EnvelopeYaml
     {
         var root = RequireMap(document, "");
         Closed(root, BasedOnKey, "description", "brief", "context", "environment", "environments",
-               "repository", "repositories", "accepts", "produces", "learned", "variables", "targeting", "hosts", "instructions",
+               "repository", "repositories", "accepts", "produces", "learned", "variables", "mcp-servers", "targeting", "hosts", "instructions",
                "obligations", "loops", "destinations", "offers");
 
         var context = RequireMap(Require(root, "context"), "context");
@@ -1399,6 +1399,11 @@ public static class EnvelopeYaml
             Variables = root.Entries.TryGetValue("variables", out var variables)
                 ? [.. RequireMap(variables, "variables").Entries
                     .Select(e => MapVariable(e.Key, e.Value))]
+                : null,
+            // ABSENT IS NULL, as variables are: a floor that defines no server
+            // must not gain a section by being read and written back.
+            McpServers = root.Entries.ContainsKey("mcp-servers")
+                ? [.. Named(root, "mcp-servers").Select(MapMcpServer)]
                 : null,
             // A SCALAR, AND ABSENT IS NOT EMPTY-STRING. A missing key means
             // `any`; reading it back as "" would be refused by Validate as an
@@ -1571,7 +1576,7 @@ public static class EnvelopeYaml
 
     private static Loop MapLoop((string Id, MapNode Body) entry)
     {
-        Closed(entry.Body, "executor", "discharges", "moves", "budget", "on-exhaustion");
+        Closed(entry.Body, "executor", "discharges", "moves", "budget", "on-exhaustion", "mcp");
 
         var budget = RequireMap(Require(entry.Body, "budget"), $"{entry.Body.Path}.budget");
         Closed(budget, "wall-clock", "attempts");
@@ -1595,8 +1600,55 @@ public static class EnvelopeYaml
             },
             OnExhaustion = RequireScalar(
                 Require(entry.Body, "on-exhaustion"), $"{entry.Body.Path}.on-exhaustion"),
+            Mcp = entry.Body.Entries.TryGetValue("mcp", out var mcp)
+                ? [.. RequireMap(mcp, $"{entry.Body.Path}.mcp").Entries.Select(use =>
+                    MapLoopMcp(use.Key, RequireMap(use.Value, $"{entry.Body.Path}.mcp.{use.Key}")))]
+                : null,
         };
     }
+
+    private static LoopMcp MapLoopMcp(string server, MapNode body)
+    {
+        Closed(body, "allow");
+
+        return new LoopMcp
+        {
+            Server = server,
+            Allow = Strings(Require(body, "allow"), $"{body.Path}.allow"),
+        };
+    }
+
+    /// <summary>One server, as the agent's own MCP configuration writes it.</summary>
+    private static McpServer MapMcpServer((string Id, MapNode Body) entry)
+    {
+        Closed(entry.Body, "type", "command", "args", "env", "url", "headers");
+
+        return new McpServer
+        {
+            Key = entry.Id,
+            Type = Optional(entry.Body, "type"),
+            Command = Optional(entry.Body, "command"),
+            Args = entry.Body.Entries.TryGetValue("args", out var args)
+                ? Strings(args, $"{entry.Body.Path}.args")
+                : null,
+            Env = entry.Body.Entries.TryGetValue("env", out var env)
+                ? Settings(env, $"{entry.Body.Path}.env")
+                : null,
+            Url = Optional(entry.Body, "url"),
+            Headers = entry.Body.Entries.TryGetValue("headers", out var headers)
+                ? Settings(headers, $"{entry.Body.Path}.headers")
+                : null,
+        };
+    }
+
+    private static IReadOnlyList<McpSetting> Settings(Node node, string path) =>
+    [
+        .. RequireMap(node, path).Entries.Select(e => new McpSetting
+        {
+            Name = e.Key,
+            Value = RequireScalar(e.Value, $"{path}.{e.Key}"),
+        }),
+    ];
 
     /// <summary>
     /// A boolean, or a refusal naming what was there instead.

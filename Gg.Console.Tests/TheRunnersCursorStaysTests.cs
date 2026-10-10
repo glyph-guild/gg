@@ -191,8 +191,12 @@ public class TheRunnersCursorStaysTests
         var wired = screen.Split("ValueChanged += OnRowPointedAt").Length - 1;
         var released = screen.Split("ValueChanged -= OnRowPointedAt").Length - 1;
 
-        await Assert.That(built).IsEqualTo(22)
-            .Because("The twenty-second is the CREDENTIAL WIZARD's list, one call that "
+        await Assert.That(built).IsEqualTo(24)
+            .Because("The twenty-third and twenty-fourth are the RUNNER MODAL's flights and "
+                   + "sessions (slice seventy-one) - what a runner has flown and the agent "
+                   + "sessions its machine holds - modal tables, so each subscribes "
+                   + "OnModalRowPointedAt and `wired` stays where it is. "
+                   + "The twenty-second is the CREDENTIAL WIZARD's list, one call that "
                    + "builds a table for each step that is a list (owner, 2026-10-10) - "
                    + "modal tables, so each subscribes OnModalRowPointedAt and `wired` stays "
                    + "where it is. "

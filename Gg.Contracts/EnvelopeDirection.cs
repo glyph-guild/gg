@@ -213,6 +213,31 @@ public static class EnvelopeDirection
             return learned;
         }
 
+        // AN MCP SERVER WIDENS BY ARRIVING OR CHANGING, AND NOT BY LEAVING
+        // (ADR-0040 Decision 5). gg cannot tell whether a changed definition
+        // reaches more or less, so any change to one is a widening. A server
+        // removed reaches nothing, and a loop still naming it is refused at
+        // composition rather than stranded.
+        var before = (applied.McpServers ?? []).ToDictionary(
+            server => server.Key, McpRules.Fingerprint, StringComparer.Ordinal);
+
+        foreach (var server in proposed.McpServers ?? [])
+        {
+            if (!before.TryGetValue(server.Key, out var was))
+            {
+                return Widen($"mcp-servers.{server.Key}",
+                    $"MCP server '{server.Key}' is newly defined, and what its tools can do is "
+                  + "its own business, not something gg can show is narrower.");
+            }
+
+            if (!string.Equals(was, McpRules.Fingerprint(server), StringComparison.Ordinal))
+            {
+                return Widen($"mcp-servers.{server.Key}",
+                    $"MCP server '{server.Key}' changed its definition, and no order exists over "
+                  + "what an external server reaches: a changed definition is a different server.");
+            }
+        }
+
         // GIVING UP `least-spent` IS A WIDENING, and the asymmetry is the
         // point. Holding a higher-spent machine back is a protection over
         // somebody's own subscription; letting whichever machine asks first
@@ -390,6 +415,11 @@ public static class EnvelopeDirection
                 return Widen($"{at}.moves",
                     $"move '{added[0]}' was not allowed before, and moves intersect: they can "
                   + "only ever narrow.");
+            }
+
+            if (Mcp(at, was.Mcp, now.Mcp) is { } mcp)
+            {
+                return mcp;
             }
 
             // discharges: intra-document wiring. A discharge gained for an
@@ -786,6 +816,47 @@ public static class EnvelopeDirection
       + "answer over members no operator orders.";
 
     private static string Describe(object? value) => value?.ToString() ?? "(nothing)";
+
+    /// <summary>
+    /// A loop's MCP servers, which widen as moves do: by naming one more, or
+    /// by allowing a tool more on one already named.
+    /// </summary>
+    private static EnvelopeWidening? Mcp(
+        string at, IReadOnlyList<LoopMcp>? applied, IReadOnlyList<LoopMcp>? proposed)
+    {
+        foreach (var now in proposed ?? [])
+        {
+            var was = applied?.FirstOrDefault(
+                use => string.Equals(use.Server, now.Server, StringComparison.Ordinal));
+
+            if (was is null)
+            {
+                return Widen($"{at}.mcp.{now.Server}",
+                    $"MCP server '{now.Server}' was not named before, so every tool it allows is "
+                  + "new reach.");
+            }
+
+            if (was.Allow.Contains(McpRules.Everything, StringComparer.Ordinal))
+            {
+                continue;
+            }
+
+            if (now.Allow.Contains(McpRules.Everything, StringComparer.Ordinal))
+            {
+                return Widen($"{at}.mcp.{now.Server}.allow",
+                    $"'{McpRules.Everything}' allows every tool '{now.Server}' has, now and after it "
+                  + "grows, where the loop named only some.");
+            }
+
+            if (now.Allow.Except(was.Allow, StringComparer.Ordinal).FirstOrDefault() is { } tool)
+            {
+                return Widen($"{at}.mcp.{now.Server}.allow",
+                    $"tool '{tool}' on '{now.Server}' was not allowed before.");
+            }
+        }
+
+        return null;
+    }
 
     private static EnvelopeWidening Widen(string field, string because) =>
         new() { Field = field, Because = because };

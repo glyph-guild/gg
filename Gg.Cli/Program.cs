@@ -299,7 +299,7 @@ return await ByName(CliArgs.Parse(args)) switch
 /// console makes already goes.
 /// </para>
 /// </remarks>
-static AppState LocalFacts(AppState state, ControlPlaneClient client, FileSessionStore sessions)
+static AppState LocalFacts(AppState state, ControlPlaneClient client, ISessionStore sessions)
 {
     // THE FILE AGAIN, BEFORE ANYTHING BELOW READS IT. This function is the one
     // place the model learns what is on this machine, and two of the facts
@@ -421,7 +421,7 @@ static AppState LocalFacts(AppState state, ControlPlaneClient client, FileSessio
 /// would tear the screen down over a control plane being briefly unreachable.
 /// </para>
 /// </remarks>
-static string TakeOffered(ControlPlaneClient client, FileSessionStore sessions, string version)
+static string TakeOffered(ControlPlaneClient client, ISessionStore sessions, string version)
 {
     if (sessions.Read()?.SessionToken is not { Length: > 0 } token)
     {
@@ -468,7 +468,7 @@ static string TakeOffered(ControlPlaneClient client, FileSessionStore sessions, 
 /// </para>
 /// </remarks>
 static Gg.Console.OfferedOnThisMachine? OfferedHere(
-    ControlPlaneClient client, FileSessionStore sessions)
+    ControlPlaneClient client, ISessionStore sessions)
 {
     if (sessions.Read()?.SessionToken is not { Length: > 0 } token)
     {
@@ -639,7 +639,7 @@ static async Task<int> OfferAsync(
 
     try
     {
-        var session = new FileSessionStore().Read()?.SessionToken
+        var session = SessionStores.ForThisProcess().Read()?.SessionToken
             ?? throw new NotSignedInException("Not signed in. Run gg login.");
 
         var offered = await new ControlPlaneClient(http).OfferedConfigurationAsync(session);
@@ -709,7 +709,7 @@ static async Task<int> EnvelopeAsync(bool json, Func<EnvelopeCommands, Task<Verb
 {
     var baseAddress = ControlPlaneAddress();
     using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
-    var commands = new EnvelopeCommands(new ControlPlaneClient(http), new FileSessionStore());
+    var commands = new EnvelopeCommands(new ControlPlaneClient(http), SessionStores.ForThisProcess());
 
     try
     {
@@ -749,7 +749,7 @@ static async Task<int> StrategyAsync(bool json, Func<StrategyCommands, Task<Verb
 {
     var baseAddress = ControlPlaneAddress();
     using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
-    var commands = new StrategyCommands(new ControlPlaneClient(http), new FileSessionStore());
+    var commands = new StrategyCommands(new ControlPlaneClient(http), SessionStores.ForThisProcess());
 
     try
     {
@@ -825,7 +825,7 @@ static async Task<CliAction> ByName(CliAction action)
     }
 
     using var http = new HttpClient { BaseAddress = new Uri(ControlPlaneAddress()) };
-    var commands = new FlightCommands(new ControlPlaneClient(http), new FileSessionStore());
+    var commands = new FlightCommands(new ControlPlaneClient(http), SessionStores.ForThisProcess());
 
     RunnerList fleet;
 
@@ -865,7 +865,7 @@ static async Task<int> EmitAsync(bool json, Func<FlightCommands, Task<VerbResult
 {
     var baseAddress = ControlPlaneAddress();
     using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
-    var commands = new FlightCommands(new ControlPlaneClient(http), new FileSessionStore());
+    var commands = new FlightCommands(new ControlPlaneClient(http), SessionStores.ForThisProcess());
 
     try
     {
@@ -1014,7 +1014,7 @@ static async Task<int> TakeAsync(bool json, Func<TakeCommands, Task<VerbResult>>
 {
     var baseAddress = ControlPlaneAddress();
     using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
-    var commands = new TakeCommands(new ControlPlaneClient(http), new FileSessionStore());
+    var commands = new TakeCommands(new ControlPlaneClient(http), SessionStores.ForThisProcess());
 
     try
     {
@@ -1138,7 +1138,7 @@ static async Task<int> CredentialAsync(bool json, Func<CredentialCommands, Task<
     // READS a secret, and none of these do.
     var commands = new CredentialCommands(
         new ControlPlaneClient(http),
-        new FileSessionStore(),
+        SessionStores.ForThisProcess(),
         MachineCredentialStore.ThisMachine(),
         // The only way a secret enters this process, and it is a terminal.
         new ConsoleSecretPrompt(),
@@ -1368,7 +1368,7 @@ static async Task<int> DoctorAsync(bool json)
     };
 
     var report = await new Doctor(
-        new ControlPlaneClient(http), new FileSessionStore(), new FileCredentialStore(),
+        new ControlPlaneClient(http), SessionStores.ForThisProcess(), new FileCredentialStore(),
         new Uri(baseAddress),
         addressConfigured: Settings.Resolve("GG_CONTROL_PLANE", InForce.Configuration)
             .Source != SettingSources.Default,
@@ -1406,7 +1406,7 @@ static async Task<int> BundleAsync(bool json)
     var baseAddress = ControlPlaneAddress();
     using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
 
-    var sessions = new FileSessionStore();
+    var sessions = SessionStores.ForThisProcess();
     var client = new ControlPlaneClient(http);
     var report = await new Doctor(
             client, sessions, new FileCredentialStore(), new Uri(baseAddress),
@@ -1500,7 +1500,7 @@ static async Task<int> LaunchConsoleAsync()
         BaseAddress = new Uri(baseAddress),
     };
     var client = new ControlPlaneClient(http);
-    var sessions = new FileSessionStore();
+    var sessions = SessionStores.ForThisProcess();
     var takes = new TakeCommands(client, sessions);
 
     // SIGNING IN, WHICH THIS CONSOLE MAY DO BEFORE IT CAN DO ANYTHING ELSE.
@@ -1557,7 +1557,7 @@ static async Task<int> LaunchConsoleAsync()
     Task<DoctorReport> Health(CancellationToken token) =>
         new Doctor(
             new ControlPlaneClient(new HttpClient { BaseAddress = new Uri(baseAddress) }),
-            new FileSessionStore(), new FileCredentialStore(), new Uri(baseAddress),
+            SessionStores.ForThisProcess(), new FileCredentialStore(), new Uri(baseAddress),
             addressConfigured: Settings.Resolve("GG_CONTROL_PLANE", InForce.Configuration)
                 .Source != SettingSources.Default,
             stunServers: Gg.Runner.StunConfiguration.FromEnvironment(
@@ -1655,7 +1655,7 @@ static async Task<int> LaunchConsoleAsync()
                     Gg.Runner.StunConfiguration.FromEnvironment(
             Settings.Value(Gg.Runner.StunConfiguration.Variable, InForce.Configuration)), TimeSpan.FromSeconds(20)))
             .WatchAsync(
-                new FileSessionStore().Read()?.SessionToken ?? "",
+                SessionStores.ForThisProcess().Read()?.SessionToken ?? "",
                 runnerId,
                 new PinnedRunnerKeys(),
                 lines: 200,
@@ -1856,7 +1856,7 @@ static async Task<int> LaunchConsoleAsync()
             {
                 try
                 {
-                    return [.. AgentReach().MachinesAsync(new FileSessionStore().Read()?.SessionToken ?? "")
+                    return [.. AgentReach().MachinesAsync(SessionStores.ForThisProcess().Read()?.SessionToken ?? "")
                         .GetAwaiter().GetResult()
                         .Select(m => new Gg.Console.RemoteMachine(m.RunnerId, m.Label))];
                 }
@@ -1870,11 +1870,22 @@ static async Task<int> LaunchConsoleAsync()
             {
                 try
                 {
+                    var token = SessionStores.ForThisProcess().Read()?.SessionToken ?? "";
                     var (link, said) = AgentReach().ReachAsync(
-                            new FileSessionStore().Read()?.SessionToken ?? "",
-                            machine.Id, new PinnedRunnerKeys(), DateTimeOffset.UtcNow)
+                            token, machine.Id, new PinnedRunnerKeys(), DateTimeOffset.UtcNow)
                         .GetAwaiter().GetResult();
-                    return new Gg.Console.RemoteReach(link, link is null ? said : null);
+
+                    // THE PERSON'S CREDENTIAL FOR A SESSION STARTED ON THIS LINK, minted against
+                    // the introduction it was opened under (ADR-0039 Amendment 2). A refusal is
+                    // a session without gg's tools, never one that does not start.
+                    Func<string, Gg.Contracts.DelegateAgentSession?>? delegation =
+                        link is Gg.Client.ChannelAgentLink { IntroductionId: { } introduction }
+                            ? sessionId => AgentReach()
+                                .DelegationAsync(token, machine.Id, introduction, sessionId)
+                                .GetAwaiter().GetResult()
+                            : null;
+
+                    return new Gg.Console.RemoteReach(link, link is null ? said : null, delegation);
                 }
                 catch (Exception unreached) when (unreached is HttpRequestException or NotSignedInException
                                                       or ProtocolTooOldException or TaskCanceledException)
@@ -1942,6 +1953,12 @@ static async Task<int> LaunchConsoleAsync()
                     // rarely wanted.
                     Gg.Console.Command.ShowFlightFacts =>
                         Gg.Console.ConsoleFacts.Patch(data, current),
+
+                    // WHAT A RUNNER HAS FLOWN, asked for when the runner modal's
+                    // flights view is shown - the facts tab's reason, one modal
+                    // over (slice seventy-one).
+                    Gg.Console.Command.ShowRunnerFlights =>
+                        Gg.Console.ConsoleRunnerFlights.Patch(data, current),
 
                     // THE FLIGHT'S STORY, which is what this port was built
                     // for - and named rather than defaulted.
@@ -2405,7 +2422,11 @@ static async Task<int> LaunchConsoleAsync()
         mux: mux,
 
         // AND THE FLIGHTS ASKED FOR: started by the loop, folded by the screen.
-        launcher: launcher)
+        launcher: launcher,
+
+        // A MACHINE'S AGENT SESSIONS, FROM THE RUNNER MODAL (slice seventy-one): reached through
+        // the mux's Reaching above, so the introduction and channel are this root's alone.
+        remoteSession: (current, act) => Gg.Console.ConsoleRemoteSession.Act(mux, current, act))
         .Run(initial);
 
     // Demo/verification hook: prove the surviving model is the whole truth.
@@ -2463,7 +2484,7 @@ static async Task<int> AuthAsync(Func<AuthCommands, Task<int>> run)
 
     var commands = new AuthCommands(
         new ControlPlaneClient(http),
-        new FileSessionStore(),
+        SessionStores.ForThisProcess(),
         new StandardConsoleWriter(),
         new SystemClock(),
         (span, token) => Task.Delay(span, token));
@@ -2543,7 +2564,7 @@ static async Task<int> AuthAsync(Func<AuthCommands, Task<int>> run)
 /// </remarks>
 static string SendFromTheConsole(string runnerId, string? chosen)
 {
-    var session = new FileSessionStore().Read();
+    var session = SessionStores.ForThisProcess().Read();
     if (session is null)
     {
         return "Not signed in, so nothing was sent. `gg login` first.";
@@ -2619,7 +2640,7 @@ static string SendFromTheConsole(string runnerId, string? chosen)
 // read with the echo off - all of it between sessions, with the terminal free.
 static string LoginFromTheConsole(string runnerId, string provider)
 {
-    var session = new FileSessionStore().Read();
+    var session = SessionStores.ForThisProcess().Read();
     if (session is null)
     {
         return "Not signed in, so no login was started. `gg login` first.";
@@ -2676,7 +2697,7 @@ static string RegisterFromTheConsole(AppState state, HeldSecret held)
         // came from, and why nothing about registering had to change.
         var commands = new CredentialCommands(
             new ControlPlaneClient(http),
-            new FileSessionStore(),
+            SessionStores.ForThisProcess(),
             MachineCredentialStore.ThisMachine(),
             held,
             trackerHosts: TrackerHostsDeclared());
@@ -2754,7 +2775,7 @@ static string BroadcastFromTheConsole(AppState state, HeldSecret held)
         return "Nothing was sent: no machine in that list can be reached.";
     }
 
-    var session = new FileSessionStore().Read();
+    var session = SessionStores.ForThisProcess().Read();
     if (session is null)
     {
         return "Nobody is signed in on this machine.";
@@ -2813,7 +2834,7 @@ static string BroadcastFromTheConsole(AppState state, HeldSecret held)
 
 static async Task<int> SendWhereNeededAsync(CliAction.CredentialSendWhereNeeded send)
 {
-    var session = new FileSessionStore().Read();
+    var session = SessionStores.ForThisProcess().Read();
     if (session is null)
     {
         return Fail("Nobody is signed in on this machine. Run `gg login` first.");
@@ -2930,7 +2951,7 @@ static string AgentTokenPrompt(string agent) => agent switch
 // and the token never passes through here at all.
 static async Task<int> AgentLoginAsync(CliAction.AgentLogin login)
 {
-    var session = new FileSessionStore().Read();
+    var session = SessionStores.ForThisProcess().Read();
     if (session is null)
     {
         return Fail(
@@ -2975,7 +2996,7 @@ static async Task<int> AgentLoginAsync(CliAction.AgentLogin login)
 
 static async Task<int> SendUnderLocatorAsync(string runnerId, string locator, string? asking)
 {
-    var session = new FileSessionStore().Read();
+    var session = SessionStores.ForThisProcess().Read();
     if (session is null)
     {
         return Fail(
@@ -3047,7 +3068,7 @@ static async Task<int> SendUnderLocatorAsync(string runnerId, string locator, st
 
 static async Task<int> WatchAsync(CliAction.RunnerWatch watch)
 {
-    var session = new FileSessionStore().Read();
+    var session = SessionStores.ForThisProcess().Read();
     if (session is null)
     {
         return Fail("not signed in — run `gg login` first. Watching a runner is a person's action.");
@@ -3155,7 +3176,7 @@ static Task<VerbResult> Flown(
 
 static async Task<int> HandAsync(CliAction.Fly fly)
 {
-    var session = new FileSessionStore().Read();
+    var session = SessionStores.ForThisProcess().Read();
     if (session is null)
     {
         // THE SAME WORDS `gg runner up` USES, because this does the same thing:
@@ -3167,7 +3188,7 @@ static async Task<int> HandAsync(CliAction.Fly fly)
     var baseAddress = ControlPlaneAddress();
     using var http = new HttpClient { BaseAddress = new Uri(baseAddress) };
     var client = new ControlPlaneClient(http);
-    var commands = new FlightCommands(client, new FileSessionStore());
+    var commands = new FlightCommands(client, SessionStores.ForThisProcess());
 
     var labels = (Settings.Value("GG_RUNNER_LABELS", InForce.Configuration) ?? "")
         .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -3380,7 +3401,7 @@ static async Task<int> RunnerUpAsync()
         return await MemberUpAsync(http, baseAddress, nonce);
     }
 
-    var session = new FileSessionStore().Read();
+    var session = SessionStores.ForThisProcess().Read();
     var runnerStore = new FileRunnerStore(FileRunnerStore.PathFor(Environment.MachineName));
 
     // AN ENROLLED MACHINE STARTS HERE (slice forty-three, rule 19): its install
@@ -3748,7 +3769,7 @@ static async Task<int> RunnerUpAsync()
             // own file says accept-agent-sessions (slice seventy, ADR-0039), with
             // the agent the declaration names - `claude` when it names none.
             agentHost: SessionsHere(inForce, agentDeclaration)?.Host,
-            agentRoots: SessionsHere(inForce, agentDeclaration)?.Roots,
+            agentSessionHome: SessionsHere(inForce, agentDeclaration)?.Home,
             // WHAT MAKES THIS RUNNER REACHABLE, handed across for the reason the
             // takeover reader is: Gg.Runner cannot see Gg.Client, and this
             // project is the only one that sees both. The SAME key this machine
@@ -3887,7 +3908,7 @@ static async Task<int> RunnerUpAsync()
 static async Task<int> ItineraryToolsAsync(CliAction.ItineraryTools itinerary)
 {
     using var http = new HttpClient { BaseAddress = new Uri(ControlPlaneAddress()) };
-    var reads = new SessionPlanningReads(new ControlPlaneClient(http), new FileSessionStore());
+    var reads = new SessionPlanningReads(new ControlPlaneClient(http), SessionStores.ForThisProcess());
 
     return await ItineraryToolServer.RunAsync(
         System.Console.In, System.Console.Out, ItineraryDrafts.ForThisMachine(), itinerary.Draft,
@@ -4183,7 +4204,7 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
         // A MEMBER'S FILE NEVER OPTS IN, so this is null on every member today;
         // asked the same way so the rule is one rule (slice seventy).
         agentHost: SessionsHere(inForce, agentDeclaration)?.Host,
-        agentRoots: SessionsHere(inForce, agentDeclaration)?.Roots,
+        agentSessionHome: SessionsHere(inForce, agentDeclaration)?.Home,
         identityKey: identityKey.ForOpeningWhatWasSealedToThisRunner(),
         // TWELVE HOURS, AND THEN THIS MEMBER IS DONE. A member token is not
         // renewable and a member cannot mint itself another - the pool warms a
@@ -4311,7 +4332,7 @@ static async Task<int> RunnerMaintainAsync(string pool)
         runners,
         async () =>
         {
-            var signedIn = new FileSessionStore().Read();
+            var signedIn = SessionStores.ForThisProcess().Read();
             if (signedIn is null)
             {
                 // NAMES THE CADENCE, AND IT IS NO LONGER EVERY THIRTY

@@ -301,6 +301,18 @@ public class HelpNamesEveryKeyTests
     /// read in <c>UiMode.CredentialWizard</c> and nowhere else, and each step offers keys the
     /// others do not: back only behind the first, and enter registering only on the last.
     /// </remarks>
+    /// <summary>Every shape of the runner modal's sessions view, over our runner and another.</summary>
+    /// <remarks>
+    /// <b>Beside the cross, for <see cref="ReviewingAnAudience"/>'s reason.</b> The member is
+    /// read in <c>UiMode.Runner</c> and nowhere else, and each shape offers keys the others do
+    /// not: enter only over a row, and d only over a session that ended (slice seventy-one).
+    /// </remarks>
+    private static IEnumerable<KeymapContext> OverAMachinesSessions() =>
+        from ours in (bool[])[false, true]
+        from over in (RunnerSessionPane?[])
+            [null, RunnerSessionPane.NoneSelected, RunnerSessionPane.OverALiveOne, RunnerSessionPane.OverAnEndedOne]
+        select new KeymapContext(UiMode.Runner) { RunnerIsOurs = ours, RunnerIsBeating = true, RunnerSessions = over };
+
     private static IEnumerable<KeymapContext> AddingACredential() =>
         Enum.GetValues<CredentialWizardStep>()
             .Select(step => new KeymapContext(UiMode.CredentialWizard) { WizardStep = step });
@@ -333,6 +345,7 @@ public class HelpNamesEveryKeyTests
                                                .Concat(OnTheQueue())
                                                .Concat(ReviewingAnAudience())
                                                .Concat(AddingACredential())
+                                               .Concat(OverAMachinesSessions())
                        from binding in Keymap.Bindings(context)
                        select (context.Mode, binding.Key, binding.Command))
             .Distinct()
@@ -609,7 +622,10 @@ public class HelpNamesEveryKeyTests
         // enter registers on the last and goes on before it, and back exists only behind
         // the first. Held beside the cross in AddingACredential(), since it is read in one
         // mode.
-        await Assert.That(members.Count).IsEqualTo(40)
+        // FORTY-ONE SINCE THE RUNNER MODAL ACTS ON A MACHINE'S SESSIONS (slice seventy-one):
+        // what its sessions view is over - no row, a live one, an ended one - as ONE member,
+        // since the three are exclusive. Held beside the cross in OverAMachinesSessions().
+        await Assert.That(members.Count).IsEqualTo(41)
             .Because("Everywhere() crosses every one of these, or OverAMachineSomebodyOwns() "
                    + "holds it beside the cross - and a member in neither would leave the "
                    + "completeness check above quietly incomplete, which is exactly how the "

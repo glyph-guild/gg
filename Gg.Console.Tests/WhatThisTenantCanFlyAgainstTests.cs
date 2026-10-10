@@ -130,7 +130,7 @@ public class WhatThisTenantCanFlyAgainstTests
     }
 
     [Test]
-    public async Task Moving_through_the_repositories_does_not_move_the_queue_or_the_work_list()
+    public async Task Moving_through_the_credentials_does_not_move_the_queue_or_the_work_list()
     {
         // SHOWING rather than merely open, which are two different things
         // under tabs: the flag says the view has been read, and what decides
@@ -145,7 +145,10 @@ public class WhatThisTenantCanFlyAgainstTests
 
         var down = Reducer.Reduce(browsing, Command.SelectNext);
 
-        await Assert.That(down.RepositorySelected).IsEqualTo(1);
+        // THE TAB'S OWN CURSOR, since the repositories tab became the credentials tab: the
+        // repository a flight flies against is the compose modal's to choose.
+        await Assert.That(down.CredentialsSelected).IsEqualTo(1);
+        await Assert.That(down.RepositorySelected).IsEqualTo(0);
         await Assert.That(down.SelectedRow).IsEqualTo(2);
         await Assert.That(down.BrowseSelected).IsEqualTo(3)
             .Because("three lists, three cursors, and j moves whichever has the screen.");

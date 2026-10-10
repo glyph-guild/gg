@@ -75,6 +75,21 @@ public class EnvelopeModelRoundTripTests
                 Moves = [LoopMoves.Edit, LoopMoves.Read],
                 Budget = new LoopBudget { WallClock = "30m", Attempts = 3 },
                 OnExhaustion = ExhaustionPolicies.HandoffToHuman,
+                Mcp = [new LoopMcp { Server = "sonarqube", Allow = ["search_sonar_issues_in_projects"] }],
+            },
+        ],
+        McpServers =
+        [
+            new McpServer
+            {
+                Key = "sonarqube",
+                Type = McpTransports.Http,
+                Url = "https://api.sonarcloud.io/mcp",
+                Headers =
+                [
+                    new McpSetting { Name = "Authorization", Value = "Bearer ${credential:local:analysis/sonarcloud}" },
+                    new McpSetting { Name = "SONARQUBE_ORG", Value = "jdx" },
+                ],
             },
         ],
         Destinations =
@@ -161,6 +176,14 @@ public class EnvelopeModelRoundTripTests
             .Because("attempts: was stored via the wire, invisible in show, and refused on "
                    + "the way back in - the evidence defect through the other door.");
         await Assert.That(loop.OnExhaustion).IsEqualTo(ExhaustionPolicies.HandoffToHuman);
+        await Assert.That(loop.Mcp!.Single().Allow).IsEquivalentTo(["search_sonar_issues_in_projects"]);
+
+        // A SERVER DEFINITION IS PASSED TO THE AGENT AS WRITTEN, so a header the
+        // text form dropped would be a server started without, say, its org.
+        var server = back.McpServers!.Single();
+        await Assert.That(server.Url).IsEqualTo("https://api.sonarcloud.io/mcp");
+        await Assert.That(server.Headers!.Select(h => $"{h.Name}={h.Value}"))
+            .IsEquivalentTo(original.McpServers![0].Headers!.Select(h => $"{h.Name}={h.Value}"));
 
         var destination = back.Destinations.Single();
         await Assert.That(destination.Kind).IsEqualTo(DestinationKinds.PullRequest);
@@ -330,6 +353,7 @@ public class EnvelopeModelRoundTripTests
             nameof(Destination.MayWrite),
             nameof(DestinationSelection.Environments), nameof(DestinationSelection.Repositories),
             nameof(Envelope.Learned),
+            nameof(Envelope.McpServers), nameof(Loop.Mcp),
             nameof(EnvelopeNarrowing.Obligations),
         ];
 

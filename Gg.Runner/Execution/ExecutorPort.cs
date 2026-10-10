@@ -452,6 +452,20 @@ public sealed record ExecutorRequest
     public IReadOnlyList<Gg.Contracts.EnvelopeVariable> Variables { get; init; } = [];
 
     /// <summary>
+    /// The external MCP servers this loop names, as root defined them, or none
+    /// (ADR-0040).
+    /// </summary>
+    /// <remarks>
+    /// Credential references in them are still references: the executor
+    /// resolves them on this machine, and they reach the server's own block and
+    /// nowhere else.
+    /// </remarks>
+    public IReadOnlyList<Gg.Contracts.McpServer> McpServers { get; init; } = [];
+
+    /// <summary>Which of those servers the loop uses, and the tools it may call on each.</summary>
+    public IReadOnlyList<Gg.Contracts.LoopMcp> Mcp { get; init; } = [];
+
+    /// <summary>
     /// The environment instance hosting this flight's stack, or null when it
     /// hosts none.
     /// </summary>

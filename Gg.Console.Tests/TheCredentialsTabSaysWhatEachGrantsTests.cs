@@ -82,4 +82,48 @@ public class TheCredentialsTabSaysWhatEachGrantsTests
             .IsEqualTo(Locator)
             .Because("a send that took the first cell would send a sentence.");
     }
+
+    /// <summary>
+    /// Arrows and clicks move the credentials table's own cursor (owner, 2026-10-10: "i cannot
+    /// click or select rows with arrow keys on the credentials tab").
+    /// </summary>
+    /// <remarks>
+    /// The table is painted from <c>CredentialsSelected</c>, and both paths moved
+    /// <c>RepositorySelected</c> - the compose flow's repository - so the highlight never moved
+    /// and every press changed what the next flight would fly against.
+    /// </remarks>
+    [Test]
+    public async Task Arrows_and_clicks_move_the_credentials_cursor_and_nothing_else()
+    {
+        var two = OnTheTab() with
+        {
+            Credentials = OnTheTab().Credentials! with
+            {
+                Credentials =
+                [
+                    .. OnTheTab().Credentials!.Credentials,
+                    OnTheTab().Credentials!.Credentials[0] with
+                    {
+                        CredentialId = "01a10ece-a9dc-77d7-a7d1-fd7e4b0b675c",
+                        For = "JDX/Other",
+                        Reference = OnTheTab().Credentials!.Credentials[0].Reference with { Locator = "local:jdx/other" },
+                    },
+                ],
+            },
+        };
+        var rows = Rows.Credentials(two).Count;
+        await Assert.That(rows).IsGreaterThanOrEqualTo(2);
+
+        var down = Reducer.Reduce(two, Command.SelectNext);
+        await Assert.That(down.CredentialsSelected).IsEqualTo(1);
+        await Assert.That(down.RepositorySelected).IsEqualTo(two.RepositorySelected)
+            .Because("the compose flow's repository is not this table's cursor.");
+
+        var past = Reducer.Reduce(Reducer.Reduce(down, Command.SelectNext), Command.SelectNext);
+        await Assert.That(past.CredentialsSelected).IsEqualTo(rows - 1);
+
+        var clicked = Reducer.Pointed(two, 1);
+        await Assert.That(clicked.CredentialsSelected).IsEqualTo(1);
+        await Assert.That(clicked.RepositorySelected).IsEqualTo(two.RepositorySelected);
+    }
 }

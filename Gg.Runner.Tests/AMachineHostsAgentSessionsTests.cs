@@ -4,8 +4,8 @@ using Gg.Runner;
 namespace Gg.Runner.Tests;
 
 /// <summary>
-/// An opted-in machine starts its agent through the CLI's port, under a root it
-/// allows, at the size asked for - and refuses, in a sentence, what it will not do
+/// An opted-in machine starts its agent through the CLI's port, in a directory of its
+/// own (slice seventy-one), at the size asked for - and refuses, in a sentence, what it will not do
 /// (slice seventy, S70.2-01; ADR-0039 Decisions 3 and 4).
 /// </summary>
 /// <remarks>
@@ -26,7 +26,7 @@ public class AMachineHostsAgentSessionsTests
 
         var sessions = new AgentSessions(
             host,
-            [root],
+            root,
             flying: () => flying,
             now: () => Noon,
             environment: () => token is null
@@ -37,7 +37,7 @@ public class AMachineHostsAgentSessionsTests
     }
 
     [Test]
-    public async Task It_starts_the_agent_under_its_first_root_at_the_asked_size()
+    public async Task It_starts_the_agent_in_a_directory_of_its_own_at_the_asked_size()
     {
         var (sessions, host, root) = Machine();
 
@@ -49,45 +49,12 @@ public class AMachineHostsAgentSessionsTests
 
         var asked = host.Started.Single();
 
-        await Assert.That(asked.Directory).IsEqualTo(root);
+        await Assert.That(asked.Directory).IsEqualTo(Path.Combine(root, "a1b2"));
         await Assert.That((asked.Columns, asked.Rows)).IsEqualTo((120, 40));
         await Assert.That(asked.Resume).IsFalse();
         await Assert.That(asked.Environment["CLAUDE_CODE_OAUTH_TOKEN"]).IsEqualTo("the-agents-token")
             .Because("the session's agent authenticates as a flight's does - the machine's own "
                    + "token, placed in its environment, never in an argument.");
-    }
-
-    [Test]
-    public async Task A_session_may_start_in_a_directory_under_a_root()
-    {
-        var (sessions, host, root) = Machine();
-        var below = Directory.CreateDirectory(Path.Combine(root, "jdnext")).FullName;
-
-        var opened = await sessions.StartAsync(
-            new StartAgentSession { Columns = 80, Rows = 24, Directory = below }, CancellationToken.None);
-
-        await Assert.That(opened.Refused).IsNull();
-        await Assert.That(host.Started.Single().Directory).IsEqualTo(below);
-        await Assert.That(opened.Session!.Id).IsNotEmpty()
-            .Because("no id asked for is one the machine chooses.");
-    }
-
-    [Test]
-    public async Task Outside_its_roots_is_refused()
-    {
-        var (sessions, host, root) = Machine();
-
-        foreach (var outside in new[] { "/etc", Path.Combine(root, "..", "elsewhere") })
-        {
-            var opened = await sessions.StartAsync(
-                new StartAgentSession { Columns = 80, Rows = 24, Directory = outside }, CancellationToken.None);
-
-            await Assert.That(opened.Session).IsNull();
-            await Assert.That(opened.Refused!).Contains("root")
-                .Because($"{outside} is not under a root this machine's owner allowed.");
-        }
-
-        await Assert.That(host.Started).IsEmpty();
     }
 
     [Test]
@@ -168,7 +135,7 @@ public class AMachineHostsAgentSessionsTests
         var standings = sessions.Standings();
 
         await Assert.That(standings.Single(s => s.SessionId == "live").Alive).IsTrue();
-        await Assert.That(standings.Single(s => s.SessionId == "live").Directory).IsEqualTo(root);
+        await Assert.That(standings.Single(s => s.SessionId == "live").Directory).IsEqualTo(Path.Combine(root, "live"));
         await Assert.That(standings.Single(s => s.SessionId == "live").StartedAt).IsEqualTo(Noon);
     }
 }

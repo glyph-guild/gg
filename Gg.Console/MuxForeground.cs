@@ -19,7 +19,17 @@ public enum MuxLeave
 
     /// <summary>An airspace agent was asked for: the shell starts it beside gg.</summary>
     Airspace,
+
+    /// <summary>
+    /// A machine was chosen under Remote Control…: gg's console opens its runner modal on
+    /// that machine's sessions (slice seventy-one). <see cref="Mux.TakeRemoteControl"/> says
+    /// which.
+    /// </summary>
+    RemoteControl,
 }
+
+/// <summary>What opening a session on another machine came to: its row, or why there is none.</summary>
+public sealed record RemoteOpened(int? Agent, string? Refused);
 
 public sealed partial class Mux
 {
@@ -30,6 +40,108 @@ public sealed partial class Mux
     private Func<string, BoardPage?>? _plan;
     private Func<IReadOnlyList<RemoteMachine>>? _machines;
     private Func<RemoteMachine, RemoteReach>? _reach;
+    private string? _remoteControl;
+
+    /// <summary>The machine chosen under Remote Control…, taken so it is opened once.</summary>
+    public string? TakeRemoteControl()
+    {
+        lock (_lock)
+        {
+            var chosen = _remoteControl;
+            _remoteControl = null;
+            return chosen;
+        }
+    }
+
+    /// <summary>
+    /// Starts a new session on <paramref name="machine"/>, attaches to a live one, or resumes an
+    /// ended one by its id, and puts it on a row - or says why not (slice seventy-one).
+    /// </summary>
+    /// <remarks>
+    /// <b>The console's runner modal asks for this</b> with what its sessions view knows: the
+    /// session's id, whether it runs, and where it worked. Placing the row asks the shell to show
+    /// it, so the next turn of the loop is the agent.
+    /// </remarks>
+    public RemoteOpened OpenRemote(RemoteMachine machine, string? sessionId, bool alive, string? directory = null)
+    {
+        ArgumentNullException.ThrowIfNull(machine);
+
+        if (Rows().Count >= MuxColumn.Most)
+        {
+            return new(null, $"gg holds {MuxColumn.Most} agents at most. End one first.");
+        }
+
+        if (_reach is null)
+        {
+            return new(null, "This console cannot reach machines.");
+        }
+
+        // THE ROW FIRST, the machine behind it (owner, 2026-10-10): reaching takes the machine's
+        // next heartbeat, and the row says so while it does.
+        var session = sessionId is null
+            ? null
+            : new AgentSessionStanding
+            {
+                SessionId = sessionId, StartedAt = DateTimeOffset.MinValue, Alive = alive, Directory = directory,
+            };
+        var id = sessionId ?? Guid.NewGuid().ToString();
+
+        var agent = StartRemote(
+            $"claude @ {machine.Name}",
+            new ReachingPty(machine.Name, () => Reached(machine, _ => session, id, directory)),
+            id, machine.Id, directory ?? "");
+
+        return new(NumberOf(agent), null);
+    }
+
+    /// <summary>
+    /// Asks <paramref name="machine"/> to forget an ended session, or every ended one when
+    /// <paramref name="sessionId"/> is null; answers the machine's refusal, or null once it has.
+    /// </summary>
+    public string? ForgetRemote(RemoteMachine machine, string? sessionId)
+    {
+        ArgumentNullException.ThrowIfNull(machine);
+
+        var (reached, unreached, _) = Reach(machine);
+        if (reached is not { } link)
+        {
+            return unreached;
+        }
+
+        try
+        {
+            var answer = Ask<AgentFrame>(
+                link, new ForgetAgentSession { SessionId = sessionId },
+                f => f is AgentSessionList or AgentSessionRefused);
+
+            return answer switch
+            {
+                AgentSessionList => null,
+                AgentSessionRefused refused => refused.Because,
+                _ => $"{machine.Name} did not answer. The channel may have dropped; try again.",
+            };
+        }
+        finally
+        {
+            // NOTHING STAYS OPEN: a forget holds no session, so its channel is not kept.
+            link.Dispose();
+        }
+    }
+
+    /// <summary>A link to the machine, or why there is none.</summary>
+    private (Gg.Client.IAgentLink? Link, string? Refused, Func<string, DelegateAgentSession?>? Delegation) Reach(
+        RemoteMachine machine)
+    {
+        if (_reach is null)
+        {
+            return (null, "This console cannot reach machines.", null);
+        }
+
+        var reached = _reach(machine);
+        return reached.Link is { } link
+            ? (link, null, reached.Delegation)
+            : (null, reached.Refused ?? $"{machine.Name} could not be reached.", null);
+    }
 
     /// <summary>
     /// How the mux finds the machines this person may start a session on, and reaches
@@ -143,7 +255,8 @@ public sealed partial class Mux
                 frame = (string.Equals(modes, mirrored, StringComparison.Ordinal) ? "" : modes)
                       + MuxColumn.Paint(MuxColumn.Lines(Rows(), MuxTab.Agent(NumberOf(agent)), terminal.Rows, armed))
                       + PtyScreen.Paint(agent.Emulator, height, width, kept.Top, footer: null,
-                            dim: kept.Open, left: MuxColumn.Width);
+                            dim: kept.Open, left: MuxColumn.Width)
+                      + agent.TakeCopied();
                 mirrored = modes;
             }
 
@@ -320,10 +433,36 @@ public sealed partial class Mux
     }
 
     /// <summary>"+ new agent": what `n` offers, and a plain Claude Code session here.</summary>
+    /// <remarks>
+    /// <b>A list, not letters</b> (owner, 2026-10-10): the arrows or j/k move, enter picks.
+    /// Claude Code here is first and the cursor opens on it; Remote Control… is last, because
+    /// it opens a choice of its own rather than an agent.
+    /// </remarks>
     private (MuxTab? Next, MuxLeave? Leave) ShowNew(IHostTerminal terminal)
     {
         var here = Directory.GetCurrentDirectory();
         var full = Rows().Count >= MuxColumn.Most;
+        var cursor = 0;
+
+        List<(string Text, Func<(MuxTab? Next, MuxLeave? Leave)> Pick)> items =
+        [
+            ($"Claude Code here: {here}", () => StartClaudeCode(here) is { } started && NumberOf(started) is > 0 and var at
+                ? (MuxTab.Agent(at), null)
+                : (MuxTab.Gg, null)),
+            ("manage gg with an agent: gates, the board, flights, runners", () =>
+                StartManaging(here) is { } managing && NumberOf(managing) is > 0 and var shown
+                    ? (MuxTab.Agent(shown), null)
+                    : (MuxTab.Gg, null)),
+            ("plan several flights with an agent", () => (null, MuxLeave.Plan)),
+            ("manage the airspace with an agent", () => (null, MuxLeave.Airspace)),
+            ("a new flight (gg asks what kind, as `n` does)", () => (null, MuxLeave.Compose)),
+        ];
+
+        if (_machines is not null)
+        {
+            items.Add(("Remote Control…", () => ShowMachines(terminal)));
+        }
+
         IReadOnlyList<string> Lines() => full
             ?
             [
@@ -337,32 +476,37 @@ public sealed partial class Mux
             [
                 "New agent",
                 "",
-                "l    plan several flights with an agent",
-                "a    manage the airspace with an agent",
-                "g    manage gg with an agent: gates, the board, flights, runners",
-                $"c    Claude Code, here: {here}",
-                "n    a new flight (gg asks what kind, as `n` does)",
-                .. _machines is null ? (string[])[] : ["m    Claude Code on another machine"],
+                .. items.Select((item, at) => (at == cursor ? "▸ " : "  ") + item.Text),
                 "",
-                "esc  back",
+                "↑/↓ or j/k move · enter picks · esc back",
             ];
 
-        return Menu(terminal, MuxTab.New, Lines, (typed, _) => full
-            ? null
-            : typed switch
+        return Menu(terminal, MuxTab.New, Lines, (typed, sequence) =>
+        {
+            if (full)
             {
-                (byte)'l' => (null, MuxLeave.Plan),
-                (byte)'a' => (null, MuxLeave.Airspace),
-                (byte)'g' => StartManaging(here) is { } managing && NumberOf(managing) is > 0 and var shown
-                    ? (MuxTab.Agent(shown), null)
-                    : (MuxTab.Gg, null),
-                (byte)'n' => (null, MuxLeave.Compose),
-                (byte)'m' when _machines is not null => ShowMachines(terminal),
-                (byte)'c' => StartClaudeCode(here) is { } started && NumberOf(started) is > 0 and var at
-                    ? (MuxTab.Agent(at), null)
-                    : (MuxTab.Gg, null),
-                _ => null,
-            });
+                return null;
+            }
+
+            var down = typed == (byte)'j' || IsArrow(sequence, (byte)'B');
+            var up = typed == (byte)'k' || IsArrow(sequence, (byte)'A');
+            if (down || up)
+            {
+                cursor = Math.Clamp(cursor + (down ? 1 : -1), 0, items.Count - 1);
+                return (Stay, null);
+            }
+
+            if (typed is (byte)'\r' or (byte)'\n')
+            {
+                var went = items[cursor].Pick();
+
+                // BACK FROM REMOTE CONTROL IS BACK TO THIS MENU, as back from a machine's
+                // sessions is back to the machines.
+                return went.Next == MuxTab.New && went.Leave is null ? (Stay, null) : went;
+            }
+
+            return null;
+        }, keepOn: Stay);
     }
 
     /// <summary>History: what was proposed from this machine, and the sessions the mux started.</summary>
@@ -386,7 +530,7 @@ public sealed partial class Mux
             lines.AddRange(rows.Select((row, at) =>
                 (choosable.Count > 0 && choosable[cursor] == at ? "▸" : " ") + row.Text));
             lines.Add("");
-            lines.Add("j/k move · enter opens a plan, or resumes a session as a new agent · esc back");
+            lines.Add("↑/↓ or j/k move · enter opens a plan, or resumes a session as a new agent · esc back");
             return lines;
         }
 
@@ -403,8 +547,8 @@ public sealed partial class Mux
                 return null;
             }
 
-            var down = typed == (byte)'j' || sequence is [0x1b, (byte)'[', (byte)'B'];
-            var up = typed == (byte)'k' || sequence is [0x1b, (byte)'[', (byte)'A'];
+            var down = typed == (byte)'j' || IsArrow(sequence, (byte)'B');
+            var up = typed == (byte)'k' || IsArrow(sequence, (byte)'A');
             if (down || up)
             {
                 cursor = Math.Clamp(cursor + (down ? 1 : -1), 0, Math.Max(choosable.Count - 1, 0));
@@ -461,16 +605,23 @@ public sealed partial class Mux
     /// </summary>
     private static readonly MuxTab Stay = MuxTab.Agent(0);
 
-    /// <summary>The machines this person may start a session on; enter reaches one.</summary>
+    /// <summary>
+    /// The machines this person may start a session on; enter hands the one under the cursor to
+    /// gg's console, which opens its runner modal on that machine's sessions (slice seventy-one).
+    /// </summary>
+    /// <remarks>
+    /// <b>One list of a machine's sessions, and it is the console's.</b> This screen listed them
+    /// itself until the runner modal could, and two lists of the same sessions with their own
+    /// keys would drift. So the machine is only chosen here; nothing is reached.
+    /// </remarks>
     private (MuxTab? Next, MuxLeave? Leave) ShowMachines(IHostTerminal terminal)
     {
         var machines = _machines!();
         var cursor = 0;
-        string? said = null;
 
         IReadOnlyList<string> Lines()
         {
-            var lines = new List<string> { "Claude Code on another machine", "" };
+            var lines = new List<string> { "Remote Control", "" };
 
             if (machines.Count == 0)
             {
@@ -478,15 +629,8 @@ public sealed partial class Mux
             }
 
             lines.AddRange(machines.Select((m, at) => (at == cursor ? "▸ " : "  ") + m.Name));
-
-            if (said is not null)
-            {
-                lines.Add("");
-                lines.AddRange(said.Split('\n'));
-            }
-
             lines.Add("");
-            lines.Add("j/k move · enter reaches it · esc back");
+            lines.Add("↑/↓ or j/k move · enter opens its sessions in gg · esc back");
             return lines;
         }
 
@@ -497,8 +641,8 @@ public sealed partial class Mux
                 return (MuxTab.New, null);
             }
 
-            var down = typed == (byte)'j' || sequence is [0x1b, (byte)'[', (byte)'B'];
-            var up = typed == (byte)'k' || sequence is [0x1b, (byte)'[', (byte)'A'];
+            var down = typed == (byte)'j' || IsArrow(sequence, (byte)'B');
+            var up = typed == (byte)'k' || IsArrow(sequence, (byte)'A');
             if (down || up)
             {
                 cursor = Math.Clamp(cursor + (down ? 1 : -1), 0, Math.Max(machines.Count - 1, 0));
@@ -507,108 +651,16 @@ public sealed partial class Mux
 
             if (typed is (byte)'\r' or (byte)'\n' && machines.Count > 0)
             {
-                var reached = _reach!(machines[cursor]);
-
-                if (reached.Link is not { } link)
+                lock (_lock)
                 {
-                    said = reached.Refused ?? $"{machines[cursor].Name} could not be reached.";
-                    return (Stay, null);
+                    _remoteControl = machines[cursor].Id;
                 }
 
-                var (went, refused) = ShowSessions(terminal, machines[cursor], link);
-
-                // BACK FROM THE SESSIONS IS BACK TO THIS LIST; anything else - an agent
-                // started, a switch typed there - goes where it was asked to.
-                if (went.Leave is not null || (went.Next is { } next && next != MuxTab.New && next != Stay))
-                {
-                    return went;
-                }
-
-                said = refused;
-                return (Stay, null);
+                return (null, MuxLeave.RemoteControl);
             }
 
             return null;
         }, keepOn: Stay);
-    }
-
-    /// <summary>
-    /// A reached machine's sessions: a new one, or one it holds. Answers where to go -
-    /// the agent's row once one is started or attached, back, or a switch typed here -
-    /// and the machine's sentence when it refused.
-    /// </summary>
-    private ((MuxTab? Next, MuxLeave? Leave) Went, string? Said) ShowSessions(
-        IHostTerminal terminal, RemoteMachine machine, Gg.Client.IAgentLink link)
-    {
-        // SUBSCRIBED FIRST, so the replay after Started lands in the terminal.
-        var pty = new RemotePty(link);
-        var sessions = Ask<AgentSessionList>(link, new ListAgentSessions())?.Sessions ?? [];
-        var choices = new List<(string Text, AgentSessionStanding? Session)> { ("new session", null) };
-        choices.AddRange(sessions.Select(s => (
-            $"{(s.Alive ? "attach" : "resume")} {s.SessionId} · {s.Directory ?? ""}", (AgentSessionStanding?)s)));
-        var cursor = 0;
-        string? said = null;
-        var started = false;
-
-        IReadOnlyList<string> Lines()
-        {
-            var lines = new List<string> { $"Claude Code on {machine.Name}", "" };
-            lines.AddRange(choices.Select((c, at) => (at == cursor ? "▸ " : "  ") + c.Text));
-
-            if (said is not null)
-            {
-                lines.Add("");
-                lines.AddRange(said.Split('\n'));
-            }
-
-            lines.Add("");
-            lines.Add("j/k move · enter starts or attaches · esc back");
-            return lines;
-        }
-
-        var went = Menu(terminal, MuxTab.New, Lines, (typed, sequence) =>
-        {
-            if (sequence is [0x1b])
-            {
-                return (MuxTab.New, null);
-            }
-
-            var down = typed == (byte)'j' || sequence is [0x1b, (byte)'[', (byte)'B'];
-            var up = typed == (byte)'k' || sequence is [0x1b, (byte)'[', (byte)'A'];
-            if (down || up)
-            {
-                cursor = Math.Clamp(cursor + (down ? 1 : -1), 0, choices.Count - 1);
-                return (Stay, null);
-            }
-
-            if (typed is (byte)'\r' or (byte)'\n')
-            {
-                if (Rows().Count >= MuxColumn.Most)
-                {
-                    said = $"gg holds {MuxColumn.Most} agents at most. End one first.";
-                    return (Stay, null);
-                }
-
-                var (shown, refused) = Open(machine, link, pty, choices[cursor].Session, directory: null);
-                if (shown is { } at)
-                {
-                    started = true;
-                    return (MuxTab.Agent(at), null);
-                }
-
-                said = refused;
-                return (Stay, null);
-            }
-
-            return null;
-        }, keepOn: Stay);
-
-        if (!started)
-        {
-            pty.Dispose();
-        }
-
-        return (went, said);
     }
 
     /// <summary>History's way back to a remote session: attach while it lives, resume once it ended.</summary>
@@ -619,32 +671,58 @@ public sealed partial class Mux
             return (null, $"gg holds {MuxColumn.Most} agents at most. End one to resume this session.");
         }
 
-        var reached = _reach!(machine);
-        if (reached.Link is not { } link)
-        {
-            return (null, reached.Refused ?? $"{machine.Name} could not be reached.");
-        }
+        // ASKED THE MACHINE whether it still runs, once reached: attached if so, resumed if not.
+        var agent = StartRemote(
+            $"claude @ {machine.Name}",
+            new ReachingPty(machine.Name, () => Reached(
+                machine,
+                link => Ask<AgentSessionList>(link, new ListAgentSessions())?.Sessions
+                    .FirstOrDefault(s => s.SessionId == sessionId)
+                    ?? new AgentSessionStanding { SessionId = sessionId, StartedAt = DateTimeOffset.MinValue, Alive = false },
+                sessionId, directory)),
+            sessionId, machine.Id, directory ?? "");
 
-        var pty = new RemotePty(link);
-        var held = Ask<AgentSessionList>(link, new ListAgentSessions())?.Sessions
-            .FirstOrDefault(s => s.SessionId == sessionId)
-            ?? new AgentSessionStanding { SessionId = sessionId, StartedAt = DateTimeOffset.MinValue, Alive = false };
-
-        var (shown, refused) = Open(machine, link, pty, held, directory);
-        if (shown is null)
-        {
-            pty.Dispose();
-        }
-
-        return (shown, refused ?? "");
+        return (NumberOf(agent), "");
     }
 
     /// <summary>
-    /// Starts a new session, attaches to a live one, or resumes an ended one by its id,
-    /// and puts it on a row - or answers the machine's refusal.
+    /// Reaches <paramref name="machine"/> and starts, attaches or resumes there - behind a row
+    /// already placed: the session's terminal, or why there is none.
     /// </summary>
-    private (int? Shown, string? Refused) Open(
-        RemoteMachine machine, Gg.Client.IAgentLink link, RemotePty pty, AgentSessionStanding? session, string? directory)
+    private (IAgentPty? Reached, string? Refused) Reached(
+        RemoteMachine machine,
+        Func<Gg.Client.IAgentLink, AgentSessionStanding?> session,
+        string id,
+        string? directory)
+    {
+        var (reached, unreached, delegation) = Reach(machine);
+        if (reached is not { } link)
+        {
+            return (null, unreached);
+        }
+
+        var pty = new RemotePty(link);
+        var refused = Open(machine, link, session(link), id, directory, delegation);
+        if (refused is not null)
+        {
+            pty.Dispose();
+            return (null, refused);
+        }
+
+        return (pty, null);
+    }
+
+    /// <summary>
+    /// Starts a new session, attaches to a live one, or resumes an ended one by its id: null once
+    /// the machine says it has, or the machine's refusal.
+    /// </summary>
+    private string? Open(
+        RemoteMachine machine,
+        Gg.Client.IAgentLink link,
+        AgentSessionStanding? session,
+        string id,
+        string? directory,
+        Func<string, DelegateAgentSession?>? delegation)
     {
         var (columns, rows) = PaneSize();
 
@@ -654,23 +732,24 @@ public sealed partial class Mux
             {
                 Columns = columns,
                 Rows = rows,
-                SessionId = session?.SessionId ?? Guid.NewGuid().ToString(),
+                SessionId = session?.SessionId ?? id,
                 Directory = directory ?? session?.Directory,
             };
 
-        var answer = Ask<AgentFrame>(link, ask, f => f is AgentSessionStarted or AgentSessionRefused);
-
-        if (answer is not AgentSessionStarted started)
+        // THE PERSON'S CREDENTIAL, FIRST, for a start: the machine hands it to the next start
+        // on this channel. Never for an attach - that agent's environment was set when it began
+        // (ADR-0039 Amendment 2).
+        if (ask is StartAgentSession { SessionId: { } starting } && delegation?.Invoke(starting) is { } delegated)
         {
-            return (null, (answer as AgentSessionRefused)?.Because
-                ?? $"{machine.Name} did not answer. The channel may have dropped; try again.");
+            link.Send(delegated);
         }
 
-        var agent = StartRemote(
-            $"claude @ {machine.Name}", pty, started.SessionId, machine.Id,
-            directory ?? session?.Directory ?? "");
+        var answer = Ask<AgentFrame>(link, ask, f => f is AgentSessionStarted or AgentSessionRefused);
 
-        return (NumberOf(agent), null);
+        return answer is AgentSessionStarted
+            ? null
+            : (answer as AgentSessionRefused)?.Because
+                ?? $"{machine.Name} did not answer. The channel may have dropped; try again.";
     }
 
     /// <summary>Sends a frame and waits, boundedly, for the answer it asked for.</summary>
@@ -822,6 +901,19 @@ public sealed partial class Mux
             terminal.Paint($"{Esc}[?25h");
         }
     }
+
+    /// <summary>
+    /// Whether a key is the arrow ending in <paramref name="final"/> - <c>A</c> up, <c>B</c> down -
+    /// in either form a terminal sends it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Both, because gg's console leaves application cursor keys on.</b> Terminal.Gui writes
+    /// <c>ESC [ ? 1 h</c> and nothing writes the <c>l</c>, so by the time a list here is on screen
+    /// the terminal sends <c>ESC O B</c>, not <c>ESC [ B</c>. Matching only the one meant only j
+    /// and k moved - found by a person reaching for the arrows.
+    /// </remarks>
+    private static bool IsArrow(byte[] sequence, byte final) =>
+        sequence is [0x1b, (byte)'[' or (byte)'O', var last] && last == final;
 
     /// <summary>
     /// One read, as the keys in it: ctrl-g, the key after it, and each mouse report are their own.

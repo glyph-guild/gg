@@ -24,6 +24,13 @@ internal static partial class Sources
     internal static IReadOnlyDictionary<string, string> NotOnThePage { get; } =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            ["GG_SESSION_TOKEN"] =
+                "the runner writes it into an agent session's own environment, holding the "
+              + "credential the person who started the session delegated to it (ADR-0039 "
+              + "Amendment 2), so gg's tool servers in that session act as them. A person "
+              + "setting it by hand would be handing gg a session token in the environment, "
+              + "which is exactly what the page should never invite.",
+
             ["GG_MUX_ACTIVITY"] =
                 "the mux writes it into each Claude Code agent's own environment, naming the "
               + "state file that agent's hooks mark; `gg mux mark` writes only inside the mux's "

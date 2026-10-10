@@ -55,19 +55,18 @@ public class AgentSessionsAreAMachinesDecisionTests
         var wired = LocalAgentSessions.For(
             new Configuration { AcceptAgentSessions = true, AgentSessionRoots = "/work, /srv/repos" }, "claude");
 
-        await Assert.That(wired!.Roots).IsEquivalentTo((string[])["/work", "/srv/repos"]);
+        await Assert.That(wired!.Home).IsEqualTo(AgentSessions.DefaultHome())
+            .Because("agent-session-roots is retired: each session gets a directory of its own (slice seventy-one).");
         await Assert.That(wired.Host).IsTypeOf<AgentSessionHost>();
     }
 
     [Test]
-    public async Task With_no_roots_named_the_home_directory_is_the_root()
+    public async Task Sessions_live_in_the_users_data_directory()
     {
         var wired = LocalAgentSessions.For(new Configuration { AcceptAgentSessions = true }, "claude");
 
-        await Assert.That(wired!.Roots).IsEquivalentTo(
-            (string[])[Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)])
-            .Because("a person who opted their own machine in expects their own projects; a "
-                   + "narrower root is one line in the same file.");
+        await Assert.That(wired!.Home.Replace('\\', '/')).EndsWith("good-grief/agent-sessions")
+            .Because("not under the flights' working-tree root, which the runner sweeps on every start.");
     }
 
     [Test]

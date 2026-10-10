@@ -1180,6 +1180,22 @@ public sealed record RunnerSummary
     /// has.
     /// </summary>
     public DateTimeOffset? MachineMeasuredAt { get; init; }
+
+    /// <summary>
+    /// Whether its last heartbeat said it accepts ad hoc agent sessions; null or false is not
+    /// (slice seventy-one, ADR-0039 Decision 10).
+    /// </summary>
+    /// <remarks>
+    /// <b>So Remote Control lists only machines that would answer.</b> Without it every
+    /// beating runner was offered, pool members included, and refused only once reached.
+    /// </remarks>
+    public bool? AcceptsAgentSessions { get; init; }
+
+    /// <summary>The sessions its last heartbeat reported, live and ended; null when it reported none.</summary>
+    public IReadOnlyList<AgentSessionStanding>? AgentSessions { get; init; }
+
+    /// <summary>Whether its last heartbeat said it hands a session a delegated credential (ADR-0039 Amendment 2).</summary>
+    public bool? TakesAgentDelegation { get; init; }
 }
 
 /// <summary>The states a runner may be derived to be in.</summary>
@@ -1308,6 +1324,35 @@ public static class FlightStates
 public sealed record RunnerList
 {
     public required IReadOnlyList<RunnerSummary> Runners { get; init; }
+}
+
+/// <summary>A runner's recent flights, newest first (slice seventy-one, ADR-0039 Decision 10).</summary>
+[PinnedId("04564977-a852-4f58-9579-ed61dbe7fc87")]
+public sealed record RunnerFlightList
+{
+    public required IReadOnlyList<RunnerFlight> Flights { get; init; }
+}
+
+/// <summary>One flight a runner claimed.</summary>
+[PinnedId("979153fe-b9dc-4b24-8f34-7773f0398409")]
+public sealed record RunnerFlight
+{
+    public required string FlightId { get; init; }
+
+    /// <summary>The flight's tenant-wide number, when it has one.</summary>
+    public int? Number { get; init; }
+
+    /// <summary>Its work kind, when it names one.</summary>
+    public string? Kind { get; init; }
+
+    /// <summary>Where it is now, in the words <see cref="FlightSummary"/> uses.</summary>
+    public required string State { get; init; }
+
+    /// <summary>When this runner claimed it.</summary>
+    public DateTimeOffset? ClaimedAt { get; init; }
+
+    /// <summary>When it reached an exit, or null while it flies.</summary>
+    public DateTimeOffset? EndedAt { get; init; }
 }
 
 /// <summary>

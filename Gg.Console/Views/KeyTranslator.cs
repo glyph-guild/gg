@@ -76,6 +76,14 @@ public static class KeyTranslator
             input = char.ToLowerInvariant((char)key.AsRune.Value);
         }
 
+        // A SHIFTED LETTER IS ITS CAPITAL (slice seventy-one): `D` forgets every ended session
+        // where `d` forgets one. Letters were folded to lower case whatever the shift, because
+        // Terminal.Gui names a letter's key code by its capital; only a held shift raises one.
+        if (input is >= 'a' and <= 'z' && key.IsShift && !key.IsCtrl)
+        {
+            input = char.ToUpperInvariant(input.Value);
+        }
+
         return new KeyStroke(input, Ctrl: key.IsCtrl);
     }
 }

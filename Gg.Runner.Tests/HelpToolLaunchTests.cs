@@ -53,8 +53,9 @@ public class HelpToolLaunchTests
 
     private static string ConfigIn(IReadOnlyList<string> arguments)
     {
-        var at = arguments.ToList().IndexOf("--mcp-config");
-        return at < 0 ? "" : arguments[at + 1];
+        // A PATH, AND THE FILE IS THE CONFIGURATION: it carries secrets, so it
+        // is never the argument itself.
+        return arguments.Contains("--mcp-config") ? McpLaunch.ConfigText(arguments) : "";
     }
 
     // ---- S25.2-01 ----

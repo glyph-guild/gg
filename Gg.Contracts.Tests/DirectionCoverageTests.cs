@@ -302,6 +302,28 @@ public class DirectionCoverageTests
             Doc(), WithLoop(Doc(), l => l with { Moves = [LoopMoves.Read, LoopMoves.Edit] }),
             ReverseAlsoWidens: false),
 
+        // AN EXTERNAL SERVER WIDENS BY ARRIVING (ADR-0040 Decision 5). gg cannot
+        // say what its tools do, so a definition gained is reach gained, and one
+        // removed reaches nothing.
+        new("Envelope.McpServers", "mcp-servers",
+            Doc(),
+            Doc() with
+            {
+                McpServers =
+                [
+                    new McpServer
+                    {
+                        Key = "sonarqube", Type = McpTransports.Http, Url = "https://api.sonarcloud.io/mcp",
+                    },
+                ],
+            },
+            ReverseAlsoWidens: false),
+
+        new("Loop.Mcp", "mcp",
+            Doc(),
+            WithLoop(Doc(), l => l with { Mcp = [new LoopMcp { Server = "sonarqube", Allow = ["*"] }] }),
+            ReverseAlsoWidens: false),
+
         new("Loop.OnExhaustion", "on-exhaustion",
             Doc(),
             WithLoop(Doc(), l => l with { OnExhaustion = ExhaustionPolicies.HandoffToAgent }),

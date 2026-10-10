@@ -61,6 +61,9 @@ namespace Gg.Client;
 [JsonSerializable(typeof(RunnerReservationRequest))]
 [JsonSerializable(typeof(RunnerReserved))]
 [JsonSerializable(typeof(RunnerList))]
+[JsonSerializable(typeof(RunnerFlightList))]
+[JsonSerializable(typeof(AgentDelegationRequest))]
+[JsonSerializable(typeof(AgentDelegation))]
 // NEW HERE, and its absence was the restriction showing through: a person
 // could never post a reading, so this context never needed to write one. The
 // runner's own context has had it since the reading shipped.
@@ -1568,6 +1571,46 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(ProtocolJsonContext.Default.RunnerList, cancellationToken)
             ?? throw new InvalidOperationException("Control plane returned no runner list.");
+    }
+
+    /// <summary>
+    /// A session one agent session may act as this person through (ADR-0039 Amendment 2),
+    /// minted against the drive-an-agent introduction just given for that machine. The token
+    /// goes to the machine over the sealed channel and nowhere else.
+    /// </summary>
+    public async Task<AgentDelegation> DelegateAsync(
+        string sessionToken, AgentDelegationRequest asked, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(asked);
+
+        using var request = Request(HttpMethod.Post, "/v1/auth/delegations", sessionToken);
+        request.Content = JsonContent.Create(asked, ProtocolJsonContext.Default.AgentDelegationRequest);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(ProtocolJsonContext.Default.AgentDelegation, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane issued no delegation.");
+    }
+
+    /// <summary>
+    /// A runner's recent flights, newest first: what Remote Control's runner screen shows
+    /// beside the flight the fleet read names (slice seventy-one).
+    /// </summary>
+    public async Task<RunnerFlightList> RunnerFlightsAsync(
+        string sessionToken, string runnerId, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(runnerId);
+
+        using var request = Request(
+            HttpMethod.Get, $"/v1/runners/{Uri.EscapeDataString(runnerId)}/flights", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(ProtocolJsonContext.Default.RunnerFlightList, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane returned no flights.");
     }
 
     /// <summary>

@@ -93,6 +93,15 @@ public enum Command
     /// </remarks>
     ShowFlightFacts,
 
+    /// <summary>What the runner the modal is open on has flown (slice seventy-one).</summary>
+    /// <remarks>
+    /// <b><see cref="ShowFlightFacts"/>' shape, one modal over.</b> No key sends it:
+    /// showing the flights pane is the asking, and this is the read the screen
+    /// starts when it does. It folds in beside the console rather than ending
+    /// the session.
+    /// </remarks>
+    ShowRunnerFlights,
+
     /// <summary>What can be done to the selected flight.</summary>
     ToggleFlightActions,
 
@@ -678,6 +687,23 @@ public enum Command
     /// </para>
     /// </remarks>
     WatchRunner,
+
+    /// <summary>Start a new agent session on the machine the runner modal is open on (slice seventy-one).</summary>
+    /// <remarks>
+    /// <b>The shell's, like <see cref="WatchRunner"/>:</b> reaching a machine is an
+    /// introduction and a channel, which a UI session may not open. Like the other three
+    /// below it carries nothing; the act reads the runner and the session from the model.
+    /// </remarks>
+    StartRemoteSession,
+
+    /// <summary>Attach to the session under the sessions view's cursor if it runs; resume it if it ended.</summary>
+    OpenRemoteSession,
+
+    /// <summary>Forget the ended session under the cursor: the machine deletes its record and transcript.</summary>
+    ForgetRemoteSession,
+
+    /// <summary>Forget every ended session on the machine the modal is open on.</summary>
+    ForgetEndedRemoteSessions,
 
     /// <summary>Watch the flight the modal is open on.</summary>
     /// <remarks>
@@ -1348,6 +1374,10 @@ public static class ShellCommands
         // something a person is looking at.
         Command.ShowFlightFacts,
 
+        // A RUNNER'S RECENT FLIGHTS, for the facts tab's reason one modal over:
+        // the modal is open and the runner already on it.
+        Command.ShowRunnerFlights,
+
         // THE SAME REGISTRY, WANTED BY A DIFFERENT SCREEN. The credential
         // chooser lists what has no credential yet, which it cannot do without
         // the registry - and it used to compensate with a row that asked a
@@ -1631,6 +1661,14 @@ public static class ShellCommands
         // flight ends - the editor's shape, and for the editor's reason: what
         // it does inside is a network call a session may not make.
         Command.WatchRunner,
+
+        // A MACHINE'S AGENT SESSIONS (slice seventy-one), for WatchRunner's reason: each
+        // reaches the machine over the control plane and a channel, which a session may not
+        // open. A started or opened one is shown in the mux; the runner modal stays open.
+        Command.StartRemoteSession,
+        Command.OpenRemoteSession,
+        Command.ForgetRemoteSession,
+        Command.ForgetEndedRemoteSessions,
 
         // TAKES THE TERMINAL TO ASK FOR A SECRET, which is the one thing on this
         // list that reads from a person rather than writing to them. The echo

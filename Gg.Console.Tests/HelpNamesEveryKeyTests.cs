@@ -686,9 +686,13 @@ public class HelpNamesEveryKeyTests
                        + "hint line, so help is where a person finds it. Page:\n" + page);
         }
 
-        // AND THE ONLY TWO THAT ARE IN NEITHER PLACE ARE THE TWO THE ARROWS DO.
+        // AND THE ONLY TWO THAT ARE IN NEITHER PLACE ARE THE TWO THE ARROWS DO - and the rest
+        // of the keyboard under the screensaver, which help names in words rather than ninety
+        // times over: its three keys say "so does any key" (owner, 2026-10-10: "fix j too").
+        await Assert.That(page).Contains("so does any key", StringComparison.Ordinal);
+
         var untaught = Keymap.Catalogue()
-            .Where(e => e.Binding.Untaught)
+            .Where(e => e.Binding.Untaught && e.Binding.Command != Command.WakeScreen)
             .Select(e => e.Binding.Key.Name)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)

@@ -933,13 +933,34 @@ public static class Keymap
     /// </remarks>
     private static IReadOnlyList<KeyBinding> Waking { get; } =
     [
-        new(KeyStroke.Esc, Command.WakeScreen, "back to the console")
+        new(KeyStroke.Esc, Command.WakeScreen, "back to the console (so does any key)")
             { When = "while the mark is up" },
-        new(KeyStroke.Char(' '), Command.WakeScreen, "back to the console")
+        new(KeyStroke.Char(' '), Command.WakeScreen, "back to the console (so does any key)")
             { When = "while the mark is up" },
-        new(KeyStroke.EnterKey, Command.WakeScreen, "back to the console")
+        new(KeyStroke.EnterKey, Command.WakeScreen, "back to the console (so does any key)")
             { When = "while the mark is up" },
+
+        // AND EVERY OTHER KEY, OFF THE LINE (owner, 2026-10-10: "fix j too"). These three
+        // were the only ones that woke it and the rest were swallowed, so a person pressing
+        // a letter saw nothing happen and could not tell whether gg had hung. Every key
+        // wakes it now and none does anything else - a key that woke the console and acted
+        // would act on a screen nobody was looking at. ctrl-c stays the interrupt.
+        .. AnyOtherKey().Select(key => new KeyBinding(key, Command.WakeScreen, "back to the console")
+        {
+            When = "while the mark is up",
+            OffTheHintLine = true,
+            Untaught = true,
+        }),
     ];
+
+    /// <summary>Every key the keymap can name, but the three the mark advertises and ctrl-c.</summary>
+    private static IEnumerable<KeyStroke> AnyOtherKey() =>
+        // NO CAPITALS: this console's letters arrive without their shift, so `J` is `j` by
+        // the time it is resolved, and a binding for `J` would be a key nobody can type.
+        Enumerable.Range(33, 94).Where(c => c is < 'A' or > 'Z').Select(c => KeyStroke.Char((char)c))
+            .Concat(Enumerable.Range('a', 26).Select(c => KeyStroke.Control((char)c)))
+            .Concat([KeyStroke.Control('/'), KeyStroke.TabKey])
+            .Where(key => key != Interrupt);
 
     /// <summary>
     /// The keys after ctrl-g (slice sixty-nine): <c>0</c> gg, <c>1</c>-<c>9</c> an agent on a row,

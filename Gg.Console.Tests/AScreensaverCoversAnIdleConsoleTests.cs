@@ -164,8 +164,10 @@ public class AScreensaverCoversAnIdleConsoleTests
         // half that makes it convenient.
         var screening = new AppState { Mode = UiMode.Normal, Screening = true };
 
+        // EVERY KEY WAKES IT SINCE 2026-10-10 ("fix j too") - and waking is all it does:
+        // f answers WakeScreen, never the act it means on the plain console.
         await Assert.That(Keymap.Resolve(KeyStroke.Char('f'), KeymapContext.For(screening)))
-            .IsNull()
+            .IsEqualTo(Command.WakeScreen)
             .Because("f is a key on the plain console, and the person pressing it was looking "
                    + "at a screen with nothing on it.");
     }
@@ -270,7 +272,9 @@ public class AScreensaverCoversAnIdleConsoleTests
         // screen nobody was looking at.
         var screening = new KeymapContext(UiMode.Normal) { Screening = true };
 
-        foreach (var key in KeymapTests.Universe.Where(k => k != Keymap.Interrupt))
+        // NO CAPITALS, which this console never receives: a letter arrives without its shift.
+        foreach (var key in KeymapTests.Universe.Where(k => k != Keymap.Interrupt
+                     && k.Input is not (>= 'A' and <= 'Z')))
         {
             await Assert.That(Keymap.Resolve(key, screening)).IsEqualTo(Command.WakeScreen)
                 .Because($"'{key.Name}' is a key somebody might press to come back.");

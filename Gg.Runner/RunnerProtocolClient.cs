@@ -81,13 +81,26 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
         typeof(RunnerProtocolClient).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
 
-    private HttpRequestMessage Request(HttpMethod method, string path)
+    /// <param name="session">
+    /// A delegated session to present in place of this runner's token - only to revoke it, since
+    /// the session being ended is what asks (ADR-0039 Amendment 2, Decision 14).
+    /// </param>
+    private HttpRequestMessage Request(HttpMethod method, string path, string? session = null)
     {
         var request = new HttpRequestMessage(method, path);
         request.Headers.TryAddWithoutValidation(ProtocolSurface.ProtocolHeader, ProtocolSurface.Revision.ToString());
         request.Headers.TryAddWithoutValidation(ProtocolSurface.RunnerVersionHeader, _binaryVersion);
         request.Headers.TryAddWithoutValidation(ProtocolSurface.FactVocabularyHeader, FactVocabulary);
-        request.Headers.TryAddWithoutValidation(ProtocolSurface.RunnerHeader, _runnerToken);
+
+        if (session is not null)
+        {
+            request.Headers.TryAddWithoutValidation(ProtocolSurface.SessionHeader, session);
+        }
+        else
+        {
+            request.Headers.TryAddWithoutValidation(ProtocolSurface.RunnerHeader, _runnerToken);
+        }
+
         return request;
     }
 
@@ -163,13 +176,9 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
     {
         ArgumentNullException.ThrowIfNull(token);
 
-        // THE VERSION HEADERS, AND THE DELEGATED SESSION IN PLACE OF THIS RUNNER'S TOKEN:
-        // it is the session that is ended, so it is the session that asks.
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/v1/auth/logout");
-        request.Headers.TryAddWithoutValidation(ProtocolSurface.ProtocolHeader, ProtocolSurface.Revision.ToString());
-        request.Headers.TryAddWithoutValidation(ProtocolSurface.RunnerVersionHeader, _binaryVersion);
-        request.Headers.TryAddWithoutValidation(ProtocolSurface.FactVocabularyHeader, FactVocabulary);
-        request.Headers.TryAddWithoutValidation(ProtocolSurface.SessionHeader, token);
+        // THE DELEGATED SESSION IN PLACE OF THIS RUNNER'S TOKEN: it is the session that is
+        // ended, so it is the session that asks.
+        using var request = Request(HttpMethod.Post, "/v1/auth/logout", session: token);
 
         // NOTHING TO DO WITH THE ANSWER: already revoked and expired are both done, and the
         // control plane's heartbeat backstop covers a revocation that never arrived.

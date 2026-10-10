@@ -108,6 +108,13 @@ public static class ConsoleRefresh
                         cancellationToken,
                         AsManyAsAreShown(on.Itineraries?.Nominations.Count ?? 0))),
 
+                // THE WORK KINDS, AND ONLY WHILE THEY ARE UNKNOWN. `f` here asks
+                // which kind a flight is for and refuses to guess without them;
+                // the boot reads them once, and a read that failed would leave
+                // that refusal standing until somebody opened the airspace tab.
+                TabId.Intents when on.Estate?.Names is null =>
+                    Apply(await data.TopologyAsync(cancellationToken)),
+
                 _ => Nothing,
             };
         }

@@ -24,7 +24,14 @@ public sealed record CredentialName(
     public string Short => Known ? $"{Service} · {For}" : For;
 
     /// <summary>What it grants, in a cell: <c>Code (Read &amp; write), as kevin</c>.</summary>
-    public string Grants => $"{Access}, as {Identity}";
+    /// <remarks>
+    /// <b>An unrecognised service is marked here too</b>, because this is the line a
+    /// list and the console show, and one reading like every recognised line tells
+    /// a person gg knows what it opens.
+    /// </remarks>
+    public string Grants => Known
+        ? $"{Access}, as {Identity}"
+        : $"{Access}, as {Identity} - service not recognised";
 
     /// <summary>
     /// The whole of it in one sentence, for the line a person reads before and

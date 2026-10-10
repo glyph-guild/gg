@@ -22,6 +22,7 @@ namespace Gg.Runner.Tests;
 /// </para>
 /// </remarks>
 [Category("RealAgent")]
+[NeedsAnAgent]
 public class AgainstRealAgentTests
 {
     private static string Binary =>

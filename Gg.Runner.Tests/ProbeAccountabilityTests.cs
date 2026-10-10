@@ -111,6 +111,7 @@ public class ProbeAccountabilityTests
 
     [Test]
     [Category("RealAgent")]
+    [NeedsAnAgent]
     public async Task The_real_binary_holds_both_denied_tools()
     {
         var binary = Environment.GetEnvironmentVariable("GG_EXECUTOR_BINARY")

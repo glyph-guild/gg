@@ -205,6 +205,7 @@ public class AnUnboundedLoopIsLaunchedUnboundedTests
 
     [Test]
     [Category("RealAgent")]
+    [NeedsAnAgent]
     public async Task The_same_task_the_probe_refuses_goes_through_when_nothing_is_declared()
     {
         // THE INVERSE OF THE PROBE, ON THE PROBE'S OWN TASK, which is what makes

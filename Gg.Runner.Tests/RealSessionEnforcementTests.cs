@@ -60,6 +60,7 @@ public class RealSessionEnforcementTests
 
     [Test]
     [Category("RealAgent")]
+    [NeedsAnAgent]
     public async Task The_fact_set_carries_enforcement_measured_inside_the_session()
     {
         var started = DateTimeOffset.UtcNow;

@@ -25,6 +25,7 @@ namespace Gg.Runner.Tests;
 /// </para>
 /// </remarks>
 [Category("RealAgent")]
+[NeedsAnAgent]
 public class RealFlightManifestTests
 {
     private static readonly DateTimeOffset T0 = new(2026, 8, 13, 12, 0, 0, TimeSpan.Zero);

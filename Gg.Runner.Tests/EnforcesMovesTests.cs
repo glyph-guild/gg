@@ -104,6 +104,7 @@ public class EnforcesMovesTests
 
     [Test]
     [Category("RealAgent")]
+    [NeedsAnAgent]
     public async Task The_bound_holds_for_a_withheld_edit_under_the_executors_own_invocation()
     {
         // THE REPLACEMENT for the deleted prose guard. It runs the probe the
@@ -124,6 +125,7 @@ public class EnforcesMovesTests
 
     [Test]
     [Category("RealAgent")]
+    [NeedsAnAgent]
     public async Task And_it_does_not_hold_for_bash_which_is_why_the_state_is_per_tool()
     {
         // The other half, and the one that makes PerTool a measurement rather than

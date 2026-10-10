@@ -68,6 +68,7 @@ namespace Gg.Runner.Tests;
 /// </para>
 /// </remarks>
 [Category("RealAgent")]
+[NeedsAnAgent]
 public class SetupTokenSpikeTests
 {
     private static string Binary =>

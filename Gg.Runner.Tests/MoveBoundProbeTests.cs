@@ -141,6 +141,7 @@ public class MoveBoundProbeTests
 
     [Test]
     [Category("RealAgent")]
+    [NeedsAnAgent]
     public async Task What_the_probe_costs_against_the_real_binary()
     {
         // PROBE COST, measured rather than estimated, because it is spent on every

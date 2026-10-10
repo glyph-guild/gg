@@ -139,6 +139,7 @@ public class AToolServerThatDidNotStartTests
 
     [Test]
     [Category("RealAgent")]
+    [NeedsAnAgent]
     public async Task A_run_whose_server_cannot_start_is_refused_before_the_agent_works()
     {
         // THE WIRING, against the real binary. The rule above is a statement

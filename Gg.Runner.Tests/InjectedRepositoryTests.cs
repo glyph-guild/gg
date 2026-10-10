@@ -37,6 +37,7 @@ namespace Gg.Runner.Tests;
 /// </para>
 /// </remarks>
 [Category("RealAgent")]
+[NeedsAnAgent]
 public class InjectedRepositoryTests
 {
     /// <summary>

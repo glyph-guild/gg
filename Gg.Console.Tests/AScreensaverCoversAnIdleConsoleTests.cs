@@ -239,4 +239,24 @@ public class AScreensaverCoversAnIdleConsoleTests
             .Because("the column's room is given back, so the mark is centred on the whole "
                    + "terminal rather than on what the column left.");
     }
+
+    [Test]
+    public async Task Every_key_wakes_it_even_one_a_focused_table_wants()
+    {
+        // SEEN IN A PTY, 2026-10-10: `j` did not wake the mark, while esc and space did.
+        // The keymap already answers every key with WakeScreen while the mark is up - but
+        // a key goes to the FOCUSED view first, and the queue table under the mark takes
+        // `j` as a cursor move before the screen's handler ever sees it.
+        //
+        // So the screen takes keys where it takes the mouse: from the application, before
+        // any view is chosen. That is a property of where a handler is attached, which no
+        // state-level test can see, so it is held over the source the way the mouse's is.
+        var screen = Sources.Read("Gg.Console", "Views", "ConsoleScreen.cs");
+
+        await Assert.That(screen).Contains("_app.Keyboard.KeyDown += OnKeyBeforeRouting;")
+            .Because("only a handler on the application sees a key before the focused view.");
+        await Assert.That(screen).Contains("_app.Keyboard.KeyDown -= OnKeyBeforeRouting;")
+            .Because("a handler on the application outlives the screen unless it is released, "
+                   + "and the console builds a new screen on every return from a child.");
+    }
 }

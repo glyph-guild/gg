@@ -71,27 +71,27 @@ public sealed partial class Mux
             return new(null, $"gg holds {MuxColumn.Most} agents at most. End one first.");
         }
 
-        var (reached, unreached, delegation) = Reach(machine);
-        if (reached is not { } link)
+        if (_reach is null)
         {
-            return new(null, unreached);
+            return new(null, "This console cannot reach machines.");
         }
 
-        var pty = new RemotePty(link);
+        // THE ROW FIRST, the machine behind it (owner, 2026-10-10): reaching takes the machine's
+        // next heartbeat, and the row says so while it does.
         var session = sessionId is null
             ? null
             : new AgentSessionStanding
             {
                 SessionId = sessionId, StartedAt = DateTimeOffset.MinValue, Alive = alive, Directory = directory,
             };
+        var id = sessionId ?? Guid.NewGuid().ToString();
 
-        var (shown, refused) = Open(machine, link, pty, session, directory, delegation);
-        if (shown is null)
-        {
-            pty.Dispose();
-        }
+        var agent = StartRemote(
+            $"claude @ {machine.Name}",
+            new ReachingPty(machine.Name, () => Reached(machine, _ => session, id, directory)),
+            id, machine.Id, directory ?? "");
 
-        return new(shown, refused);
+        return new(NumberOf(agent), null);
     }
 
     /// <summary>
@@ -671,37 +671,58 @@ public sealed partial class Mux
             return (null, $"gg holds {MuxColumn.Most} agents at most. End one to resume this session.");
         }
 
-        var reached = _reach!(machine);
-        if (reached.Link is not { } link)
-        {
-            return (null, reached.Refused ?? $"{machine.Name} could not be reached.");
-        }
+        // ASKED THE MACHINE whether it still runs, once reached: attached if so, resumed if not.
+        var agent = StartRemote(
+            $"claude @ {machine.Name}",
+            new ReachingPty(machine.Name, () => Reached(
+                machine,
+                link => Ask<AgentSessionList>(link, new ListAgentSessions())?.Sessions
+                    .FirstOrDefault(s => s.SessionId == sessionId)
+                    ?? new AgentSessionStanding { SessionId = sessionId, StartedAt = DateTimeOffset.MinValue, Alive = false },
+                sessionId, directory)),
+            sessionId, machine.Id, directory ?? "");
 
-        var pty = new RemotePty(link);
-        var held = Ask<AgentSessionList>(link, new ListAgentSessions())?.Sessions
-            .FirstOrDefault(s => s.SessionId == sessionId)
-            ?? new AgentSessionStanding { SessionId = sessionId, StartedAt = DateTimeOffset.MinValue, Alive = false };
-
-        var (shown, refused) = Open(machine, link, pty, held, directory, reached.Delegation);
-        if (shown is null)
-        {
-            pty.Dispose();
-        }
-
-        return (shown, refused ?? "");
+        return (NumberOf(agent), "");
     }
 
     /// <summary>
-    /// Starts a new session, attaches to a live one, or resumes an ended one by its id,
-    /// and puts it on a row - or answers the machine's refusal.
+    /// Reaches <paramref name="machine"/> and starts, attaches or resumes there - behind a row
+    /// already placed: the session's terminal, or why there is none.
     /// </summary>
-    private (int? Shown, string? Refused) Open(
+    private (IAgentPty? Reached, string? Refused) Reached(
+        RemoteMachine machine,
+        Func<Gg.Client.IAgentLink, AgentSessionStanding?> session,
+        string id,
+        string? directory)
+    {
+        var (reached, unreached, delegation) = Reach(machine);
+        if (reached is not { } link)
+        {
+            return (null, unreached);
+        }
+
+        var pty = new RemotePty(link);
+        var refused = Open(machine, link, session(link), id, directory, delegation);
+        if (refused is not null)
+        {
+            pty.Dispose();
+            return (null, refused);
+        }
+
+        return (pty, null);
+    }
+
+    /// <summary>
+    /// Starts a new session, attaches to a live one, or resumes an ended one by its id: null once
+    /// the machine says it has, or the machine's refusal.
+    /// </summary>
+    private string? Open(
         RemoteMachine machine,
         Gg.Client.IAgentLink link,
-        RemotePty pty,
         AgentSessionStanding? session,
+        string id,
         string? directory,
-        Func<string, DelegateAgentSession?>? delegation = null)
+        Func<string, DelegateAgentSession?>? delegation)
     {
         var (columns, rows) = PaneSize();
 
@@ -711,7 +732,7 @@ public sealed partial class Mux
             {
                 Columns = columns,
                 Rows = rows,
-                SessionId = session?.SessionId ?? Guid.NewGuid().ToString(),
+                SessionId = session?.SessionId ?? id,
                 Directory = directory ?? session?.Directory,
             };
 
@@ -725,17 +746,10 @@ public sealed partial class Mux
 
         var answer = Ask<AgentFrame>(link, ask, f => f is AgentSessionStarted or AgentSessionRefused);
 
-        if (answer is not AgentSessionStarted started)
-        {
-            return (null, (answer as AgentSessionRefused)?.Because
-                ?? $"{machine.Name} did not answer. The channel may have dropped; try again.");
-        }
-
-        var agent = StartRemote(
-            $"claude @ {machine.Name}", pty, started.SessionId, machine.Id,
-            directory ?? session?.Directory ?? "");
-
-        return (NumberOf(agent), null);
+        return answer is AgentSessionStarted
+            ? null
+            : (answer as AgentSessionRefused)?.Because
+                ?? $"{machine.Name} did not answer. The channel may have dropped; try again.";
     }
 
     /// <summary>Sends a frame and waits, boundedly, for the answer it asked for.</summary>

@@ -210,6 +210,217 @@ public sealed class RemotePty : IAgentPty
     }
 }
 
+/// <summary>
+/// A session on another machine while it is still being reached: a line saying so, then the
+/// session's own terminal once the machine answers - or why it did not, until a key closes it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The row comes first, the machine second</b> (owner, 2026-10-10). Reaching one is an
+/// introduction the machine answers on its next heartbeat, a channel, a credential and a start:
+/// seconds in which a key that placed nothing reads as a key that was not heard.
+/// </para>
+/// <para>
+/// <b>What is typed before the machine answers is dropped</b>, not queued: it was typed at a
+/// line saying "reaching", not at the agent. A size is kept and told once reached.
+/// </para>
+/// </remarks>
+public sealed class ReachingPty : IAgentPty
+{
+    private readonly BlockingCollection<byte[]> _said = [];
+    private readonly ManualResetEventSlim _gone = new();
+    private readonly Lock _lock = new();
+    private volatile IAgentPty? _reached;
+    private byte[]? _left;
+    private bool _refused;
+    private bool _letGo;
+    private (int Columns, int Rows)? _size;
+
+    /// <param name="machine">What the line calls the machine.</param>
+    /// <param name="reach">Reaches it and starts or attaches, on a thread of its own: the session's terminal, or why not.</param>
+    public ReachingPty(string machine, Func<(IAgentPty? Reached, string? Refused)> reach)
+    {
+        ArgumentNullException.ThrowIfNull(reach);
+
+        Say($"Reaching {machine}\u2026 it answers on its next heartbeat.\r\n");
+        _ = Task.Factory.StartNew(
+            () => Reach(machine, reach), CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+    }
+
+    public int ExitCode => _reached?.ExitCode ?? -1;
+
+    public bool OutlivesTheConsole => true;
+
+    public int Read(byte[] buffer, int offset, int count)
+    {
+        if (_left is null && _said.IsCompleted)
+        {
+            // SAID EVERYTHING: the session's own terminal from here, or the end.
+            return _reached?.Read(buffer, offset, count) ?? 0;
+        }
+
+        try
+        {
+            var next = _left ?? _said.Take();
+            var taken = Math.Min(next.Length, count);
+            next.AsSpan(0, taken).CopyTo(buffer.AsSpan(offset));
+            _left = taken < next.Length ? next[taken..] : null;
+            return taken;
+        }
+        catch (InvalidOperationException)
+        {
+            return _reached?.Read(buffer, offset, count) ?? 0;
+        }
+    }
+
+    public void Write(ReadOnlySpan<byte> bytes)
+    {
+        if (_reached is { } reached)
+        {
+            reached.Write(bytes);
+            return;
+        }
+
+        bool close;
+        lock (_lock)
+        {
+            close = _refused;
+        }
+
+        if (close)
+        {
+            End();
+        }
+    }
+
+    public void Resize(int columns, int rows)
+    {
+        lock (_lock)
+        {
+            _size = (columns, rows);
+        }
+
+        _reached?.Resize(columns, rows);
+    }
+
+    public void Kill()
+    {
+        if (_reached is { } reached)
+        {
+            reached.Kill();
+            return;
+        }
+
+        LetGo();
+    }
+
+    public void Leave()
+    {
+        if (_reached is { } reached)
+        {
+            reached.Leave();
+            return;
+        }
+
+        LetGo();
+    }
+
+    public bool WaitForExit(int milliseconds) =>
+        _reached is { } reached ? reached.WaitForExit(milliseconds) : _gone.Wait(milliseconds);
+
+    public void Dispose()
+    {
+        _reached?.Dispose();
+        End();
+    }
+
+    private void Reach(string machine, Func<(IAgentPty? Reached, string? Refused)> reach)
+    {
+        IAgentPty? reached;
+        string? refused;
+        try
+        {
+            (reached, refused) = reach();
+        }
+        catch (Exception failed)
+        {
+            (reached, refused) = (null, failed.Message);
+        }
+
+        lock (_lock)
+        {
+            if (_letGo)
+            {
+                // LET GO WHILE REACHING: whatever answered is left running there, as a leave does.
+                reached?.Leave();
+                return;
+            }
+
+            if (reached is null)
+            {
+                _refused = true;
+            }
+            else
+            {
+                if (_size is { } size)
+                {
+                    reached.Resize(size.Columns, size.Rows);
+                }
+
+                _reached = reached;
+            }
+        }
+
+        if (reached is null)
+        {
+            Say($"\r\n{refused ?? machine + " could not be reached."}\r\n\r\nAny key closes this row.\r\n");
+            return;
+        }
+
+        // CLEARED for the session, whose own replay draws what it shows.
+        Say("\u001b[2J\u001b[H");
+        Complete();
+    }
+
+    private void LetGo()
+    {
+        lock (_lock)
+        {
+            _letGo = true;
+        }
+
+        End();
+    }
+
+    private void Say(string text)
+    {
+        try
+        {
+            _said.Add(System.Text.Encoding.UTF8.GetBytes(text));
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private void Complete()
+    {
+        try
+        {
+            _said.CompleteAdding();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
+    private void End()
+    {
+        Complete();
+        _gone.Set();
+    }
+}
+
 /// <summary>A machine the mux may offer to start a session on.</summary>
 public sealed record RemoteMachine(string Id, string Name);
 

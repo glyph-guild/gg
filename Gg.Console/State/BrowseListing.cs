@@ -107,7 +107,20 @@ public sealed record BrowseListing
     /// arrived, which is the only moment the two are the same.
     /// </remarks>
     public string? FilterSaid { get; init; }
+
+    /// <summary>What the first page was asked with, so the next page asks the same.</summary>
+    public BrowseAsked? Asked { get; init; }
 }
+
+/// <summary>
+/// A listing's question, flattened for <see cref="AppState"/>: the facets it was narrowed by, or
+/// the words it was found by.
+/// </summary>
+public sealed record BrowseAsked(
+    string? AreaPath = null,
+    string? Iteration = null,
+    IReadOnlyList<string>? States = null,
+    string? Text = null);
 
 /// <summary>
 /// What a tracker offers to narrow a listing by, or why it offered nothing.

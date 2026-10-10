@@ -2130,6 +2130,23 @@ public sealed class ConsoleLoop(
         // stood here set the kind and nothing else, so the repositories tab
         // opened with no registry read and nothing to draw - and turning to it
         // crashed the console.
+        // NOT KNOWING THE KINDS IS NOT THERE BEING NONE. Declared answers an
+        // empty list for both, and treating the first as the second flew the
+        // item with no kind - which the control plane fills with its default -
+        // whenever `f` was pressed before the boot's names read had landed, or
+        // all session after that read failed. A check that cannot run is not a
+        // clean check; the intents tab's refresh reads the names while they are
+        // unknown, so the next press asks.
+        if (state.AskingKindFor is ComposingFor.Nothing && state.Estate?.Names is null)
+        {
+            return state with
+            {
+                LastFlightOpened = "Nothing was flown: this console has not read the tenant's "
+                                 + "work kinds yet, so it cannot ask which one this is for. They "
+                                 + "are being read - press f again in a moment.",
+            };
+        }
+
         if (state.AskingKindFor is ComposingFor.Nothing && WorkKinds.Declared(state).Count > 0)
         {
             return Reducer.Asked(state, ComposingFor.WorkItem);

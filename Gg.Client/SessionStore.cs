@@ -117,3 +117,57 @@ public sealed class FileSessionStore : ISessionStore
         }
     }
 }
+
+/// <summary>
+/// Which session this process acts with: a person's delegated one when the machine put it in
+/// the environment, otherwise the signed-in file (ADR-0039 Amendment 2, Decision 13).
+/// </summary>
+/// <remarks>
+/// <b>One place, so every verb agrees.</b> gg's tool servers run inside an agent session on
+/// another machine and re-exec gg verbs; each verb finding its session here is what makes them
+/// all act as the person who started the session, and none of them as nobody.
+/// </remarks>
+public static class SessionStores
+{
+    /// <summary>Where the machine puts the delegated token for the agent and its tool servers.</summary>
+    public const string TokenVariable = "GG_SESSION_TOKEN";
+
+    /// <summary>The store for this process.</summary>
+    public static ISessionStore ForThisProcess() => For(Environment.GetEnvironmentVariable, path: null);
+
+    /// <summary>The store, given how to read the environment and where the file is.</summary>
+    public static ISessionStore For(Func<string, string?> environment, string? path)
+    {
+        ArgumentNullException.ThrowIfNull(environment);
+
+        return environment(TokenVariable) is { Length: > 0 } token
+            ? new DelegatedSessionStore(token)
+            : new FileSessionStore(path);
+    }
+}
+
+/// <summary>
+/// A session a person delegated to this agent session: read from the environment, never
+/// written. Signing in here would store a session nobody asked for; signing out would delete
+/// the person's own file on a machine that is not theirs.
+/// </summary>
+public sealed class DelegatedSessionStore(string token) : ISessionStore
+{
+    public StoredSession? Read() => new()
+    {
+        SessionToken = token,
+        // THE CONTROL PLANE KNOWS when it ends; this side only presents it.
+        ExpiresAt = DateTimeOffset.MaxValue,
+        TenantId = "",
+        PrincipalDisplay = "",
+    };
+
+    public void Write(StoredSession session) =>
+        throw new InvalidOperationException(
+            $"This gg acts through a session a person delegated to it ({SessionStores.TokenVariable}), "
+          + "and stores no other. Sign in on your own machine.");
+
+    public void Clear()
+    {
+    }
+}

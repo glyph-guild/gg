@@ -23,7 +23,7 @@ public class ASessionOutlivesItsConnectionTests
         var host = new FakeAgentHost();
         var sessions = new AgentSessions(
             host,
-            [Directory.CreateTempSubdirectory("gg-agent-root-").FullName],
+            Directory.CreateTempSubdirectory("gg-agent-root-").FullName,
             flying: () => false,
             now: () => Noon);
 

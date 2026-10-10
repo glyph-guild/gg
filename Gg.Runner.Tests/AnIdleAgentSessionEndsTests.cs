@@ -23,7 +23,7 @@ public class AnIdleAgentSessionEndsTests
         var now = Noon;
         var host = new FakeAgentHost();
         var sessions = new AgentSessions(
-            host, [Directory.CreateTempSubdirectory("gg-agent-root-").FullName],
+            host, Directory.CreateTempSubdirectory("gg-agent-root-").FullName,
             flying: () => false, now: () => now);
 
         _ = await sessions.StartAsync(new StartAgentSession { Columns = 80, Rows = 24 }, CancellationToken.None);
@@ -43,7 +43,7 @@ public class AnIdleAgentSessionEndsTests
         var now = Noon;
         var host = new FakeAgentHost();
         var sessions = new AgentSessions(
-            host, [Directory.CreateTempSubdirectory("gg-agent-root-").FullName],
+            host, Directory.CreateTempSubdirectory("gg-agent-root-").FullName,
             flying: () => false, now: () => now);
 
         var opened = await sessions.StartAsync(new StartAgentSession { Columns = 80, Rows = 24 }, CancellationToken.None);

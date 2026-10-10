@@ -49,7 +49,7 @@ public class AMachineReportsItsSessionsOnItsBeatTests
     {
         var protocol = new FakeProtocol();
         var sessions = new AgentSessions(
-            new FakeAgentHost(), [Directory.CreateTempSubdirectory("gg-agent-root-").FullName],
+            new FakeAgentHost(), Directory.CreateTempSubdirectory("gg-agent-root-").FullName,
             flying: () => false, now: () => T0);
         _ = await sessions.StartAsync(new StartAgentSession { Columns = 80, Rows = 24, SessionId = "a1b2" }, CancellationToken.None);
 
@@ -79,7 +79,7 @@ public class AMachineReportsItsSessionsOnItsBeatTests
         var clock = new MovableClock(T0);
         var host = new FakeAgentHost();
         var sessions = new AgentSessions(
-            host, [Directory.CreateTempSubdirectory("gg-agent-root-").FullName],
+            host, Directory.CreateTempSubdirectory("gg-agent-root-").FullName,
             flying: () => false, now: () => clock.UtcNow);
         _ = await sessions.StartAsync(new StartAgentSession { Columns = 80, Rows = 24 }, CancellationToken.None);
 

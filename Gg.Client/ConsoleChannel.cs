@@ -52,6 +52,12 @@ public sealed class Conversation(RTCPeerConnection peer, RTCDataChannel channel)
 {
     private readonly SemaphoreSlim _oneAtATime = new(1, 1);
 
+    /// <summary>
+    /// The channel itself, for a conversation that is not asks: an agent session's
+    /// terminal frames (slice seventy). An ask conversation never reaches for it.
+    /// </summary>
+    public RTCDataChannel Channel => channel;
+
     /// <summary>Asks, and waits for the one answer.</summary>
     public async Task<RunnerSaid?> AskAsync(
         RunnerAsk ask, TimeSpan patience, CancellationToken cancellationToken = default)
@@ -157,7 +163,8 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
         Func<RunnerSealedOffer, CancellationToken, Task> leaveAsync,
         Func<CancellationToken, Task<Collected>> collectAsync,
         Action<string>? saying = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string channelLabel = "tail")
     {
         ArgumentNullException.ThrowIfNull(introduction);
         ArgumentNullException.ThrowIfNull(ephemeral);
@@ -201,7 +208,10 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
 
         // CREATED BEFORE THE OFFER, because its existence is what puts an SCTP
         // m-line in the SDP at all - the spike's first finding.
-        var channel = await peer.createDataChannel("tail", null);
+        // "tail" FOR ASKS, "agent" FOR AN AD HOC SESSION'S TERMINAL (slice
+        // seventy): the console creates the one channel, and its label is what
+        // the runner serves it by.
+        var channel = await peer.createDataChannel(channelLabel, null);
         channel.onopen += () => opened.TrySetResult(true);
 
         var gathered = new List<string>();

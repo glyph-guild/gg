@@ -30,6 +30,9 @@ public sealed class ChannelAgentLink : IAgentLink
     private readonly Conversation _conversation;
     private readonly RTCDataChannel _channel;
 
+    /// <summary>The introduction this link was opened under, which a delegation is minted against.</summary>
+    public string? IntroductionId { get; init; }
+
     public ChannelAgentLink(Conversation conversation)
     {
         ArgumentNullException.ThrowIfNull(conversation);
@@ -139,7 +142,38 @@ public sealed class ReachAnAgent(ControlPlaneClient control, ConsoleChannel chan
             channelLabel: AgentChannel.Label);
 
         return reached.Conversation is { } conversation
-            ? (new ChannelAgentLink(conversation), reached.Said)
+            ? (new ChannelAgentLink(conversation) { IntroductionId = introduction.IntroductionId }, reached.Said)
             : (null, reached.Said);
+    }
+
+    /// <summary>
+    /// The credential that lets the session <paramref name="agentSessionId"/> act as this person,
+    /// minted against the introduction its machine was reached under; null when the control
+    /// plane refuses - a machine that takes none, a lapsed introduction - so the session starts
+    /// without gg's tools rather than not at all (ADR-0039 Amendment 2).
+    /// </summary>
+    public async Task<DelegateAgentSession?> DelegationAsync(
+        string sessionToken,
+        string runnerId,
+        string introductionId,
+        string agentSessionId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var minted = await control.DelegateAsync(
+                sessionToken,
+                new AgentDelegationRequest
+                {
+                    RunnerId = runnerId, AgentSessionId = agentSessionId, IntroductionId = introductionId,
+                },
+                cancellationToken);
+
+            return new DelegateAgentSession { Token = minted.Token, ExpiresAt = minted.ExpiresAt };
+        }
+        catch (HttpRequestException)
+        {
+            return null;
+        }
     }
 }

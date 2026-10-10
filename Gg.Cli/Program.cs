@@ -1870,11 +1870,22 @@ static async Task<int> LaunchConsoleAsync()
             {
                 try
                 {
+                    var token = SessionStores.ForThisProcess().Read()?.SessionToken ?? "";
                     var (link, said) = AgentReach().ReachAsync(
-                            SessionStores.ForThisProcess().Read()?.SessionToken ?? "",
-                            machine.Id, new PinnedRunnerKeys(), DateTimeOffset.UtcNow)
+                            token, machine.Id, new PinnedRunnerKeys(), DateTimeOffset.UtcNow)
                         .GetAwaiter().GetResult();
-                    return new Gg.Console.RemoteReach(link, link is null ? said : null);
+
+                    // THE PERSON'S CREDENTIAL FOR A SESSION STARTED ON THIS LINK, minted against
+                    // the introduction it was opened under (ADR-0039 Amendment 2). A refusal is
+                    // a session without gg's tools, never one that does not start.
+                    Func<string, Gg.Contracts.DelegateAgentSession?>? delegation =
+                        link is Gg.Client.ChannelAgentLink { IntroductionId: { } introduction }
+                            ? sessionId => AgentReach()
+                                .DelegationAsync(token, machine.Id, introduction, sessionId)
+                                .GetAwaiter().GetResult()
+                            : null;
+
+                    return new Gg.Console.RemoteReach(link, link is null ? said : null, delegation);
                 }
                 catch (Exception unreached) when (unreached is HttpRequestException or NotSignedInException
                                                       or ProtocolTooOldException or TaskCanceledException)

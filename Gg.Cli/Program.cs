@@ -1846,7 +1846,49 @@ static async Task<int> LaunchConsoleAsync()
             {
                 return null;
             }
-        });
+        })
+        // AND THE MACHINES A PERSON MAY START A CLAUDE ON (slice seventy, ADR-0039):
+        // the fleet read, and a reach that mints a drive-an-agent introduction and
+        // opens an `agent` channel. Here because only this root may name the
+        // control plane; the mux holds the link and nothing else.
+        .Reaching(
+            () =>
+            {
+                try
+                {
+                    return [.. AgentReach().MachinesAsync(new FileSessionStore().Read()?.SessionToken ?? "")
+                        .GetAwaiter().GetResult()
+                        .Select(m => new Gg.Console.RemoteMachine(m.RunnerId, m.Label))];
+                }
+                catch (Exception unread) when (unread is HttpRequestException or NotSignedInException
+                                                   or ProtocolTooOldException or TaskCanceledException)
+                {
+                    return [];
+                }
+            },
+            machine =>
+            {
+                try
+                {
+                    var (link, said) = AgentReach().ReachAsync(
+                            new FileSessionStore().Read()?.SessionToken ?? "",
+                            machine.Id, new PinnedRunnerKeys(), DateTimeOffset.UtcNow)
+                        .GetAwaiter().GetResult();
+                    return new Gg.Console.RemoteReach(link, link is null ? said : null);
+                }
+                catch (Exception unreached) when (unreached is HttpRequestException or NotSignedInException
+                                                      or ProtocolTooOldException or TaskCanceledException)
+                {
+                    return new Gg.Console.RemoteReach(null, unreached.Message);
+                }
+            });
+
+    ReachAnAgent AgentReach() => new(
+        new ControlPlaneClient(new HttpClient { BaseAddress = new Uri(baseAddress) }),
+        new ConsoleChannel(
+            Gg.Runner.StunConfiguration.FromEnvironment(
+                Settings.Value(Gg.Runner.StunConfiguration.Variable, InForce.Configuration)),
+            TimeSpan.FromSeconds(20)));
 
     var final = new ConsoleLoop(
         new TerminalGuiSession(

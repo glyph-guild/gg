@@ -1419,6 +1419,7 @@ public sealed class ConsoleScreen : Window
             X = Pos.Center(),
             Y = Pos.Center(),
             Visible = false,
+            ShadowStyle = ConsoleTheme.ModalShadow,
         };
         _modalBody = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
 
@@ -4076,6 +4077,7 @@ public sealed class ConsoleScreen : Window
         using var picker = new FileDialog
         {
             Title = "airspace",
+            ShadowStyle = ConsoleTheme.ModalShadow,
 
             // A DIRECTORY, because that is what an airspace is. The default is
             // Mixed, which would accept a file.

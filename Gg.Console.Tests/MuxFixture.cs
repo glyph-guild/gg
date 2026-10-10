@@ -59,6 +59,45 @@ internal sealed class MuxFixture : IDisposable
         Task.Factory.StartNew(() => Mux.Show(tab), CancellationToken.None,
             TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
+    /// <summary>
+    /// Moves a menu's cursor down to the item starting <paramref name="item"/> and presses
+    /// enter, as a person does: one arrow at a time, each waited for until it is drawn.
+    /// </summary>
+    public bool Choose(string item)
+    {
+        for (var moves = 0; moves < 12; moves++)
+        {
+            var at = Cursor();
+            if (at.StartsWith(item, StringComparison.Ordinal))
+            {
+                Terminal.Type("\r");
+                return true;
+            }
+
+            Terminal.Type("\u001b[B");
+            if (!Until(() => Cursor() != at))
+            {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>The text after the last cursor drawn: what enter would choose.</summary>
+    public string Cursor()
+    {
+        var painted = Terminal.Painted;
+        var at = painted.LastIndexOf("▸ ", StringComparison.Ordinal);
+        if (at < 0)
+        {
+            return "";
+        }
+
+        var end = painted.IndexOf('\u001b', at);
+        return painted[(at + 2)..(end < 0 ? painted.Length : end)];
+    }
+
     public static bool Until(Func<bool> held)
     {
         var deadline = DateTime.UtcNow.AddSeconds(20);

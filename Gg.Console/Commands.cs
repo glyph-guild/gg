@@ -1260,6 +1260,21 @@ public enum Command
 
     /// <summary>Puts away the notification showing, without going to it.</summary>
     DismissNotification,
+
+    /// <summary>Opens the wizard that adds a credential.</summary>
+    OpenCredentialWizard,
+
+    /// <summary>The wizard's next step, with the answer under its cursor.</summary>
+    WizardNext,
+
+    /// <summary>The wizard's previous step.</summary>
+    WizardBack,
+
+    /// <summary>
+    /// Registers what the wizard was told. A shell command: registering reaches
+    /// the control plane, which a session may not do.
+    /// </summary>
+    FinishCredentialWizard,
 }
 
 /// <summary>

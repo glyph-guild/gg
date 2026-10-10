@@ -52,7 +52,16 @@ public class EveryCredentialActTakesTheTerminalTests
         // THE SAME LETTERS THEY ALREADY HAD. `c` and `x` were bound in Normal and
         // advertised nowhere; inside the modal they keep their letters and gain
         // words, which is exactly how the airspace tab's four acts moved.
+        //
+        // `c` NOW OPENS THE WIZARD (owner, 2026-10-10): adding a credential happens on
+        // screen, a step at a time, and the prompt at the terminal moved to `p` for
+        // what the wizard does not offer. The premise above - that a session cannot
+        // turn the echo off - stopped being true when a masked field arrived for the
+        // broadcast's passphrase.
         await Assert.That(Keymap.Resolve(KeyStroke.Char('c'), inside))
+            .IsEqualTo(Command.OpenCredentialWizard);
+
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('p'), inside))
             .IsEqualTo(Command.AddCredential);
 
         await Assert.That(Keymap.Resolve(KeyStroke.Char('x'), inside))

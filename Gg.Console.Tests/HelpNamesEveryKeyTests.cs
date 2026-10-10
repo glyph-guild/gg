@@ -295,6 +295,16 @@ public class HelpNamesEveryKeyTests
         new(UiMode.CredentialAudience) { AudienceAsked = true },
     ];
 
+    /// <summary>Every step of the add-a-credential wizard.</summary>
+    /// <remarks>
+    /// <b>Beside the cross, for <see cref="ReviewingAnAudience"/>'s reason.</b> The step is
+    /// read in <c>UiMode.CredentialWizard</c> and nowhere else, and each step offers keys the
+    /// others do not: back only behind the first, and enter registering only on the last.
+    /// </remarks>
+    private static IEnumerable<KeymapContext> AddingACredential() =>
+        Enum.GetValues<CredentialWizardStep>()
+            .Select(step => new KeymapContext(UiMode.CredentialWizard) { WizardStep = step });
+
     [Test]
     public async Task The_catalogue_holds_every_key_the_keymap_can_resolve()
     {
@@ -322,6 +332,7 @@ public class HelpNamesEveryKeyTests
                                                .Concat(Switching())
                                                .Concat(OnTheQueue())
                                                .Concat(ReviewingAnAudience())
+                                               .Concat(AddingACredential())
                        from binding in Keymap.Bindings(context)
                        select (context.Mode, binding.Key, binding.Command))
             .Distinct()
@@ -594,7 +605,11 @@ public class HelpNamesEveryKeyTests
         // THIRTY-NINE SINCE THE MUX HELD AGENTS (slice sixty-nine): whether ctrl-g was just
         // pressed, and how many agents there are to number. Held beside the cross in Switching(),
         // since the first outranks every other dimension as the mark does.
-        await Assert.That(members.Count).IsEqualTo(39)
+        // FORTY SINCE A CREDENTIAL IS ADDED ON SCREEN: which step the wizard is on, since
+        // enter registers on the last and goes on before it, and back exists only behind
+        // the first. Held beside the cross in AddingACredential(), since it is read in one
+        // mode.
+        await Assert.That(members.Count).IsEqualTo(40)
             .Because("Everywhere() crosses every one of these, or OverAMachineSomebodyOwns() "
                    + "holds it beside the cross - and a member in neither would leave the "
                    + "completeness check above quietly incomplete, which is exactly how the "

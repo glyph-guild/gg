@@ -1474,6 +1474,9 @@ public static class ShellCommands
 
     public static IReadOnlySet<Command> Handled { get; } = new HashSet<Command>
     {
+        // REGISTERING REACHES THE CONTROL PLANE, which a session may not do. The
+        // steps before it are the reducer's and never end the session.
+        Command.FinishCredentialWizard,
         // Always was. Quit returns the model.
         //
         // OpenEditor sat here too - it was the ORIGINAL terminal-release effect,

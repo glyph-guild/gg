@@ -72,6 +72,16 @@ public enum FocusTarget
     CredentialRepositoryChoices,
 
     /// <summary>
+    /// Whatever the credential wizard's step asks with: its list, or its account field.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not <see cref="Modal"/>, because the wizard is not the modal.</b> It is its own
+    /// dialog beside that one, and the modal is hidden while it shows - so the arm that
+    /// focuses the modal would hand the keyboard to a dialog nobody can see.
+    /// </remarks>
+    WizardStep,
+
+    /// <summary>
     /// Whichever of the flight modal's three tabs is showing.
     /// </summary>
     /// <remarks>
@@ -240,8 +250,18 @@ public static class FocusChange
         bool landedEmpty = false,
         bool tabIsEmpty = false,
         BoardTable boardTable = BoardTable.Nominations,
-        BoardTable landedBoardTable = BoardTable.Nominations) => (mode, landed) switch
+        BoardTable landedBoardTable = BoardTable.Nominations,
+
+        // AND WHICH STEP OF THE CREDENTIAL WIZARD, for the runner modal's reason: the step
+        // turns while the wizard keeps focus, and the keyboard has to follow to the list
+        // or the field the new step asks with. Last and defaulted, for landedEmpty's.
+        CredentialWizardStep? wizardStep = null,
+        CredentialWizardStep? landedWizardStep = null) => (mode, landed) switch
         {
+            (UiMode.CredentialWizard, _) when modalHasFocus && landedWizardStep == wizardStep
+                => FocusTarget.LeaveAlone,
+            (UiMode.CredentialWizard, _) => FocusTarget.WizardStep,
+
             // THE CORNER, FOR THE AIRSPACE PATH'S REASON: not a modal, so the
             // arms below would hand the keyboard to a dialog nobody can see.
             // Left alone once it has it, or a render once a second would pull

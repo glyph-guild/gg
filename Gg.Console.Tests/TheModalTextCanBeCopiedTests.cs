@@ -84,12 +84,13 @@ public class TheModalTextCanBeCopiedTests
     [Test]
     public async Task It_does_not_take_the_credential_key_away_from_normal_mode()
     {
-        // THE TRAP THE RETIRE KEY AVOIDED, CHECKED AGAIN. `c` is AddCredential
-        // in Normal mode; a tab-scoped one would have shadowed it.
+        // THE TRAP THE RETIRE KEY AVOIDED, CHECKED AGAIN. `c` adds a credential in
+        // Normal mode - through the wizard since 2026-10-10; a tab-scoped one would
+        // have shadowed it.
         var normal = new AppState { ActiveTab = TabId.Envelope };
 
         await Assert.That(Keymap.Resolve(KeyStroke.Char('c'), KeymapContext.For(normal)))
-            .IsEqualTo(Command.AddCredential);
+            .IsEqualTo(Command.OpenCredentialWizard);
     }
 
     [Test]

@@ -19,10 +19,27 @@ namespace Gg.Client;
 /// machine; a step nobody can explain is a step nobody should approve, and
 /// what a console shows beside it is the reason rather than a bare line.
 /// </para>
+/// <para>
+/// <b>And whether it is the step that wants root.</b> Only that one goes under
+/// <c>sudo</c>: fetching an installer needs no privilege, and a download run as
+/// root is a download whose file root owns.
+/// </para>
 /// </remarks>
 public sealed record UpdateStep(
-    string Program, IReadOnlyList<string> Arguments, string Because)
+    string Program, IReadOnlyList<string> Arguments, string Because, bool Elevated = false)
 {
+    /// <summary>
+    /// The same step, run through <c>sudo</c> - or itself, when it is not the
+    /// one that wants root.
+    /// </summary>
+    /// <remarks>
+    /// <b>Still a program and its arguments.</b> <c>sudo</c> takes the program
+    /// as its first argument and passes the rest through untouched, so wrapping
+    /// a step adds no shell and no quoting rule.
+    /// </remarks>
+    public UpdateStep UnderSudo() =>
+        Elevated ? this with { Program = "sudo", Arguments = [Program, .. Arguments] } : this;
+
     /// <summary>
     /// What to show a person, and never what is executed.
     /// </summary>
@@ -57,6 +74,26 @@ public sealed record UpdatePlan(
 {
     /// <summary>Whether there is something to run and a reason to run it.</summary>
     public bool CanApply => Refusal is null && Steps.Count > 0;
+
+    /// <summary>
+    /// The steps as one line a person can paste, each run only if the last
+    /// succeeded, with <c>sudo</c> on exactly the steps that want it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>For reading and pasting, never for executing</b> - the same rule as
+    /// <see cref="UpdateStep.Command"/>, which this joins.
+    /// </para>
+    /// <para>
+    /// <b>Joined by <c>&amp;&amp;</c> because the obvious join is wrong.</b>
+    /// Shown as two lines, the steps were being pasted as
+    /// <c>curl -o FILE URL | sudo sh FILE</c>: the pipe carries nothing, both
+    /// sides start at once, and <c>sh</c> reads whatever part of the file has
+    /// arrived - it worked only because the password prompt held it back.
+    /// </para>
+    /// </remarks>
+    public string Pasteable(bool privileged) =>
+        string.Join(" && ", Steps.Select(step => (privileged ? step : step.UnderSudo()).Command));
 
     /// <summary>
     /// Whether this machine is already on the target.
@@ -228,15 +265,19 @@ public static class UpdatePlans
                 ? $"This gg is a .NET tool; dotnet moves it to {target}."
                 : $"This gg is a .NET tool at {shape.ToolPath}; dotnet moves it to {target}.",
             [
+                // BOTH under root when either is: the stale cache that matters
+                // is the one belonging to whoever runs the update.
                 new UpdateStep(
                     "dotnet",
                     ["nuget", "locals", "http-cache", "--clear"],
                     "a stale index reports a published version as missing, and the two read "
-                  + "the same"),
+                  + "the same",
+                    Elevated: !writable),
                 new UpdateStep(
                     "dotnet",
                     ["tool", "update", UpdateAdvice.PackageId, "--version", target, .. where],
-                    "dotnet owns this directory and writes the new bytes beside the old"),
+                    "dotnet owns this directory and writes the new bytes beside the old",
+                    Elevated: !writable),
             ],
             Refusal: null,
             NeedsRoot: !writable,
@@ -291,7 +332,8 @@ public static class UpdatePlans
                     from,
                     ["--version", target],
                     "the installer verifies the bytes against an attestation before writing "
-                  + "any, installs beside what is there, and swaps the link by rename"),
+                  + "any, installs beside what is there, and swaps the link by rename",
+                    Elevated: true),
             ]
             :
             [
@@ -304,7 +346,8 @@ public static class UpdatePlans
                     "sh",
                     [scratch, "--version", target],
                     "the installer verifies the bytes against an attestation before writing "
-                  + "any, installs beside what is there, and swaps the link by rename"),
+                  + "any, installs beside what is there, and swaps the link by rename",
+                    Elevated: true),
             ];
 
         return new UpdatePlan(

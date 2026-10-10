@@ -4595,18 +4595,35 @@ static async Task<int> UpdateReportAsync(bool json)
     // a binary: the steps are already decided, so showing them costs nothing
     // and reading them before a privileged run is exactly what somebody should
     // be able to do.
+    //
+    // AND WITHOUT ROOT, sudo IS ASKED FOR THE ONE STEP THAT WANTS IT. This used
+    // to stop and print the steps, and people pasted them back joined by a pipe
+    // that raced the download. sudo prompts on this terminal, so a person types
+    // a password (or touches a sensor) where they typed `gg update`; the fetch
+    // still runs as them. With no terminal there is nobody to answer a prompt,
+    // so that is the one case that still stops and says what to run.
+    var steps = plan.Steps;
+
     if (plan.NeedsRoot && !Environment.IsPrivilegedProcess)
     {
-        Console.WriteLine();
-        Console.WriteLine(
-            "  This wants a privilege this process does not have. Run it again with sudo, "
-          + "or run these yourself:");
-        Show(plan);
+        if (OperatingSystem.IsWindows() || Console.IsInputRedirected || !OnPath("sudo"))
+        {
+            Console.WriteLine();
+            Console.WriteLine(
+                "  This wants a privilege this process does not have, and there is no terminal "
+              + "here for sudo to ask on. Run it again with sudo, or run this yourself:");
+            Console.WriteLine();
+            Console.WriteLine("    " + plan.Pasteable(privileged: false));
 
-        return ExitCodes.Refused;
+            return ExitCodes.Refused;
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("  This wants root for one step, so sudo will ask for it there.");
+        steps = [.. plan.Steps.Select(step => step.UnderSudo())];
     }
 
-    foreach (var step in plan.Steps)
+    foreach (var step in steps)
     {
         Console.WriteLine();
         Console.WriteLine($"  {step.Command}");
@@ -4654,15 +4671,14 @@ static async Task<int> UpdateReportAsync(bool json)
     return ExitCodes.Ok;
 }
 
-/// <summary>What the steps are, without running them.</summary>
-static void Show(UpdatePlan plan)
-{
-    foreach (var step in plan.Steps)
-    {
-        Console.WriteLine();
-        Console.WriteLine("    " + step.Command);
-    }
-}
+/// <summary>
+/// Whether a program is on PATH, asked before starting it rather than learned
+/// from the exception starting it throws.
+/// </summary>
+static bool OnPath(string program) =>
+    (Environment.GetEnvironmentVariable("PATH") ?? "")
+        .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+        .Any(directory => File.Exists(Path.Combine(directory, program)));
 
 /// <summary>
 /// Whether this process could write a directory, asked by trying.

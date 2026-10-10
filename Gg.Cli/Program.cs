@@ -539,6 +539,15 @@ static Gg.Console.OfferedOnThisMachine? OfferedHere(
 /// wrote. An unset airspace has to read as unset - and `w` is how a person
 /// answers it without leaving.
 /// </remarks>
+// WHETHER THIS MACHINE TAKES AD HOC AGENT SESSIONS (slice seventy, ADR-0039): its
+// own file decides, and the agent is the one its declaration names - `claude`
+// when it names none, which is the CLI as it is.
+static Gg.Cli.LocalAgentSessions? SessionsHere(Gg.Local.Configuration? inForce, string? agentDeclaration) =>
+    Gg.Cli.LocalAgentSessions.For(
+        inForce,
+        Gg.Local.ExecutorDeclaration.ParseOrNull(agentDeclaration, Gg.Local.ExecutorDeclaration.Variable)
+            ?.Binary ?? "claude");
+
 static string? Airspace() =>
     Settings.Value("GG_AIRSPACE", InForce.Configuration) is { Length: > 0 } named
         ? named
@@ -3693,6 +3702,11 @@ static async Task<int> RunnerUpAsync()
                 agentDeclaration, Gg.Local.ExecutorDeclaration.Variable) is { } declaredAgent
                 ? LocalAgentLogin.For(inForce, new FileCredentialStore(), declaredAgent)
                 : null,
+            // AND WHETHER IT TAKES AD HOC AGENT SESSIONS: null unless this machine's
+            // own file says accept-agent-sessions (slice seventy, ADR-0039), with
+            // the agent the declaration names - `claude` when it names none.
+            agentHost: SessionsHere(inForce, agentDeclaration)?.Host,
+            agentRoots: SessionsHere(inForce, agentDeclaration)?.Roots,
             // WHAT MAKES THIS RUNNER REACHABLE, handed across for the reason the
             // takeover reader is: Gg.Runner cannot see Gg.Client, and this
             // project is the only one that sees both. The SAME key this machine
@@ -4124,6 +4138,10 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
             agentDeclaration, Gg.Local.ExecutorDeclaration.Variable) is { } declaredAgent
             ? LocalAgentLogin.For(inForce, new FileCredentialStore(), declaredAgent)
             : null,
+        // A MEMBER'S FILE NEVER OPTS IN, so this is null on every member today;
+        // asked the same way so the rule is one rule (slice seventy).
+        agentHost: SessionsHere(inForce, agentDeclaration)?.Host,
+        agentRoots: SessionsHere(inForce, agentDeclaration)?.Roots,
         identityKey: identityKey.ForOpeningWhatWasSealedToThisRunner(),
         // TWELVE HOURS, AND THEN THIS MEMBER IS DONE. A member token is not
         // renewable and a member cannot mint itself another - the pool warms a

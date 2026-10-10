@@ -65,7 +65,8 @@ public sealed class AttendedSession(
     ECDiffieHellman runnerKey,
     RunnerChannel channel,
     AskDispatch dispatch,
-    IRunnerObserver observer) : IDisposable
+    IRunnerObserver observer,
+    AgentChannelServer? agents = null) : IDisposable
 {
     private readonly List<Served> _serving = [];
     private readonly HashSet<string> _answered = new(StringComparer.Ordinal);
@@ -118,7 +119,7 @@ public sealed class AttendedSession(
             }
 
             var result = await channel.AnswerAsync(
-                pending, runnerKey, dispatch, cancellationToken);
+                pending, runnerKey, dispatch, cancellationToken, agents);
 
             if (result.Answer is not { } answer)
             {

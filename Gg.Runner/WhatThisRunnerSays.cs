@@ -140,6 +140,23 @@ public sealed class WhatThisRunnerSays(
         }
     }
 
+    /// <summary>Whether this runner is working a flight right now.</summary>
+    /// <remarks>
+    /// <b>What refuses a new ad hoc session while one runs</b> (slice seventy,
+    /// ADR-0039 Decision 4): the same account `status` answers from, so the two
+    /// cannot disagree about whether this machine is busy.
+    /// </remarks>
+    public bool Flying
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _flightId is not null;
+            }
+        }
+    }
+
     public void Claimed(LeaseGranted lease)
     {
         ArgumentNullException.ThrowIfNull(lease);

@@ -121,6 +121,14 @@ public sealed class AgentChannelServer(AgentSessions sessions)
                     Enqueue(new AgentSessionList { Sessions = _sessions.Standings() });
                     break;
 
+                // FORGOTTEN, THEN LISTED: the console redraws from what the machine holds
+                // after, or shows the machine's sentence for why not (slice seventy-one).
+                case ForgetAgentSession forget:
+                    Enqueue(_sessions.Forget(forget.SessionId) is { } why
+                        ? new AgentSessionRefused { Because = why }
+                        : new AgentSessionList { Sessions = _sessions.Standings() });
+                    break;
+
                 // A FRAME THIS SIDE CANNOT READ, or one only the runner sends, is
                 // nothing - the ask channel's rule for what it does not know.
                 default:

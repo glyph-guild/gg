@@ -119,24 +119,21 @@ public sealed class AgentSessionHost(
     }
 }
 
-/// <summary>Whether this machine's file opted it into ad hoc sessions, and where they may start.</summary>
-public sealed record LocalAgentSessions(IHostAgentSessions Host, IReadOnlyList<string> Roots)
+/// <summary>Whether this machine's file opted it into ad hoc sessions, and where they live.</summary>
+/// <remarks>
+/// <b><c>agent-session-roots</c> is retired</b> (slice seventy-one, ADR-0039 Decision 7): each
+/// session gets a directory of its own under <see cref="Home"/>, and the console chooses none.
+/// </remarks>
+public sealed record LocalAgentSessions(IHostAgentSessions Host, string Home)
 {
-    /// <summary>The host and roots, or null for a machine whose file did not opt in.</summary>
+    /// <summary>The host and home, or null for a machine whose file did not opt in.</summary>
     /// <param name="agentBinary">The agent the machine declares - the executor's binary.</param>
     public static LocalAgentSessions? For(Gg.Local.Configuration? file, string agentBinary)
     {
         ArgumentNullException.ThrowIfNull(agentBinary);
 
-        if (file?.AcceptAgentSessions is not true)
-        {
-            return null;
-        }
-
-        IReadOnlyList<string> roots = file.AgentSessionRoots is { Length: > 0 } named
-            ? [.. named.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)]
-            : [Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)];
-
-        return new LocalAgentSessions(new AgentSessionHost(agentBinary), roots);
+        return file?.AcceptAgentSessions is true
+            ? new LocalAgentSessions(new AgentSessionHost(agentBinary), AgentSessions.DefaultHome())
+            : null;
     }
 }

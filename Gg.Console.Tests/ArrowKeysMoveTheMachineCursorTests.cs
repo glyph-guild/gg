@@ -43,14 +43,14 @@ public class ArrowKeysMoveTheMachineCursorTests
             .IsTrue()
             .Because("up moves back.");
 
-        await Assert.That(TypedThenShows(fixture, "\r", "▸ new session")).IsTrue();
-        await Assert.That(TypedThenShows(fixture, down, "▸ attach a1b2"))
-            .IsTrue()
-            .Because("down moves through a machine's sessions too.");
+        // A MACHINE'S SESSIONS ARE THE CONSOLE'S NOW (slice seventy-one): enter hands the
+        // machine under the cursor to the runner modal, where the table's own arrows move.
+        await Assert.That(TypedThenShows(fixture, down, "▸ vmlinux002")).IsTrue();
+        fixture.Terminal.Type("\r");
 
-        fixture.Terminal.Type("\u0007");
-        fixture.Terminal.Type("0");
-        await Assert.That(await showing.WaitAsync(TimeSpan.FromSeconds(20))).IsEqualTo(MuxLeave.Gg);
+        await Assert.That(await showing.WaitAsync(TimeSpan.FromSeconds(20))).IsEqualTo(MuxLeave.RemoteControl);
+        await Assert.That(fixture.Mux.TakeRemoteControl()).IsEqualTo(Vm2.Id)
+            .Because("the machine the arrows moved to is the one handed off.");
     }
 
     private static bool TypedThenShows(MuxFixture fixture, string key, string shown)

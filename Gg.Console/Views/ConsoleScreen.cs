@@ -394,6 +394,9 @@ public sealed class ConsoleScreen : Window
     /// <summary>The flight the recorded tab last asked facts for, this visit.</summary>
     private string? _factsAskedFor;
 
+    /// <summary>The runner the flights view last asked flights for, this visit.</summary>
+    private string? _runnerFlightsAskedFor;
+
     /// <summary>
     /// Which tab of the work item modal focus was last placed in.
     /// </summary>
@@ -518,6 +521,8 @@ public sealed class ConsoleScreen : Window
     private readonly (RunnerView View, View Pane)[] _runnerViewTabbed;
     private readonly TableView _runnerEnvironments;
     private readonly TableView _runnerMembers;
+    private readonly TableView _runnerFlights;
+    private readonly TableView _runnerSessions;
     private readonly Label _runnerNothingHere;
     private readonly Label _runnerLogAbsent;
     private IReadOnlyList<FlightField>? _runnerFieldsShowing;
@@ -2267,6 +2272,11 @@ public sealed class ConsoleScreen : Window
         _runnerEnvironments = CollectionViews.Table();
         _runnerMembers = CollectionViews.Table();
 
+        // AND WHAT IT HAS DONE AND IS HOLDING (slice seventy-one): the flights it
+        // claimed, and the agent sessions on the machine.
+        _runnerFlights = CollectionViews.Table();
+        _runnerSessions = CollectionViews.Table();
+
         // ONE LABEL FOR BOTH, because both absences have one cause: the peers
         // are found THROUGH the environments this runner advertises, so no
         // environments means no peers and the same sentence explains both.
@@ -2295,7 +2305,19 @@ public sealed class ConsoleScreen : Window
                     TabStop = TabBehavior.NoStop,
                 };
 
-                pane.Add(view == RunnerView.Environments ? _runnerEnvironments : _runnerMembers);
+                // EVERY VIEW NAMED, AND AN UNKNOWN ONE THROWS. This was a binary
+                // ternary, which handed any view that was not environments the
+                // members table - so a fourth view would have drawn the members
+                // under its own title.
+                pane.Add(view switch
+                {
+                    RunnerView.Environments => _runnerEnvironments,
+                    RunnerView.Members => _runnerMembers,
+                    RunnerView.Flights => _runnerFlights,
+                    RunnerView.Sessions => _runnerSessions,
+                    _ => throw new InvalidOperationException(
+                        $"The runner modal has no table for its '{view}' view."),
+                });
 
                 return (View: view, Pane: (View)pane);
             }),
@@ -2334,6 +2356,8 @@ public sealed class ConsoleScreen : Window
         // about. The flight log is wired to its own for the same reason.
         _runnerEnvironments.ValueChanged += OnModalRowPointedAt;
         _runnerMembers.ValueChanged += OnModalRowPointedAt;
+        _runnerFlights.ValueChanged += OnModalRowPointedAt;
+        _runnerSessions.ValueChanged += OnModalRowPointedAt;
 
         _runnerBody = new View
         {
@@ -5376,6 +5400,13 @@ public sealed class ConsoleScreen : Window
             RenderCredentialRepositories();
         }
 
+        // A CLOSED RUNNER MODAL IS A VISIT ENDED, so reopening it on the flights
+        // view asks again rather than standing on a guard from the last visit.
+        if (!runner)
+        {
+            _runnerFlightsAskedFor = null;
+        }
+
         if (plan)
         {
             RenderPlan();
@@ -6117,6 +6148,25 @@ public sealed class ConsoleScreen : Window
             FillRunnerLog();
         }
 
+        // THE FLIGHTS VIEW ASKS FOR WHAT IT SHOWS, once per visit - RenderFlight's
+        // facts rule one modal over, and guarded the same way: by the runner it
+        // asked for rather than by whether the answer came, so a failed read is
+        // not asked again every render. Leaving the view, or the modal, resets
+        // the guard, which is how the absence says to try again.
+        if (RunnerActivity.FlightsOwed(State) is { } owed)
+        {
+            if (!string.Equals(_runnerFlightsAskedFor, owed, StringComparison.Ordinal))
+            {
+                _runnerFlightsAskedFor = owed;
+                State = State with { ReadInFlight = true };
+                Asked(Command.ShowRunnerFlights);
+            }
+        }
+        else if (State.RunnerView is not RunnerView.Flights || State.Mode is not UiMode.Runner)
+        {
+            _runnerFlightsAskedFor = null;
+        }
+
         RenderRunnerViews();
     }
 
@@ -6601,9 +6651,27 @@ public sealed class ConsoleScreen : Window
                 State.RunnerMemberSelected,
                 r => [r.Here, r.Environment, r.Member, r.State, r.Work, r.Heard]);
 
-            var nothing = State.RunnerView == RunnerView.Members
-                ? RunnerDetails.MemberAbsence(State)
-                : RunnerDetails.EnvironmentAbsence(State);
+            Fill(_runnerFlights, null,
+                RunnerActivity.Flights(State), RunnerActivity.FlightColumns,
+                State.RunnerFlightSelected,
+                r => [r.Flight, r.Kind, r.State, r.Claimed, r.Ended]);
+
+            Fill(_runnerSessions, null,
+                RunnerActivity.Sessions(State), RunnerActivity.SessionColumns,
+                State.RunnerSessionSelected,
+                r => [r.Session, r.State, r.Started, r.Ended, r.Directory]);
+
+            // EVERY VIEW ITS OWN ABSENCE, named rather than defaulted: this was
+            // a binary choice, and a fourth view would have said the
+            // environments' sentence under its own title.
+            var nothing = State.RunnerView switch
+            {
+                RunnerView.Members => RunnerDetails.MemberAbsence(State),
+                RunnerView.Environments => RunnerDetails.EnvironmentAbsence(State),
+                RunnerView.Flights => RunnerActivity.FlightsAbsence(State),
+                RunnerView.Sessions => RunnerActivity.SessionsAbsence(State),
+                _ => "",
+            };
 
             _runnerNothingHere.Text = nothing;
             _runnerNothingHere.Visible = nothing.Length > 0
@@ -7307,6 +7375,8 @@ public sealed class ConsoleScreen : Window
                     RunnerView.Environments when _runnerEnvironments.Visible
                         => _runnerEnvironments,
                     RunnerView.Members when _runnerMembers.Visible => _runnerMembers,
+                    RunnerView.Flights when _runnerFlights.Visible => _runnerFlights,
+                    RunnerView.Sessions when _runnerSessions.Visible => _runnerSessions,
                     RunnerView.Log when _runnerSaid.Visible => _runnerSaid,
                     _ => (View)_modal,
                 }).SetFocus();
@@ -7578,6 +7648,8 @@ public sealed class ConsoleScreen : Window
             _runnerViews.ValueChanged -= OnRunnerViewChanged;
             _runnerEnvironments.ValueChanged -= OnModalRowPointedAt;
             _runnerMembers.ValueChanged -= OnModalRowPointedAt;
+            _runnerFlights.ValueChanged -= OnModalRowPointedAt;
+            _runnerSessions.ValueChanged -= OnModalRowPointedAt;
             _airspacePath.KeyDown -= OnAirspacePathKeyDown;
             _airspaceTable.ValueChanged -= OnRowPointedAt;
             _airspaceViews.ValueChanged -= OnAirspaceViewChanged;

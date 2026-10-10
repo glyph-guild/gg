@@ -95,6 +95,17 @@ public abstract record VerbResult
         public override string Kind => VerbResultKinds.Pools;
     }
 
+    /// <summary>A runner's recent flights, newest first (slice seventy-one).</summary>
+    /// <remarks>
+    /// <b>The runner beside the list</b>, because the list does not name it and
+    /// whatever holds the answer has to know which runner it is about - the
+    /// second runner somebody opens must not show the first one's flights.
+    /// </remarks>
+    public sealed record RunnerFlights(string RunnerId, RunnerFlightList Value) : VerbResult
+    {
+        public override string Kind => VerbResultKinds.RunnerFlights;
+    }
+
     /// <summary>
     /// A build of a strategy's recipe, as it was decided - not as it ran.
     /// </summary>
@@ -662,6 +673,9 @@ public static class VerbResultKinds
     public const string Chart = "environment-chart";
     public const string Pools = "pools";
 
+    /// <summary>A runner's recent flights (slice seventy-one).</summary>
+    public const string RunnerFlights = "runner-flights";
+
     /// <summary>A build of a strategy's recipe, decided (slice forty-one).</summary>
     public const string StrategyBuild = "strategy-build";
     public const string Strategies = "strategies";
@@ -836,6 +850,7 @@ public static class VerbResultKinds
 [JsonSerializable(typeof(Gg.Contracts.StrategyList))]
 [JsonSerializable(typeof(Gg.Contracts.EnvironmentChart))]
 [JsonSerializable(typeof(Gg.Contracts.PoolLedger))]
+[JsonSerializable(typeof(Gg.Contracts.RunnerFlightList))]
 [JsonSerializable(typeof(EstateDiff))]
 /// <summary>How verb results are written and read back.</summary>
 /// <remarks>
@@ -971,6 +986,8 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvironmentChart),
         VerbResult.Pools r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.PoolLedger),
+        VerbResult.RunnerFlights r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.RunnerFlightList),
         VerbResult.StrategyBuild r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.PoolAction),
         VerbResult.Strategies r =>
@@ -1163,6 +1180,7 @@ public static class VerbOutput
         VerbResult.RunnerLabels r => RunnerLabelsText(r.Value),
         VerbResult.Chart r => ChartText(r.Value),
         VerbResult.Pools r => PoolsText(r.Value),
+        VerbResult.RunnerFlights r => RunnerFlightsText(r.Value),
         VerbResult.StrategyBuild r => StrategyBuildText(r.Value),
         VerbResult.Strategies r => StrategiesText(r.Value),
         VerbResult.Watches r => WatchesText(r.Value),
@@ -2594,6 +2612,29 @@ public static class VerbOutput
           + "the pool rolls from there. gg pools shows how it went.");
 
         return text.ToString();
+    }
+
+    private static string RunnerFlightsText(RunnerFlightList list)
+    {
+        if (list.Flights.Count == 0)
+        {
+            return "This runner has flown nothing.";
+        }
+
+        var text = new StringBuilder();
+        foreach (var flight in list.Flights)
+        {
+            var number = flight.Number is { } n
+                ? Gg.Contracts.Description.FlightRef.Format(n)
+                : Clean(flight.FlightId);
+
+            text.AppendLine(
+                $"{number,-10}{Clean(flight.Kind),-14}{Clean(flight.State),-11}"
+              + $"{(flight.ClaimedAt is { } claimed ? claimed.ToString("u") : ""),-22}"
+              + $"{(flight.EndedAt is { } ended ? ended.ToString("u") : "")}");
+        }
+
+        return text.ToString().TrimEnd();
     }
 
     private static string PoolsText(PoolLedger ledger)

@@ -1943,6 +1943,12 @@ static async Task<int> LaunchConsoleAsync()
                     Gg.Console.Command.ShowFlightFacts =>
                         Gg.Console.ConsoleFacts.Patch(data, current),
 
+                    // WHAT A RUNNER HAS FLOWN, asked for when the runner modal's
+                    // flights view is shown - the facts tab's reason, one modal
+                    // over (slice seventy-one).
+                    Gg.Console.Command.ShowRunnerFlights =>
+                        Gg.Console.ConsoleRunnerFlights.Patch(data, current),
+
                     // THE FLIGHT'S STORY, which is what this port was built
                     // for - and named rather than defaulted.
                     // AND THE SAME FLIGHT REACHED FROM THE CORNER, which opens

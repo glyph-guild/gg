@@ -82,13 +82,21 @@ public class ResumptionContextTests
         },
     };
 
-    private static async Task<CapturingExecutor> FlyAsync(string? resumesFrom)
+    /// <summary>Flies one lease carrying this loop and returns the request its work was given.</summary>
+    internal static async Task<ExecutorRequest> FlyCarryingAsync(LeaseLoop loop)
+    {
+        var executor = await FlyAsync(resumesFrom: null, loop);
+        return executor.Requests.Single(r => r.LoopId != "gg-move-bound-probe");
+    }
+
+    private static async Task<CapturingExecutor> FlyAsync(string? resumesFrom, LeaseLoop? loop = null)
     {
         using var fixture = new GitFixture();
         using var trees = new ScratchTreeRoot();
         var clock = new MovableClock(T0);
         var protocol = new FakeProtocol();
-        protocol.Claims.Enqueue(new ClaimResult.Granted(ALeaseFor(fixture, resumesFrom)));
+        var lease = ALeaseFor(fixture, resumesFrom);
+        protocol.Claims.Enqueue(new ClaimResult.Granted(loop is null ? lease : lease with { Loop = loop }));
         var observer = new RecordingObserver();
         var executor = new CapturingExecutor();
 

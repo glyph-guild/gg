@@ -1229,8 +1229,9 @@ public sealed class ClaudeCodeExecutor(
         ExecutorRequest request,
         IReadOnlyList<IntentReader> readers,
         string? secret = null,
-        SelfInvocation? self = null) =>
-        new ClaudeCodeExecutor("claude", readers, secretFor: null, self)
+        SelfInvocation? self = null,
+        Func<string, string?>? secretFor = null) =>
+        new ClaudeCodeExecutor("claude", readers, secretFor, self)
             .StartInfo(request, secret).ArgumentList;
 
     private static string Tool(string move) => move switch

@@ -502,6 +502,18 @@ public enum UiMode
     /// </para>
     /// </remarks>
     ItineraryDetail,
+
+    /// <summary>
+    /// Adding a credential, a step at a time: which service, what for, how much
+    /// access in the service's own words, which account and the token, and the
+    /// whole of it said back before anything is registered.
+    /// </summary>
+    /// <remarks>
+    /// <b>A Terminal.Gui wizard, hosted and never run</b> - the modal's own rule:
+    /// which step shows is <see cref="AppState.CredentialDraft"/>'s, so the
+    /// keymap, the key walk and the dump all describe the screen.
+    /// </remarks>
+    CredentialWizard,
 }
 
 /// <summary>Which page of help a person is reading.</summary>
@@ -2115,6 +2127,16 @@ public sealed record AppState
     /// <c>Everywhere()</c> product.
     /// </remarks>
     public bool AudienceAsked { get; init; }
+
+    /// <summary>
+    /// The credential being added through the wizard, or null when none is.
+    /// </summary>
+    /// <remarks>
+    /// <b>Everything but the token</b>, which goes to the held secret the
+    /// composition owns: this record is written under <c>GG_STATE_DUMP</c>.
+    /// Cleared with the wizard, so a second one never opens half-answered.
+    /// </remarks>
+    public CredentialDraft? CredentialDraft { get; init; }
 
     /// <summary>Which row the credential chooser's cursor is on.</summary>
     /// <remarks>

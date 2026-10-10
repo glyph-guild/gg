@@ -1479,5 +1479,11 @@
     "surface": "f5ee61e0a542c08b210c483f549f612af36e19b24879485a462bc772a05b7c55",
     "endpoints": "073872f37069624b8f1f8708b897cd8a9b7820144c84b0a78c5d0da67d1c7ee1",
     "note": "A credential can be for a code-analysis service. CredentialSubjects gains Analysis (\"analysis\"), CredentialLocator gains AnalysisSegment and ForAnalysis, so a service's token lives at local:analysis/<key> and a repository slug may no longer begin with that segment (owner, 2026-10-10: a SonarCloud user token is to be registered for the investigate agent, and it is neither a repository's credential nor a tracker's). The control plane checks no subject - it validates a locator's shape, which local:analysis/<key> already passes - so nothing there has to move first. No route changes."
+  },
+  {
+    "version": "0.288.0",
+    "surface": "b864065c4de5b404a14178876770cf3469744e72f2ea191faef1767387b60335",
+    "endpoints": "073872f37069624b8f1f8708b897cd8a9b7820144c84b0a78c5d0da67d1c7ee1",
+    "note": "An ad hoc agent session on another machine has a contract (slice seventy, ADR-0039; owner, 2026-10-10: a remote claude driven from the gg mux, ad hoc rather than a flight, the CLI as it is). RunnerCapabilityPurposes gains DriveAnAgent (\"drive-an-agent\"), which opens a second data channel labelled \"agent\" carrying binary frames - StartAgentSession, AttachAgentSession, AgentInput, AgentResize, KillAgentSession, ListAgentSessions one way; AgentSessionStarted, AgentOutput, AgentSessionExited, AgentSessionList, AgentSessionRefused, AgentSessionReadOnly the other - encoded by AgentFrameCodec, never a RunnerAsk and never an endpoint body. RunnerHeartbeat gains AcceptsAgentSessions (absent is not opted in) and AgentSessions, each an AgentSessionStanding. No route changes; the control plane pins this version in the PR that gates the mint on the new member."
   }
 ]

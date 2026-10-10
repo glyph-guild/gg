@@ -46,8 +46,20 @@ public static class RunnerCapabilityPurposes
     /// </remarks>
     public const string ConfigureThisRunner = "configure-this-runner";
 
+    /// <summary>
+    /// Start or attach to an ad hoc agent session on the machine - the `agent`
+    /// channel (slice seventy, ADR-0039).
+    /// </summary>
+    /// <remarks>
+    /// <b>Minted only for a machine whose heartbeat accepts agent sessions.</b> The
+    /// reach rule says who; the machine's own opt-in says whether it takes one at
+    /// all - and unlike <see cref="ConfigureThisRunner"/>, silence is no: a machine
+    /// that predates the member never opted in.
+    /// </remarks>
+    public const string DriveAnAgent = "drive-an-agent";
+
     public static IReadOnlyList<string> All { get; } =
-        [TailYourOwnLog, ConfigureThisRunner];
+        [TailYourOwnLog, ConfigureThisRunner, DriveAnAgent];
 
     /// <summary>
     /// The purpose an introduction is actually minted for.

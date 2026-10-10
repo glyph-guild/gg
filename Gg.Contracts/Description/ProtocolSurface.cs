@@ -2251,7 +2251,10 @@ public static class ProtocolSurface
             [typeof(RunnerParkRequest)] = ["reason"],
             [typeof(RunnerParked)] = ["runnerId", "parkedAt", "parkedBy", "reason"],
             [typeof(RunnerRegistered)] = ["runnerId", "runnerToken", "expiresAt"],
-            [typeof(RunnerHeartbeat)] = ["labels", "acceptsConfiguration"],
+            [typeof(RunnerHeartbeat)] =
+                ["labels", "acceptsConfiguration", "acceptsAgentSessions", "agentSessions"],
+            [typeof(AgentSessionStanding)] =
+                ["sessionId", "directory", "startedAt", "attachedBy", "alive"],
             // `introductions` is absent unless a console is waiting, so an idle
             // fleet's heartbeat body is byte-for-byte what it always was.
             [typeof(HeartbeatAccepted)] =

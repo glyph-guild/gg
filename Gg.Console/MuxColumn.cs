@@ -95,9 +95,10 @@ public static class MuxColumn
         {
             var mark = agent.Changed ? " •" : "  ";
             var age = Age(agent.Running);
-            var room = Width - 4 - age.Length - mark.Length - 1;
+            var doing = Doing(agent.Activity);
+            var room = Width - 6 - age.Length - mark.Length - 1;
             var label = agent.Label.Length > room ? agent.Label[..Math.Max(room - 1, 0)] + "…" : agent.Label;
-            lines.Add(Line($" {agent.Number} {label.PadRight(room)} {age}{mark}", MuxTab.Agent(agent.Number), shown));
+            lines.Add(Line($" {agent.Number} {doing} {label.PadRight(room)} {age}{mark}", MuxTab.Agent(agent.Number), shown));
         }
 
         lines.Add(Line(
@@ -135,6 +136,18 @@ public static class MuxColumn
     /// <c>+</c> a new agent, <c>H</c> history. Null for anything else, and for an agent number
     /// nothing is on.
     /// </summary>
+    /// <summary>
+    /// One cell saying what an agent is doing, as its hooks told the mux: <c>»</c> working,
+    /// <c>?</c> asking the person, <c>·</c> waiting for a prompt, blank when nothing was said.
+    /// </summary>
+    private static char Doing(AgentActivity activity) => activity switch
+    {
+        AgentActivity.Working => '»',
+        AgentActivity.NeedsYou => '?',
+        AgentActivity.Waiting => '·',
+        _ => ' ',
+    };
+
     public static MuxTab? Key(byte typed, int agents) => typed switch
     {
         (byte)'0' => MuxTab.Gg,

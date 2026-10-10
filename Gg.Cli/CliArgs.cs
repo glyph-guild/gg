@@ -904,6 +904,7 @@ public static class CliArgs
         "gg itinerary propose <file>    propose a plan; nothing opens until its gate is answered",
         "gg itinerary tools [--draft <name>]  a tool server any Claude Code session drafts a plan with",
         "gg manage tools                    gg's management layer as tools for a Claude Code session",
+        "gg mux mark <working|waiting|notification>  what a mux agent's own hooks run; always exits 0",
         "gg itineraries [--intent <key>] [--limit <rows>] [--after <cursor>]  every plan here, and its legs",
         "gg itinerary show <ITN-n>          one plan, and every leg of it in full",
         "  --print-registration         the `claude mcp add` line that registers it",
@@ -1515,6 +1516,7 @@ public static class CliArgs
             // THE PLANNING TOOL SERVER (slice sixty-three), one draft per registration.
             ["itinerary", "tools"] => new CliAction.ItineraryTools("draft"),
             ["manage", "tools"] => new CliAction.ManageTools(),
+            ["mux", "mark", var word] => new CliAction.MuxMark(word),
             ["itineraries"] => new CliAction.Itineraries(json, page, after),
             // ONE INTENT'S PLANS: its key as `gg flights --intent` takes one, or a file's
             // repository:path[@ref].

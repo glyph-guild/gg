@@ -24,6 +24,11 @@ internal static partial class Sources
     internal static IReadOnlyDictionary<string, string> NotOnThePage { get; } =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            ["GG_MUX_ACTIVITY"] =
+                "the mux writes it into each Claude Code agent's own environment, naming the "
+              + "state file that agent's hooks mark; `gg mux mark` writes only inside the mux's "
+              + "activity folder, so a person setting it chooses nothing.",
+
             ["GG_INTENT_PATH"] =
                 "the console writes it into the tool server's own environment, so the "
               + "server has somewhere to record a composed intent. A person setting it "

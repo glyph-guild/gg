@@ -92,7 +92,7 @@ public sealed partial class Mux
         lock (_lock)
         {
             return [.. _agents.Select((agent, at) =>
-                new MuxRow(at + 1, agent.Label, now - agent.Started, agent.Changed))];
+                new MuxRow(at + 1, agent.Label, now - agent.Started, agent.Changed, MuxActivity.Read(agent.Activity)))];
         }
     }
 
@@ -353,6 +353,18 @@ public sealed partial class Mux
             given = ["--session-id", id, .. arguments];
         }
 
+        // WHAT THE AGENT IS DOING, told by its own hooks: given for this launch only, so nothing
+        // lands in the person's Claude Code settings. LAST, because a flag ends the list before it.
+        var environment = new Dictionary<string, string> { ["TERM"] = "xterm-256color" };
+        string? activity = null;
+        if (Path.GetFileName(command) == "claude" && _self is not null && _ledger is not null)
+        {
+            activity = Path.Combine(
+                Path.GetDirectoryName(_ledger.Path)!, "activity", Guid.NewGuid().ToString("N"));
+            environment[MuxActivity.Variable] = activity;
+            given = [.. given, "--settings", MuxActivity.Settings(_self)];
+        }
+
         var options = new PtyOptions
         {
             Name = "gg",
@@ -361,14 +373,14 @@ public sealed partial class Mux
             Cwd = workingDirectory,
             App = command,
             CommandLine = [.. given],
-            Environment = new Dictionary<string, string> { ["TERM"] = "xterm-256color" },
+            Environment = environment,
         };
 
         var pty = PtyProvider.SpawnAsync(options, CancellationToken.None).GetAwaiter().GetResult();
         var agent = new MuxAgent(
             Interlocked.Increment(ref _ids), label, id, _clock(), pty,
             new XTermTerminal(new TerminalOptions { Cols = columns, Rows = rows }),
-            panel, took, columns, rows);
+            panel, took, columns, rows, activity);
 
         lock (_lock)
         {
@@ -386,6 +398,17 @@ public sealed partial class Mux
             lock (_lock)
             {
                 _agents.Remove(agent);
+            }
+
+            if (activity is not null)
+            {
+                try
+                {
+                    File.Delete(activity);
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                }
             }
 
             if (ending is not null)
@@ -447,9 +470,11 @@ public sealed class MuxAgent
         HostPanel panel,
         HostTook took,
         int columns,
-        int rows)
+        int rows,
+        string? activity = null)
     {
         Id = id;
+        Activity = activity;
         Label = label;
         SessionId = sessionId;
         Started = started;
@@ -469,6 +494,9 @@ public sealed class MuxAgent
     public string? SessionId { get; }
 
     public DateTimeOffset Started { get; }
+
+    /// <summary>The state file its hooks write what it is doing to, when it has hooks.</summary>
+    public string? Activity { get; }
 
     /// <summary>Completes with the child's exit code when it ends.</summary>
     public Task<int> Exited => _exited.Task;

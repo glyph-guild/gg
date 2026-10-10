@@ -260,7 +260,12 @@ public sealed class ConsoleLoop(
     // - so the corner says "submitting" the moment the key is pressed, and the
     // request blocks nothing. Null sends inline, between sessions, as flying
     // always did: one path either way, ask then send then fold.
-    Launcher? launcher = null)
+    Launcher? launcher = null,
+
+    // A MACHINE'S AGENT SESSIONS, ACTED ON FROM THE RUNNER MODAL (slice seventy-one). The
+    // composition root's, because reaching a machine names the control plane; the loop reads the
+    // act off the model and runs it between sessions. Null says this console cannot reach machines.
+    Func<AppState, RemoteSessionAct, AppState>? remoteSession = null)
 {
     /// <summary>
     /// Re-reads everything the boot read, keeping what the person was looking
@@ -777,6 +782,16 @@ public sealed class ConsoleLoop(
                     // runner reporting ready afterwards, which the next reload
                     // picks up.
                     state = LoggedIn(state, logAgentIn);
+                    break;
+
+                case Command.StartRemoteSession:
+                case Command.OpenRemoteSession:
+                case Command.ForgetRemoteSession:
+                case Command.ForgetEndedRemoteSessions:
+                    // BETWEEN SESSIONS, AND THE MODAL STAYS OPEN: no Closed here. A started or
+                    // opened session is shown by the mux at the top of the loop, and ctrl-g 0
+                    // comes back to this modal; a forget re-reads the fleet so the view redraws.
+                    state = RemoteSessionActed(state, outcome.Exit);
                     break;
 
                 case Command.WatchRunner:
@@ -1358,6 +1373,46 @@ public sealed class ConsoleLoop(
             ? state with { LastRunner = "This console is not configured to start a runner." }
             : start(state);
 
+    /// <summary>One of the sessions view's acts, read off the model and handed to the root.</summary>
+    private AppState RemoteSessionActed(AppState state, Command command)
+    {
+        if (ConsoleRemoteSession.For(state, command) is not { } act)
+        {
+            return state with { LastRunner = "There is no session here for that key to act on." };
+        }
+
+        if (remoteSession is null)
+        {
+            return state with { LastRunner = "This console cannot reach machines, so it cannot act on their sessions." };
+        }
+
+        var acted = remoteSession(state, act);
+
+        return act.Kind is RemoteSessionKind.Forget or RemoteSessionKind.ForgetEnded
+            ? Reloaded(acted, reload, asked: false)
+            : acted;
+    }
+
+    /// <summary>
+    /// The runner modal opened on the machine chosen under Remote Control…, reading the fleet first
+    /// when the console does not hold that machine yet.
+    /// </summary>
+    private AppState RemoteControlled(AppState state, string runnerId)
+    {
+        if (ConsoleRemoteSession.Opened(state, runnerId) is { } opened)
+        {
+            return opened;
+        }
+
+        var read = Reloaded(state, reload, asked: false);
+
+        return ConsoleRemoteSession.Opened(read, runnerId)
+            ?? read with
+            {
+                LastRunner = "gg could not find that machine in the fleet. The Runners tab lists it once it beats.",
+            };
+    }
+
     private static AppState Watched(AppState state, Func<AppState, AppState>? watch) =>
         watch is null
             ? state with { LastRunner = "This console is not configured to watch a runner." }
@@ -1468,6 +1523,12 @@ public sealed class ConsoleLoop(
                 state = draftEstate is null
                     ? state with { LastEstate = "This console is not configured to manage the airspace with an agent." }
                     : draftEstate(Closed(state));
+            }
+            else if (left == MuxLeave.RemoteControl && mux.TakeRemoteControl() is { } runnerId)
+            {
+                // A MACHINE CHOSEN UNDER REMOTE CONTROL… (slice seventy-one): its sessions are
+                // the runner modal's, so gg comes back with that modal open on them.
+                state = RemoteControlled(state, runnerId);
             }
         }
 

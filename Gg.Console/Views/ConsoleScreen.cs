@@ -2359,6 +2359,10 @@ public sealed class ConsoleScreen : Window
         _runnerFlights.ValueChanged += OnModalRowPointedAt;
         _runnerSessions.ValueChanged += OnModalRowPointedAt;
 
+        // ITS KEYS TO THE MODAL FIRST (slice seventy-one): enter on a TableView is the table's
+        // own otherwise, and it is what opens the session under the cursor.
+        _runnerSessions.KeyDown += OnModalKeyDown;
+
         _runnerBody = new View
         {
             Width = Dim.Fill(),
@@ -7650,6 +7654,7 @@ public sealed class ConsoleScreen : Window
             _runnerMembers.ValueChanged -= OnModalRowPointedAt;
             _runnerFlights.ValueChanged -= OnModalRowPointedAt;
             _runnerSessions.ValueChanged -= OnModalRowPointedAt;
+            _runnerSessions.KeyDown -= OnModalKeyDown;
             _airspacePath.KeyDown -= OnAirspacePathKeyDown;
             _airspaceTable.ValueChanged -= OnRowPointedAt;
             _airspaceViews.ValueChanged -= OnAirspaceViewChanged;

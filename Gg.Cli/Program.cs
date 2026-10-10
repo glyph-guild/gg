@@ -2411,7 +2411,11 @@ static async Task<int> LaunchConsoleAsync()
         mux: mux,
 
         // AND THE FLIGHTS ASKED FOR: started by the loop, folded by the screen.
-        launcher: launcher)
+        launcher: launcher,
+
+        // A MACHINE'S AGENT SESSIONS, FROM THE RUNNER MODAL (slice seventy-one): reached through
+        // the mux's Reaching above, so the introduction and channel are this root's alone.
+        remoteSession: (current, act) => Gg.Console.ConsoleRemoteSession.Act(mux, current, act))
         .Run(initial);
 
     // Demo/verification hook: prove the surviving model is the whole truth.

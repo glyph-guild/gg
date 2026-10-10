@@ -32,14 +32,13 @@ namespace Gg.Console.Tests;
 /// </para>
 /// </remarks>
 [Category("RealStack")]
+[NeedsAControlPlane]
 public class AgainstARealControlPlaneTests
 {
     private static string Api =>
-        Environment.GetEnvironmentVariable("GG_CONSOLE_API")
+        Environment.GetEnvironmentVariable(NeedsAControlPlaneAttribute.Variable)
         ?? throw new InvalidOperationException(
-            "GG_CONSOLE_API is not set. This drives the console's real boot against a real "
-          + "control plane; skipping it would leave the findings this slice is built on as "
-          + "readings of source. Bring up Gg.AppHost and set it to the api's address.");
+            "GG_CONSOLE_API is not set, and [NeedsAControlPlane] should have skipped this.");
 
     private static string Web =>
         Environment.GetEnvironmentVariable("GG_CONSOLE_WEB")

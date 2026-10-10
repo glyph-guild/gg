@@ -63,6 +63,22 @@ public sealed record RunnerHeartbeat
     /// </para>
     /// </remarks>
     public bool? AcceptsConfiguration { get; init; }
+
+    /// <summary>
+    /// Whether this machine's owner opted it into ad hoc agent sessions
+    /// (<c>accept-agent-sessions</c>; slice seventy, ADR-0039 Decision 3).
+    /// </summary>
+    /// <remarks>
+    /// <b>Absent is not opted in</b>, the opposite of <see cref="AcceptsConfiguration"/>'s
+    /// reading and for the reason that decision gives: there, absence had to mean
+    /// "ask anyway" or every machine in the field would have stopped being
+    /// configurable the day it shipped. Here nothing in the field has ever taken a
+    /// session, so the safe reading costs nobody anything.
+    /// </remarks>
+    public bool? AcceptsAgentSessions { get; init; }
+
+    /// <summary>The agent sessions this machine holds, live and recently ended; null from an older runner.</summary>
+    public IReadOnlyList<AgentSessionStanding>? AgentSessions { get; init; }
 }
 
 /// <summary>How long the control plane expects to wait before worrying.</summary>

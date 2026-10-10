@@ -53,11 +53,18 @@ public class AnIntroductionNarrowsFourWaysTests
         // 0.153.0, and made somebody come here and edit this number on purpose -
         // which is the whole of what the count was ever for. The list is what is
         // asserted, so a THIRD value still has to be argued for here.
+        //
+        // AND THE THIRD WAS (slice seventy, ADR-0039): `drive-an-agent` opens the
+        // `agent` channel for an ad hoc Claude session on an opted-in machine. It
+        // authorises something none of the others does - a person typing into a
+        // process on someone's machine - which is why it is minted only where the
+        // machine's heartbeat says it accepts sessions, and why it spent 0.288.0.
         await Assert.That(RunnerCapabilityPurposes.All).IsEquivalentTo(
             (string[])
             [
                 RunnerCapabilityPurposes.TailYourOwnLog,
                 RunnerCapabilityPurposes.ConfigureThisRunner,
+                RunnerCapabilityPurposes.DriveAnAgent,
             ]);
 
         var membership = typeof(RunnerCapabilityPurposes)

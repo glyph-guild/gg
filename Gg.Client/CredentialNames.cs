@@ -20,7 +20,7 @@ public sealed record CredentialName(
     /// <summary>Whether gg recognised the service.</summary>
     public bool Known => Service is not null;
 
-    /// <summary>The name in a list: <c>Azure DevOps · JDX/JDNext</c>.</summary>
+    /// <summary>The name in a list: <c>&lt;service&gt; · acme/payments</c>.</summary>
     public string Short => Known ? $"{Service} · {For}" : For;
 
     /// <summary>What it grants, in a cell: <c>Code (Read &amp; write), as kevin</c>.</summary>
@@ -167,7 +167,7 @@ public static class CredentialNames
 
     /// <summary>
     /// The organisation and project in a tracker's host, which is what a person
-    /// knows it by: <c>https://dev.azure.com/HRTMS/JDX</c> is <c>HRTMS/JDX</c>.
+    /// knows it by: <c>https://tracker.example/acme/board</c> is <c>acme/board</c>.
     /// </summary>
     private static string? Place(string? host) =>
         host is { Length: > 0 }

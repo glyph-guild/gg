@@ -1478,7 +1478,7 @@ public static class Rows
     /// <c>Gg.Client.CredentialRow</c>, which already carries nothing a value could
     /// hide in — and the shape is asserted there rather than trusted here.
     /// </remarks>
-    /// <param name="Credential">What it is, as a person reads it: <c>Azure DevOps · JDX/JDNext</c>.</param>
+    /// <param name="Credential">What it is, as a person reads it: <c>&lt;service&gt; · acme/payments</c>.</param>
     /// <param name="Grants">What it grants and as whom, or that nothing is registered.</param>
     /// <param name="Here">How it rests on this machine.</param>
     /// <param name="Holders">Who can open it.</param>

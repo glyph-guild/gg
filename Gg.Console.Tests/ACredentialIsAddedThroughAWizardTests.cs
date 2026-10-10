@@ -193,6 +193,42 @@ public class ACredentialIsAddedThroughAWizardTests
     }
 
     [Test]
+    public async Task The_wizard_speaks_in_the_present_tense()
+    {
+        // THE OWNER'S WORDS (2026-10-10): "'Which service did this token come from?'
+        // should be 'Which service does this token come from?' and the tense should
+        // match across all the other cases".
+        await Assert.That(CredentialWizard.Said(Opened()))
+            .IsEqualTo("Which service does this token come from?");
+
+        var states = new List<AppState> { Opened() };
+        var service = Choosing(Opened(), CredentialProviders.SonarCloud);
+        var access = Next(service);
+        var account = Next(access);
+        var review = Next(account with
+        {
+            CredentialDraft = account.CredentialDraft! with { Identity = "kevin" },
+        });
+        states.AddRange([service, access, account, review]);
+
+        string[] past = [" did ", " made ", " was ", " were ", " had "];
+
+        foreach (var state in states)
+        {
+            var text = " " + string.Join(" ",
+                [CredentialWizard.Said(state),
+                 CredentialWizard.Help(state.CredentialDraft!.Step),
+                 .. CredentialWizard.Rows(state)]).Replace('\n', ' ') + " ";
+
+            foreach (var word in past)
+            {
+                await Assert.That(text.Contains(word, StringComparison.OrdinalIgnoreCase)).IsFalse()
+                    .Because($"'{word.Trim()}' is past tense. On {state.CredentialDraft.Step}: {text}");
+            }
+        }
+    }
+
+    [Test]
     public async Task Nothing_the_wizard_says_needs_gg_s_own_vocabulary()
     {
         // THE WORDS THIS CODE USES FOR ITSELF, which a person adding a token should

@@ -78,7 +78,9 @@ public static class ConsoleBrowsing
             // is what they last looked at.
             Remember(key, restored, stateHome);
 
-            return current => Reducer.Browsed(Carried(current, restored), key, listing, said);
+            var asked = AskedOf(Narrowing(restored));
+            return current => Recorded(
+                Reducer.Browsed(Carried(current, restored), key, listing, said), asked);
         }
         catch (Exception problem) when (problem is not OperationCanceledException)
         {
@@ -91,8 +93,76 @@ public static class ConsoleBrowsing
     }
 
     /// <summary>What to fold once the next page of work items has landed.</summary>
-    public static Func<AppState, AppState> MorePatch(IWorkBrowser? browser, AppState state) =>
-        current => current;
+    /// <remarks>
+    /// <para>
+    /// <b>Asked as the first page was</b> - <see cref="BrowseListing.Asked"/> - because the cursor
+    /// is an offset into that query's answer, and the same offset into another query is another
+    /// list's rows.
+    /// </para>
+    /// <para>
+    /// <b>Added under, by id, and only onto the listing that asked.</b> A refind or a new source
+    /// landing between the ask and the answer replaced the listing; a page for the old one folded
+    /// onto it would be rows from a question nobody is looking at.
+    /// </para>
+    /// </remarks>
+    public static Func<AppState, AppState> MorePatch(IWorkBrowser? browser, AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        browser = browser?.For(IntentSources.Shown(state)?.Key);
+
+        if (browser is null || state.Browse is not { NextCursor: { Length: > 0 } cursor } asking)
+        {
+            return current => current;
+        }
+
+        try
+        {
+            if (browser.BrowseAsync(cursor, limit: 50, FilterOf(asking.Asked), CancellationToken.None)
+                    .GetAwaiter().GetResult() is not BrowseOutcome.Listed listed)
+            {
+                return current => current;
+            }
+
+            var page = Reducer.Browsed(state, asking.ProviderKey, listed).Browse!;
+
+            return current =>
+            {
+                if (current.Browse is not { } held
+                    || !string.Equals(held.NextCursor, cursor, StringComparison.Ordinal)
+                    || !string.Equals(held.ProviderKey, asking.ProviderKey, StringComparison.Ordinal))
+                {
+                    return current;
+                }
+
+                var already = held.Items.Select(row => row.Id).ToHashSet(StringComparer.Ordinal);
+                return current with
+                {
+                    Browse = held with
+                    {
+                        Items = [.. held.Items, .. page.Items.Where(row => already.Add(row.Id))],
+                        NextCursor = page.NextCursor,
+                    },
+                };
+            };
+        }
+        catch (Exception problem) when (problem is not OperationCanceledException)
+        {
+            return current => current with
+            {
+                Diagnosis = "The next page of work items did not arrive: " + problem.Message,
+            };
+        }
+    }
+
+    /// <summary>The listing, carrying the question that produced it.</summary>
+    private static AppState Recorded(AppState state, BrowseAsked? asked) =>
+        state.Browse is { } listing ? state with { Browse = listing with { Asked = asked } } : state;
+
+    private static BrowseAsked? AskedOf(WorkItemFilter? filter) =>
+        filter is null ? null : new BrowseAsked(filter.AreaPath, filter.Iteration, filter.States, filter.Text);
+
+    private static WorkItemFilter? FilterOf(BrowseAsked? asked) =>
+        asked is null ? null : new WorkItemFilter(asked.AreaPath, asked.Iteration, asked.States, asked.Text);
 
     /// <summary>One item: what it says, and what has happened to it.</summary>
     /// <remarks>
@@ -165,8 +235,9 @@ public static class ConsoleBrowsing
             var listing = browser.BrowseAsync(
                 cursor: null, limit: 50, asked, CancellationToken.None).GetAwaiter().GetResult();
 
-            return current => Reducer.Browsed(
-                current with { Mode = UiMode.Normal }, key, listing, Said(asked));
+            return current => Recorded(
+                Reducer.Browsed(current with { Mode = UiMode.Normal }, key, listing, Said(asked)),
+                AskedOf(asked));
         }
         catch (Exception problem) when (problem is not OperationCanceledException)
         {

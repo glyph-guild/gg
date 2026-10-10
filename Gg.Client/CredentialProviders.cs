@@ -70,8 +70,8 @@ public static class CredentialProviders
     public static CredentialProvider AzureDevOps { get; } = new(
         Key: "azure-devops",
         Name: "Azure DevOps",
-        Hosts: [],
-        Aliases: [],
+        Hosts: ["dev.azure.com", "visualstudio.com"],
+        Aliases: ["ado", "azure-devops", "azdo"],
         TokenPage: "https://dev.azure.com/{organization}/_usersSettings/tokens",
         IdentityHint: "the Azure DevOps user the token belongs to",
         Accesses: new Dictionary<(string, string), string>
@@ -85,8 +85,8 @@ public static class CredentialProviders
     public static CredentialProvider SonarCloud { get; } = new(
         Key: "sonarcloud",
         Name: "SonarCloud",
-        Hosts: [],
-        Aliases: [],
+        Hosts: ["sonarcloud.io"],
+        Aliases: ["sonarcloud", "sonar", "sonarqube-cloud"],
         TokenPage: "https://sonarcloud.io/account/security",
         IdentityHint: "the SonarCloud user the token belongs to",
         Accesses: new Dictionary<(string, string), string>
@@ -100,8 +100,8 @@ public static class CredentialProviders
     public static CredentialProvider GitHub { get; } = new(
         Key: "github",
         Name: "GitHub",
-        Hosts: [],
-        Aliases: [],
+        Hosts: ["github.com"],
+        Aliases: ["github", "gh"],
         TokenPage: "https://github.com/settings/personal-access-tokens",
         IdentityHint: "the GitHub user the token belongs to",
         Accesses: new Dictionary<(string, string), string>
@@ -116,8 +116,8 @@ public static class CredentialProviders
     public static CredentialProvider Claude { get; } = new(
         Key: "claude",
         Name: "Claude",
-        Hosts: [],
-        Aliases: [],
+        Hosts: ["claude.ai", "anthropic.com"],
+        Aliases: ["claude"],
 
         // NO PAGE: an agent's token is minted on the runner by `gg agent login`,
         // never pasted in.

@@ -957,7 +957,7 @@ public sealed class Doctor(
     }
 
     /// <summary>
-    /// Which service a tracker is, when gg knows it - <c>"Azure DevOps: "</c> - or
+    /// Which service a tracker is, when gg knows it - its catalog name and a colon - or
     /// nothing. Named the way <see cref="CredentialProviders"/> names it everywhere.
     /// </summary>
     private static string Service(DeclaredTracker tracker) =>

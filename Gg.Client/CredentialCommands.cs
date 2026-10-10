@@ -169,8 +169,16 @@ public sealed class CredentialCommands(
     ISessionStore sessions,
     ICredentialStore credentials,
     ISecretPrompt prompt,
-    string? personKeyPath = null)
+    string? personKeyPath = null,
+    IReadOnlyList<(string Key, string Host)>? trackerHosts = null)
 {
+    /// <summary>
+    /// The trackers this machine declares, so a tracker's credential is named by
+    /// the host it is read from. Empty is not wrong: a known key such as
+    /// <c>ado</c> still names its service.
+    /// </summary>
+    private readonly IReadOnlyList<(string Key, string Host)> _trackerHosts = trackerHosts ?? [];
+
     private readonly ControlPlaneClient _client = client;
     private readonly ISessionStore _sessions = sessions;
     private readonly ICredentialStore _credentials = credentials;
@@ -293,14 +301,13 @@ public sealed class CredentialCommands(
         _credentials.Register(
             locator, _prompt.ReadSecret($"Secret for {named} (not echoed): "), holder);
 
+        CredentialRegistered registered;
         try
         {
-            var registered = await _client.RegisterCredentialAsync(
+            registered = await _client.RegisterCredentialAsync(
                 token,
                 new CredentialRegistrationRequest { For = named, Reference = reference },
                 cancellationToken);
-
-            return new VerbResult.CredentialAdded(registered);
         }
         catch (Exception)
         {
@@ -309,6 +316,14 @@ public sealed class CredentialCommands(
             _credentials.Remove(locator);
             throw;
         }
+
+        // NAMED AFTER IT IS REGISTERED, from the reference as recorded, and
+        // OUTSIDE the removal above: the credential exists now, and nothing about
+        // naming it may take the secret back.
+        return new VerbResult.CredentialAdded(
+            registered,
+            CredentialNames.Describe(
+                registered.Reference, named, await PlacesAsync(token, cancellationToken)));
     }
 
     /// <summary>
@@ -380,12 +395,43 @@ public sealed class CredentialCommands(
     /// </remarks>
     public async Task<VerbResult> ListCredentialsAsync(CancellationToken cancellationToken = default)
     {
-        var registered = await _client.ListCredentialsAsync(Session(), cancellationToken);
+        var session = Session();
+        var registered = await _client.ListCredentialsAsync(session, cancellationToken);
+        var places = await PlacesAsync(session, cancellationToken);
 
         return new VerbResult.Credentials(
             registered,
             CredentialsAtRest.For(
-                registered.Credentials, _credentials.RestingOf, _credentials.HoldersOf));
+                registered.Credentials, _credentials.RestingOf, _credentials.HoldersOf),
+            [.. registered.Credentials.Select(
+                c => CredentialNames.Describe(c.Reference, c.For, places))]);
+    }
+
+    /// <summary>
+    /// What names a credential's service: the repository registry and this
+    /// machine's declared trackers.
+    /// </summary>
+    /// <remarks>
+    /// <b>The registry is best effort.</b> A list that failed because the
+    /// repository read did is a list that hides the credentials it already has;
+    /// without the registry a repository's credential is named from its slug,
+    /// and says it could not tell the service.
+    /// </remarks>
+    private async Task<CredentialPlaces> PlacesAsync(
+        string session, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<RepositoryRegistered> repositories;
+        try
+        {
+            repositories = (await _client.ListRepositoriesAsync(session, cancellationToken))
+                .Repositories;
+        }
+        catch (HttpRequestException)
+        {
+            repositories = [];
+        }
+
+        return CredentialPlaces.From(repositories, _trackerHosts);
     }
 
     /// <summary>

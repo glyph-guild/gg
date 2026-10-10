@@ -62,6 +62,33 @@ public class ProviderNeutralityTests
     /// "from inside itself" says the same thing and says it more plainly.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// The files that may name a provider, by the owner's decision, and no others.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Decided 2026-10-10:</b> credentials are named by the service they open -
+    /// "Azure DevOps · JDX/JDNext, Code (Read &amp; write)" rather than
+    /// <c>local:jdx/jdnext</c> - so a person can see what a token gives away before
+    /// handing it over. That needs a catalog of services, and the owner chose to
+    /// hold it in this binary over serving it from the control plane or an
+    /// airspace document. The catalog is DATA about services: it names them, and
+    /// no adapter, flag or code path is chosen by one.
+    /// </para>
+    /// <para>
+    /// <b>Two files, by name, and each must exist.</b> The catalog and its own
+    /// test. A third file naming a provider still fails this scan - the boundary
+    /// is narrowed to one place, not lifted - and a renamed or deleted catalog
+    /// fails <see cref="The_exempt_files_are_exactly_the_catalog_and_its_test"/>
+    /// rather than leaving an exemption that covers nothing.
+    /// </para>
+    /// </remarks>
+    private static readonly string[] Exempt =
+    [
+        Path.Combine("Gg.Client", "CredentialProviders.cs"),
+        Path.Combine("Gg.Client.Tests", "ACredentialSaysWhatItGrantsTests.cs"),
+    ];
+
     private static bool Names(string text, string provider) =>
         Regex.IsMatch(text, $@"(?<![A-Za-z]){Regex.Escape(provider)}", RegexOptions.IgnoreCase);
 
@@ -89,7 +116,8 @@ public class ProviderNeutralityTests
                 || file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                 || file.Contains(".whizbang-generated", StringComparison.Ordinal)
                 // This file necessarily contains the names it hunts for.
-                || Path.GetFileName(file) == "ProviderNeutralityTests.cs")
+                || Path.GetFileName(file) == "ProviderNeutralityTests.cs"
+                || Exempt.Contains(Path.GetRelativePath(root, file), StringComparer.Ordinal))
             {
                 continue;
             }
@@ -108,6 +136,19 @@ public class ProviderNeutralityTests
         await Assert.That(offenders).IsEmpty()
             .Because("gg talks only to the control plane; a provider name here means that boundary "
                    + "has leaked into a public binary." + detail);
+    }
+
+    [Test]
+    public async Task The_exempt_files_are_exactly_the_catalog_and_its_test()
+    {
+        var root = RepoRoot().FullName;
+
+        foreach (var exempt in Exempt)
+        {
+            await Assert.That(File.Exists(Path.Combine(root, exempt))).IsTrue()
+                .Because($"{exempt} is exempt from the provider scan; an exemption for a file "
+                       + "that has moved covers whatever takes its name next.");
+        }
     }
 
     [Test]

@@ -1840,6 +1840,91 @@ public static class PaneText
     /// answer to find it.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// The gate the screen is talking about: the flight modal's own flight's,
+    /// inside that modal, and the queue row's everywhere else.
+    /// </summary>
+    /// <remarks>
+    /// <b>TWO CURSORS, and a decision must follow the one being read</b>
+    /// (owner, 2026-10-10: the gate tab offers the decision itself). The modal
+    /// titles itself from the flights list; <see cref="AppState.SelectedGate"/>
+    /// is the queue's - so approving from a modal opened on the Flights tab
+    /// would have answered whichever flight the queue happened to be on. Read
+    /// from the gates list the console already holds, so nothing is fetched.
+    /// </remarks>
+    public static Gg.Contracts.PendingGate? GateHere(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Mode is not UiMode.FlightDetail)
+        {
+            return state.SelectedGate;
+        }
+
+        return Detailed(state) is { } flight && state.Gates is { } gates
+            ? gates.Gates.FirstOrDefault(g => string.Equals(
+                g.FlightNumber, flight.FlightNumber, StringComparison.Ordinal))
+            : null;
+    }
+
+    /// <summary>The keys that answer the gate on screen, from the bindings that resolve them.</summary>
+    /// <remarks>
+    /// <b>From the keymap, never a sentence of its own</b>, so the tab cannot
+    /// name a key the modal would not answer - the hint line's rule. A bring-up
+    /// ask resolves no answer, and says so.
+    /// </remarks>
+    public static string GateKeys(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var keys = Keymap.Bindings(KeymapContext.For(state))
+            .Where(b => b.Command is Command.ApproveGate or Command.RejectGate or Command.LogAgentIn)
+            .Select(b => $"{b.Key.Name} {b.Description}")
+            .ToList();
+
+        return keys.Count == 0
+            ? "Neither answer is offered: this ask clears when the machine reports what is missing."
+            : "Answer it here: " + string.Join(" · ", keys);
+    }
+
+    /// <summary>
+    /// How many attached, unanswered obligations the why read found for the
+    /// flight on screen - or null when it was not read for that flight.
+    /// </summary>
+    public static int? AttachedAndOpen(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return Detailed(state) is { } flight
+               && state.Attribution is { } attribution
+               && string.Equals(attribution.FlightNumber, flight.FlightNumber, StringComparison.Ordinal)
+            ? attribution.Obligations.Count(o =>
+                string.Equals(o.Attachment, Gg.Contracts.Attachments.Attached, StringComparison.Ordinal)
+                && o.Outcome is null or { Length: 0 })
+            : null;
+    }
+
+    /// <summary>The gate rendered as the decision modal renders it.</summary>
+    /// <remarks>
+    /// <b>One rendering for one gate</b>, so the tab and the modal cannot word
+    /// one gate two ways: the verb's own text, and on a bring-up ask what is
+    /// missing and where it is answered.
+    /// </remarks>
+    public static string GateSaid(AppState state, Gg.Contracts.PendingGate gate)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(gate);
+
+        var said = Clean(
+            Gg.Client.VerbOutput.ToText(
+                new Gg.Client.VerbResult.Gates(new Gg.Contracts.GateList { Gates = [gate] })),
+            lines: true);
+
+        return ConsoleBringUp.Said(state) is { Length: > 0 } missing
+            ? $"{said}\n\n{missing}"
+            : said;
+    }
+
     public static string Holding(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -1849,20 +1934,16 @@ public static class PaneText
             return "";
         }
 
-        if (state.Attribution is not { } attribution)
-        {
-            return "Why this flight is held has not been read - press g to read it.";
-        }
-
-        // WHOSE ANSWER THIS IS. Said rather than hidden: a person who knows the
-        // console read something for another row can press g here; one shown a
-        // blank pane concludes the feature is broken.
-        if (!string.Equals(
+        // NOTHING, WHEN IT HAS NOT BEEN READ FOR THIS FLIGHT. It used to say
+        // so - "press g to read it" - as the first line of the gate tab, which
+        // the owner read as the tab not working. The gate itself is drawn from
+        // the gates list above this; the obligations are the longer answer,
+        // shown when somebody has read them.
+        if (state.Attribution is not { } attribution
+            || !string.Equals(
                 attribution.FlightNumber, flight.FlightNumber, StringComparison.Ordinal))
         {
-            return $"Why a flight is held was last read for "
-                 + $"{Clean(attribution.FlightNumber)}, not this one. Press g to read it "
-                 + "for this flight.";
+            return "";
         }
 
         var attached = attribution.Obligations
@@ -1873,9 +1954,10 @@ public static class PaneText
 
         if (attached.Count == 0)
         {
-            return attribution.Halt is { Length: > 0 } halt
-                ? Clean(halt)
-                : "Nothing is waiting on you for this flight.";
+            // THE HALT, IF ANY: whether a person is waiting is the gate tab's
+            // first line now, from the gates list, and saying it twice reads as
+            // two answers.
+            return attribution.Halt is { Length: > 0 } halt ? Clean(halt) : "";
         }
 
         var text = new StringBuilder();
@@ -1905,15 +1987,6 @@ public static class PaneText
                 text.AppendLine($"      {Clean(detail, lines: true)}");
             }
         }
-
-        text.AppendLine();
-
-        // WHERE, NOT WHICH KEY. This modal deliberately binds nothing that acts
-        // on the flight it is about - EnterOpensWhatTheCursorIsOnTests holds
-        // that - so a gate is answered from the queue, where the row is. Naming
-        // a key that does not resolve here would be the advertised-key defect
-        // in reverse.
-        text.AppendLine("Gates are answered from the Queue tab, on the row for this flight.");
 
         return text.ToString().TrimEnd();
     }
@@ -3102,19 +3175,11 @@ public static class PaneText
                  + "Somebody may have answered it already.";
         }
 
-        var said = Clean(
-            Gg.Client.VerbOutput.ToText(
-                new Gg.Client.VerbResult.Gates(new Gg.Contracts.GateList { Gates = [gate] })),
-            lines: true);
-
-        // AND, ON A BRING-UP ASK, WHAT IS MISSING AND WHERE IT IS ANSWERED.
-        // The gate's own rendering says which obligation waits and on whom,
-        // which is the truth and not the useful part here: this modal offers
-        // neither answer, so a person reading it needs the item and the place
-        // rather than a decision they are not being asked for.
-        return ConsoleBringUp.Said(state) is { Length: > 0 } missing
-            ? $"{said}\n\n{missing}"
-            : said;
+        // ON A BRING-UP ASK, WHAT IS MISSING AND WHERE IT IS ANSWERED - the
+        // modal offers neither answer, so a person needs the item and the place
+        // rather than a decision they are not being asked for. GateSaid holds
+        // both halves, and the flight modal's gate tab says it the same way.
+        return GateSaid(state, gate);
     }
 
     /// <summary>

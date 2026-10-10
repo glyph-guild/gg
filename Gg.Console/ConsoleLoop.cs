@@ -1686,7 +1686,9 @@ public sealed class ConsoleLoop(
     private static AppState Decided(
         AppState state, IConsoleActions? actions, IEditorSession editor, bool approved)
     {
-        if (actions is null || state.SelectedGate is not { } gate)
+        // THE GATE ON SCREEN: the flight modal's own flight, inside it, and the
+        // queue row's everywhere else (PaneText.GateHere).
+        if (actions is null || PaneText.GateHere(state) is not { } gate)
         {
             return state with
             {

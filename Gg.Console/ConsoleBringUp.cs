@@ -34,7 +34,7 @@ public static class ConsoleBringUp
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return state.SelectedGate?.Maintenance is
+        return PaneText.GateHere(state)?.Maintenance is
         { Kind: GateMaintenanceKinds.BringUp, Runner.Length: > 0 } asked
             ? asked
             : null;

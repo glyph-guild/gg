@@ -524,8 +524,9 @@ public readonly record struct KeymapContext(
 
             // AND WHETHER THE ROW UNDER THE QUEUE'S CURSOR IS WAITING ON AN
             // ANSWER, derived here with the rest so the buttons and the keys
-            // cannot disagree about whether there is one.
-            state.SelectedGate is not null)
+            // cannot disagree about whether there is one. Inside the flight
+            // modal, the modal's own flight (PaneText.GateHere).
+            PaneText.GateHere(state) is not null)
         {
             // Which of the sign-in modal's two steps is showing. Both live in
             // one mode, so this is the only thing that tells them apart.
@@ -1627,6 +1628,31 @@ public static class Keymap
 
         UiMode.FlightDetail =>
         [
+            // THE GATE ON THIS FLIGHT, ANSWERED HERE (owner, 2026-10-10: the gate
+            // tab shows the decision options). The decision modal's own keys and
+            // its own two withholdings - an agent-login ask is cleared by
+            // repairing the machine, a bring-up ask by its next reading, and
+            // approving either would be an answer that does not answer. The
+            // gate is the modal's own flight's, not the queue row's
+            // (PaneText.GateHere), so a modal opened from the Flights tab
+            // answers the flight it is showing.
+            .. context.AGateWaits && context.GateAsksForAgentLogin
+                ? (KeyBinding[])
+                [
+                    new(KeyStroke.Char('s'), Command.LogAgentIn, "log the agent in")
+                        { When = "when this flight's gate is a runner's agent-login ask" },
+                ]
+                : [],
+            .. context.AGateWaits && !context.GateIsABringUpAsk
+                ? (KeyBinding[])
+                [
+                    new(KeyStroke.Char('a'), Command.ApproveGate, "approve")
+                        { When = "when a gate is waiting on this flight" },
+                    new(KeyStroke.Char('r'), Command.RejectGate, "reject")
+                        { When = "when a gate is waiting on this flight" },
+                ]
+                : [],
+
             new(KeyStroke.Char('x'), Command.AskToGround, "ground it"),
             new(KeyStroke.Char('f'), Command.AskToFlyAgain, "fly it again"),
 
@@ -2307,6 +2333,26 @@ public static class Keymap
             // AND EVERY FAILURE AT ONCE. `*` is the board's "everybody's rows"
             // one tab over and is select-all in most file managers; neither
             // tab reaches the other's, so the two never shadow each other.
+            // THE FLIGHT A QUEUE ROW IS ABOUT, in the flight modal (owner,
+            // 2026-10-10): the pane beside the queue is gone, and this is where
+            // its contents went - with tabs, a log and a scroll. `o` for open;
+            // enter here is the row's actions.
+            //
+            // AND ON A NOMINATION, ITS OWN MODAL (owner, same day: "anything to
+            // show details from the queue"). One key for "show me this row",
+            // whichever kind of row it is - the board's modal, which
+            // BoardDetails.Seen already reads from the queue's cursor.
+            .. context.Showing == TabId.Queue
+                ? (KeyBinding[])
+                [
+                    context.ANominationIsUnderTheQueueCursor
+                        ? new(KeyStroke.Char('o'), Command.ShowQueueNomination, "open the nomination")
+                            { When = "on a nomination in the queue" }
+                        : new(KeyStroke.Char('o'), Command.ShowQueuedFlight, "open the flight")
+                            { When = "on a flight in the queue" },
+                ]
+                : [],
+
             .. context.Showing == TabId.Queue && context.AWatchIsFailing
                 ? (KeyBinding[])
                 [

@@ -84,14 +84,48 @@ public static class FlightDetails
         //
         // The evidence follows when there is any, because an obligation and
         // the material behind it are two halves of one question.
-        var holding = PaneText.Holding(state);
-        var evidence = PaneText.Evidence(state);
+        // THE GATE ITSELF, FROM THE LIST THE CONSOLE ALREADY HOLDS (owner,
+        // 2026-10-10). This tab used to open on "has not been read - press g",
+        // because what it drew came from a read nobody had made; the gates list
+        // is read at boot and on every refresh, and it is what the decision
+        // modal renders. So the tab says what the modal says, and the keys that
+        // answer it are on this modal too.
+        var parts = new List<string>();
 
-        return holding.Length == 0
-            ? evidence
-            : evidence.Length == 0
-                ? holding
-                : holding + "\n\n" + evidence;
+        if (PaneText.Detailed(state) is not null)
+        {
+            if (PaneText.GateHere(state) is { } gate)
+            {
+                parts.Add(PaneText.GateSaid(state, gate));
+                parts.Add(PaneText.GateKeys(state));
+            }
+            // "NOTHING IS WAITING" ONLY WHEN SOMETHING KNOWS IT, and never
+            // while an attached obligation is open - the one sentence this tab
+            // must not say about a held flight (TheGateTabSaysWhoDecidesTests).
+            // Either read can know it: the gates list, or the why read for this
+            // flight. Neither read is not the same as nothing.
+            else if (PaneText.AttachedAndOpen(state) is not > 0)
+            {
+                parts.Add(state.Gates is not null || PaneText.AttachedAndOpen(state) is 0
+                    ? "Nothing is waiting on you for this flight."
+                    : "Whether anything is waiting on this flight has not been read yet.");
+            }
+        }
+
+        // AND EVERY OBLIGATION, WHEN THAT HAS BEEN READ FOR THIS FLIGHT - the
+        // longer answer to why it is held. Not asked for when it has not been:
+        // the gate above is the answer this tab owes.
+        if (PaneText.Holding(state) is { Length: > 0 } holding)
+        {
+            parts.Add(holding);
+        }
+
+        if (PaneText.Evidence(state) is { Length: > 0 } evidence)
+        {
+            parts.Add(evidence);
+        }
+
+        return string.Join("\n\n", parts.Where(p => p.Length > 0));
     }
 
     /// <summary>What the frame over the intent says.</summary>

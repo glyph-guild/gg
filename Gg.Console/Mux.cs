@@ -380,10 +380,48 @@ public sealed partial class Mux
 
         var pty = PtyProvider.SpawnAsync(options, CancellationToken.None).GetAwaiter().GetResult();
         var agent = new MuxAgent(
-            Interlocked.Increment(ref _ids), label, id, _clock(), pty,
+            Interlocked.Increment(ref _ids), label, id, _clock(), new LocalPty(pty),
             new XTermTerminal(new TerminalOptions { Cols = columns, Rows = rows }),
             panel, took, columns, rows, activity, titled);
 
+        return Place(agent, id, label, workingDirectory, activity, ending, machine: null);
+    }
+
+    /// <summary>
+    /// A session on another machine, as an agent: on the next row, its screen filled
+    /// from the far terminal, told the pane's size (slice seventy, ADR-0039).
+    /// </summary>
+    /// <param name="machine">Which machine it runs on, for history to resume it there.</param>
+    public MuxAgent StartRemote(
+        string label, IAgentPty pty, string? sessionId, string? machine = null, string directory = "")
+    {
+        ArgumentNullException.ThrowIfNull(pty);
+
+        var (columns, rows) = PaneSize();
+        var agent = new MuxAgent(
+            Interlocked.Increment(ref _ids), label, sessionId, _clock(), pty,
+            new XTermTerminal(new TerminalOptions { Cols = columns, Rows = rows }),
+            (_, _) => new HostedRows([], false), (_, _) => false, columns, rows, activity: null, titled: false);
+
+        // TOLD THE PANE NOW, as a local agent is told at its spawn: the far agent was
+        // started at the size the picker asked for, and this is the size it is shown at.
+        pty.Resize(columns, rows);
+
+        return Place(agent, sessionId, label, directory, activity: null, ending: null, machine);
+    }
+
+    /// <summary>The size an agent is shown at: right of the column, and the rows the bar leaves.</summary>
+    public (int Columns, int Rows) PaneSize()
+    {
+        var terminal = Terminal();
+        return (Math.Max((terminal?.Columns ?? 120) - MuxColumn.Width, 20), Math.Max((terminal?.Rows ?? 40) - 1, 5));
+    }
+
+    /// <summary>Puts a started agent on its row, keeps it in the ledger, and reads it until it ends.</summary>
+    private MuxAgent Place(
+        MuxAgent agent, string? id, string label, string workingDirectory, string? activity,
+        Func<AppState, AppState>? ending, string? machine)
+    {
         lock (_lock)
         {
             _agents.Add(agent);
@@ -392,7 +430,7 @@ public sealed partial class Mux
 
         if (id is not null)
         {
-            _ledger?.Keep(new MuxSession(id, label, workingDirectory, agent.Started));
+            _ledger?.Keep(new MuxSession(id, label, workingDirectory, agent.Started, machine));
         }
 
         agent.Read(() => Moved?.Invoke(), () =>
@@ -457,7 +495,7 @@ public sealed partial class Mux
 /// <summary>One live agent: its pty, its emulator, and the bar its session keeps.</summary>
 public sealed class MuxAgent
 {
-    private readonly IPtyConnection _pty;
+    private readonly IAgentPty _pty;
     private readonly TaskCompletionSource<int> _exited = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private volatile bool _changed;
     private volatile bool _shown;
@@ -468,7 +506,7 @@ public sealed class MuxAgent
         string label,
         string? sessionId,
         DateTimeOffset started,
-        IPtyConnection pty,
+        IAgentPty pty,
         XTermTerminal emulator,
         HostPanel panel,
         HostTook took,
@@ -580,8 +618,7 @@ public sealed class MuxAgent
     {
         try
         {
-            _pty.WriterStream.Write(typed);
-            _pty.WriterStream.Flush();
+            _pty.Write(typed);
         }
         catch (IOException)
         {
@@ -668,7 +705,7 @@ public sealed class MuxAgent
                 int read;
                 try
                 {
-                    read = _pty.ReaderStream.Read(buffer, 0, buffer.Length);
+                    read = _pty.Read(buffer, 0, buffer.Length);
                 }
                 catch (IOException)
                 {

@@ -7,7 +7,12 @@ using Gg.Local;
 namespace Gg.Console;
 
 /// <summary>One agent session the mux started, as the ledger keeps it: no transcript, only where.</summary>
-public sealed record MuxSession(string Id, string Label, string Directory, DateTimeOffset Started);
+/// <param name="Machine">
+/// The runner a remote session ran on, so history resumes it there; null for a session on
+/// this machine (slice seventy).
+/// </param>
+public sealed record MuxSession(
+    string Id, string Label, string Directory, DateTimeOffset Started, string? Machine = null);
 
 /// <summary>
 /// The sessions this machine's mux started, one JSON line each, at
@@ -39,6 +44,13 @@ public sealed class MuxLedger(string path)
             json.WriteString("label", session.Label);
             json.WriteString("directory", session.Directory);
             json.WriteString("started", session.Started);
+
+            // ONLY WHEN IT RAN ELSEWHERE, so a local session's line is the line it always was.
+            if (session.Machine is { Length: > 0 } machine)
+            {
+                json.WriteString("machine", machine);
+            }
+
             json.WriteEndObject();
         }
 
@@ -68,7 +80,8 @@ public sealed class MuxLedger(string path)
                     root.GetProperty("id").GetString()!,
                     root.GetProperty("label").GetString()!,
                     root.GetProperty("directory").GetString()!,
-                    root.GetProperty("started").GetDateTimeOffset()));
+                    root.GetProperty("started").GetDateTimeOffset(),
+                    root.TryGetProperty("machine", out var machine) ? machine.GetString() : null));
             }
             catch (Exception unreadable) when (unreadable is JsonException or KeyNotFoundException
                                                   or InvalidOperationException or FormatException)
@@ -93,7 +106,9 @@ public enum HistoryKind
 /// <param name="Kind">Whether it is a heading, a proposal or a session.</param>
 /// <param name="Reference">The plan's ITN reference, or the session's id.</param>
 /// <param name="Directory">Where a session ran, which is where it resumes.</param>
-public sealed record HistoryRow(string Text, HistoryKind Kind, string? Reference = null, string? Directory = null);
+/// <param name="Machine">The runner a remote session ran on; null for one on this machine.</param>
+public sealed record HistoryRow(
+    string Text, HistoryKind Kind, string? Reference = null, string? Directory = null, string? Machine = null);
 
 /// <summary>
 /// The history screen's rows (slice sixty-nine): every proposal recorded beside a draft, with its
@@ -144,7 +159,8 @@ public static class MuxHistory
                 $"  {session.Label} · {When(session.Started)} · {session.Directory}",
                 HistoryKind.Session,
                 session.Id,
-                session.Directory));
+                session.Directory,
+                session.Machine));
         }
 
         return rows;

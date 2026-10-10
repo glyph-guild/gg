@@ -1329,6 +1329,13 @@ public sealed record Loop
     /// <summary>One of <see cref="ExhaustionPolicies"/>.</summary>
     [Composes(MergeOperators.RootOnly)]
     public required string OnExhaustion { get; init; }
+
+    /// <summary>
+    /// The servers root defines that this loop uses, and the tools it may call
+    /// on each, or null when it uses none (ADR-0040).
+    /// </summary>
+    [Composes(MergeOperators.Intersect)]
+    public IReadOnlyList<LoopMcp>? Mcp { get; init; }
 }
 
 /// <summary>
@@ -2111,6 +2118,13 @@ public sealed record Envelope
     /// </remarks>
     [Composes(MergeOperators.Union)]
     public IReadOnlyList<EnvelopeVariable>? Variables { get; init; }
+
+    /// <summary>
+    /// The external MCP servers loops may use, defined once, or null when the
+    /// document defines none. Root only (ADR-0040 Amendment 1).
+    /// </summary>
+    [Composes(MergeOperators.RootOnly)]
+    public IReadOnlyList<McpServer>? McpServers { get; init; }
 
     /// <summary>
     /// The environments this envelope's flights may be about: charted names, or

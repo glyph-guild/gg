@@ -58,6 +58,7 @@ public class TheMuxReachesAMachineTests
         await Assert.That(MuxFixture.Until(() => fixture.Mux.Rows().Count == 1)).IsTrue();
         await Assert.That(fixture.Mux.Rows().Single().Label).IsEqualTo("claude @ vmlinux003");
 
+        await Assert.That(MuxFixture.Until(() => link.Sent.OfType<StartAgentSession>().Any())).IsTrue();
         var started = link.Sent.OfType<StartAgentSession>().Single();
         await Assert.That(started.Columns).IsEqualTo(120 - MuxColumn.Width);
         await Assert.That(started.SessionId).IsNotNull()
@@ -75,6 +76,7 @@ public class TheMuxReachesAMachineTests
         var opened = fixture.Mux.OpenRemote(Vm3, "a1b2", alive: true);
 
         await Assert.That(opened.Agent).IsEqualTo(1);
+        await Assert.That(MuxFixture.Until(() => link.Sent.OfType<AttachAgentSession>().Any())).IsTrue();
         await Assert.That(link.Sent.OfType<AttachAgentSession>().Single().SessionId).IsEqualTo("a1b2");
         await Assert.That(link.Sent.OfType<StartAgentSession>()).IsEmpty();
     }
@@ -89,6 +91,7 @@ public class TheMuxReachesAMachineTests
         var opened = fixture.Mux.OpenRemote(Vm3, "a1b2", alive: false, directory: "/work");
 
         await Assert.That(opened.Agent).IsEqualTo(1);
+        await Assert.That(MuxFixture.Until(() => link.Sent.OfType<StartAgentSession>().Any())).IsTrue();
         var started = link.Sent.OfType<StartAgentSession>().Single();
         await Assert.That(started.SessionId).IsEqualTo("a1b2")
             .Because("the machine resumes a session started again by its id - `claude --resume`.");
@@ -96,8 +99,11 @@ public class TheMuxReachesAMachineTests
     }
 
     [Test]
-    public async Task A_machine_that_refuses_says_why_and_starts_nothing()
+    public async Task A_machine_that_refuses_says_why_on_the_row()
     {
+        // WAS: refused before any row was placed, said by the console. The row is placed at once
+        // now and the machine answers behind it, so its sentence is said there
+        // (ARemoteSessionOpensAtOnceTests).
         using var fixture = new MuxFixture(columns: 120, rows: 20);
         var link = new FakeLink
         {
@@ -111,23 +117,21 @@ public class TheMuxReachesAMachineTests
 
         var opened = fixture.Mux.OpenRemote(Vm3, sessionId: null, alive: false);
 
-        await Assert.That(opened.Agent).IsNull();
-        await Assert.That(opened.Refused).Contains("running a flight", StringComparison.Ordinal)
-            .Because("the machine's own sentence, where the person is looking.");
-        await Assert.That(fixture.Mux.Rows()).IsEmpty();
-        await Assert.That(link.Disposed).IsTrue();
+        await Assert.That(opened.Agent).IsEqualTo(1);
+        await Assert.That(MuxFixture.Until(() => link.Disposed)).IsTrue();
+        await Assert.That(link.Sent.OfType<StartAgentSession>()).IsNotEmpty();
     }
 
     [Test]
-    public async Task A_machine_that_cannot_be_reached_says_why()
+    public async Task Without_a_way_to_reach_machines_an_open_is_refused_at_once()
     {
-        using var fixture = new MuxFixture(columns: 120, rows: 20);
-        fixture.Mux.Reaching(() => [Vm3], _ => new RemoteReach(null, "vmlinux003 is offline."));
+        var mux = new Mux(terminal: () => null);
 
-        var opened = fixture.Mux.OpenRemote(Vm3, sessionId: null, alive: false);
+        var opened = mux.OpenRemote(Vm3, sessionId: null, alive: false);
 
-        await Assert.That(opened.Refused).IsEqualTo("vmlinux003 is offline.");
-        await Assert.That(fixture.Mux.Rows()).IsEmpty();
+        await Assert.That(opened.Agent).IsNull();
+        await Assert.That(opened.Refused).IsEqualTo("This console cannot reach machines.");
+        await Assert.That(mux.Rows()).IsEmpty();
     }
 
     [Test]

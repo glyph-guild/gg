@@ -288,16 +288,18 @@ public class RemoteControlStartsWhatWasChosenTests
     }
 
     [Test]
-    public async Task A_refused_open_is_said_where_the_person_is_looking()
+    public async Task An_open_the_machine_will_refuse_still_goes_to_its_row()
     {
+        // WAS: the console said the refusal. The row is placed before the machine is reached,
+        // so the refusal is said on it (ARemoteSessionOpensAtOnceTests).
         using var fixture = new MuxFixture(columns: 120, rows: 20);
         fixture.Mux.Reaching(() => [Vm3], _ => new RemoteReach(null, "vmlinux003 is offline."));
 
         var after = ConsoleRemoteSession.Act(
             fixture.Mux, Open(), new RemoteSessionAct(RemoteSessionKind.Start, Vm3.Id, Vm3.Name));
 
-        await Assert.That(after.LastRunner).IsEqualTo("vmlinux003 is offline.");
-        await Assert.That(fixture.Mux.Rows()).IsEmpty();
+        await Assert.That(after.LastRunner).IsNull();
+        await Assert.That(fixture.Mux.TakeWanted()).IsEqualTo(MuxTab.Agent(1));
     }
 
     // --- the mux's forget ---

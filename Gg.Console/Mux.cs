@@ -535,6 +535,11 @@ public sealed class MuxAgent
         Started = started;
         _pty = pty;
         Emulator = emulator;
+
+        // WRITES ONLY: ClipboardReadEnabled stays the emulator's default and nothing answers
+        // one, so a program on another machine cannot read this machine's clipboard.
+        Emulator.ClipboardWriteRequested += (_, copy) =>
+            Interlocked.Exchange(ref _copied, Convert.ToBase64String(copy.Data));
         Panel = panel;
         Took = took;
         Columns = columns;
@@ -587,6 +592,20 @@ public sealed class MuxAgent
     internal Lock Screen { get; } = new();
 
     internal XTermTerminal Emulator { get; }
+
+    private string? _copied;
+
+    /// <summary>
+    /// What it last copied, as the OSC 52 that hands it to the terminal gg runs in - once,
+    /// then null until it copies again.
+    /// </summary>
+    /// <remarks>
+    /// <b>The terminal owns the clipboard, not gg.</b> The screen is drawn from the emulator's
+    /// buffer, so the agent's own OSC 52 never reaches the terminal as written; this is it,
+    /// passed on. Kept until the agent is next painted, since a copy is made while it is shown.
+    /// </remarks>
+    internal string? TakeCopied() =>
+        Interlocked.Exchange(ref _copied, null) is { } copied ? $"\u001b]52;c;{copied}\u0007" : null;
 
     internal HostPanel Panel { get; }
 

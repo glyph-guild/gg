@@ -35,8 +35,8 @@ internal static class ComposeRepositoriesCondition
 /// </summary>
 internal static class WizardCondition
 {
-    internal const string OnAList = "on a step that is a list";
-    internal const string Behind = "behind the first step";
+    internal const string OnAList = "when there is a list to pick from";
+    internal const string Behind = "after the first step";
 }
 
 public readonly record struct KeyStroke(
@@ -1404,19 +1404,19 @@ public static class Keymap
         {
             CredentialWizardStep.Review =>
             [
-                new(KeyStroke.EnterKey, Command.FinishCredentialWizard, "register it")
+                new(KeyStroke.EnterKey, Command.FinishCredentialWizard, "save")
                     { When = "on the review" },
                 new(KeyStroke.LeftKey, Command.WizardBack, "back")
                     { When = WizardCondition.Behind },
-                new(KeyStroke.Esc, Command.CloseModal, "drop it"),
+                new(KeyStroke.Esc, Command.CloseModal, "cancel"),
             ],
 
             // THE FIELDS TAKE THE ARROWS, so back is the button here and not a key.
             CredentialWizardStep.Account =>
             [
-                new(KeyStroke.EnterKey, Command.WizardNext, "go on")
-                    { When = "with an account and a token" },
-                new(KeyStroke.Esc, Command.CloseModal, "drop it"),
+                new(KeyStroke.EnterKey, Command.WizardNext, "next")
+                    { When = "once a username and token are typed" },
+                new(KeyStroke.Esc, Command.CloseModal, "cancel"),
             ],
 
             // THE FIRST STEP HAS NOTHING BEHIND IT, so it offers no way back.
@@ -1426,9 +1426,9 @@ public static class Keymap
                     { Untaught = true, OffTheHintLine = true, When = WizardCondition.OnAList },
                 new(KeyStroke.Char('k'), Command.SelectPrevious, "up")
                     { Untaught = true, OffTheHintLine = true, When = WizardCondition.OnAList },
-                new(KeyStroke.EnterKey, Command.WizardNext, "go on")
+                new(KeyStroke.EnterKey, Command.WizardNext, "next")
                     { When = WizardCondition.OnAList },
-                new(KeyStroke.Esc, Command.CloseModal, "drop it"),
+                new(KeyStroke.Esc, Command.CloseModal, "cancel"),
             ],
 
             CredentialWizardStep.For or CredentialWizardStep.Access =>
@@ -1437,11 +1437,11 @@ public static class Keymap
                     { Untaught = true, OffTheHintLine = true, When = WizardCondition.OnAList },
                 new(KeyStroke.Char('k'), Command.SelectPrevious, "up")
                     { Untaught = true, OffTheHintLine = true, When = WizardCondition.OnAList },
-                new(KeyStroke.EnterKey, Command.WizardNext, "go on")
+                new(KeyStroke.EnterKey, Command.WizardNext, "next")
                     { When = WizardCondition.OnAList },
                 new(KeyStroke.LeftKey, Command.WizardBack, "back")
                     { When = WizardCondition.Behind },
-                new(KeyStroke.Esc, Command.CloseModal, "drop it"),
+                new(KeyStroke.Esc, Command.CloseModal, "cancel"),
             ],
 
             // NO DRAFT IS NOTHING TO GO ON WITH, so the way out is all there is.

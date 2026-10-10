@@ -49,7 +49,8 @@ public class EndpointSurfaceTests
                 $"{e.Method} {e.Path} audience={e.Audience} "
               + $"request={e.Request?.Name ?? "none"} response={e.Response?.Name ?? "none"} "
               + $"statuses={string.Join(",", e.Statuses.Order())} "
-              + $"headers={string.Join(",", e.RequiredHeaders.Order(StringComparer.Ordinal))}")
+              + $"headers={string.Join(",", e.RequiredHeaders.Order(StringComparer.Ordinal))}"
+              + (e.Delegable ? " delegable" : ""))
             .Order(StringComparer.Ordinal);
 
         return string.Join('\n', lines);
@@ -566,7 +567,10 @@ public class EndpointSurfaceTests
         // withdraw - not the caller's, its gate answered, or already replaced (slice sixty-eight).
         // AND 0.289.0 ADDS ONE READ: GET /v1/runners/{id}/flights, a runner's recent flights for
         // Remote Control's runner screen (slice seventy-one), served in the PR that pins it.
-            .IsEqualTo("0a46d314d49fbc30e327d7043e1c900840232e7926d3364dec144d28e5336b2e")
+        // AND 0.290.0 ADDS POST /v1/auth/delegations, a person's session for one agent
+        // session, and marks the 22 routes the gg tool servers call as Delegable (ADR-0039
+        // Amendment 2) - the text above now names `delegable` for each.
+            .IsEqualTo("34d2aefdb68250139a09bfeafaa579c0cc2aa8a02391428c3ea48ab3e5f372d7")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

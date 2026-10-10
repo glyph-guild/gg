@@ -49,6 +49,7 @@ public static class AgentFrameKinds
     public const byte Kill = 5;
     public const byte List = 6;
     public const byte Forget = 7;
+    public const byte Delegate = 8;
 
     public const byte Started = 65;
     public const byte Output = 66;
@@ -122,6 +123,19 @@ public sealed record ForgetAgentSession : AgentFrame
 {
     /// <summary>The session to forget; null forgets every ended one.</summary>
     public string? SessionId { get; init; }
+}
+
+/// <summary>
+/// A person's credential for the session this channel starts or resumes next, so gg's tools
+/// in it act as that person (ADR-0039 Amendment 2, Decision 13). Sent immediately before the
+/// start; the machine holds it in memory and never writes it down.
+/// </summary>
+[PinnedId("dfedf64c-dcb2-431a-9c5d-b0700a0efa12")]
+public sealed record DelegateAgentSession : AgentFrame
+{
+    public required string Token { get; init; }
+
+    public required DateTimeOffset ExpiresAt { get; init; }
 }
 
 /// <summary>The session this channel is now attached to.</summary>
@@ -230,6 +244,9 @@ public static class AgentFrameCodec
             case ForgetAgentSession f:
                 writer.Kind(AgentFrameKinds.Forget).Text(f.SessionId);
                 break;
+            case DelegateAgentSession d:
+                writer.Kind(AgentFrameKinds.Delegate).Text(d.Token).Long(d.ExpiresAt.ToUnixTimeMilliseconds());
+                break;
             case AgentSessionStarted s:
                 writer.Kind(AgentFrameKinds.Started).Text(s.SessionId);
                 break;
@@ -288,6 +305,9 @@ public static class AgentFrameCodec
             AgentFrameKinds.Kill => new KillAgentSession(),
             AgentFrameKinds.List => new ListAgentSessions(),
             AgentFrameKinds.Forget => reader.Text(out var forgotten) ? new ForgetAgentSession { SessionId = forgotten } : null,
+            AgentFrameKinds.Delegate => reader.Text(out var token) && token is not null && reader.Long(out var expires)
+                ? new DelegateAgentSession { Token = token, ExpiresAt = DateTimeOffset.FromUnixTimeMilliseconds(expires) }
+                : null,
             AgentFrameKinds.Started => reader.Text(out var id) && id is not null
                 ? new AgentSessionStarted { SessionId = id }
                 : null,

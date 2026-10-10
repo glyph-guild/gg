@@ -48,6 +48,14 @@ public sealed record Endpoint
 
     /// <summary>Headers the caller must send beyond the version headers.</summary>
     public IReadOnlyList<string> RequiredHeaders { get; init; } = [];
+
+    /// <summary>
+    /// Whether a session a person delegated to one agent session may call this too
+    /// (ADR-0039 Amendment 2, Decision 12). Only on <see cref="Audience.Developer"/> routes,
+    /// and only the ones the gg tool servers call: a delegated session acts with less than
+    /// the person, so everything else refuses it.
+    /// </summary>
+    public bool Delegable { get; init; }
 }
 
 /// <summary>
@@ -282,6 +290,7 @@ public static class ProtocolSurface
             Method = "GET",
             Path = "/v1/auth/whoami",
             Audience = Audience.Developer,
+            Delegable = true,
             Response = typeof(WhoAmI),
             Statuses = [200, 401, 403, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
@@ -295,11 +304,27 @@ public static class ProtocolSurface
             Statuses = [204, 400, 401, 403, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
+        // A SESSION FOR ONE AGENT SESSION (ADR-0039 Amendment 2, Decision 12): a person
+        // mints it against the drive-an-agent introduction they were just given, so the
+        // reach rule and the machine's opt-in are the ones already checked. 404 for an
+        // introduction that is not theirs or has lapsed; 409 for a machine that does not
+        // take one. A delegated session may not call this.
+        new()
+        {
+            Method = "POST",
+            Path = "/v1/auth/delegations",
+            Audience = Audience.Developer,
+            Request = typeof(AgentDelegationRequest),
+            Response = typeof(AgentDelegation),
+            Statuses = [200, 401, 403, 404, 409, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
         new()
         {
             Method = "POST",
             Path = "/v1/auth/logout",
             Audience = Audience.Developer,
+            Delegable = true,
             Statuses = [204, 401, 403, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
@@ -825,6 +850,7 @@ public static class ProtocolSurface
             Method = "POST",
             Path = "/v1/board/{id}/decisions",
             Audience = Audience.Developer,
+            Delegable = true,
             Request = typeof(NominationDecision),
             // NO RESPONSE BODY. ADR-0012: the write is a command, so the
             // control plane takes the decision and the caller learns what
@@ -842,6 +868,7 @@ public static class ProtocolSurface
             Method = "GET",
             Path = "/v1/board",
             Audience = Audience.Developer,
+            Delegable = true,
             Request = null,
             Response = typeof(BoardPage),
             // 200: the board is a store rather than a perspective, so a read
@@ -869,6 +896,7 @@ public static class ProtocolSurface
             Method = "GET",
             Path = "/v1/itineraries",
             Audience = Audience.Developer,
+            Delegable = true,
             Request = null,
             Response = typeof(BoardPage),
             // 200 and the board's reasons: a store rather than a perspective,
@@ -883,6 +911,7 @@ public static class ProtocolSurface
             Method = "GET",
             Path = "/v1/itineraries/{ref}",
             Audience = Audience.Developer,
+            Delegable = true,
             Request = null,
             Response = typeof(BoardPage),
             // {ref} is a uuid OR an itinerary number, both read by the one
@@ -924,6 +953,7 @@ public static class ProtocolSurface
             Method = "POST",
             Path = "/v1/itineraries",
             Audience = Audience.Developer,
+            Delegable = true,
             Request = typeof(ItineraryProposal),
             Response = typeof(ItineraryProposed),
             // 409 FOR A SUPERSEDE THE DOOR CANNOT HONOUR (slice sixty-eight): the plan named is
@@ -941,6 +971,7 @@ public static class ProtocolSurface
             Method = "GET",
             Path = "/v1/itineraries/menu",
             Audience = Audience.Developer,
+            Delegable = true,
             Request = null,
             Response = typeof(ItineraryMenu),
             Statuses = [200, 400, 401, 403, ProtocolTooOld],
@@ -951,6 +982,7 @@ public static class ProtocolSurface
             Method = "POST",
             Path = "/v1/itineraries/check",
             Audience = Audience.Developer,
+            Delegable = true,
             Request = typeof(ItineraryDraft),
             Response = typeof(ItineraryCheck),
             Statuses = [200, 400, 401, 403, ProtocolTooOld],
@@ -965,6 +997,7 @@ public static class ProtocolSurface
             Method = "POST",
             Path = "/v1/flights",
             Audience = Audience.Developer,
+            Delegable = true,
             Request = typeof(FlightLaunchRequest),
             Response = typeof(FlightLaunched),
             // 202, not 200: the edge dispatches a command and the flight is
@@ -984,6 +1017,7 @@ public static class ProtocolSurface
             Method = "POST",
             Path = "/v1/flights/{ref}/decisions",
             Audience = Audience.Developer,
+            Delegable = true,
             Request = typeof(DecisionRequest),
             // NO RESPONSE BODY. ADR-0012: the write is a command, so the control
             // plane accepts the decision and the caller learns what happened by
@@ -1009,6 +1043,7 @@ public static class ProtocolSurface
             Method = "GET",
             Path = "/v1/gates",
             Audience = Audience.Developer,
+            Delegable = true,
             Response = typeof(GateList),
             Statuses = [200, 401, 403, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
@@ -1018,6 +1053,7 @@ public static class ProtocolSurface
             Method = "GET",
             Path = "/v1/flights/{ref}/why",
             Audience = Audience.Developer,
+            Delegable = true,
             Response = typeof(FlightAttribution),
             // 404 for a flight nobody has. There is no 'no obligations' status:
             // an envelope that governs nothing is refused at ingress, and a
@@ -1093,6 +1129,7 @@ public static class ProtocolSurface
             Method = "GET",
             Path = "/v1/flights",
             Audience = Audience.Developer,
+            Delegable = true,
             Response = typeof(FlightList),
             Statuses = [200, 400, 401, 403, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
@@ -1138,6 +1175,7 @@ public static class ProtocolSurface
             Method = "POST",
             Path = "/v1/flights/{ref}/grounding",
             Audience = Audience.Developer,
+            Delegable = true,
             Request = typeof(FlightGroundingRequest),
             Statuses = [202, 400, 401, 403, 404, 409, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
@@ -1147,6 +1185,7 @@ public static class ProtocolSurface
             Method = "GET",
             Path = "/v1/flights/{ref}",
             Audience = Audience.Developer,
+            Delegable = true,
             Response = typeof(FlightSummary),
             // {ref} is a uuid OR a flight number. Both resolve here, by the
             // one parser in FlightRef; a reference in neither form is a 404
@@ -1194,6 +1233,7 @@ public static class ProtocolSurface
             Method = "GET",
             Path = "/v1/flights/{ref}/log",
             Audience = Audience.Developer,
+            Delegable = true,
             Response = typeof(FlightLog),
             Statuses = [200, 401, 403, 404, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
@@ -1207,6 +1247,7 @@ public static class ProtocolSurface
             Method = "GET",
             Path = "/v1/flights/{ref}/story",
             Audience = Audience.Developer,
+            Delegable = true,
             Response = typeof(FlightStory),
             Statuses = [200, 401, 403, 404, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
@@ -1283,6 +1324,7 @@ public static class ProtocolSurface
             Method = "GET",
             Path = "/v1/runners",
             Audience = Audience.Developer,
+            Delegable = true,
             Response = typeof(RunnerList),
             // A person reads the fleet; a runner beats. Same path, and the two
             // audiences never overlap.
@@ -1524,6 +1566,7 @@ public static class ProtocolSurface
             Method = "GET",
             Path = "/v1/airspace/watch-standings",
             Audience = Audience.Developer,
+            Delegable = true,
             Response = typeof(WatchStandingList),
             // Empty is a tenant watching nothing, as the list beside it is.
             Statuses = [200, 401, 403, ProtocolTooOld],
@@ -1602,6 +1645,7 @@ public static class ProtocolSurface
             Method = "POST",
             Path = "/v1/airspace/envelopes/{name}/retirement",
             Audience = Audience.Developer,
+            Delegable = true,
             Response = typeof(EnvelopeApplied),
             Statuses = [202, 400, 401, 403, 409, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
@@ -1847,6 +1891,7 @@ public static class ProtocolSurface
             Method = "POST",
             Path = "/v1/airspace/names",
             Audience = Audience.Developer,
+            Delegable = true,
             Request = typeof(DeclareNameRequest),
             Response = typeof(TopologyName),
             PendingResponse = typeof(RegistrationPending),
@@ -2264,7 +2309,7 @@ public static class ProtocolSurface
             [typeof(RunnerParked)] = ["runnerId", "parkedAt", "parkedBy", "reason"],
             [typeof(RunnerRegistered)] = ["runnerId", "runnerToken", "expiresAt"],
             [typeof(RunnerHeartbeat)] =
-                ["labels", "acceptsConfiguration", "acceptsAgentSessions", "agentSessions"],
+                ["labels", "acceptsConfiguration", "acceptsAgentSessions", "agentSessions", "takesAgentDelegation"],
             [typeof(AgentSessionStanding)] =
                 ["sessionId", "directory", "startedAt", "attachedBy", "alive", "endedAt"],
             // `introductions` is absent unless a console is waiting, so an idle
@@ -2355,9 +2400,11 @@ public static class ProtocolSurface
                  "ownership", "owner", "ownerPrincipalId", "reserved", "resident", "profile", "lacks", "readinessMeasuredAt",
                  "cpuMilliLimit", "cpuMilliUsed", "memoryLimitBytes",
                  "memoryUsedBytes", "machineMeasuredAt", "instances",
-                 "acceptsAgentSessions", "agentSessions"],
+                 "acceptsAgentSessions", "agentSessions", "takesAgentDelegation"],
             [typeof(HostedInstance)] = ["environment", "instance", "flightNumber"],
             [typeof(RunnerList)] = ["runners"],
+            [typeof(AgentDelegationRequest)] = ["runnerId", "agentSessionId", "introductionId"],
+            [typeof(AgentDelegation)] = ["delegationId", "token", "expiresAt"],
             [typeof(RunnerFlightList)] = ["flights"],
             [typeof(RunnerFlight)] = ["flightId", "number", "kind", "state", "claimedAt", "endedAt"],
             [typeof(ChartEnvironmentRequest)] = ["name", "meaning"],

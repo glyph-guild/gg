@@ -334,3 +334,33 @@ public sealed record RunnerSignalAnswer
     /// <summary>The answer, sealed to the console's ephemeral key.</summary>
     public required RunnerSealedAnswer Answer { get; init; }
 }
+
+/// <summary>
+/// Ask for a session that one agent session may act as you through (ADR-0039 Amendment 2,
+/// Decision 12), against the drive-an-agent introduction just minted for that machine.
+/// </summary>
+[PinnedId("0dc54f12-44a3-4771-a228-246c78cca91f")]
+public sealed record AgentDelegationRequest
+{
+    public required string RunnerId { get; init; }
+
+    public required string AgentSessionId { get; init; }
+
+    /// <summary>The <see cref="RunnerIntroduction.IntroductionId"/> the console was given for this machine.</summary>
+    public required string IntroductionId { get; init; }
+}
+
+/// <summary>
+/// A delegated session: never an admin, refused by every route not marked delegable, and
+/// revoked when the agent session ends or at <see cref="ExpiresAt"/>, whichever is first.
+/// </summary>
+[PinnedId("5056ad01-a171-458f-b242-b70a463aaeca")]
+public sealed record AgentDelegation
+{
+    public required string DelegationId { get; init; }
+
+    /// <summary>Sent to the machine over the sealed channel and nowhere else.</summary>
+    public required string Token { get; init; }
+
+    public required DateTimeOffset ExpiresAt { get; init; }
+}

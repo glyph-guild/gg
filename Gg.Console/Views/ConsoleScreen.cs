@@ -2706,6 +2706,11 @@ public sealed class ConsoleScreen : Window
         // and moving focus reorders the list it is walking.
         _app.Mouse.MouseEvent += OnMouseBeforeRouting;
 
+        // AND THE KEYBOARD, FROM THE SAME PLACE, for the screensaver. A key goes to the
+        // focused view first, and the queue table under the mark took `j` as a cursor move
+        // before this screen's handler saw it - so `j` did not wake it while esc did.
+        _app.Keyboard.KeyDown += OnKeyBeforeRouting;
+
         // AND THE BODY, WHICH IS THE ONE THAT ACTUALLY HAS THE KEYBOARD. The
         // label is CanFocus, so a dialog handing focus to its first focusable
         // child hands it here - and a key goes to the focused view first. That
@@ -4672,6 +4677,30 @@ public sealed class ConsoleScreen : Window
         if (ConsoleMouse.SwallowedWhile(State, overTheModal))
         {
             mouse.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// Every key, while the screensaver is up, before any view can take it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Still the keymap's answer</b>, which while the mark is up is to wake for any key;
+    /// this only decides where it is asked, so a table under the mark cannot spend the key
+    /// on a cursor nobody can see. Outside the screensaver it does nothing at all, and keys
+    /// route exactly as they did.
+    /// </remarks>
+    private void OnKeyBeforeRouting(object? sender, Key key)
+    {
+        if (!Screensaver.Showing(State))
+        {
+            return;
+        }
+
+        key.Handled = true;
+
+        if (Keymap.Resolve(KeyTranslator.Translate(key), Context()) is { } command)
+        {
+            Dispatch(command);
         }
     }
 
@@ -7503,6 +7532,11 @@ public sealed class ConsoleScreen : Window
         if (disposing)
         {
             KeyDown -= OnScreenKeyDown;
+
+            // RELEASED, because the application outlives this screen: the console builds a new
+            // one on every return from a child, and a handler left behind would wake a
+            // screensaver on a screen that is gone.
+            _app.Keyboard.KeyDown -= OnKeyBeforeRouting;
             _modal.KeyDown -= OnModalKeyDown;
             _wizard.KeyDown -= OnModalKeyDown;
             _wizard.MovingNext -= OnWizardMovingNext;

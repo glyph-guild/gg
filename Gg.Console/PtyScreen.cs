@@ -69,6 +69,13 @@ public static class PtyScreen
     /// that kept a single row, told about a bigger number.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// How gg's own rows are dressed: the mux column's ground with its light ink (owner,
+    /// 2026-10-09), so the bar reads as part of gg beside it. It was inverse video, which most
+    /// terminals show white.
+    /// </summary>
+    private const string Bar = Esc + "[0;38;2;" + MuxColumn.Light + ";48;2;" + MuxColumn.Shade + "m";
+
     public static string Paint(
         XTermTerminal terminal,
         int rows,
@@ -112,7 +119,7 @@ public static class PtyScreen
             // exists for, arriving from gg's own text rather than the child's -
             // one long row would push everything below it down and the child's
             // last row off the bottom.
-            painted.Append($"{Esc}[{row + 1};{at}H{Esc}[7m");
+            painted.Append($"{Esc}[{row + 1};{at}H{Bar}");
             painted.Append(text.Length > columns ? text[..columns] : text.PadRight(columns));
             painted.Append($"{Esc}[0m");
         }
@@ -165,7 +172,7 @@ public static class PtyScreen
         // about the session.
         if (footer is { Length: > 0 })
         {
-            painted.Append($"{Esc}[{rows + firstChildRow};{at}H{Esc}[7m");
+            painted.Append($"{Esc}[{rows + firstChildRow};{at}H{Bar}");
             painted.Append(footer.Length > columns ? footer[..columns] : footer.PadRight(columns));
             painted.Append($"{Esc}[0m");
         }

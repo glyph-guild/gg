@@ -81,7 +81,11 @@ public sealed class ReachAnAgent(ControlPlaneClient control, ConsoleChannel chan
 {
     public static string Purpose => RunnerCapabilityPurposes.DriveAnAgent;
 
-    /// <summary>The machines worth offering: beating, and not a pool's maintainer.</summary>
+    /// <summary>
+    /// The machines worth offering: beating, not a pool's maintainer, and saying on their
+    /// last heartbeat that they accept ad hoc sessions (slice seventy-one) - so a pool member
+    /// that never opted in is not a choice that only refuses once reached.
+    /// </summary>
     public async Task<IReadOnlyList<AgentMachine>> MachinesAsync(
         string sessionToken, CancellationToken cancellationToken = default)
     {
@@ -91,7 +95,8 @@ public sealed class ReachAnAgent(ControlPlaneClient control, ConsoleChannel chan
         [
             .. fleet.Runners
                 .Where(r => !string.Equals(r.State, "offline", StringComparison.Ordinal)
-                         && !RunnerReach.Maintains(r.State))
+                         && !RunnerReach.Maintains(r.State)
+                         && r.AcceptsAgentSessions is true)
                 .OrderBy(r => r.Label, StringComparer.Ordinal)
                 .Select(r => new AgentMachine(r.RunnerId, r.Label, RunnerReach.Derived(r.State))),
         ];

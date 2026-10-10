@@ -244,7 +244,25 @@ public sealed record RunnerRow(
     /// When the machine last measured them, which is what decides whether they
     /// are drawn at all.
     /// </summary>
-    DateTimeOffset? MachineMeasuredAt = null);
+    DateTimeOffset? MachineMeasuredAt = null,
+
+    /// <summary>
+    /// Whether its last heartbeat said it accepts ad hoc agent sessions; null or
+    /// false is not (slice seventy-one).
+    /// </summary>
+    bool? AcceptsAgentSessions = null,
+
+    /// <summary>
+    /// The agent sessions its last heartbeat reported, live and ended, with
+    /// their text already cleaned; empty when it reported none.
+    /// </summary>
+    /// <remarks>
+    /// <b>The contract's record, cleaned at this doorway</b> like every other
+    /// string on this row: an id and a directory are a machine's to say, and
+    /// this record is written to disk under <c>GG_STATE_DUMP</c>.
+    /// <c>RunnerActivity.Sessions</c> is where they become rows.
+    /// </remarks>
+    IReadOnlyList<AgentSessionStanding>? AgentSessions = null);
 
 /// <summary>
 /// The rows behind the three tables, and the names of their columns.
@@ -1429,7 +1447,21 @@ public static class Rows
         CpuMilliUsed: runner.CpuMilliUsed,
         MemoryLimitBytes: runner.MemoryLimitBytes,
         MemoryUsedBytes: runner.MemoryUsedBytes,
-        MachineMeasuredAt: runner.MachineMeasuredAt);
+        MachineMeasuredAt: runner.MachineMeasuredAt,
+
+        // WHAT REMOTE CONTROL SHOWS (slice seventy-one), cleaned here because
+        // this is the doorway: a session's id, directory and attacher are a
+        // machine's and a person's to say.
+        AcceptsAgentSessions: runner.AcceptsAgentSessions,
+        AgentSessions:
+        [
+            .. (runner.AgentSessions ?? []).Select(s => s with
+            {
+                SessionId = ControlText.Strip(s.SessionId),
+                Directory = s.Directory is null ? null : ControlText.Strip(s.Directory),
+                AttachedBy = s.AttachedBy is null ? null : ControlText.Strip(s.AttachedBy),
+            }),
+        ]);
 
     /// <summary>
     /// One advertised label, and a word only when it is worth one.

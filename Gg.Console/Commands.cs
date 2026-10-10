@@ -93,6 +93,15 @@ public enum Command
     /// </remarks>
     ShowFlightFacts,
 
+    /// <summary>What the runner the modal is open on has flown (slice seventy-one).</summary>
+    /// <remarks>
+    /// <b><see cref="ShowFlightFacts"/>' shape, one modal over.</b> No key sends it:
+    /// showing the flights pane is the asking, and this is the read the screen
+    /// starts when it does. It folds in beside the console rather than ending
+    /// the session.
+    /// </remarks>
+    ShowRunnerFlights,
+
     /// <summary>What can be done to the selected flight.</summary>
     ToggleFlightActions,
 
@@ -1347,6 +1356,10 @@ public static class ShellCommands
         // fetch what goes in it would blink a terminal for a question about
         // something a person is looking at.
         Command.ShowFlightFacts,
+
+        // A RUNNER'S RECENT FLIGHTS, for the facts tab's reason one modal over:
+        // the modal is open and the runner already on it.
+        Command.ShowRunnerFlights,
 
         // THE SAME REGISTRY, WANTED BY A DIFFERENT SCREEN. The credential
         // chooser lists what has no credential yet, which it cannot do without

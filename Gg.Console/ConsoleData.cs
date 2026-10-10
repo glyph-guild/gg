@@ -632,6 +632,11 @@ public sealed class ConsoleData(
     public Task<VerbResult> RunnersAsync(CancellationToken cancellationToken = default) =>
         _commands.RunnersAsync(cancellationToken);
 
+    /// <summary>A runner's recent flights, for the runner modal's flights view.</summary>
+    public Task<VerbResult> RunnerFlightsAsync(
+        string runnerId, CancellationToken cancellationToken = default) =>
+        _commands.RunnerFlightsAsync(runnerId, cancellationToken);
+
     /// <summary>`gg environments` - the chart.</summary>
     public Task<VerbResult> EnvironmentsAsync(CancellationToken cancellationToken = default) =>
         _commands.EnvironmentsAsync(cancellationToken);
@@ -784,6 +789,34 @@ public static class ConsoleProjection
             VerbResult.Strategies strategies =>
                 state with { Strategies = strategies.Value, Diagnosis = null },
             VerbResult.Pools pools => state with { Pools = pools.Value, Diagnosis = null },
+
+            // WHAT A RUNNER HAS FLOWN, held with the runner it is about so the
+            // next runner opened cannot show this one's. Cleaned here, because
+            // this is where it is stored: a kind and a state are the control
+            // plane's words, and the model goes to disk under GG_STATE_DUMP.
+            // The cursor stays when the same runner is read again and starts at
+            // the top for a different one.
+            VerbResult.RunnerFlights flown => state with
+            {
+                RunnerFlights = new RunnerFlightList
+                {
+                    Flights =
+                    [
+                        .. flown.Value.Flights.Select(f => f with
+                        {
+                            FlightId = ControlText.Strip(f.FlightId),
+                            Kind = f.Kind is null ? null : ControlText.Strip(f.Kind),
+                            State = ControlText.Strip(f.State),
+                        }),
+                    ],
+                },
+                RunnerFlightsFor = ControlText.Strip(flown.RunnerId),
+                RunnerFlightSelected = string.Equals(
+                    state.RunnerFlightsFor, ControlText.Strip(flown.RunnerId), StringComparison.Ordinal)
+                    ? state.RunnerFlightSelected
+                    : 0,
+                Diagnosis = null,
+            },
 
             // THE NAMES THIS TENANT DECLARED, which used to be unwrapped by hand
             // inside ConsoleEstate and reachable only by pressing `v`. A question

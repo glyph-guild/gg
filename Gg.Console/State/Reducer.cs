@@ -224,6 +224,10 @@ public static class Reducer
             // fetches; pressing for it is.
             Command.ShowFlightFacts => state with { FlightTab = FlightTab.Facts },
 
+            // AND THE RUNNER MODAL'S, for the same reason: the read has its own
+            // command so ShellCommands can name it a read without naming `v` one.
+            Command.ShowRunnerFlights => state with { RunnerView = RunnerView.Flights },
+
             Command.ToggleFlightActions => Modal(state, UiMode.FlightActions),
             Command.ToggleAirspaceActions => Modal(state, UiMode.AirspaceActions),
 
@@ -2019,6 +2023,8 @@ public static class Reducer
             {
                 RunnerView.Environments => PickRunnerEnvironment(state, row),
                 RunnerView.Members => PickRunnerMember(state, row),
+                RunnerView.Flights => PickRunnerFlight(state, row),
+                RunnerView.Sessions => PickRunnerSession(state, row),
 
                 // THE LOG IS A LIST RATHER THAN A TABLE, so nothing points at a
                 // row in it and there is no cursor to move.
@@ -2242,6 +2248,22 @@ public static class Reducer
     private static AppState PickRunnerMember(AppState state, int to) => state with
     {
         RunnerMemberSelected = EnvironmentRows.Members(state) is { Count: > 0 } rows
+            ? Math.Clamp(to, 0, rows.Count - 1)
+            : 0,
+    };
+
+    /// <summary>Move the cursor inside the runner modal's flights view.</summary>
+    private static AppState PickRunnerFlight(AppState state, int to) => state with
+    {
+        RunnerFlightSelected = RunnerActivity.Flights(state) is { Count: > 0 } rows
+            ? Math.Clamp(to, 0, rows.Count - 1)
+            : 0,
+    };
+
+    /// <summary>Move the cursor inside the runner modal's sessions view.</summary>
+    private static AppState PickRunnerSession(AppState state, int to) => state with
+    {
+        RunnerSessionSelected = RunnerActivity.Sessions(state) is { Count: > 0 } rows
             ? Math.Clamp(to, 0, rows.Count - 1)
             : 0,
     };

@@ -1636,6 +1636,42 @@ public sealed record AppState
     /// </remarks>
     public RunnerView RunnerView { get; init; }
 
+    /// <summary>
+    /// The recent flights of the runner named by <see cref="RunnerFlightsFor"/>,
+    /// newest first, or null before anybody looked.
+    /// </summary>
+    /// <remarks>
+    /// <b>Null is "not read yet" and an empty list is "flew nothing"</b> -
+    /// <see cref="FlightFacts"/>' two absences, for its reason: a read still in
+    /// the air drawn as "flew nothing" says something false about a machine.
+    /// Read when the runner modal's flights pane is shown, never at boot.
+    /// </remarks>
+    public RunnerFlightList? RunnerFlights { get; init; }
+
+    /// <summary>The runner <see cref="RunnerFlights"/> is about.</summary>
+    /// <remarks>
+    /// <b>One slot, many runners.</b> Without it the second runner a person
+    /// opened would show the first one's flights under its own title - the
+    /// defect <c>FlightDetails.FactsHeld</c> records one modal over.
+    /// </remarks>
+    public string? RunnerFlightsFor { get; init; }
+
+    /// <summary>Which row the cursor is on in the runner modal's flights view.</summary>
+    /// <remarks>
+    /// <b>ITS OWN, AND NOT SHARED</b>, for <see cref="RunnerEnvironmentSelected"/>'s
+    /// reason: every view of this modal has its own row count.
+    /// </remarks>
+    public int RunnerFlightSelected { get; init; }
+
+    /// <summary>Which row the cursor is on in the runner modal's sessions view.</summary>
+    /// <remarks>
+    /// <b>ITS OWN, AND NOT SHARED</b>, like the others. It indexes the rows as
+    /// <c>RunnerActivity.Sessions</c> orders them, and
+    /// <c>RunnerActivity.SelectedSession</c> is how anything asks which session
+    /// it is on.
+    /// </remarks>
+    public int RunnerSessionSelected { get; init; }
+
     /// <summary>Every strategy in force: what furnishes each charted name.</summary>
     public StrategyList? Strategies { get; init; }
 

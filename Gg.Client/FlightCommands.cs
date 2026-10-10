@@ -581,6 +581,19 @@ public sealed class FlightCommands(
     public async Task<VerbResult> RunnersAsync(CancellationToken cancellationToken = default) =>
         new VerbResult.Runners(await _client.ListRunnersAsync(Session(), cancellationToken));
 
+    /// <summary>
+    /// A runner's recent flights, newest first: what the console's runner modal
+    /// shows beside the one flight the fleet read names (slice seventy-one).
+    /// </summary>
+    public async Task<VerbResult> RunnerFlightsAsync(
+        string runnerId, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(runnerId);
+
+        return new VerbResult.RunnerFlights(
+            runnerId, await _client.RunnerFlightsAsync(Session(), runnerId, cancellationToken));
+    }
+
     /// <summary>The chart: every environment name an envelope may select.</summary>
     public async Task<VerbResult> EnvironmentsAsync(CancellationToken cancellationToken = default) =>
         new VerbResult.Chart(await _client.ChartAsync(Session(), cancellationToken));

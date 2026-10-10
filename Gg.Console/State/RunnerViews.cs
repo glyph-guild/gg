@@ -1,7 +1,7 @@
 namespace Gg.Console;
 
 /// <summary>
-/// Which of the three questions the runner modal's lower pane is answering
+/// Which of the five questions the runner modal's lower pane is answering
 /// about the runner it is open on.
 /// </summary>
 /// <remarks>
@@ -21,6 +21,21 @@ public enum RunnerView
 
     /// <summary>The other runners advertising those same environments.</summary>
     Members,
+
+    /// <summary>The flights it claimed, newest first (slice seventy-one).</summary>
+    /// <remarks>
+    /// <b>A read of its own</b>, asked for when the pane is shown: the fleet read
+    /// names the one flight a runner holds now, and a request per runner at boot
+    /// for the rest would be paid by everybody for a pane almost nobody opens.
+    /// </remarks>
+    Flights,
+
+    /// <summary>The ad hoc agent sessions the machine holds (slice seventy-one).</summary>
+    /// <remarks>
+    /// <b>No request at all</b>: a runner's heartbeat reports its sessions and the
+    /// fleet read carries them, so this pane draws from the row the modal is on.
+    /// </remarks>
+    Sessions,
 }
 
 /// <summary>
@@ -34,7 +49,7 @@ public enum RunnerView
 public static class RunnerViews
 {
     /// <summary>
-    /// All three, always.
+    /// All five, always.
     /// </summary>
     /// <remarks>
     /// <b>Unconditional, unlike the airspace's.</b> There a view could be
@@ -46,7 +61,8 @@ public static class RunnerViews
     /// that answer away with it.
     /// </remarks>
     public static IReadOnlyList<RunnerView> All { get; } =
-        [RunnerView.Log, RunnerView.Environments, RunnerView.Members];
+        [RunnerView.Log, RunnerView.Environments, RunnerView.Members,
+         RunnerView.Flights, RunnerView.Sessions];
 
     /// <summary>What the tab for a view says.</summary>
     /// <remarks>
@@ -59,6 +75,8 @@ public static class RunnerViews
     {
         RunnerView.Environments => "environments",
         RunnerView.Members => "members",
+        RunnerView.Flights => "flights",
+        RunnerView.Sessions => "sessions",
         _ => "log",
     };
 

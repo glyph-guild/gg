@@ -1285,6 +1285,9 @@ public static class Reducer
             {
                 LogSelected = 0,
 
+                // AND THE TOP OF ITS FACTS, for the same reason.
+                FactSelected = 0,
+
                 // THE OTHER DOOR INTO THIS MODAL, and it resets for the reason
                 // the one above does. Two openings that disagreed about which
                 // tab you land on would be the worse kind of inconsistency:
@@ -1660,7 +1663,11 @@ public static class Reducer
         // keyboard. The tab is what answers this the rest of the time, and it
         // is still there UNDER the modal - so without this arm the flights list
         // would move behind a modal that is about one particular flight.
-        state.Mode is UiMode.FlightDetail
+        // THE RECORDED TAB HAS A CURSOR OF ITS OWN, and the log keeps its place
+        // while somebody reads the facts.
+        state is { Mode: UiMode.FlightDetail, FlightTab: FlightTab.Facts }
+            ? PickFact(state, state.FactSelected + by)
+            : state.Mode is UiMode.FlightDetail
             ? PickLogEntry(state, state.LogSelected + by)
             : state.Mode is UiMode.WorkKindChoice
             ? PickWorkKind(state, state.KindSelected + by)
@@ -1838,7 +1845,11 @@ public static class Reducer
         // LogRow.Entry, because a continuation row is not one.
         if (state.Mode is UiMode.FlightDetail)
         {
-            return PickLogEntry(state, row);
+            // WHICHEVER TABLE THE TAB SHOWS: a click on a fact is a fact, and
+            // handing its row to the log would move a place nobody is reading.
+            return state.FlightTab is FlightTab.Facts
+                ? PickFact(state, row)
+                : PickLogEntry(state, row);
         }
 
         // AND THE PLAN MODAL'S LEGS, before the tab switch for exactly the
@@ -1931,6 +1942,14 @@ public static class Reducer
     /// ENTRIES rather than rows, because the one under the cursor is several
     /// rows tall.
     /// </remarks>
+    /// <summary>Move the recorded tab's cursor, clamped to the facts there are.</summary>
+    private static AppState PickFact(AppState state, int to) => state with
+    {
+        FactSelected = Rows.Facts(state) is { Count: > 0 } facts
+            ? Math.Clamp(to, 0, facts.Count - 1)
+            : 0,
+    };
+
     private static AppState PickLogEntry(AppState state, int to) => state with
     {
         LogSelected = Rows.Log(state) is { Count: > 0 } entries

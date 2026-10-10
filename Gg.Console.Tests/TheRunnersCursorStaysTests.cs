@@ -191,8 +191,12 @@ public class TheRunnersCursorStaysTests
         var wired = screen.Split("ValueChanged += OnRowPointedAt").Length - 1;
         var released = screen.Split("ValueChanged -= OnRowPointedAt").Length - 1;
 
-        await Assert.That(built).IsEqualTo(20)
-            .Because("The twentieth is the BOARD's sweeps, the second of that tab's two "
+        await Assert.That(built).IsEqualTo(21)
+            .Because("The twenty-first is the FLIGHT MODAL's recorded tab (owner, "
+                   + "2026-10-09), which was a word-wrapped Label that could not scroll - a "
+                   + "modal table, so it subscribes OnModalRowPointedAt and `wired` stays where "
+                   + "it is. "
+                   + "The twentieth is the BOARD's sweeps, the second of that tab's two "
                    + "tables (owner, 2026-10-09) - wired, so `wired` moved with it. "
                    + "The nineteenth is the PLAN MODAL's legs table - a modal table, so it "
                    + "subscribes OnModalRowPointedAt and `wired` stays where it is. It "

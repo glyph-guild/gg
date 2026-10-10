@@ -583,7 +583,7 @@ public static class FlightDetails
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        if (Facts(state) is not { } facts)
+        if (FactsHeld(state) is not { } facts)
         {
             // NOT "PRESS FOR ITS FACTS". It named a key nothing bound: the read
             // started only on ShowFlightFacts, and `v` and a click both turn the
@@ -601,53 +601,204 @@ public static class FlightDetails
             : "";
     }
 
-    /// <summary>One line per fact: when, what kind, which budget, and what it says.</summary>
+    /// <summary>What the recorded tab's lower pane is called.</summary>
+    public const string FactDetailTitle = "what it carries";
+
+    /// <summary>
+    /// The fact under the cursor, whole: what it is, how it was kept, what it
+    /// says, and every member it carries.
+    /// </summary>
+    /// <remarks>
+    /// <b>The pane beneath the table, for the log's reason one tab over.</b> A
+    /// cell is one line, and a landing's analysis is paragraphs - so the table
+    /// carries a line per fact and this carries the one being read, in a pane
+    /// that scrolls.
+    /// </remarks>
+    public static string FactDetail(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (FactsAbsence(state) is { Length: > 0 } absence)
+        {
+            return absence;
+        }
+
+        var rows = Rows.Facts(state);
+
+        return rows.Count == 0
+            ? FactsAbsence(state)
+            : FactDetailOf(rows[Math.Clamp(state.FactSelected, 0, rows.Count - 1)].Fact);
+    }
+
+    /// <summary>The fact under the cursor, broken to the width it is shown at.</summary>
+    /// <remarks>
+    /// <see cref="LogDetailLines"/>' rule: broken here and handed to a widget
+    /// that scrolls, so nothing is dropped and no wrapped line falls back to
+    /// column zero under an indented one. A width of zero breaks nothing.
+    /// </remarks>
+    public static IReadOnlyList<string> FactDetailLines(AppState state, int width) =>
+        Lines(FactDetail(state), width);
+
+    /// <summary>One fact, whole, as the pane and the copy both say it.</summary>
     /// <remarks>
     /// <para>
-    /// <b>The disposition is a column.</b> Inline, digest and reference are what
-    /// budget the control plane held an item against, and it is the answer to
-    /// why a row carries no content of its own - a transcript drawn blank
-    /// without it reads as a defect rather than as a boundary.
+    /// <b>The prose as prose, and everything else as it was recorded.</b> A
+    /// landing's title and analysis and a loop's reason are what a person reads
+    /// and are drawn as text. Every other member is the fact's JSON - the same
+    /// source-generated rendering `gg facts --json` prints - with the empty
+    /// members left out. Not a hand-written line per kind: the contract carries
+    /// two dozen, and a renderer naming each would be one more list to keep in
+    /// step with it, whose failure is a member nobody can see.
     /// </para>
     /// <para>
-    /// <b>The runner's clock, not the ledger's.</b> Both are recorded and they
-    /// differ by however long shipping took; what a person reading a flight
-    /// wants is when the thing HAPPENED.
+    /// <b>`kept as' in words.</b> A reference with no content reads as a defect
+    /// unless somebody says what a reference is.
     /// </para>
     /// </remarks>
-    internal static string FactsLines(AppState state)
+    internal static string FactDetailOf(RecordedFact recorded)
+    {
+        ArgumentNullException.ThrowIfNull(recorded);
+
+        var fact = recorded.Fact;
+        var text = new StringBuilder();
+
+        text.AppendLine($"kind        {ControlText.Strip(fact.Kind)}");
+        text.AppendLine($"observed    {fact.ObservedAt:u}  (the runner's clock)");
+        text.AppendLine($"recorded    {recorded.RecordedAt:u}  (the control plane's)");
+        text.AppendLine($"kept as     {ControlText.Strip(recorded.Disposition)} - {KeptAs(recorded.Disposition)}");
+
+        if (fact.Landing is { } landing)
+        {
+            text.AppendLine();
+            text.AppendLine(ControlText.Strip(landing.Title));
+
+            if (landing.Description is { Length: > 0 } described)
+            {
+                text.AppendLine();
+                text.AppendLine(ControlText.Strip(described, allowLineBreaks: true).TrimEnd());
+            }
+        }
+        else if (fact.Loop is { } loop)
+        {
+            text.AppendLine();
+            text.AppendLine($"{ControlText.Strip(loop.Outcome)}: {ControlText.Strip(loop.Reason, allowLineBreaks: true)}");
+        }
+        else if (FactSays(fact) is { Length: > 0 } says)
+        {
+            text.AppendLine();
+            text.AppendLine(says);
+        }
+
+        text.AppendLine();
+        text.AppendLine("everything it carries");
+        text.Append(Carried(fact));
+
+        return text.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// The recorded tab, read top to bottom: every fact, whole, in table order.
+    /// </summary>
+    /// <remarks>
+    /// <b>All of them, which is what copying the tab means.</b> `c` copies this,
+    /// and a copy of the row under the cursor would hand somebody a seventh of
+    /// what they were looking at with nothing saying so.
+    /// </remarks>
+    internal static string FactsCopy(AppState state)
     {
         var text = new StringBuilder();
 
-        foreach (var recorded in Facts(state)!.Facts)
+        foreach (var row in Rows.Facts(state))
         {
-            text.AppendLine(
-                $"  {recorded.Fact.ObservedAt:u}  {recorded.Fact.Kind,-22}  "
-              + $"{recorded.Disposition,-9}  {FactSays(recorded.Fact)}");
+            text.AppendLine($"  {row.At}  {row.Kind}  {row.Kept}  {row.Says}".TrimEnd());
 
-            // THE ANALYSIS UNDER ITS TITLE. A work kind whose whole result is
-            // the landing it proposes - investigate, which opens nothing - has
-            // no other surface for it, so a row that showed the kind and
-            // nothing else showed a flight with no result.
-            if (recorded.Fact.Landing?.Description is { Length: > 0 } described)
+            foreach (var line in FactDetailOf(row.Fact).Split('\n'))
             {
-                foreach (var line in ControlText.Strip(described, allowLineBreaks: true).Split('\n'))
-                {
-                    text.AppendLine($"      {line.TrimEnd()}");
-                }
+                text.AppendLine($"      {line}".TrimEnd());
             }
+
+            text.AppendLine();
         }
 
         // NOT NECESSARILY ALL OF THEM. A landing ships its own fact after the
-        // batch a loop produced, so a pane opened while a flight is still
+        // batch a loop produced, so a tab opened while a flight is still
         // landing is correct and short by one. Saying so costs a line and stops
         // a reader concluding a write did not happen.
-        text.AppendLine();
         text.AppendLine(
             "  A landing records its own fact after a loop's, so a flight still landing "
           + "has one more coming.");
 
         return text.ToString().TrimEnd();
+    }
+
+    /// <summary>What each evidence disposition means, in the contract's words.</summary>
+    private static string KeptAs(string disposition) => disposition switch
+    {
+        EvidenceDispositions.Inline => "it fitted, so the content crossed",
+        EvidenceDispositions.Digest => "it did not fit, so a structured extraction crossed",
+        EvidenceDispositions.Reference =>
+            "it did not fit and does not reduce, so a pointer crossed rather than the content",
+
+        // A WORD THIS CONSOLE WAS NOT TAUGHT is said as one, never guessed at.
+        _ => "a disposition this console does not know",
+    };
+
+    /// <summary>Every member the fact holds, as indented JSON, with the empty ones left out.</summary>
+    /// <remarks>
+    /// <b>Through <c>VerbJsonContext</c>, which `gg facts --json` uses</b> - so
+    /// the two cannot disagree about a member's name, and it stays
+    /// source-generated for AOT. Externally sourced, so each line is stripped of
+    /// control sequences before it reaches a terminal.
+    /// </remarks>
+    private static string Carried(FactEnvelope fact)
+    {
+        var node = System.Text.Json.Nodes.JsonNode.Parse(
+            System.Text.Json.JsonSerializer.Serialize(
+                fact, Gg.Client.VerbJsonContext.Default.FactEnvelope));
+
+        Pruned(node);
+
+        var text = new StringBuilder();
+
+        foreach (var line in (node?.ToJsonString(Indented) ?? "{}").Split('\n'))
+        {
+            text.AppendLine(ControlText.Strip(line.TrimEnd()));
+        }
+
+        return text.ToString();
+    }
+
+    private static readonly System.Text.Json.JsonSerializerOptions Indented = new()
+    {
+        WriteIndented = true,
+        // THE PROSE AS WRITTEN. The default escapes quotes and every non-ASCII
+        // character, so an em dash in an analysis would read as \u2014.
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        TypeInfoResolver = System.Text.Json.Serialization.Metadata.JsonTypeInfoResolver.Combine(),
+    };
+
+    /// <summary>Removes every null and every empty array, all the way down.</summary>
+    private static void Pruned(System.Text.Json.Nodes.JsonNode? node)
+    {
+        if (node is System.Text.Json.Nodes.JsonObject obj)
+        {
+            foreach (var (key, value) in obj.ToList())
+            {
+                Pruned(value);
+
+                if (value is null || value is System.Text.Json.Nodes.JsonArray { Count: 0 })
+                {
+                    obj.Remove(key);
+                }
+            }
+        }
+        else if (node is System.Text.Json.Nodes.JsonArray array)
+        {
+            foreach (var item in array)
+            {
+                Pruned(item);
+            }
+        }
     }
 
     /// <summary>The one line a fact can offer about itself, or none.</summary>
@@ -678,7 +829,7 @@ public static class FlightDetails
 
         return state is { Mode: UiMode.FlightDetail, FlightTab: FlightTab.Facts, ReadInFlight: false }
             && PaneText.Detailed(state) is { } flight
-            && Facts(state) is null
+            && FactsHeld(state) is null
                 ? flight.FlightNumber
                 : null;
     }
@@ -689,17 +840,17 @@ public static class FlightDetails
     /// were drawn without reading it, so the second flight a person opened
     /// showed the first one's facts under its own title.
     /// </remarks>
-    private static FlightFacts? Facts(AppState state) =>
+    internal static FlightFacts? FactsHeld(AppState state) =>
         state.FlightFacts is { } facts
         && PaneText.Detailed(state) is { } flight
         && string.Equals(facts.FlightNumber, flight.FlightNumber, StringComparison.Ordinal)
             ? facts
             : null;
 
-    private static string FactSays(FactEnvelope fact) => fact switch
+    internal static string FactSays(FactEnvelope fact) => fact switch
     {
         // WHAT THE AGENT ASKED ITS LANDING BE CALLED; the description follows
-        // on the lines beneath, in FactsLines.
+        // in the pane beneath the table, in FactDetailOf.
         { Landing: { } landing } => ControlText.Strip(landing.Title),
 
         { Transcript: { } t } => $"{t.Bytes} bytes, {t.Scope} at {t.Locator}",
@@ -843,7 +994,7 @@ public static class FlightDetails
             text.AppendLine($"  {FactsTitle}");
             text.AppendLine(FactsAbsence(state) is { Length: > 0 } absence
                 ? $"  {absence}"
-                : FactsLines(state));
+                : FactsCopy(state));
         }
 
         return text.ToString().TrimEnd();

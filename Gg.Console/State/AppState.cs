@@ -1290,6 +1290,14 @@ public sealed record AppState
     /// </remarks>
     public int LogSelected { get; init; }
 
+    /// <summary>Which fact the recorded tab's cursor is on, in table order.</summary>
+    /// <remarks>
+    /// <see cref="LogSelected"/>'s twin one tab over, and reset with it when a
+    /// flight is opened: a place left where the last flight's facts ended
+    /// points into facts it was never about.
+    /// </remarks>
+    public int FactSelected { get; init; }
+
     /// <summary>
     /// What the control plane says is degraded, exactly as it said it.
     /// </summary>

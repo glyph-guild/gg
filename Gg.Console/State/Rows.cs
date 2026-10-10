@@ -80,6 +80,18 @@ public sealed record LogRow(
     string Event,
     string Detail);
 
+/// <summary>One fact the flight recorded, as the recorded tab's table draws it.</summary>
+/// <param name="Fact">The fact itself, which the pane beneath renders whole.</param>
+/// <param name="At">When it happened, on the runner's clock, to the second.</param>
+/// <param name="Says">The one line it offers about itself, or empty.</param>
+/// <param name="Kept">How the control plane held it: inline, digest or reference.</param>
+public sealed record FactRow(
+    Gg.Contracts.RecordedFact Fact,
+    string At,
+    string Kind,
+    string Says,
+    string Kept);
+
 /// <summary>
 /// One runner in the fleet, and whether it is this machine's.
 /// </summary>
@@ -295,6 +307,58 @@ public static class Rows
     /// </remarks>
     public static IReadOnlyList<string> LogColumns { get; } =
         ["time", "attempt", "event"];
+
+    /// <summary>The recorded tab's columns, beside the log's for the same reason.</summary>
+    /// <remarks>
+    /// <b>Headed, because `digest' with no header over it is a word nobody can
+    /// read.</b> The tab used to be a block of fixed-width text with no header
+    /// row, and the third column was the one a reader had to be told about.
+    /// </remarks>
+    public static IReadOnlyList<string> FactColumns { get; } =
+        ["at", "kind", "what it says", "kept as"];
+
+    /// <summary>
+    /// What the flight recorded, one row per fact, with the result first.
+    /// </summary>
+    /// <remarks>
+    /// <b>The landing and the loop's outcome lead</b>, because they are what a
+    /// person opens this tab for - what the flight concluded, and how its loop
+    /// ended. Everything else follows in the order it happened. Without that a
+    /// loop's facts, shipped in one batch and sharing one timestamp, came out
+    /// in the order of their kinds' names, and an investigation's result sat
+    /// third behind its environment's identity.
+    /// </remarks>
+    public static IReadOnlyList<FactRow> Facts(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (FlightDetails.FactsHeld(state) is not { } held)
+        {
+            return [];
+        }
+
+        return
+        [
+            .. held.Facts
+                .OrderBy(f => f.Fact.Kind switch
+                {
+                    Gg.Contracts.FactKinds.LandingProposal => 0,
+                    Gg.Contracts.FactKinds.LoopOutcome => 1,
+                    _ => 2,
+                })
+                .ThenBy(f => f.Fact.ObservedAt)
+                .ThenBy(f => f.Fact.Kind, StringComparer.Ordinal)
+                .Select(f => new FactRow(
+                    f,
+                    f.Fact.ObservedAt.ToUniversalTime().ToString(
+                        "HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture),
+                    ControlText.Strip(f.Fact.Kind),
+                    // ONE LINE, because a cell is one line: whatever the
+                    // summary holds past its first break is in the pane beneath.
+                    FlightDetails.FactSays(f.Fact).Split('\n', 2)[0].TrimEnd(),
+                    ControlText.Strip(f.Disposition))),
+        ];
+    }
 
     /// <summary>
     /// The runners' columns, the first of which has no name.

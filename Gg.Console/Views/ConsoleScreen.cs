@@ -4698,10 +4698,10 @@ public sealed class ConsoleScreen : Window
 
         key.Handled = true;
 
-        if (Keymap.Resolve(KeyTranslator.Translate(key), Context()) is { } command)
-        {
-            Dispatch(command);
-        }
+        // AND A KEY THE KEYMAP CANNOT NAME WAKES IT TOO - an arrow, a function key - since
+        // while the mark is up any key means "I am back", and the keymap answers that for
+        // every key it can name. Without this an arrow moved a cursor under the mark.
+        Dispatch(Keymap.Resolve(KeyTranslator.Translate(key), Context()) ?? Command.WakeScreen);
     }
 
     private void OnScreenKeyDown(object? sender, Key key)

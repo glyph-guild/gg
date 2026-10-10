@@ -1612,13 +1612,21 @@ public static class VerbOutput
         }
 
         var text = new StringBuilder();
-        foreach (var credential in list.Credentials)
+        for (var index = 0; index < list.Credentials.Count; index++)
         {
+            var credential = list.Credentials[index];
+
             // WHAT IT IS, FIRST, when this machine could tell. The locator moves to
             // the id line: it is still printed, because `gg credential
             // trust-this-machine` and `gg doctor` name credentials by it.
-            if (names.FirstOrDefault(n => string.Equals(
-                    n.Locator, credential.Reference.Locator, StringComparison.Ordinal)) is { } name)
+            //
+            // PAIRED BY POSITION, NOT BY LOCATOR. The names are built from this list
+            // in its own order, and two credentials can share a locator - two people
+            // registering the same repository - so a match on the locator printed
+            // the first one's account on both lines.
+            if (names.Count == list.Credentials.Count
+                && names[index] is { } name
+                && string.Equals(name.Locator, credential.Reference.Locator, StringComparison.Ordinal))
             {
                 text.AppendLine(Clean(name.Short));
                 text.AppendLine($"  {Clean(name.Grants)}");

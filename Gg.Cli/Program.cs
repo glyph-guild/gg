@@ -67,6 +67,9 @@ return await ByName(CliArgs.Parse(args)) switch
     // type, so this process holds no session. Stdout is the protocol; nothing here prints.
     CliAction.ManageTools => await ManageToolServer.RunAsync(
         System.Console.In, System.Console.Out, AirspacePullChild.Gg),
+    // A MUX AGENT'S HOOK: one word into the file the mux named, never a failed turn - so it
+    // prints nothing and exits 0 whatever happened.
+    CliAction.MuxMark marking => MuxMark(marking.Word),
     CliAction.ItineraryRegistration registration => PrintRegistration(registration),
     CliAction.RunnerUp or CliAction.RunnerServe => await RunnerUpAsync(),
     CliAction.RunnerMaintain maintain => await RunnerMaintainAsync(maintain.Pool),
@@ -2335,6 +2338,23 @@ static async Task<int> LaunchConsoleAsync()
 /// `gg itinerary tools --print-registration`: the line to run in your own Claude Code. Printed,
 /// never applied - gg writes no other tool's config.
 /// </summary>
+static int MuxMark(string word)
+{
+    string? input = null;
+    try
+    {
+        input = System.Console.IsInputRedirected ? System.Console.In.ReadToEnd() : null;
+    }
+    catch (IOException)
+    {
+    }
+
+    Gg.Console.MuxActivity.Mark(
+        Environment.GetEnvironmentVariable(Gg.Console.MuxActivity.Variable), word, input,
+        Gg.Console.MuxActivity.Folder());
+    return 0;
+}
+
 static int PrintRegistration(CliAction.ItineraryRegistration registration)
 {
     Console.WriteLine(ItineraryToolServer.Registration(

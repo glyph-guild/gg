@@ -26,9 +26,9 @@ public class TheNavigationColumnTests
 
         await Assert.That(lines[0].Text.TrimEnd()).IsEqualTo(" gg");
         await Assert.That(lines[0].Tab).IsEqualTo(MuxTab.Gg);
-        await Assert.That(lines[2].Text).Contains("1 plan · console");
+        await Assert.That(lines[2].Text).Contains("1   plan · console");
         await Assert.That(lines[2].Text).Contains("3m");
-        await Assert.That(lines[3].Text).Contains("2 Claude Code");
+        await Assert.That(lines[3].Text).Contains("2   Claude Code");
         await Assert.That(lines[4].Text.TrimEnd()).IsEqualTo(" + new agent");
         await Assert.That(lines[^1].Text.TrimEnd()).IsEqualTo(" history")
             .Because("history is pinned to the bottom, however many agents there are.");

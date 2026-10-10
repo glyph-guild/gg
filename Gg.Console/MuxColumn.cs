@@ -28,7 +28,7 @@ public readonly record struct MuxTab(MuxPlace Place, int Number = 0)
 /// <param name="Label">What it is: "plan · console", "compose · implement", "Claude Code".</param>
 /// <param name="Running">How long its process has been running.</param>
 /// <param name="Changed">Whether its screen changed while it was not shown.</param>
-public sealed record MuxRow(int Number, string Label, TimeSpan Running, bool Changed);
+public sealed record MuxRow(int Number, string Label, TimeSpan Running, bool Changed, AgentActivity Activity = AgentActivity.None);
 
 /// <summary>One row of the column: its text, the tab it switches to, and whether it is the one shown.</summary>
 public readonly record struct MuxLine(string Text, MuxTab? Tab, bool Active);

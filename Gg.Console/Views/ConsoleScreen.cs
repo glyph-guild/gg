@@ -477,7 +477,21 @@ public sealed class ConsoleScreen : Window
     private readonly View _flightGateTab;
     private readonly View _flightLogTab;
     private readonly View _flightFactsTab;
+
+    /// <summary>What the recorded tab says when it has no facts to draw.</summary>
     private readonly Label _flightFacts;
+
+    /// <summary>The recorded tab's table: one row per fact, as the log has one per entry.</summary>
+    private readonly TableView _flightFactsTable;
+
+    private readonly FrameView _flightFactsPane;
+    private readonly FrameView _flightFactsDetailPane;
+
+    /// <summary>The fact under the cursor, whole, in a pane that scrolls.</summary>
+    private readonly ListView _flightFactsDetail;
+
+    /// <summary>What the facts table was last filled with; <see cref="_logShowing"/>'s reason.</summary>
+    private (string Flight, int Rows, int Selected)? _factsShowing;
     private readonly View _planBody;
 
     private readonly FrameView _planLegsPane;
@@ -2124,17 +2138,52 @@ public sealed class ConsoleScreen : Window
         };
         _flightLogTab.Add(_flightLogPane, _flightLogDetailPane);
 
-        // THE FOURTH TAB, and it existed everywhere but here. `FlightTab.Facts`
-        // was in the enum, the cycle and the linear text with no widget behind
-        // it, so pressing for a flight's facts fetched the read and drew the
-        // details tab. A Label and not a table, because what a flight recorded
-        // reads as prose - the gate tab's shape, for the gate tab's reason.
-        _flightFacts = new Label { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() };
+        // THE FOURTH TAB, and the log's shape (owner, 2026-10-09). It was one
+        // word-wrapped Label: a landing's analysis filled it, the facts after
+        // that were pushed off the bottom of a view that cannot scroll, and
+        // wrapped lines fell back to column zero. Now a table of one row per
+        // fact over a pane that shows the one under the cursor whole.
+        _flightFactsPane = new FrameView
+        {
+            Title = FlightDetails.FactsTitle,
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Percent(40),
 
-        // WRAPPED, because a landing's analysis is paragraphs and a Label that
-        // does not wrap draws the first eighty characters of each and nothing
-        // of the rest.
+            // THE PLAN MODAL'S PAIR: a FrameView is created CanFocus false and
+            // cannot pass focus to the table inside it otherwise.
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
+        _flightFactsTable = CollectionViews.Table();
+
+        // THROUGH THE MODAL'S HANDLER, which routes by mode: Reducer.Pointed
+        // sends a row in the flight modal on this tab to the facts' cursor, and
+        // OnRowPointedAt would move the flights list behind the modal.
+        _flightFactsTable.ValueChanged += OnModalRowPointedAt;
+        _flightFacts = new Label { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() };
         _flightFacts.TextFormatter.WordWrap = true;
+        _flightFactsPane.Add(_flightFactsTable, _flightFacts);
+
+        _flightFactsDetailPane = new FrameView
+        {
+            Title = FlightDetails.FactDetailTitle,
+            X = 0,
+            Y = Pos.Bottom(_flightFactsPane),
+            Width = Dim.Fill(),
+            Height = Dim.Fill(),
+            CanFocus = true,
+            TabStop = TabBehavior.TabStop,
+        };
+
+        // A DOCUMENT, the log detail's widget: it scrolls, with a bar, so a
+        // long analysis is a page to read rather than a box that silently
+        // ends. Re-broken when its width changes.
+        _flightFactsDetail = CollectionViews.Document();
+        _flightFactsDetail.ViewportChanged += OnFactsDetailResized;
+        _flightFactsDetailPane.Add(_flightFactsDetail);
+
         _flightFactsTab = new View
         {
             Title = FlightDetails.FactsTitle,
@@ -2143,7 +2192,7 @@ public sealed class ConsoleScreen : Window
             CanFocus = true,
             TabStop = TabBehavior.TabStop,
         };
-        _flightFactsTab.Add(_flightFacts);
+        _flightFactsTab.Add(_flightFactsPane, _flightFactsDetailPane);
 
         // THE SAME WIDGET THE CONSOLE'S OWN BAR USES, one level in. A second
         // way of drawing a row of tabs would be a second set of behaviours for
@@ -5795,9 +5844,7 @@ public sealed class ConsoleScreen : Window
         // sentences on purpose: nobody has looked, the read is still coming,
         // and the flight recorded nothing are three different things, and only
         // the last is a fact about the flight.
-        _flightFacts.Text = FlightDetails.FactsAbsence(State) is { Length: > 0 } absent
-            ? absent
-            : FlightDetails.FactsLines(State);
+        RenderFacts();
 
         // THE TAB ASKS FOR WHAT IT SHOWS, once per visit. Guarded by the flight
         // it asked for rather than by whether the answer came: a read that fails
@@ -5810,7 +5857,7 @@ public sealed class ConsoleScreen : Window
             {
                 _factsAskedFor = owed;
                 State = State with { ReadInFlight = true };
-                _flightFacts.Text = FlightDetails.FactsAbsence(State);
+                RenderFacts();
                 Asked(Command.ShowFlightFacts);
             }
         }
@@ -6462,6 +6509,73 @@ public sealed class ConsoleScreen : Window
     }
 
     /// <summary>
+    /// The recorded tab: the absence, or the table and the fact under its cursor.
+    /// </summary>
+    /// <remarks>
+    /// <b>Refilled only when it holds the wrong thing</b>, <see cref="RenderLog"/>'s
+    /// rule: filling a table resets its selection, and this renders every second.
+    /// </remarks>
+    private void RenderFacts()
+    {
+        var absence = FlightDetails.FactsAbsence(State);
+        var rows = Rows.Facts(State);
+
+        _flightFacts.Text = absence;
+        _flightFacts.Visible = rows.Count == 0;
+        _flightFactsTable.Visible = rows.Count > 0;
+        _flightFactsDetailPane.Visible = rows.Count > 0;
+
+        _flightFactsDetail.SetSource(new System.Collections.ObjectModel.ObservableCollection<string>(
+            [.. FlightDetails.FactDetailLines(State, CollectionViews.TextWidth(_flightFactsDetail))]));
+
+        var showing = (State.FlightFacts?.FlightNumber ?? "", rows.Count, State.FactSelected);
+
+        if (_factsShowing == showing)
+        {
+            return;
+        }
+
+        _syncing = true;
+
+        try
+        {
+            CollectionViews.Fill(
+                _flightFactsTable,
+                rows.Count == 0
+                    ? null
+                    : new DataTableSource(CollectionViews.Rows(
+                        Rows.FactColumns,
+                        [.. rows.Select(r => new[] { r.At, r.Kind, r.Says, r.Kept })])));
+
+            if (rows.Count > 0)
+            {
+                _flightFactsTable.SetSelection(
+                    0, Math.Clamp(State.FactSelected, 0, rows.Count - 1),
+                    extendExistingSelection: false, null);
+                _flightFactsTable.EnsureValidSelection();
+                _flightFactsTable.EnsureCursorIsVisible();
+            }
+        }
+        finally
+        {
+            _syncing = false;
+        }
+
+        _factsShowing = showing;
+    }
+
+    /// <summary>The facts' detail pane changed width, so the prose is broken again.</summary>
+    private void OnFactsDetailResized(object? sender, EventArgs args)
+    {
+        if (_syncing || State.Mode is not UiMode.FlightDetail)
+        {
+            return;
+        }
+
+        RenderFacts();
+    }
+
+    /// <summary>
     /// The log, refilled only when it is holding the wrong thing.
     /// </summary>
     /// <remarks>
@@ -6840,9 +6954,10 @@ public sealed class ConsoleScreen : Window
                     FlightTab.Log when _flightLog.Visible => _flightLog,
                     FlightTab.Gate => (View)_flightGate,
 
-                    // AND THE FACTS, which scroll for the same reason the gate
-                    // does: it is one Label of prose and it can outrun the tab.
-                    FlightTab.Facts => _flightFacts,
+                    // AND THE FACTS' TABLE, so the arrows move a cursor a person
+                    // can see; the pane beneath scrolls the fact it is on.
+                    FlightTab.Facts when _flightFactsTable.Visible => _flightFactsTable,
+                    FlightTab.Facts => _modal,
 
                     // THE INTENT, which is the half of this tab with anything to
                     // move. The fields below it are read, and Terminal.Gui would
@@ -7150,6 +7265,8 @@ public sealed class ConsoleScreen : Window
             _credentialsTable.ValueChanged -= OnRowPointedAt;
             _runnersTable.ValueChanged -= OnRowPointedAt;
             _flightLog.ValueChanged -= OnLogRowPointedAt;
+            _flightFactsTable.ValueChanged -= OnModalRowPointedAt;
+            _flightFactsDetail.ViewportChanged -= OnFactsDetailResized;
             _flightLog.ViewportChanged -= OnLogResized;
             _queue.ValueChanged -= OnQueueSelectionChanged;
         }

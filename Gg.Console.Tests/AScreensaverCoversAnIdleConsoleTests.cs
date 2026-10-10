@@ -259,4 +259,26 @@ public class AScreensaverCoversAnIdleConsoleTests
             .Because("a handler on the application outlives the screen unless it is released, "
                    + "and the console builds a new screen on every return from a child.");
     }
+
+    [Test]
+    public async Task Any_key_wakes_it_and_does_nothing_else()
+    {
+        // THE OWNER, 2026-10-10: "fix j too". The mark woke on esc, space and enter and
+        // swallowed every other key - so a person pressing j, or any letter, saw nothing
+        // happen and could not tell whether gg had hung. Every key wakes it now, and still
+        // does nothing else: a key that both woke the console and acted would act on a
+        // screen nobody was looking at.
+        var screening = new KeymapContext(UiMode.Normal) { Screening = true };
+
+        foreach (var key in KeymapTests.Universe.Where(k => k != Keymap.Interrupt))
+        {
+            await Assert.That(Keymap.Resolve(key, screening)).IsEqualTo(Command.WakeScreen)
+                .Because($"'{key.Name}' is a key somebody might press to come back.");
+        }
+
+        // AND THE HINT LINE STILL NAMES THE THREE IT ALWAYS DID, rather than ninety.
+        var hinted = Keymap.Bindings(screening).Where(b => !b.OffTheHintLine).Select(b => b.Key).ToList();
+        await Assert.That(hinted).IsEquivalentTo(
+            (KeyStroke[])[KeyStroke.Esc, KeyStroke.Char(' '), KeyStroke.EnterKey]);
+    }
 }

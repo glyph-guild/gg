@@ -489,7 +489,11 @@ public static class RunnerHost
                 now: () => DateTimeOffset.UtcNow,
                 environment: () => agent is not null && agentToken?.Invoke() is { Length: > 0 } token
                     ? new Dictionary<string, string> { [agent.TokenVariable] = token }
-                    : new Dictionary<string, string>());
+                    : new Dictionary<string, string>(),
+                // A PERSON'S DELEGATED CREDENTIAL reaches this control plane, and is
+                // revoked through it when its session's agent ends (ADR-0039 Amendment 2).
+                controlPlane: http.BaseAddress?.ToString(),
+                revoke: token => new RunnerProtocolClient(http, runnerToken).RevokeDelegationAsync(token));
 
         using var attended = identityKey is null
             ? null

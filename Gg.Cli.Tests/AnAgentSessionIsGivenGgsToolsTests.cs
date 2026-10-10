@@ -15,7 +15,7 @@ public class AnAgentSessionIsGivenGgsToolsTests
     [Test]
     public async Task With_a_credential_both_tool_servers_are_configured()
     {
-        var argv = AgentSessionHost.ArgumentsFor(Start(tools: true));
+        var argv = AgentSessionHost.ArgumentsFor(Start(tools: true), new Gg.Local.SelfInvocation("/usr/local/bin/gg", []));
 
         await Assert.That(argv.Take(2)).IsEquivalentTo(["--session-id", "a1b2"])
             .Because("the id comes first, as a local mux agent's does.");
@@ -31,7 +31,8 @@ public class AnAgentSessionIsGivenGgsToolsTests
     [Test]
     public async Task Without_one_nothing_is_added()
     {
-        await Assert.That(AgentSessionHost.ArgumentsFor(Start(tools: false))).IsEquivalentTo(["--session-id", "a1b2"]);
+        await Assert.That(AgentSessionHost.ArgumentsFor(Start(tools: false), new Gg.Local.SelfInvocation("/usr/local/bin/gg", [])))
+            .IsEquivalentTo(["--session-id", "a1b2"]);
     }
 
     [Test]

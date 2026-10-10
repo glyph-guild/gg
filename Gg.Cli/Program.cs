@@ -3748,7 +3748,7 @@ static async Task<int> RunnerUpAsync()
             // own file says accept-agent-sessions (slice seventy, ADR-0039), with
             // the agent the declaration names - `claude` when it names none.
             agentHost: SessionsHere(inForce, agentDeclaration)?.Host,
-            agentRoots: SessionsHere(inForce, agentDeclaration)?.Roots,
+            agentSessionHome: SessionsHere(inForce, agentDeclaration)?.Home,
             // WHAT MAKES THIS RUNNER REACHABLE, handed across for the reason the
             // takeover reader is: Gg.Runner cannot see Gg.Client, and this
             // project is the only one that sees both. The SAME key this machine
@@ -4183,7 +4183,7 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
         // A MEMBER'S FILE NEVER OPTS IN, so this is null on every member today;
         // asked the same way so the rule is one rule (slice seventy).
         agentHost: SessionsHere(inForce, agentDeclaration)?.Host,
-        agentRoots: SessionsHere(inForce, agentDeclaration)?.Roots,
+        agentSessionHome: SessionsHere(inForce, agentDeclaration)?.Home,
         identityKey: identityKey.ForOpeningWhatWasSealedToThisRunner(),
         // TWELVE HOURS, AND THEN THIS MEMBER IS DONE. A member token is not
         // renewable and a member cannot mint itself another - the pool warms a

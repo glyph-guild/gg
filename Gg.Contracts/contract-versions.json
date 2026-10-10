@@ -1473,5 +1473,11 @@
     "surface": "8e1993c12f36199e77d7baff7bd165390b84fc40a5c1eb5d30d9f72a782be129",
     "endpoints": "073872f37069624b8f1f8708b897cd8a9b7820144c84b0a78c5d0da67d1c7ee1",
     "note": "The watch standings read pages. WatchStandingList gains Next, optional: BoardPage.Next's member read the same way - opaque, composed by the side that ordered the rows, absent on the last page. GET /v1/airspace/watch-standings takes limit and after as GET /v1/board does (owner, 2026-10-09: the board's nominations and sweeps are two tables, and both scroll without end like every other list). A control plane before this member answers every watch and no cursor, which a reader takes as the end. No route changes. The control plane pins this version in the PR that serves the page."
+  },
+  {
+    "version": "0.287.0",
+    "surface": "f5ee61e0a542c08b210c483f549f612af36e19b24879485a462bc772a05b7c55",
+    "endpoints": "073872f37069624b8f1f8708b897cd8a9b7820144c84b0a78c5d0da67d1c7ee1",
+    "note": "A credential can be for a code-analysis service. CredentialSubjects gains Analysis (\"analysis\"), CredentialLocator gains AnalysisSegment and ForAnalysis, so a service's token lives at local:analysis/<key> and a repository slug may no longer begin with that segment (owner, 2026-10-10: a SonarCloud user token is to be registered for the investigate agent, and it is neither a repository's credential nor a tracker's). The control plane checks no subject - it validates a locator's shape, which local:analysis/<key> already passes - so nothing there has to move first. No route changes."
   }
 ]

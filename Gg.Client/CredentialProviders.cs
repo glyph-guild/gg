@@ -91,10 +91,8 @@ public static class CredentialProviders
         IdentityHint: "the SonarCloud user the token belongs to",
         Accesses: new Dictionary<(string, string), string>
         {
-            // NOT YET A SUBJECT THE CONTRACT KNOWS: a SonarCloud token is for an
-            // analysis service, which is neither a repository nor a tracker. The
-            // words are here so the day the subject is, nothing else has to move.
-            [("analysis", CredentialScopes.Read)] = "Browse (read issues and measures)",
+            [(CredentialSubjects.Analysis, CredentialScopes.Read)] =
+                "Browse (read issues and measures)",
         });
 
     public static CredentialProvider GitHub { get; } = new(

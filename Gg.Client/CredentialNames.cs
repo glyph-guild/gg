@@ -108,6 +108,7 @@ public static class CredentialNames
 {
     private const string TrackerPrefix = CredentialLocator.LocalPrefix + "tracker/";
     private const string AgentPrefix = CredentialLocator.LocalPrefix + "agent/";
+    private const string AnalysisPrefix = CredentialLocator.LocalPrefix + "analysis/";
 
     public static CredentialName Describe(
         CredentialReference reference, string forName, CredentialPlaces places)
@@ -131,6 +132,16 @@ public static class CredentialNames
             var provider = CredentialProviders.Find(host) ?? CredentialProviders.Find(key);
 
             return Named(provider, CredentialSubjects.Tracker, Place(host) ?? key, reference);
+        }
+
+        // A CODE-ANALYSIS SERVICE'S, by its key - which is the service's own name
+        // for the services gg knows.
+        if (locator.StartsWith(AnalysisPrefix, StringComparison.Ordinal))
+        {
+            var service = locator[AnalysisPrefix.Length..];
+
+            return Named(
+                CredentialProviders.Find(service), CredentialSubjects.Analysis, service, reference);
         }
 
         if (locator.StartsWith(AgentPrefix, StringComparison.Ordinal))

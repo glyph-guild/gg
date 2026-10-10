@@ -1485,5 +1485,11 @@
     "surface": "b864065c4de5b404a14178876770cf3469744e72f2ea191faef1767387b60335",
     "endpoints": "073872f37069624b8f1f8708b897cd8a9b7820144c84b0a78c5d0da67d1c7ee1",
     "note": "An ad hoc agent session on another machine has a contract (slice seventy, ADR-0039; owner, 2026-10-10: a remote claude driven from the gg mux, ad hoc rather than a flight, the CLI as it is). RunnerCapabilityPurposes gains DriveAnAgent (\"drive-an-agent\"), which opens a second data channel labelled \"agent\" carrying binary frames - StartAgentSession, AttachAgentSession, AgentInput, AgentResize, KillAgentSession, ListAgentSessions one way; AgentSessionStarted, AgentOutput, AgentSessionExited, AgentSessionList, AgentSessionRefused, AgentSessionReadOnly the other - encoded by AgentFrameCodec, never a RunnerAsk and never an endpoint body. RunnerHeartbeat gains AcceptsAgentSessions (absent is not opted in) and AgentSessions, each an AgentSessionStanding. No route changes; the control plane pins this version in the PR that gates the mint on the new member."
+  },
+  {
+    "version": "0.289.0",
+    "surface": "af98582627b54d6751d8059785f9ba88795df088c292db5b9e84afc531a6a16d",
+    "endpoints": "0a46d314d49fbc30e327d7043e1c900840232e7926d3364dec144d28e5336b2e",
+    "note": "Remote Control has a contract (slice seventy-one, ADR-0039 Amendment 1; owner, 2026-10-10). The agent channel gains ForgetAgentSession (kind 7, console to runner): an ended session's ledger entry, directory and transcript deleted, or every ended session when SessionId is null. AgentSessionStanding gains EndedAt, carried in JSON only - the channel's session list is unchanged, because the codec refuses bytes left over and an installed console would read a longer list as nothing. RunnerSummary gains AcceptsAgentSessions and AgentSessions, from the runner's last heartbeat. One route is added: GET /v1/runners/{id}/flights answers a RunnerFlightList of RunnerFlight (flightId, number, kind, state, claimedAt, endedAt), newest first; the control plane serves it in the PR that pins this version."
   }
 ]

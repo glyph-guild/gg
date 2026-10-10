@@ -29,7 +29,8 @@ public class TheRemoteControlContractTests
     [Test]
     public async Task Forget_is_a_console_to_runner_frame()
     {
-        await Assert.That((int)AgentFrameKinds.Forget).IsLessThan(64);
+        var kind = AgentFrameCodec.Encode(new ForgetAgentSession())[0];
+        await Assert.That((int)kind).IsLessThan(64);
         await Assert.That(Vocabulary.Types).Contains(typeof(ForgetAgentSession));
     }
 

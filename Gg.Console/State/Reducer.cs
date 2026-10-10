@@ -1831,7 +1831,7 @@ public static class Reducer
             ? PickItineraryLeg(state, state.ItineraryLegSelected + by)
             : state.ActiveTab switch
             {
-                TabId.Credentials => PickRepository(state, state.RepositorySelected + by),
+                TabId.Credentials => PickCredential(state, state.CredentialsSelected + by),
                 TabId.Intents => PickWork(state, state.BrowseSelected + by),
                 TabId.Flights => PickFlight(state, state.FlightSelected + by),
                 TabId.Board => state.BoardTable is BoardTable.Sweeps
@@ -2078,7 +2078,7 @@ public static class Reducer
 
         return state.ActiveTab switch
         {
-            TabId.Credentials => PickRepository(state, row),
+            TabId.Credentials => PickCredential(state, row),
             TabId.Intents => PickWork(state, row),
             TabId.Flights => PickFlight(state, row),
             TabId.Board => state.BoardTable is BoardTable.Sweeps
@@ -2246,13 +2246,16 @@ public static class Reducer
             : 0,
     };
 
-    /// <summary>Move the repository cursor, inside the repository list.</summary>
-    private static AppState PickRepository(AppState state, int to) => state with
-    {
-        RepositorySelected = state.Repositories is { Repositories.Count: > 0 } listed
-            ? Math.Clamp(to, 0, listed.Repositories.Count - 1)
-            : 0,
-    };
+    /// <summary>Move the credentials table's own cursor, over the rows it paints.</summary>
+    /// <remarks>
+    /// <b>Not <see cref="AppState.RepositorySelected"/>,</b> which this tab moved until
+    /// 2026-10-10: that is the compose flow's repository, so the table's highlight never moved
+    /// and every arrow changed what the next flight would fly against.
+    /// </remarks>
+    private static AppState PickCredential(AppState state, int to) =>
+        Rows.Credentials(state).Count is var rows and > 0
+            ? state with { CredentialsSelected = Math.Clamp(to, 0, rows - 1) }
+            : state with { CredentialsSelected = 0 };
 
     /// <summary>Move the work list's own cursor, inside the work list.</summary>
     /// <remarks>

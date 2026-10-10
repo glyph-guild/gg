@@ -81,7 +81,7 @@ public static class CredentialSubjects
     public const string Analysis = "analysis";
 
     /// <summary>Every subject a credential can be registered for.</summary>
-    public static IReadOnlyList<string> All { get; } = [Repository, Agent, Tracker];
+    public static IReadOnlyList<string> All { get; } = [Repository, Agent, Tracker, Analysis];
 
     /// <summary>The diagnosis, or null when the subject is one that exists.</summary>
     /// <remarks>
@@ -263,7 +263,8 @@ public static class CredentialLocator
     /// alternative is a second list that agrees today, which is the hazard this file is
     /// written to prevent.
     /// </remarks>
-    public static IReadOnlyList<string> ReservedSegments { get; } = [AgentSegment, TrackerSegment];
+    public static IReadOnlyList<string> ReservedSegments { get; } =
+        [AgentSegment, TrackerSegment, AnalysisSegment];
 
     /// <summary>The locator an agent's own credential lives under.</summary>
     /// <remarks>
@@ -321,6 +322,7 @@ public static class CredentialLocator
             CredentialSubjects.Repository => ForRepo(named),
             CredentialSubjects.Agent => ForAgent(named),
             CredentialSubjects.Tracker => ForTracker(named),
+            CredentialSubjects.Analysis => ForAnalysis(named),
             _ => throw new ArgumentException(
                 CredentialSubjects.Refuse(subject) ?? $"'{subject}' is not a subject.",
                 nameof(subject)),
@@ -348,9 +350,12 @@ public static class CredentialLocator
         {
             if (locator.StartsWith($"{LocalPrefix}{reserved}/", StringComparison.Ordinal))
             {
-                return reserved == AgentSegment
-                    ? CredentialSubjects.Agent
-                    : CredentialSubjects.Tracker;
+                return reserved switch
+                {
+                    AgentSegment => CredentialSubjects.Agent,
+                    AnalysisSegment => CredentialSubjects.Analysis,
+                    _ => CredentialSubjects.Tracker,
+                };
             }
         }
 

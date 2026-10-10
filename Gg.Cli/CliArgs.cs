@@ -941,7 +941,7 @@ public static class CliArgs
         "gg runner watch <id|name>      watch it, and whatever it flies next",
         "gg runner repin <id>           trust a runner's key again after it changed",
         "gg invite                      a link that makes somebody a second principal here",
-        "gg credential add --repo <slug>|--agent <name>|--tracker <key>",
+        "gg credential add --repo <slug>|--agent <name>|--tracker <key>|--analysis <key>",
         "                                 register a credential for what it is actually for;",
         "                                 the value is prompted for and never an argument",
         "gg credential send --repo <slug>|--agent <name>",
@@ -2151,6 +2151,11 @@ public static class CliArgs
                     subject = CredentialSubjects.Tracker;
                     break;
 
+                case "--analysis":
+                    named = value;
+                    subject = CredentialSubjects.Analysis;
+                    break;
+
                 case "--scopes":
                     scopes = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                     break;
@@ -2170,12 +2175,13 @@ public static class CliArgs
         // typed second - the shape `gg fly`'s own "an intent that says two things says
         // nothing" refuses.
         var claimed = options.Where((o, i) => i % 2 == 0)
-            .Count(o => o is "--repo" or "--agent" or "--tracker");
+            .Count(o => o is "--repo" or "--agent" or "--tracker" or "--analysis");
 
         if (claimed > 1)
         {
             return Unknown(
-                "gg credential add takes one of --repo, --agent or --tracker. A credential that "
+                "gg credential add takes one of --repo, --agent, --tracker or --analysis. A "
+              + "credential that "
               + "says two things says nothing about either.");
         }
 
@@ -2183,7 +2189,7 @@ public static class CliArgs
             ? new CliAction.CredentialAdd(named, subject, scopes, identity, json)
             : Unknown(
                 "gg credential add needs to know what the credential is for: --repo <slug>, "
-              + "--agent <name> or --tracker <key>.");
+              + "--agent <name>, --tracker <key> or --analysis <key>.");
     }
 
     /// <summary>The refusal's own sentence, without the parameter note.</summary>

@@ -392,6 +392,9 @@ public sealed class ConsoleScreen : Window
     /// <remarks>Beside <see cref="_landedFlightTab"/> and for its reason.</remarks>
     private WorkKindTab _landedWorkKindTab;
 
+    /// <summary>The flight the recorded tab last asked facts for, this visit.</summary>
+    private string? _factsAskedFor;
+
     /// <summary>
     /// Which tab of the work item modal focus was last placed in.
     /// </summary>
@@ -2127,6 +2130,11 @@ public sealed class ConsoleScreen : Window
         // details tab. A Label and not a table, because what a flight recorded
         // reads as prose - the gate tab's shape, for the gate tab's reason.
         _flightFacts = new Label { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() };
+
+        // WRAPPED, because a landing's analysis is paragraphs and a Label that
+        // does not wrap draws the first eighty characters of each and nothing
+        // of the rest.
+        _flightFacts.TextFormatter.WordWrap = true;
         _flightFactsTab = new View
         {
             Title = FlightDetails.FactsTitle,
@@ -5790,6 +5798,26 @@ public sealed class ConsoleScreen : Window
         _flightFacts.Text = FlightDetails.FactsAbsence(State) is { Length: > 0 } absent
             ? absent
             : FlightDetails.FactsLines(State);
+
+        // THE TAB ASKS FOR WHAT IT SHOWS, once per visit. Guarded by the flight
+        // it asked for rather than by whether the answer came: a read that fails
+        // leaves nothing held, and asking again every render would be a request
+        // a second for a control plane that just said no. Leaving the tab resets
+        // the guard, which is how the absence says to try again.
+        if (FlightDetails.FactsOwed(State) is { } owed)
+        {
+            if (!string.Equals(_factsAskedFor, owed, StringComparison.Ordinal))
+            {
+                _factsAskedFor = owed;
+                State = State with { ReadInFlight = true };
+                _flightFacts.Text = FlightDetails.FactsAbsence(State);
+                Asked(Command.ShowFlightFacts);
+            }
+        }
+        else if (State.FlightTab is not FlightTab.Facts || State.Mode is not UiMode.FlightDetail)
+        {
+            _factsAskedFor = null;
+        }
 
         // WHICH TAB HAS THE BODY IS THE MODEL'S TO SAY. Guarded the way the
         // console's own bar is: assigning Value raises ValueChanged, and

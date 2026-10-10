@@ -1289,6 +1289,18 @@ public static class ProtocolSurface
             Statuses = [200, 401, 403, ProtocolTooOld],
             RequiredHeaders = [SessionHeader],
         },
+        // A RUNNER'S LAST FEW FLIGHTS, for Remote Control's runner screen (slice
+        // seventy-one): the fleet read names only the flight a runner is on now. 404 is
+        // a runner this person may not reach, as introducing one is.
+        new()
+        {
+            Method = "GET",
+            Path = "/v1/runners/{id}/flights",
+            Audience = Audience.Developer,
+            Response = typeof(RunnerFlightList),
+            Statuses = [200, 401, 403, 404, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
         new()
         {
             Method = "GET",
@@ -2254,7 +2266,7 @@ public static class ProtocolSurface
             [typeof(RunnerHeartbeat)] =
                 ["labels", "acceptsConfiguration", "acceptsAgentSessions", "agentSessions"],
             [typeof(AgentSessionStanding)] =
-                ["sessionId", "directory", "startedAt", "attachedBy", "alive"],
+                ["sessionId", "directory", "startedAt", "attachedBy", "alive", "endedAt"],
             // `introductions` is absent unless a console is waiting, so an idle
             // fleet's heartbeat body is byte-for-byte what it always was.
             [typeof(HeartbeatAccepted)] =
@@ -2342,9 +2354,12 @@ public static class ProtocolSurface
                  "parkedAt", "parkedBecause", "hostRunnerId", "machine",
                  "ownership", "owner", "ownerPrincipalId", "reserved", "resident", "profile", "lacks", "readinessMeasuredAt",
                  "cpuMilliLimit", "cpuMilliUsed", "memoryLimitBytes",
-                 "memoryUsedBytes", "machineMeasuredAt", "instances"],
+                 "memoryUsedBytes", "machineMeasuredAt", "instances",
+                 "acceptsAgentSessions", "agentSessions"],
             [typeof(HostedInstance)] = ["environment", "instance", "flightNumber"],
             [typeof(RunnerList)] = ["runners"],
+            [typeof(RunnerFlightList)] = ["flights"],
+            [typeof(RunnerFlight)] = ["flightId", "number", "kind", "state", "claimedAt", "endedAt"],
             [typeof(ChartEnvironmentRequest)] = ["name", "meaning"],
             [typeof(EnvironmentCharted)] = ["name", "meaning", "disposition", "chartedBy", "chartedAt"],
             [typeof(RegistrationPending)] = ["flight", "awaiting", "widens"],

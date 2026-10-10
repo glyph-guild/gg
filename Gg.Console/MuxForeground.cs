@@ -321,10 +321,36 @@ public sealed partial class Mux
     }
 
     /// <summary>"+ new agent": what `n` offers, and a plain Claude Code session here.</summary>
+    /// <remarks>
+    /// <b>A list, not letters</b> (owner, 2026-10-10): the arrows or j/k move, enter picks.
+    /// Claude Code here is first and the cursor opens on it; Remote Control… is last, because
+    /// it opens a choice of its own rather than an agent.
+    /// </remarks>
     private (MuxTab? Next, MuxLeave? Leave) ShowNew(IHostTerminal terminal)
     {
         var here = Directory.GetCurrentDirectory();
         var full = Rows().Count >= MuxColumn.Most;
+        var cursor = 0;
+
+        List<(string Text, Func<(MuxTab? Next, MuxLeave? Leave)> Pick)> items =
+        [
+            ($"Claude Code here: {here}", () => StartClaudeCode(here) is { } started && NumberOf(started) is > 0 and var at
+                ? (MuxTab.Agent(at), null)
+                : (MuxTab.Gg, null)),
+            ("manage gg with an agent: gates, the board, flights, runners", () =>
+                StartManaging(here) is { } managing && NumberOf(managing) is > 0 and var shown
+                    ? (MuxTab.Agent(shown), null)
+                    : (MuxTab.Gg, null)),
+            ("plan several flights with an agent", () => (null, MuxLeave.Plan)),
+            ("manage the airspace with an agent", () => (null, MuxLeave.Airspace)),
+            ("a new flight (gg asks what kind, as `n` does)", () => (null, MuxLeave.Compose)),
+        ];
+
+        if (_machines is not null)
+        {
+            items.Add(("Remote Control…", () => ShowMachines(terminal)));
+        }
+
         IReadOnlyList<string> Lines() => full
             ?
             [
@@ -338,32 +364,37 @@ public sealed partial class Mux
             [
                 "New agent",
                 "",
-                "l    plan several flights with an agent",
-                "a    manage the airspace with an agent",
-                "g    manage gg with an agent: gates, the board, flights, runners",
-                $"c    Claude Code, here: {here}",
-                "n    a new flight (gg asks what kind, as `n` does)",
-                .. _machines is null ? (string[])[] : ["m    Claude Code on another machine"],
+                .. items.Select((item, at) => (at == cursor ? "▸ " : "  ") + item.Text),
                 "",
-                "esc  back",
+                "↑/↓ or j/k move · enter picks · esc back",
             ];
 
-        return Menu(terminal, MuxTab.New, Lines, (typed, _) => full
-            ? null
-            : typed switch
+        return Menu(terminal, MuxTab.New, Lines, (typed, sequence) =>
+        {
+            if (full)
             {
-                (byte)'l' => (null, MuxLeave.Plan),
-                (byte)'a' => (null, MuxLeave.Airspace),
-                (byte)'g' => StartManaging(here) is { } managing && NumberOf(managing) is > 0 and var shown
-                    ? (MuxTab.Agent(shown), null)
-                    : (MuxTab.Gg, null),
-                (byte)'n' => (null, MuxLeave.Compose),
-                (byte)'m' when _machines is not null => ShowMachines(terminal),
-                (byte)'c' => StartClaudeCode(here) is { } started && NumberOf(started) is > 0 and var at
-                    ? (MuxTab.Agent(at), null)
-                    : (MuxTab.Gg, null),
-                _ => null,
-            });
+                return null;
+            }
+
+            var down = typed == (byte)'j' || IsArrow(sequence, (byte)'B');
+            var up = typed == (byte)'k' || IsArrow(sequence, (byte)'A');
+            if (down || up)
+            {
+                cursor = Math.Clamp(cursor + (down ? 1 : -1), 0, items.Count - 1);
+                return (Stay, null);
+            }
+
+            if (typed is (byte)'\r' or (byte)'\n')
+            {
+                var went = items[cursor].Pick();
+
+                // BACK FROM REMOTE CONTROL IS BACK TO THIS MENU, as back from a machine's
+                // sessions is back to the machines.
+                return went.Next == MuxTab.New && went.Leave is null ? (Stay, null) : went;
+            }
+
+            return null;
+        }, keepOn: Stay);
     }
 
     /// <summary>History: what was proposed from this machine, and the sessions the mux started.</summary>
@@ -471,7 +502,7 @@ public sealed partial class Mux
 
         IReadOnlyList<string> Lines()
         {
-            var lines = new List<string> { "Claude Code on another machine", "" };
+            var lines = new List<string> { "Remote Control", "" };
 
             if (machines.Count == 0)
             {

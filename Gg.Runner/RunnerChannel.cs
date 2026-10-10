@@ -221,7 +221,8 @@ public sealed class RunnerChannel(
         PendingIntroduction pending,
         ECDiffieHellman runnerKey,
         AskDispatch dispatch,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        AgentChannelServer? agents = null)
     {
         ArgumentNullException.ThrowIfNull(pending);
         ArgumentNullException.ThrowIfNull(dispatch);
@@ -276,6 +277,35 @@ public sealed class RunnerChannel(
         // serves whatever arrives on it and can start nothing of its own.
         peer.ondatachannel += channel =>
         {
+            // AN AD HOC AGENT SESSION'S CHANNEL, by its label (slice seventy,
+            // ADR-0039): its frames are a terminal, never asks, and a machine
+            // that did not opt in answers every one of them with why not.
+            if (string.Equals(channel.label, AgentChannel.Label, StringComparison.Ordinal))
+            {
+                channel.onopen += () => opened.TrySetResult(true);
+
+                if (agents is not null)
+                {
+                    agents.Serve(channel, () =>
+                    {
+                        opened.TrySetResult(true);
+                        serving?.Heard(_now());
+                    });
+                }
+                else
+                {
+                    AgentChannelServer.Refuse(channel);
+                    channel.onmessage += (_, _, _) => opened.TrySetResult(true);
+                }
+
+                if (channel.readyState == RTCDataChannelState.open)
+                {
+                    opened.TrySetResult(true);
+                }
+
+                return;
+            }
+
             // ONE ASK AT A TIME PER CONVERSATION. The dispatch's path is async
             // now - a login ceremony waits on a child - and two asks served
             // concurrently could answer out of order on a channel with no

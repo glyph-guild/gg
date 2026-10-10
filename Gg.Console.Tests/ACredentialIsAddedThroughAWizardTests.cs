@@ -117,8 +117,16 @@ public class ACredentialIsAddedThroughAWizardTests
         });
 
         await Assert.That(review.CredentialDraft?.Step).IsEqualTo(CredentialWizardStep.Review);
-        await Assert.That(PaneText.Modal(review)).Contains(
-            "Acts as kevin on SonarCloud, with Browse (read issues and measures) on sonarcloud.");
+
+        // A CHECKLIST, NOT A SENTENCE (owner, 2026-10-10: "the text in the wizard is not
+        // friendly. it should be plain english").
+        var said = PaneText.Modal(review);
+        foreach (var line in (string[])
+                 ["Service    SonarCloud", "Used for   Code analysis results",
+                  "Access     Read only", "Account    kevin", "press Enter to save"])
+        {
+            await Assert.That(said).Contains(line).Because($"the review says '{line}'. Said: {said}");
+        }
 
         await Assert.That(Keymap.Resolve(KeyStroke.EnterKey, KeymapContext.For(review)))
             .IsEqualTo(Command.FinishCredentialWizard);
@@ -162,6 +170,60 @@ public class ACredentialIsAddedThroughAWizardTests
             .Select(t => t.Named);
 
         await Assert.That(repositories).IsEquivalentTo((string[])["JDX/JDNext"]);
+        await Assert.That(CredentialWizard.Rows(forJdnext))
+            .IsEquivalentTo((string[])["The JDX/JDNext repository", "Work items (tickets)"]);
+    }
+
+    // ---- in words a person uses ----
+
+    [Test]
+    public async Task Every_choice_reads_as_plain_english()
+    {
+        await Assert.That(CredentialWizard.Rows(Opened()).Last()).IsEqualTo("Other");
+
+        var access = Next(Choosing(Opened(), CredentialProviders.SonarCloud));
+        await Assert.That(CredentialWizard.Rows(access)).IsEquivalentTo((string[])
+            ["Read only (on SonarCloud: Browse (read issues and measures))"])
+            .Because("the plain words first, and the service's own label beside them so a "
+                   + "person can find the same box on its token page.");
+
+        var other = Next(Choosing(Opened(), null));
+        await Assert.That(CredentialWizard.Rows(other))
+            .IsEquivalentTo((string[])["Read only", "Read and make changes"]);
+    }
+
+    [Test]
+    public async Task Nothing_the_wizard_says_needs_gg_s_own_vocabulary()
+    {
+        // THE WORDS THIS CODE USES FOR ITSELF, which a person adding a token should
+        // never have to learn: every step's question, its help, and its rows.
+        string[] jargon =
+            ["register", "subject", "locator", "sealed", "flight", "scope", "narrowest",
+             "envelope", "principal", "holder", "esc drops"];
+
+        var states = new List<AppState> { Opened() };
+        var service = Choosing(Opened(), CredentialProviders.SonarCloud);
+        var access = Next(service);
+        var account = Next(access);
+        var review = Next(account with
+        {
+            CredentialDraft = account.CredentialDraft! with { Identity = "kevin" },
+        });
+        states.AddRange([service, access, account, review, Choosing(Opened(), null)]);
+
+        foreach (var state in states)
+        {
+            var text = string.Join("\n",
+                [CredentialWizard.Said(state),
+                 CredentialWizard.Help(state.CredentialDraft!.Step),
+                 .. CredentialWizard.Rows(state)]);
+
+            foreach (var word in jargon)
+            {
+                await Assert.That(text.Contains(word, StringComparison.OrdinalIgnoreCase)).IsFalse()
+                    .Because($"'{word}' is gg's word, not a person's. On {state.CredentialDraft.Step}: {text}");
+            }
+        }
     }
 
     [Test]

@@ -131,10 +131,13 @@ public class TheGateTabSaysWhoDecidesTests
             .Because("a gate belonging to GG-88 shown under GG-99 is worse than a blank "
                    + $"pane: it is a confident wrong answer. Said: {said}");
 
-        await Assert.That(said).Contains("GG-88", StringComparison.Ordinal)
-            .Because("and it says WHOSE it is rather than going quiet, because 'not read "
-                   + "for this flight' and 'read for a different one' are different facts "
-                   + $"with different next moves. Said: {said}");
+        // AND IT DOES NOT CLAIM NOTHING IS WAITING. It used to name the other
+        // flight and say press g; the owner read "press g" on this tab as the
+        // tab not working (2026-10-10), and the gates list now answers the
+        // question - so with neither read for GG-99 it says that, plainly.
+        await Assert.That(said).DoesNotContain("Nothing is waiting", StringComparison.OrdinalIgnoreCase);
+        await Assert.That(said).Contains("not been read", StringComparison.Ordinal)
+            .Because($"neither the gates list nor the why was read for this flight. Said: {said}");
     }
 
     [Test]
@@ -149,22 +152,35 @@ public class TheGateTabSaysWhoDecidesTests
     }
 
     [Test]
-    public async Task It_says_where_the_gate_is_answered_rather_than_naming_a_dead_key()
+    public async Task The_gate_is_answered_here_now()
     {
-        // THE MODAL BINDS NOTHING THAT ACTS ON ITS FLIGHT, deliberately -
-        // EnterOpensWhatTheCursorIsOnTests: "a person reading a log has not
-        // asked to decide anything". So this pane must not tell somebody to
-        // press a key that does not resolve here; it says where the answer
-        // lives instead.
-        var state = Showing("GG-88", Gated("GG-88"));
+        // THE OPPOSITE OF WHAT THIS CLASS ONCE HELD, on the owner's word
+        // (2026-10-10): "the gate tab should also show the gate decision
+        // options". It pointed at the Queue tab because this modal bound nothing
+        // that acts on its flight; the queue's flight pane is gone and this
+        // modal is where a queued flight is read, so the answer belongs here.
+        var state = Showing("GG-88", Gated("GG-88")) with
+        {
+            Gates = new GateList
+            {
+                Gates =
+                [
+                    new PendingGate
+                    {
+                        FlightNumber = "GG-88",
+                        ObligationId = "widen-root",
+                        Approver = "platform-owner",
+                        ManifestHash = new string('a', 64),
+                        Because = "the proposed change widens airspace.names",
+                        AwaitingSince = DateTimeOffset.UnixEpoch,
+                        Attempt = 1,
+                    },
+                ],
+            },
+        };
 
-        await Assert.That(Keymap.Resolve(KeyStroke.Char('d'), KeymapContext.For(state)))
-            .IsNull()
-            .Because("the flight modal owns the keyboard and reading it acts on nothing.");
-
-        await Assert.That(FlightDetails.Gate(state))
-            .Contains("Queue", StringComparison.Ordinal)
-            .Because("and the pane points at where a gate IS answered, because a person "
-                   + "who has just read one is about to look for how.");
+        await Assert.That(Keymap.Resolve(KeyStroke.Char('a'), KeymapContext.For(state)))
+            .IsEqualTo(Command.ApproveGate);
+        await Assert.That(FlightDetails.Gate(state)).DoesNotContain("Queue tab", StringComparison.Ordinal);
     }
 }

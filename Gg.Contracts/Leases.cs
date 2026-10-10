@@ -79,6 +79,13 @@ public sealed record RunnerHeartbeat
 
     /// <summary>The agent sessions this machine holds, live and recently ended; null from an older runner.</summary>
     public IReadOnlyList<AgentSessionStanding>? AgentSessions { get; init; }
+
+    /// <summary>
+    /// Whether this machine hands a session a person's delegated credential, so gg's tools in
+    /// it act as that person (ADR-0039 Amendment 2). Absent is no: a console mints one only
+    /// for a machine that will use it, and an older machine would drop the frame.
+    /// </summary>
+    public bool? TakesAgentDelegation { get; init; }
 }
 
 /// <summary>How long the control plane expects to wait before worrying.</summary>

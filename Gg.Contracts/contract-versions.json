@@ -1491,5 +1491,11 @@
     "surface": "af98582627b54d6751d8059785f9ba88795df088c292db5b9e84afc531a6a16d",
     "endpoints": "0a46d314d49fbc30e327d7043e1c900840232e7926d3364dec144d28e5336b2e",
     "note": "Remote Control has a contract (slice seventy-one, ADR-0039 Amendment 1; owner, 2026-10-10). The agent channel gains ForgetAgentSession (kind 7, console to runner): an ended session's ledger entry, directory and transcript deleted, or every ended session when SessionId is null. AgentSessionStanding gains EndedAt, carried in JSON only - the channel's session list is unchanged, because the codec refuses bytes left over and an installed console would read a longer list as nothing. RunnerSummary gains AcceptsAgentSessions and AgentSessions, from the runner's last heartbeat. One route is added: GET /v1/runners/{id}/flights answers a RunnerFlightList of RunnerFlight (flightId, number, kind, state, claimedAt, endedAt), newest first; the control plane serves it in the PR that pins this version."
+  },
+  {
+    "version": "0.290.0",
+    "surface": "921f7fcd89c28324a3f67c12ad7a5fb674e6a51e65e65e52ebef96f5a77ce127",
+    "endpoints": "34d2aefdb68250139a09bfeafaa579c0cc2aa8a02391428c3ea48ab3e5f372d7",
+    "note": "A session's gg tools act as the person who started it (ADR-0039 Amendment 2; owner, 2026-10-10: a short-lived credential minted per session). Endpoint gains Delegable, set on exactly the 22 Developer routes the gg tool servers call (whoami, logout, gates, board and its decisions, flights and their story, why, log, decisions and grounding, flying, runners, watch standings, naming and retiring, and the itinerary reads, menu, check and proposal); everything else refuses a delegated session. POST /v1/auth/delegations is added: an AgentDelegationRequest (runnerId, agentSessionId, introductionId) answered by an AgentDelegation (delegationId, token, expiresAt). The agent channel gains DelegateAgentSession (kind 8, console to runner: token, expiresAt). RunnerHeartbeat and RunnerSummary gain TakesAgentDelegation (absent is no). The control plane serves the route and the Delegable policy in the PR that pins this version."
   }
 ]

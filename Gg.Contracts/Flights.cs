@@ -1193,6 +1193,9 @@ public sealed record RunnerSummary
 
     /// <summary>The sessions its last heartbeat reported, live and ended; null when it reported none.</summary>
     public IReadOnlyList<AgentSessionStanding>? AgentSessions { get; init; }
+
+    /// <summary>Whether its last heartbeat said it hands a session a delegated credential (ADR-0039 Amendment 2).</summary>
+    public bool? TakesAgentDelegation { get; init; }
 }
 
 /// <summary>The states a runner may be derived to be in.</summary>

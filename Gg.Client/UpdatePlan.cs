@@ -185,8 +185,8 @@ public static class UpdatePlans
         {
             return Cannot(
                 shape, installed, target,
-                "What version is current could not be established, so nothing was moved. "
-              + "This may already be the newest.");
+                "gg couldn't check which version is the latest, so it has changed nothing. "
+              + "You may already have the newest version.");
         }
 
         // A VERSION, PROVEN, BEFORE IT REACHES AN ARGUMENT LIST. This string
@@ -199,9 +199,8 @@ public static class UpdatePlans
         {
             return Cannot(
                 shape, installed, target,
-                $"'{target}' is not a version, so nothing was moved. A version is digits and "
-              + "dots, optionally with a prerelease after a dash - anything else is a "
-              + "request this machine should not act on.");
+                $"'{target}' is not a version number, so gg has changed nothing. A version "
+              + "number looks like 0.88.20: digits and dots. gg will not act on anything else.");
         }
 
         if (installed is { Length: > 0 } here)
@@ -215,8 +214,8 @@ public static class UpdatePlans
             {
                 return Nothing(
                     shape, installed, target,
-                    $"This gg is {here}, which is ahead of the {target} the control plane "
-                  + "calls current. Nothing was moved.");
+                    $"This gg is {here}, which is ahead of {target}, the latest version gg "
+                  + "knows about. gg has left it alone.");
             }
         }
 
@@ -228,16 +227,16 @@ public static class UpdatePlans
 
             InstallKind.Container => Cannot(
                 shape, installed, target,
-                $"This gg is in a container, where the image is the unit of change: {target} "
-              + "arrives by rebuilding the member image at that release and repinning the "
-              + "pool to the new digest. A container cannot replace its own gg, and a member "
-              + "that could would be a member that can replace what the host starts."),
+                $"This gg runs in a container, and a container can't update its own gg. To get "
+              + $"{target}, rebuild the container image at that release and point the pool at "
+              + "the new image. Allowing it would let a container replace the program its host "
+              + "starts, so gg has changed nothing."),
 
             _ => Cannot(
                 shape, installed, target,
-                "How this gg was installed could not be established, so nothing was moved - "
-              + "guessing which installer owns these bytes is how an update writes over a "
-              + "layout it does not understand."),
+                "gg can't tell how it was installed, so it won't update itself. Guessing could "
+              + "overwrite files it doesn't understand. To update, reinstall gg with the install "
+              + "command from the releases page."),
         };
     }
 
@@ -313,9 +312,10 @@ public static class UpdatePlans
         {
             return Cannot(
                 shape, installed, target,
-                "This gg is a self-contained binary and no installer is configured for this "
-              + "machine, so there is nowhere to get one from that this machine chose. "
-              + "Configure it and run this again.");
+                "This gg is a single file, and this machine has no installer set up, so gg doesn't "
+              + "know where to download the new version from. Set the installer location for this "
+              + "machine and run this again, or reinstall gg with the install command from the "
+              + "releases page.");
         }
 
         // A PATH IS RUN; ANYTHING ELSE IS FETCHED FIRST, AS ITS OWN STEP. A

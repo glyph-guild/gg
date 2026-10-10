@@ -41,7 +41,7 @@ public static class AudienceReview
         var rows = Rows.Credentials(state);
 
         return state.CredentialsSelected >= 0 && state.CredentialsSelected < rows.Count
-            ? rows[state.CredentialsSelected].Credential
+            ? rows[state.CredentialsSelected].Locator
             : null;
     }
 

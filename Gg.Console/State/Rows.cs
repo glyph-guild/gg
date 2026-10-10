@@ -611,7 +611,7 @@ public static class Rows
     /// </para>
     /// </remarks>
     public static IReadOnlyList<string> CredentialColumns { get; } =
-        ["credential", "for", "here", "who can open it"];
+        ["credential", "grants", "here", "who can open it"];
 
     /// <summary>
     /// One filter tab's columns: the mark, and the value.
@@ -1478,7 +1478,17 @@ public static class Rows
     /// <c>Gg.Client.CredentialRow</c>, which already carries nothing a value could
     /// hide in — and the shape is asserted there rather than trusted here.
     /// </remarks>
-    public sealed record CredentialPaneRow(string Credential, string For, string Here, string Holders);
+    /// <param name="Credential">What it is, as a person reads it: <c>Azure DevOps · JDX/JDNext</c>.</param>
+    /// <param name="Grants">What it grants and as whom, or that nothing is registered.</param>
+    /// <param name="Here">How it rests on this machine.</param>
+    /// <param name="Holders">Who can open it.</param>
+    /// <param name="Locator">
+    /// Where it is kept, which is what a send names. Its own field because the
+    /// first cell is now for reading, and a send that took the cell would send a
+    /// sentence.
+    /// </param>
+    public sealed record CredentialPaneRow(
+        string Credential, string Grants, string Here, string Holders, string Locator);
 
     /// <summary>One machine in a broadcast review: who it is, and why it is in the list.</summary>
     /// <remarks>
@@ -1557,17 +1567,43 @@ public static class Rows
             state.ThisMachinesPublicKey,
             state.PinnedRunnerKeys ?? []);
 
+        // NAMED THE WAY `gg credential list` NAMES THEM, by the one function both
+        // call. The console holds no tracker declarations, so a tracker's
+        // credential is named by its key - which still finds the service for a
+        // known one such as `ado`.
+        var places = Gg.Client.CredentialPlaces.From(
+            state.Repositories?.Repositories ?? [], []);
+
         return
         [
-            .. rows.Select(r => new CredentialPaneRow(
+            .. rows.Select(r =>
+            {
                 // AN ABSENCE IS RENDERED RATHER THAN BLANKED, which this file
                 // already insists on one projection down: an empty cell reads as a
                 // column that failed to load, and here it would hide the one row
                 // that predicts a flight failing.
-                r.Locator is { Length: > 0 } locator ? locator : "(none registered)",
-                r.For,
-                r.Resting,
-                Holders(r.Holders))),
+                var locator = r.Locator is { Length: > 0 } held ? held : "(none registered)";
+
+                if (r.Locator is not { Length: > 0 } || r.Identity is null)
+                {
+                    return new CredentialPaneRow(
+                        r.For, "(none registered)", r.Resting, Holders(r.Holders), locator);
+                }
+
+                var name = Gg.Client.CredentialNames.Describe(
+                    new Gg.Contracts.CredentialReference
+                    {
+                        Kind = Gg.Contracts.CredentialKinds.Local,
+                        Locator = r.Locator,
+                        Identity = r.Identity,
+                        Scopes = r.Scopes,
+                    },
+                    r.For,
+                    places);
+
+                return new CredentialPaneRow(
+                    name.Short, name.Grants, r.Resting, Holders(r.Holders), locator);
+            }),
         ];
     }
 

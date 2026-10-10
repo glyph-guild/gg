@@ -279,14 +279,24 @@ public abstract record VerbResult
     /// <see cref="CredentialResting.NotKnown"/> — and never means every
     /// credential is here.
     /// </param>
+    /// <param name="Names">
+    /// What each one is, as a person reads it (<see cref="CredentialNames"/>). Like
+    /// <paramref name="Resting"/> it is this machine's reading - it joins the
+    /// registry to repositories and declared trackers - so a round trip carries
+    /// none, and the text falls back to the locator.
+    /// </param>
     public sealed record Credentials(
         CredentialList Value,
-        IReadOnlyList<CredentialAtRest> Resting) : VerbResult
+        IReadOnlyList<CredentialAtRest> Resting,
+        IReadOnlyList<CredentialName>? Names = null) : VerbResult
     {
         public override string Kind => VerbResultKinds.Credentials;
     }
 
-    public sealed record CredentialAdded(CredentialRegistered Value) : VerbResult
+    /// <param name="Value">What the control plane recorded.</param>
+    /// <param name="Name">What it is, as a person reads it, or null on a round trip.</param>
+    public sealed record CredentialAdded(CredentialRegistered Value, CredentialName? Name = null)
+        : VerbResult
     {
         public override string Kind => VerbResultKinds.CredentialAdded;
     }
@@ -1099,12 +1109,12 @@ public static class VerbOutput
         VerbResult.Runners r => Runners(r.Value),
         VerbResult.Invited r => Invited(r.Value),
         VerbResult.Diagnosis r => Diagnosis(r.Value),
-        VerbResult.Credentials r => Credentials(r.Value, r.Resting),
+        VerbResult.Credentials r => Credentials(r.Value, r.Resting, r.Names ?? []),
         VerbResult.Keys r => Keys(r.Value),
         VerbResult.KeyCreated r => KeyCreated(r.Value),
         VerbResult.CredentialTrusted r => CredentialTrusted(r.Value),
         VerbResult.CredentialAudienceFound r => AudienceFound(r.Value),
-        VerbResult.CredentialAdded r => CredentialAdded(r.Value),
+        VerbResult.CredentialAdded r => CredentialAdded(r.Value, r.Name),
         VerbResult.CredentialRemoved r => CredentialRemoved(r.Value),
         VerbResult.RunnerRetired r => RunnerRetiredText(r.Value),
         VerbResult.TenantNamed named =>
@@ -1592,7 +1602,9 @@ public static class VerbOutput
     /// here to withhold, which is the whole point of the row.
     /// </remarks>
     private static string Credentials(
-        CredentialList list, IReadOnlyList<CredentialAtRest> resting)
+        CredentialList list,
+        IReadOnlyList<CredentialAtRest> resting,
+        IReadOnlyList<CredentialName> names)
     {
         if (list.Credentials.Count == 0)
         {
@@ -1602,6 +1614,21 @@ public static class VerbOutput
         var text = new StringBuilder();
         foreach (var credential in list.Credentials)
         {
+            // WHAT IT IS, FIRST, when this machine could tell. The locator moves to
+            // the id line: it is still printed, because `gg credential
+            // trust-this-machine` and `gg doctor` name credentials by it.
+            if (names.FirstOrDefault(n => string.Equals(
+                    n.Locator, credential.Reference.Locator, StringComparison.Ordinal)) is { } name)
+            {
+                text.AppendLine(Clean(name.Short));
+                text.AppendLine($"  {Clean(name.Grants)}");
+                text.AppendLine(
+                    $"  id  {Clean(credential.CredentialId)}   added {credential.AddedAt:u}   "
+                  + $"{Clean(CredentialsAtRest.RestingOf(resting, credential.Reference.Locator))}   "
+                  + $"{Clean(credential.Reference.Locator)}");
+                continue;
+            }
+
             text.AppendLine(
                 $"{Clean(credential.For),-28}  {Clean(credential.Reference.Identity),-16}  "
               + $"{Clean(string.Join(',', credential.Reference.Scopes)),-8}  "
@@ -1676,8 +1703,11 @@ public static class VerbOutput
       + Environment.NewLine
       + Clean(minted.Registration);
 
-    private static string CredentialAdded(CredentialRegistered registered) =>
-        $"Registered {Clean(registered.Reference.Identity)} for "
+    private static string CredentialAdded(CredentialRegistered registered, CredentialName? name) =>
+        name is not null
+            ? $"Registered {Clean(name.Short)}. {Clean(name.Sentence)} "
+            + $"The control plane holds {Clean(registered.Reference.Locator)}; the value stays here."
+            : $"Registered {Clean(registered.Reference.Identity)} for "
       + $"{Clean(string.Join(',', registered.Reference.Scopes))}. "
       + $"The control plane holds {Clean(registered.Reference.Locator)}; the value stays here.";
 

@@ -4929,7 +4929,7 @@ public sealed class ConsoleScreen : Window
             // it, because the question a person brings here is about a credential.
             Fill(_credentialsTable, _credentials, Rows.Credentials(State), Rows.CredentialColumns,
                 State.CredentialsSelected,
-                r => [r.Credential, r.For, r.Here, r.Holders]);
+                r => [r.Credential, r.Grants, r.Here, r.Holders]);
 
 
             // OFF THE MODEL, like the other three. This passed a literal 0 and

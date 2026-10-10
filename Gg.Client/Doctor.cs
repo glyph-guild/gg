@@ -950,11 +950,20 @@ public sealed class Doctor(
                 yield return $"{verb} " + string.Join(
                     ", ",
                     side.Select(t => t.Locator is { Length: > 0 } locator
-                        ? $"{t.Key} ({t.Host}, {locator})"
-                        : $"{t.Key} ({t.Host}, no credential named)"));
+                        ? $"{t.Key} ({Service(t)}{t.Host}, {locator})"
+                        : $"{t.Key} ({Service(t)}{t.Host}, no credential named)"));
             }
         }
     }
+
+    /// <summary>
+    /// Which service a tracker is, when gg knows it - <c>"Azure DevOps: "</c> - or
+    /// nothing. Named the way <see cref="CredentialProviders"/> names it everywhere.
+    /// </summary>
+    private static string Service(DeclaredTracker tracker) =>
+        (CredentialProviders.Find(tracker.Host) ?? CredentialProviders.Find(tracker.Key)) is { } known
+            ? $"{known.Name}: "
+            : "";
 
     private static IReadOnlyList<DoctorCheck> RoleChecks(
         MachineRole role, Func<string, bool> unresolved) =>

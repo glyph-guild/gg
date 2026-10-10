@@ -1132,7 +1132,10 @@ static async Task<int> CredentialAsync(bool json, Func<CredentialCommands, Task<
         new FileSessionStore(),
         MachineCredentialStore.ThisMachine(),
         // The only way a secret enters this process, and it is a terminal.
-        new ConsoleSecretPrompt());
+        new ConsoleSecretPrompt(),
+        // WHERE THIS MACHINE READS ITS TRACKERS, so a tracker's credential is
+        // named by its host and not only by its key.
+        trackerHosts: TrackerHostsDeclared());
 
     try
     {
@@ -1191,6 +1194,28 @@ static async Task<int> CredentialAddAsync(CliAction.CredentialAdd add)
     }
 
     return code;
+}
+
+/// <summary>
+/// Each tracker this machine declares, as its key and host - or none, when the
+/// declaration does not parse. Naming a credential is never the place to report
+/// a malformed declaration; `gg doctor` does that.
+/// </summary>
+static IReadOnlyList<(string Key, string Host)> TrackerHostsDeclared()
+{
+    try
+    {
+        return
+        [
+            .. IntentConfiguration.ServedTrackers(
+                    Settings.Value(IntentConfiguration.ServedVariable, InForce.Configuration))
+                .Select(t => (t.Key, t.Host)),
+        ];
+    }
+    catch (InvalidOperationException)
+    {
+        return [];
+    }
 }
 
 /// <summary>

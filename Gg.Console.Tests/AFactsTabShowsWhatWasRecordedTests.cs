@@ -115,7 +115,10 @@ public class AFactsTabShowsWhatWasRecordedTests
     /// <summary>A flight that published a preview, as the runner ships it.</summary>
     private static FlightFacts APreview() => new()
     {
-        FlightNumber = "GG-268",
+        // THE FLIGHT THE MODAL IS OPEN ON. This said GG-268 under a modal open
+        // on GG-42, and passed only because the tab drew whichever flight's
+        // facts it held - the defect the last test in this class pins.
+        FlightNumber = "GG-42",
         Facts =
         [
             new RecordedFact
@@ -217,7 +220,7 @@ public class AFactsTabShowsWhatWasRecordedTests
             .Because($"a blank pane reads as a broken tab. Said: {waiting}");
 
         var none = PaneText.Modal(
-            Opened(new FlightFacts { FlightNumber = "GG-1", Facts = [] }));
+            Opened(new FlightFacts { FlightNumber = "GG-42", Facts = [] }));
 
         await Assert.That(none).IsNotEqualTo(waiting)
             .Because("'nothing was recorded' is a different sentence from 'not read yet'.");
@@ -235,5 +238,95 @@ public class AFactsTabShowsWhatWasRecordedTests
 
         await Assert.That(ShellCommands.Handled).DoesNotContain(Command.ShowFlightFacts)
             .Because("a shell command whose effect is also a state change has two effects.");
+    }
+
+    /// <summary>What an investigate flight lands: a title, and the analysis beneath it.</summary>
+    private static FlightFacts ALanding() => new()
+    {
+        FlightNumber = "GG-42",
+        Facts =
+        [
+            new RecordedFact
+            {
+                Disposition = "digest",
+                RecordedAt = new DateTimeOffset(2026, 10, 10, 1, 41, 20, TimeSpan.Zero),
+                Fact = new FactEnvelope
+                {
+                    IdempotencyKey = "landing-1",
+                    Kind = FactKinds.LandingProposal,
+                    Digest = new string('c', 64),
+                    ObservedAt = new DateTimeOffset(2026, 10, 10, 1, 41, 20, TimeSpan.Zero),
+                    Landing = new LandingProposal
+                    {
+                        Title = "Investigate 18492: add role=button to 2 residual sites",
+                        Description = "Asked: close 2 open issues.\n\nApproach: add role=button to both.",
+                    },
+                },
+            },
+        ],
+    };
+
+    [Test]
+    public async Task Turning_to_the_tab_is_what_asks_for_its_facts()
+    {
+        // REPORTED FROM USE: the recorded tab showed no facts for any flight.
+        // The read started only on ShowFlightFacts, which no key and no click
+        // sends - `v` and the tab bar both reduce NextFlightTab - and the tab
+        // said "press for its facts" about a press nobody could make.
+        await Assert.That(FlightDetails.FactsOwed(Opened())).IsEqualTo("GG-42")
+            .Because("a tab showing nothing it has not read owes the read, whichever way a "
+                   + "person turned to it.");
+
+        await Assert.That(FlightDetails.FactsOwed(Opened(Recorded()))).IsNull()
+            .Because("facts already held for this flight are not asked for again.");
+
+        await Assert.That(FlightDetails.FactsOwed(Opened() with { ReadInFlight = true })).IsNull()
+            .Because("one read runs at a time and a second abandons the first, so asking while "
+                   + "the story is still coming would drop the story.");
+
+        await Assert.That(FlightDetails.FactsOwed(Opened() with { FlightTab = FlightTab.Details }))
+            .IsNull()
+            .Because("facts are large and rarely read, so only the tab that shows them asks.");
+    }
+
+    [Test]
+    public async Task The_absence_names_no_key_that_does_not_exist()
+    {
+        var text = PaneText.Modal(Opened());
+
+        await Assert.That(text).DoesNotContain("Press for its facts")
+            .Because("no key sends ShowFlightFacts, so a sentence asking for that press sends "
+                   + "a person looking for something that is not there.");
+    }
+
+    [Test]
+    public async Task Another_flights_facts_are_never_drawn_under_this_one()
+    {
+        // ONE SLOT, MANY FLIGHTS. The facts are held with the flight they belong
+        // to, and the tab drew them without reading it - so the second flight
+        // opened showed the first one's record under its own title.
+        var elsewhere = Recorded() with { FlightNumber = "GG-7" };
+
+        var text = PaneText.Modal(Opened(elsewhere));
+
+        await Assert.That(text).DoesNotContain("Custom.HAL")
+            .Because("GG-7's proposal is not something GG-42 recorded.");
+
+        await Assert.That(FlightDetails.FactsOwed(Opened(elsewhere))).IsEqualTo("GG-42")
+            .Because("holding another flight's facts is holding none of this one's.");
+    }
+
+    [Test]
+    public async Task A_landing_shows_its_title_and_the_analysis_beneath_it()
+    {
+        // AN INVESTIGATE FLIGHT'S WHOLE RESULT. Its destination opens nothing,
+        // so the landing it proposed is the only place its analysis exists, and
+        // a row naming the kind and nothing else showed a flight with no result.
+        var text = PaneText.Modal(Opened(ALanding()));
+
+        await Assert.That(text).Contains("Investigate 18492: add role=button to 2 residual sites");
+        await Assert.That(text).Contains("Approach: add role=button to both.")
+            .Because("the description is the analysis, and a title alone is a headline over "
+                   + "nothing.");
     }
 }

@@ -37,7 +37,7 @@ public class AStartedSessionCarriesThePersonsCredentialTests
     public async Task A_new_session_is_preceded_by_the_credential_minted_for_its_id()
     {
         var (fixture, link, delegated) = Machine();
-        using var _ = fixture;
+        using var owned = fixture;
 
         var opened = fixture.Mux.OpenRemote(Vm2, sessionId: null, alive: false);
 
@@ -55,7 +55,7 @@ public class AStartedSessionCarriesThePersonsCredentialTests
     public async Task A_resumed_session_carries_one_too()
     {
         var (fixture, link, _) = Machine();
-        using var __ = fixture;
+        using var owned = fixture;
 
         _ = fixture.Mux.OpenRemote(Vm2, "ended-1", alive: false);
 
@@ -66,7 +66,7 @@ public class AStartedSessionCarriesThePersonsCredentialTests
     public async Task An_attach_carries_none()
     {
         var (fixture, link, delegated) = Machine();
-        using var _ = fixture;
+        using var owned = fixture;
 
         _ = fixture.Mux.OpenRemote(Vm2, "live", alive: true);
 
@@ -78,7 +78,7 @@ public class AStartedSessionCarriesThePersonsCredentialTests
     public async Task Without_a_way_to_mint_one_the_session_starts_without_it()
     {
         var (fixture, link, _) = Machine(delegates: false);
-        using var _2 = fixture;
+        using var owned = fixture;
 
         var opened = fixture.Mux.OpenRemote(Vm2, sessionId: null, alive: false);
 

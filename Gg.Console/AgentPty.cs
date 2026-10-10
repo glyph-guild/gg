@@ -214,4 +214,10 @@ public sealed class RemotePty : IAgentPty
 public sealed record RemoteMachine(string Id, string Name);
 
 /// <summary>A link to a machine's sessions, or why there is not one.</summary>
-public sealed record RemoteReach(IAgentLink? Link, string? Refused);
+/// <param name="Delegation">
+/// Mints the credential that lets the session started next act as this person, given its id,
+/// or answers null when the control plane will not (ADR-0039 Amendment 2). The composition
+/// root's, because only it may name the control plane; null starts every session without one.
+/// </param>
+public sealed record RemoteReach(
+    IAgentLink? Link, string? Refused, Func<string, Gg.Contracts.DelegateAgentSession?>? Delegation = null);

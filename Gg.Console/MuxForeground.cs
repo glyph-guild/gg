@@ -71,7 +71,7 @@ public sealed partial class Mux
             return new(null, $"gg holds {MuxColumn.Most} agents at most. End one first.");
         }
 
-        var (reached, unreached) = Reach(machine);
+        var (reached, unreached, delegation) = Reach(machine);
         if (reached is not { } link)
         {
             return new(null, unreached);
@@ -85,7 +85,7 @@ public sealed partial class Mux
                 SessionId = sessionId, StartedAt = DateTimeOffset.MinValue, Alive = alive, Directory = directory,
             };
 
-        var (shown, refused) = Open(machine, link, pty, session, directory);
+        var (shown, refused) = Open(machine, link, pty, session, directory, delegation);
         if (shown is null)
         {
             pty.Dispose();
@@ -102,7 +102,7 @@ public sealed partial class Mux
     {
         ArgumentNullException.ThrowIfNull(machine);
 
-        var (reached, unreached) = Reach(machine);
+        var (reached, unreached, _) = Reach(machine);
         if (reached is not { } link)
         {
             return unreached;
@@ -129,17 +129,18 @@ public sealed partial class Mux
     }
 
     /// <summary>A link to the machine, or why there is none.</summary>
-    private (Gg.Client.IAgentLink? Link, string? Refused) Reach(RemoteMachine machine)
+    private (Gg.Client.IAgentLink? Link, string? Refused, Func<string, DelegateAgentSession?>? Delegation) Reach(
+        RemoteMachine machine)
     {
         if (_reach is null)
         {
-            return (null, "This console cannot reach machines.");
+            return (null, "This console cannot reach machines.", null);
         }
 
         var reached = _reach(machine);
         return reached.Link is { } link
-            ? (link, null)
-            : (null, reached.Refused ?? $"{machine.Name} could not be reached.");
+            ? (link, null, reached.Delegation)
+            : (null, reached.Refused ?? $"{machine.Name} could not be reached.", null);
     }
 
     /// <summary>
@@ -681,7 +682,7 @@ public sealed partial class Mux
             .FirstOrDefault(s => s.SessionId == sessionId)
             ?? new AgentSessionStanding { SessionId = sessionId, StartedAt = DateTimeOffset.MinValue, Alive = false };
 
-        var (shown, refused) = Open(machine, link, pty, held, directory);
+        var (shown, refused) = Open(machine, link, pty, held, directory, reached.Delegation);
         if (shown is null)
         {
             pty.Dispose();
@@ -695,7 +696,12 @@ public sealed partial class Mux
     /// and puts it on a row - or answers the machine's refusal.
     /// </summary>
     private (int? Shown, string? Refused) Open(
-        RemoteMachine machine, Gg.Client.IAgentLink link, RemotePty pty, AgentSessionStanding? session, string? directory)
+        RemoteMachine machine,
+        Gg.Client.IAgentLink link,
+        RemotePty pty,
+        AgentSessionStanding? session,
+        string? directory,
+        Func<string, DelegateAgentSession?>? delegation = null)
     {
         var (columns, rows) = PaneSize();
 
@@ -708,6 +714,14 @@ public sealed partial class Mux
                 SessionId = session?.SessionId ?? Guid.NewGuid().ToString(),
                 Directory = directory ?? session?.Directory,
             };
+
+        // THE PERSON'S CREDENTIAL, FIRST, for a start: the machine hands it to the next start
+        // on this channel. Never for an attach - that agent's environment was set when it began
+        // (ADR-0039 Amendment 2).
+        if (ask is StartAgentSession { SessionId: { } starting } && delegation?.Invoke(starting) is { } delegated)
+        {
+            link.Send(delegated);
+        }
 
         var answer = Ask<AgentFrame>(link, ask, f => f is AgentSessionStarted or AgentSessionRefused);
 

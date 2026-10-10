@@ -507,6 +507,12 @@ public sealed record LeaseLoop
     /// </remarks>
     public IReadOnlyList<string>? Produces { get; init; }
 
+    /// <summary>The definitions of the MCP servers this loop names, or null when it names none.</summary>
+    public IReadOnlyList<McpServer>? McpServers { get; init; }
+
+    /// <summary>Which of those servers this loop uses, and the tools it may call on each.</summary>
+    public IReadOnlyList<LoopMcp>? Mcp { get; init; }
+
     /// <summary>
     /// What the last attempt tried and ruled out, for a loop resuming its work.
     /// </summary>

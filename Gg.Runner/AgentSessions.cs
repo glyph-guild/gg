@@ -7,13 +7,18 @@ namespace Gg.Runner;
 /// <param name="SessionId">The id the agent is started with, so it can be resumed by it.</param>
 /// <param name="Resume">Whether to carry an ended conversation on rather than start one.</param>
 /// <param name="Environment">What goes in the child's environment: the agent's own token, never an argument.</param>
+/// <param name="Tools">
+/// Whether a person delegated a credential to this session, so it is started with gg's tool
+/// servers, which act through it (ADR-0039 Amendment 2).
+/// </param>
 public sealed record AgentSessionStart(
     string Directory,
     int Columns,
     int Rows,
     string SessionId,
     bool Resume,
-    IReadOnlyDictionary<string, string> Environment);
+    IReadOnlyDictionary<string, string> Environment,
+    bool Tools = false);
 
 /// <summary>
 /// Starts the machine's agent in a terminal of its own.
@@ -77,14 +82,27 @@ public interface IAgentViewer
 /// </remarks>
 /// <param name="home">Where session directories and the ledger live; made on first use.</param>
 /// <param name="transcripts">Where Claude keeps conversations by directory; the user's <c>~/.claude/projects</c> when null.</param>
+/// <param name="controlPlane">The control plane a delegated session's tools talk to.</param>
+/// <param name="revoke">Revokes a delegated credential once its session's agent has ended.</param>
 public sealed class AgentSessions(
     IHostAgentSessions host,
     string home,
     Func<bool> flying,
     Func<DateTimeOffset> now,
     Func<IReadOnlyDictionary<string, string>>? environment = null,
-    string? transcripts = null) : IDisposable
+    string? transcripts = null,
+    string? controlPlane = null,
+    Func<string, Task>? revoke = null) : IDisposable
 {
+    /// <summary>Where a delegated credential goes in the agent's environment: gg's own session variable.</summary>
+    public const string TokenVariable = "GG_SESSION_TOKEN";
+
+    /// <summary>Where the control plane's address goes beside it, so the tools reach the right one.</summary>
+    public const string ControlPlaneVariable = "GG_CONTROL_PLANE";
+
+    // HELD IN MEMORY, by session, until its agent ends: never in the ledger, never on disk.
+    private readonly Dictionary<string, string> _delegated = new(StringComparer.Ordinal);
+
     /// <summary>How many live sessions one machine holds at once.</summary>
     public const int MostSessions = 3;
 
@@ -124,7 +142,12 @@ public sealed class AgentSessions(
     public sealed record Opened(AgentSession? Session, string? Refused);
 
     /// <summary>Start a new session, or resume an ended one asked for by its id, in its own directory.</summary>
-    public async Task<Opened> StartAsync(StartAgentSession asked, CancellationToken cancellationToken)
+    /// <param name="delegated">
+    /// A person's credential for this session, when the console sent one: handed to the agent's
+    /// environment with gg's tools, and revoked when the agent ends (ADR-0039 Amendment 2).
+    /// </param>
+    public async Task<Opened> StartAsync(
+        StartAgentSession asked, CancellationToken cancellationToken, DelegateAgentSession? delegated = null)
     {
         ArgumentNullException.ThrowIfNull(asked);
 
@@ -164,6 +187,21 @@ public sealed class AgentSessions(
         AgentSessionLedger.Private(_home);
         AgentSessionLedger.Private(directory);
 
+        var handed = new Dictionary<string, string>(environment?.Invoke() ?? new Dictionary<string, string>());
+
+        // A LAPSED CREDENTIAL IS NONE: the agent would start with tools that refuse everything.
+        var token = delegated is { } d && d.ExpiresAt > now() ? d.Token : null;
+
+        if (token is not null)
+        {
+            handed[TokenVariable] = token;
+
+            if (controlPlane is { Length: > 0 } address)
+            {
+                handed[ControlPlaneVariable] = address;
+            }
+        }
+
         var child = await host.StartAsync(
             new AgentSessionStart(
                 directory,
@@ -171,7 +209,8 @@ public sealed class AgentSessions(
                 Math.Max(asked.Rows, 5),
                 sessionId,
                 Resume: ended is not null,
-                environment?.Invoke() ?? new Dictionary<string, string>()),
+                handed,
+                Tools: token is not null),
             cancellationToken);
 
         var started = now();
@@ -181,6 +220,11 @@ public sealed class AgentSessions(
         {
             _sessions.RemoveAll(s => s.Id == sessionId);
             _sessions.Add(session);
+
+            if (token is not null)
+            {
+                _delegated[sessionId] = token;
+            }
             Kept()[sessionId] = new AgentSessionLedger.Kept(sessionId, directory, ended?.StartedAt ?? started, EndedAt: null);
             Save();
         }
@@ -317,12 +361,55 @@ public sealed class AgentSessions(
             session.Kill();
             session.Dispose();
         }
+
+        List<string> held;
+
+        lock (_gate)
+        {
+            held = [.. _delegated.Values];
+            _delegated.Clear();
+        }
+
+        foreach (var token in held)
+        {
+            Revoke(token);
+        }
+    }
+
+    /// <summary>Revokes a delegated credential, best effort: the control plane's heartbeat and the expiry back it up.</summary>
+    private void Revoke(string? token)
+    {
+        if (token is null || revoke is null)
+        {
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await revoke(token);
+            }
+            catch (Exception unreachable) when (unreachable is HttpRequestException or TaskCanceledException
+                                                     or InvalidOperationException)
+            {
+            }
+        });
     }
 
     private static Opened Refused(string because) => new(null, because);
 
     private void Ended(AgentSession session)
     {
+        string? token;
+
+        lock (_gate)
+        {
+            _delegated.Remove(session.Id, out token);
+        }
+
+        Revoke(token);
+
         lock (_gate)
         {
             if (_disposed || !Kept().TryGetValue(session.Id, out var kept))

@@ -76,6 +76,7 @@ public sealed class AgentChannelServer(AgentSessions sessions)
         private readonly Lock _gate = new();
 
         private AgentSession? _session;
+        private DelegateAgentSession? _delegated;
         private IDisposable? _attached;
         private long _queued;
 
@@ -93,10 +94,28 @@ public sealed class AgentChannelServer(AgentSessions sessions)
 
             switch (AgentFrameCodec.Decode(data))
             {
+                // HELD FOR THE NEXT START ON THIS CHANNEL, and taken by it: a credential the
+                // console delegated is for the session it starts next and no other.
+                case DelegateAgentSession delegated:
+                    lock (_gate)
+                    {
+                        _delegated = delegated;
+                    }
+
+                    break;
+
                 case StartAgentSession start:
+                    DelegateAgentSession? handed;
+
+                    lock (_gate)
+                    {
+                        handed = _delegated;
+                        _delegated = null;
+                    }
+
                     _ = Task.Run(async () =>
                     {
-                        var opened = await _sessions.StartAsync(start, CancellationToken.None);
+                        var opened = await _sessions.StartAsync(start, CancellationToken.None, handed);
                         Join(opened, start.Columns, start.Rows);
                     });
                     break;

@@ -19,11 +19,66 @@ public sealed class AgentSessionHost(
     private readonly string _binary = binary;
     private readonly Func<AgentSessionStart, IReadOnlyList<string>> _arguments = arguments ?? ArgumentsFor;
 
-    /// <summary>Started by its id, or resumed by it - and nothing else.</summary>
-    public static IReadOnlyList<string> ArgumentsFor(AgentSessionStart start)
+    /// <summary>
+    /// Started by its id, or resumed by it - and, when a person delegated a credential to it,
+    /// with gg's manage and itinerary tool servers (ADR-0039 Amendment 2).
+    /// </summary>
+    /// <remarks>
+    /// <b>The reads granted, the acts asked each time</b>, as the local gg agent is started
+    /// (<c>Mux.StartManaging</c>). The credential itself is in the environment, never here: an
+    /// argument is visible to anybody who can list processes.
+    /// </remarks>
+    public static IReadOnlyList<string> ArgumentsFor(AgentSessionStart start) =>
+        ArgumentsFor(start, Gg.Local.SelfInvocation.Current);
+
+    /// <summary>The same, given how this binary invokes itself; no tools when it cannot say.</summary>
+    public static IReadOnlyList<string> ArgumentsFor(AgentSessionStart start, Gg.Local.SelfInvocation? self)
     {
         ArgumentNullException.ThrowIfNull(start);
-        return start.Resume ? ["--resume", start.SessionId] : ["--session-id", start.SessionId];
+
+        List<string> argv = start.Resume ? ["--resume", start.SessionId] : ["--session-id", start.SessionId];
+
+        if (start.Tools && self is not null)
+        {
+            argv.Add("--mcp-config");
+            argv.Add(ToolServers(self, start.SessionId));
+            argv.Add("--allowedTools");
+            argv.AddRange(Gg.Local.ManageTool.Reads.Select(Gg.Local.ManageTool.Qualified));
+            argv.AddRange(Gg.Local.PlanningTool.All.Select(Gg.Local.PlanningTool.Qualified));
+        }
+
+        return argv;
+    }
+
+    /// <summary>Both servers under their own keys; the itinerary's draft is named after the session.</summary>
+    private static string ToolServers(Gg.Local.SelfInvocation self, string sessionId)
+    {
+        using var buffer = new MemoryStream();
+        using (var json = new System.Text.Json.Utf8JsonWriter(buffer))
+        {
+            json.WriteStartObject();
+            json.WriteStartObject("mcpServers");
+            Server(Gg.Local.ManageTool.Server, self.Under("manage", "tools"));
+            Server(Gg.Local.PlanningTool.Server, self.Under("itinerary", "tools", "--draft", $"session-{sessionId}"));
+            json.WriteEndObject();
+            json.WriteEndObject();
+
+            void Server(string key, IReadOnlyList<string> arguments)
+            {
+                json.WriteStartObject(key);
+                json.WriteString("command", self.Command);
+                json.WriteStartArray("args");
+                foreach (var argument in arguments)
+                {
+                    json.WriteStringValue(argument);
+                }
+
+                json.WriteEndArray();
+                json.WriteEndObject();
+            }
+        }
+
+        return System.Text.Encoding.UTF8.GetString(buffer.ToArray());
     }
 
     public async Task<IAgentSessionChild> StartAsync(AgentSessionStart start, CancellationToken cancellationToken)

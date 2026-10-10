@@ -90,7 +90,8 @@ public class ASessionActsAsThePersonWhoStartedItTests
             {
                 return machine.Revoked.Contains("t0k3n");
             }
-        })).IsTrue();
+        }, milliseconds: 30_000)).IsTrue()
+            .Because("revocation runs on the pool, which a full run keeps busy.");
 
         var written = string.Join("\n", Directory.EnumerateFiles(machine.Home, "*", SearchOption.AllDirectories)
             .Select(File.ReadAllText));

@@ -21,7 +21,7 @@ public class AMachineSaysItTakesADelegationTests
             Body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent("{}", Encoding.UTF8, "application/json"),
+                Content = new StringContent("""{"nextHeartbeatSeconds":30}""", Encoding.UTF8, "application/json"),
             };
         }
     }

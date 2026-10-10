@@ -154,6 +154,28 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
         response.EnsureSuccessStatusCode();
     }
 
+    /// <summary>
+    /// Revokes a session a person delegated to one of this machine's agent sessions, once that
+    /// agent has ended (ADR-0039 Amendment 2, Decision 14): logout revokes whatever session
+    /// presents itself, so the credential is its own authority to end.
+    /// </summary>
+    public async Task RevokeDelegationAsync(string token, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+
+        // THE VERSION HEADERS, AND THE DELEGATED SESSION IN PLACE OF THIS RUNNER'S TOKEN:
+        // it is the session that is ended, so it is the session that asks.
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/v1/auth/logout");
+        request.Headers.TryAddWithoutValidation(ProtocolSurface.ProtocolHeader, ProtocolSurface.Revision.ToString());
+        request.Headers.TryAddWithoutValidation(ProtocolSurface.RunnerVersionHeader, _binaryVersion);
+        request.Headers.TryAddWithoutValidation(ProtocolSurface.FactVocabularyHeader, FactVocabulary);
+        request.Headers.TryAddWithoutValidation(ProtocolSurface.SessionHeader, token);
+
+        // NOTHING TO DO WITH THE ANSWER: already revoked and expired are both done, and the
+        // control plane's heartbeat backstop covers a revocation that never arrived.
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+    }
+
     public async Task<HeartbeatAccepted> HeartbeatAsync(
         string runnerId,
         IReadOnlyList<string> labels,
@@ -170,6 +192,10 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
                 AcceptsConfiguration = acceptsConfiguration,
                 AcceptsAgentSessions = acceptsAgentSessions,
                 AgentSessions = agentSessions,
+
+                // EVERY MACHINE THAT TAKES SESSIONS ON THIS BUILD hands one a delegated
+                // credential (ADR-0039 Amendment 2), so the two are said together.
+                TakesAgentDelegation = acceptsAgentSessions is true ? true : null,
             },
             RunnerJsonContext.Default.RunnerHeartbeat);
 

@@ -313,9 +313,14 @@ public static class Rows
     /// <b>Headed, because `digest' with no header over it is a word nobody can
     /// read.</b> The tab used to be a block of fixed-width text with no header
     /// row, and the third column was the one a reader had to be told about.
+    /// <para>
+    /// <b>The prose last.</b> The last column takes whatever width is left and
+    /// is the one cut when there is not enough; with `what it says' third, the
+    /// pty showed `kept as' pushed off the edge entirely.
+    /// </para>
     /// </remarks>
     public static IReadOnlyList<string> FactColumns { get; } =
-        ["at", "kind", "what it says", "kept as"];
+        ["at", "kind", "kept as", "what it says"];
 
     /// <summary>
     /// What the flight recorded, one row per fact, with the result first.

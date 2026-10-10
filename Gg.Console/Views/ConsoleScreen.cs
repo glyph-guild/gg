@@ -6547,7 +6547,7 @@ public sealed class ConsoleScreen : Window
                     ? null
                     : new DataTableSource(CollectionViews.Rows(
                         Rows.FactColumns,
-                        [.. rows.Select(r => new[] { r.At, r.Kind, r.Says, r.Kept })])));
+                        [.. rows.Select(r => new[] { r.At, r.Kind, r.Kept, r.Says })])));
 
             if (rows.Count > 0)
             {

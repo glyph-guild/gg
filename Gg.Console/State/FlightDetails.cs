@@ -551,12 +551,27 @@ public static class FlightDetails
         // EACH AUTHORED LINE ON ITS OWN, then wrapped. What somebody wrote with
         // a break in it keeps the break: joining first would turn a two-line
         // note into one paragraph and lose the shape they gave it.
-        return
-        [
-            .. text.Split('\n').SelectMany(line => line.Length == 0
-                ? (IEnumerable<string>)[""]
-                : Rows.Wrapped(line, width)),
-        ];
+        return [.. text.Split('\n').SelectMany(line => Indented(line, width))];
+    }
+
+    /// <summary>One authored line, broken to a width under its own indent.</summary>
+    /// <remarks>
+    /// <b>The indent is kept, and what wraps hangs beneath it.</b> The wrap
+    /// splits on spaces and so dropped leading ones entirely - measured in a pty,
+    /// a fact's JSON drew flat and its nesting could not be read. Capped at half
+    /// the width, so a deeply nested line still has room for its words.
+    /// </remarks>
+    private static IEnumerable<string> Indented(string line, int width)
+    {
+        if (line.Trim().Length == 0)
+        {
+            return [""];
+        }
+
+        var indent = Math.Min(line.Length - line.TrimStart(' ').Length, width / 2);
+        var pad = new string(' ', indent);
+
+        return Rows.Wrapped(line.TrimStart(' '), Math.Max(1, width - indent)).Select(l => pad + l);
     }
 
     /// <summary>What the pane says when the entry under the cursor said nothing more.</summary>
@@ -662,10 +677,12 @@ public static class FlightDetails
         var fact = recorded.Fact;
         var text = new StringBuilder();
 
-        text.AppendLine($"kind        {ControlText.Strip(fact.Kind)}");
-        text.AppendLine($"observed    {fact.ObservedAt:u}  (the runner's clock)");
-        text.AppendLine($"recorded    {recorded.RecordedAt:u}  (the control plane's)");
-        text.AppendLine($"kept as     {ControlText.Strip(recorded.Disposition)} - {KeptAs(recorded.Disposition)}");
+        // LABELLED WITH A COLON, not aligned with spaces: the pane's wrap folds a
+        // run of spaces into one, so a column made of them read as nothing.
+        text.AppendLine($"kind: {ControlText.Strip(fact.Kind)}");
+        text.AppendLine($"observed: {fact.ObservedAt:u} (the runner's clock)");
+        text.AppendLine($"recorded: {recorded.RecordedAt:u} (the control plane's)");
+        text.AppendLine($"kept as: {ControlText.Strip(recorded.Disposition)} - {KeptAs(recorded.Disposition)}");
 
         if (fact.Landing is { } landing)
         {
@@ -760,7 +777,7 @@ public static class FlightDetails
 
         var text = new StringBuilder();
 
-        foreach (var line in (node?.ToJsonString(Indented) ?? "{}").Split('\n'))
+        foreach (var line in (node?.ToJsonString(IndentedJson) ?? "{}").Split('\n'))
         {
             text.AppendLine(ControlText.Strip(line.TrimEnd()));
         }
@@ -768,7 +785,7 @@ public static class FlightDetails
         return text.ToString();
     }
 
-    private static readonly System.Text.Json.JsonSerializerOptions Indented = new()
+    private static readonly System.Text.Json.JsonSerializerOptions IndentedJson = new()
     {
         WriteIndented = true,
         // THE PROSE AS WRITTEN. The default escapes quotes and every non-ASCII

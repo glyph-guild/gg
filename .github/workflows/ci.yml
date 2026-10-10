@@ -26,14 +26,14 @@ on:
 jobs:
   dotnet:
     name: dotnet
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       # FULL HISTORY, because UnreadMemberTests reads a commit through
       # `git show`. actions/checkout defaults to depth 1, and the retro test
       # FAILS rather than skipping on purpose - a control that quietly passed
       # when it could not read history would be the exact thing this scan was
       # written to catch. So the fetch changes and the test does not.
-      - uses: actions/checkout@v4
+      - uses: useblacksmith/checkout@v1
         with:
           fetch-depth: 0
       - uses: actions/setup-dotnet@v4
@@ -66,9 +66,9 @@ jobs:
 
   aot:
     name: aot
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
-      - uses: actions/checkout@v4
+      - uses: useblacksmith/checkout@v1
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
@@ -126,9 +126,9 @@ jobs:
   # the host runs" - so this installs the package and types the command.
   tool:
     name: tool
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
-      - uses: actions/checkout@v4
+      - uses: useblacksmith/checkout@v1
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
@@ -157,7 +157,7 @@ jobs:
     name: CI
     needs: [dotnet, aot, tool]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: All required jobs succeeded
         run: |

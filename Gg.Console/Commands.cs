@@ -157,6 +157,12 @@ public enum Command
     /// </remarks>
     LoadMoreSweeps,
 
+    /// <summary>The next page of work items, under the intents tab's listing.</summary>
+    /// <remarks>
+    /// Asked of the tracker with the same narrowing the first page was, which the listing keeps.
+    /// </remarks>
+    LoadMoreIntents,
+
     /// <summary>Cross between the board's two tables, nominations and sweeps.</summary>
     /// <remarks>
     /// A reducer step and nothing else: both tables are already on screen and

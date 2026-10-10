@@ -90,6 +90,10 @@ public static class ConsoleBrowsing
         }
     }
 
+    /// <summary>What to fold once the next page of work items has landed.</summary>
+    public static Func<AppState, AppState> MorePatch(IWorkBrowser? browser, AppState state) =>
+        current => current;
+
     /// <summary>One item: what it says, and what has happened to it.</summary>
     /// <remarks>
     /// <b>Both, and the item first.</b> What it IS comes before what has

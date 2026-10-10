@@ -61,6 +61,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(RunnerReservationRequest))]
 [JsonSerializable(typeof(RunnerReserved))]
 [JsonSerializable(typeof(RunnerList))]
+[JsonSerializable(typeof(RunnerFlightList))]
 // NEW HERE, and its absence was the restriction showing through: a person
 // could never post a reading, so this context never needed to write one. The
 // runner's own context has had it since the reading shipped.
@@ -1568,6 +1569,25 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(ProtocolJsonContext.Default.RunnerList, cancellationToken)
             ?? throw new InvalidOperationException("Control plane returned no runner list.");
+    }
+
+    /// <summary>
+    /// A runner's recent flights, newest first: what Remote Control's runner screen shows
+    /// beside the flight the fleet read names (slice seventy-one).
+    /// </summary>
+    public async Task<RunnerFlightList> RunnerFlightsAsync(
+        string sessionToken, string runnerId, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(runnerId);
+
+        using var request = Request(
+            HttpMethod.Get, $"/v1/runners/{Uri.EscapeDataString(runnerId)}/flights", sessionToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync(ProtocolJsonContext.Default.RunnerFlightList, cancellationToken)
+            ?? throw new InvalidOperationException("Control plane returned no flights.");
     }
 
     /// <summary>

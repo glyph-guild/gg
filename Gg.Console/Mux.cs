@@ -92,7 +92,7 @@ public sealed partial class Mux
         lock (_lock)
         {
             return [.. _agents.Select((agent, at) =>
-                new MuxRow(at + 1, agent.Label, now - agent.Started, agent.Changed, MuxActivity.Read(agent.Activity)))];
+                new MuxRow(at + 1, agent.Name, now - agent.Started, agent.Changed, MuxActivity.Read(agent.Activity)))];
         }
     }
 
@@ -251,7 +251,8 @@ public sealed partial class Mux
         var exited = Start(label, parts[0], arguments, workingDirectory, Panel,
             (gesture, typed) => gesture == HostedGesture.Typed && typed.Length == 1 && typed.Span[0] == HostedBar.Prefix,
             ending: state => state,
-            sessionId: resume);
+            sessionId: resume,
+            titled: true);
         return exited;
     }
 
@@ -335,7 +336,8 @@ public sealed partial class Mux
         HostPanel panel,
         HostTook took,
         Func<AppState, AppState>? ending,
-        string? sessionId = null)
+        string? sessionId = null,
+        bool titled = false)
     {
         var terminal = Terminal();
         var columns = Math.Max((terminal?.Columns ?? 120) - MuxColumn.Width, 20);
@@ -380,7 +382,7 @@ public sealed partial class Mux
         var agent = new MuxAgent(
             Interlocked.Increment(ref _ids), label, id, _clock(), pty,
             new XTermTerminal(new TerminalOptions { Cols = columns, Rows = rows }),
-            panel, took, columns, rows, activity);
+            panel, took, columns, rows, activity, titled);
 
         lock (_lock)
         {
@@ -459,6 +461,7 @@ public sealed class MuxAgent
     private readonly TaskCompletionSource<int> _exited = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private volatile bool _changed;
     private volatile bool _shown;
+    private readonly bool _titled;
 
     internal MuxAgent(
         int id,
@@ -471,9 +474,11 @@ public sealed class MuxAgent
         HostTook took,
         int columns,
         int rows,
-        string? activity = null)
+        string? activity = null,
+        bool titled = false)
     {
         Id = id;
+        _titled = titled;
         Activity = activity;
         Label = label;
         SessionId = sessionId;
@@ -494,6 +499,30 @@ public sealed class MuxAgent
     public string? SessionId { get; }
 
     public DateTimeOffset Started { get; }
+
+    /// <summary>
+    /// What its row says: the title a plain Claude Code session set for itself (owner,
+    /// 2026-10-09), or the label it was launched under. A plan keeps its label, which names the
+    /// draft it works on.
+    /// </summary>
+    public string Name
+    {
+        get
+        {
+            if (!_titled)
+            {
+                return Label;
+            }
+
+            string? title;
+            lock (Screen)
+            {
+                title = Emulator.Title;
+            }
+
+            return MuxTitle.Of(title) ?? Label;
+        }
+    }
 
     /// <summary>The state file its hooks write what it is doing to, when it has hooks.</summary>
     public string? Activity { get; }

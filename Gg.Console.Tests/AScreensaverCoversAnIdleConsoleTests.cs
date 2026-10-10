@@ -218,4 +218,25 @@ public class AScreensaverCoversAnIdleConsoleTests
         await Assert.That(LoadingArt.Of(LoadingArt.Breath, Screensaver.Breath))
             .IsNotEquivalentTo(LoadingArt.Of(LoadingArt.Breath));
     }
+
+    [Test]
+    public async Task In_the_mux_it_covers_the_column_too()
+    {
+        // THE OWNER, 2026-10-10: "when it is embedded in the mux, the screensaver should
+        // be fullscreen (and also takeover the sidebar)". The mark covered every view in
+        // the console's content, and the mux's column lives in the window's PADDING - so
+        // it stayed lit beside a screen that had gone dark.
+        var awake = new AppState();
+        var screening = awake with { Screening = true };
+
+        await Assert.That(MuxColumn.Shown(awake)).IsTrue();
+        await Assert.That(MuxColumn.Room(awake)).IsEqualTo(MuxColumn.Width);
+
+        await Assert.That(MuxColumn.Shown(screening)).IsFalse()
+            .Because("a screensaver with the sidebar still lit beside it is a console with a "
+                   + "picture on half of it.");
+        await Assert.That(MuxColumn.Room(screening)).IsEqualTo(0)
+            .Because("the column's room is given back, so the mark is centred on the whole "
+                   + "terminal rather than on what the column left.");
+    }
 }

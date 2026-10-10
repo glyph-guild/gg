@@ -55,6 +55,12 @@ public static class MuxColumn
     /// <summary>How wide the column is, in columns.</summary>
     public const int Width = 30;
 
+    /// <summary>Whether the column is drawn. Stub: always.</summary>
+    public static bool Shown(AppState state) => true;
+
+    /// <summary>How much room the column takes. Stub: always its width.</summary>
+    public static int Room(AppState state) => Width;
+
     /// <summary>The most agents the mux holds: <c>1</c>-<c>9</c>, one key each.</summary>
     public const int Most = 9;
 

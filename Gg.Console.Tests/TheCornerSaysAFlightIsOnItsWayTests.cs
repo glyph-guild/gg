@@ -30,7 +30,7 @@ public class TheCornerSaysAFlightIsOnItsWayTests
 
     private static AppState Picked() =>
         Reducer.Browsed(
-            new AppState { BrowseVisible = true, ActiveTab = TabId.Intents },
+            ConsoleDoubles.KnowsNoKinds(new AppState { BrowseVisible = true, ActiveTab = TabId.Intents }),
             "a-tracker",
             new BrowseOutcome.Listed(new WorkItemPage(
                 [new WorkItemSummary("18398", "A draft job fails", "New", "", null)], null)));
@@ -182,6 +182,11 @@ public class TheCornerSaysAFlightIsOnItsWayTests
 
         var pressed = Pressed(new ConsoleDoubles.Records());
 
+        // A LAUNCH TO SEND, OR THE WAIT BELOW NEVER ENDS. A press that asked
+        // for nothing starts nothing, and Landed would stay false for ever -
+        // which is how this class once spun a test process at two cores.
+        await Assert.That(pressed.Launches).Count().IsEqualTo(1);
+
         launcher.Start(pressed);
         launcher.Start(pressed);
 
@@ -206,6 +211,9 @@ public class TheCornerSaysAFlightIsOnItsWayTests
     {
         var launcher = new Launcher(_ => throw new InvalidOperationException("the wire fell over"));
         var pressed = Pressed(new ConsoleDoubles.Records());
+
+        // THE SAME GUARD, for the same never-ending wait.
+        await Assert.That(pressed.Launches).Count().IsEqualTo(1);
 
         launcher.Start(pressed);
         while (!launcher.Landed)

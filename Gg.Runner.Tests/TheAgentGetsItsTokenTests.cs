@@ -100,16 +100,20 @@ public partial class TheAgentGetsItsTokenTests
     [Test]
     public async Task And_not_into_its_arguments_or_the_tool_servers_configuration()
     {
-        // The arguments include the --mcp-config JSON, which carries the
-        // TRACKER's secret in its env block; the agent's must not be beside it.
+        // The --mcp-config file carries the TRACKER's secret in its env block;
+        // the agent's must not be beside it, and neither may be an argument.
         var info = ClaudeCodeExecutor.StartInfoFor(
             Request(), [Tracker], secret: "jira-secret", Self, agent: Claude, token: Token);
 
         var arguments = string.Join("\n", info.ArgumentList);
+        var configuration = McpLaunch.ConfigText([.. info.ArgumentList]);
 
         await Assert.That(arguments).DoesNotContain(Token)
             .Because("an argument is readable by every `ps` on the host.");
-        await Assert.That(arguments).Contains("jira-secret")
+        await Assert.That(configuration).DoesNotContain(Token);
+        await Assert.That(arguments).DoesNotContain("jira-secret")
+            .Because("the tool servers' configuration is a file, not an argument (S72.5-03).");
+        await Assert.That(configuration).Contains("jira-secret")
             .Because("the anchor: the tracker's secret still travels in the server's env "
                    + "block, so the assertion above is about placement rather than "
                    + "about secrets being absent from arguments in general.");

@@ -58,6 +58,11 @@ internal static class McpLaunch
     public static string ConfigPath(IReadOnlyList<string> arguments) =>
         arguments[arguments.ToList().IndexOf("--mcp-config") + 1];
 
+    /// <summary>The configuration's text, read from the file the launch names.</summary>
+    /// <remarks>Left in place, because a test may read it more than once; it is a temporary file.</remarks>
+    public static string ConfigText(IReadOnlyList<string> arguments) =>
+        File.ReadAllText(ConfigPath(arguments));
+
     /// <summary>The configuration the agent binary is handed, read from its file.</summary>
     public static JsonElement Servers(IReadOnlyList<string> arguments)
     {

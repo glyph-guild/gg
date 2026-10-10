@@ -2561,6 +2561,11 @@ public sealed class RunnerLoop(
             // agent's token, which gg puts there for reasons a tenant document
             // cannot know about.
             Variables = loop.Variables ?? [],
+            // AND THE EXTERNAL MCP SERVERS THE LOOP NAMES (ADR-0040), copied off
+            // the lease as they came. The middle of a feature is where they went
+            // missing before: variables reached the lease and stopped here.
+            McpServers = loop.McpServers ?? [],
+            Mcp = loop.Mcp ?? [],
 
             // AND WHERE ITS STACK RUNS, so the agent's DOCKER_HOST points at the
             // daemon this flight was granted rather than at whatever this

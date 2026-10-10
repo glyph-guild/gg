@@ -137,7 +137,12 @@ public class TheRecordedTabIsATableTests
     public async Task The_table_says_what_each_column_is()
     {
         await Assert.That(Rows.FactColumns).IsEquivalentTo(
-            (string[])["at", "kind", "what it says", "kept as"]);
+            (string[])["at", "kind", "kept as", "what it says"]);
+
+        // THE PROSE LAST, measured in the pty: with `what it says' third it took
+        // the rest of the width and pushed `kept as' off the right edge, so the
+        // one column a reader had to be told about was the one they never saw.
+        await Assert.That(Rows.FactColumns[^1]).IsEqualTo("what it says");
     }
 
     [Test]
@@ -182,6 +187,27 @@ public class TheRecordedTabIsATableTests
         await Assert.That(lines.All(l => l.Length <= 60)).IsTrue()
             .Because("broken to the pane's width here, so nothing wraps back to column zero "
                    + "under an indented line.");
+    }
+
+    [Test]
+    public async Task What_it_carries_keeps_its_indentation_when_it_is_broken()
+    {
+        // MEASURED IN THE PTY: the wrap treated leading spaces as nothing, so the
+        // fact's JSON drew flat - `"loop": {' and its members all at column one -
+        // and nesting was unreadable. An authored indent is kept, and a line
+        // broken under it hangs at the same indent.
+        var lines = FlightDetails.FactDetailLines(Opened(selected: 1), width: 50);
+
+        var member = lines.First(l => l.TrimStart().StartsWith("\"loopId\"", StringComparison.Ordinal));
+
+        await Assert.That(member).StartsWith("    \"loopId\"")
+            .Because("loopId is a member of loop, which is a member of the fact: two levels in.");
+
+        var reason = lines.ToList().FindIndex(l => l.TrimStart().StartsWith("\"reason\"", StringComparison.Ordinal));
+
+        await Assert.That(lines[reason + 1]).StartsWith("    ")
+            .Because("a member too long for the pane continues under itself, not at the edge.");
+        await Assert.That(lines.All(l => l.Length <= 50)).IsTrue();
     }
 
     [Test]

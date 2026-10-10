@@ -638,6 +638,11 @@ public static class FlightDetails
     /// say; this draws the half a person reads first, and <c>gg facts --json</c>
     /// is how somebody gets all of it.
     /// </remarks>
+    /// <summary>
+    /// The flight whose facts the tab owes a read, or null when it owes none.
+    /// </summary>
+    public static string? FactsOwed(AppState state) => null;
+
     private static string FactSays(FactEnvelope fact) => fact switch
     {
         { Transcript: { } t } => $"{t.Bytes} bytes, {t.Scope} at {t.Locator}",

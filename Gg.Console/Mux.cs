@@ -99,8 +99,14 @@ public sealed partial class Mux
     /// <summary>The live agents' labels, in row order.</summary>
     public IReadOnlyList<string> Labels() => [.. Rows().Select(row => row.Label)];
 
-    /// <summary>The labels of the agents quitting gg ends.</summary>
-    public IReadOnlyList<string> QuitEnds() => Labels();
+    /// <summary>The labels of the agents quitting gg ends: its own children, not a session elsewhere.</summary>
+    public IReadOnlyList<string> QuitEnds()
+    {
+        lock (_lock)
+        {
+            return [.. _agents.Where(agent => !agent.OutlivesTheConsole).Select(agent => agent.Name)];
+        }
+    }
 
     /// <summary>The agent on row <paramref name="number"/>, from 1.</summary>
     internal MuxAgent? Agent(int number)
@@ -465,7 +471,10 @@ public sealed partial class Mux
         return agent;
     }
 
-    /// <summary>Ends every agent: quitting gg, asked first, ends them.</summary>
+    /// <summary>
+    /// Quitting gg: ends every agent that is its child, asked first, and lets go of a
+    /// session on another machine, which keeps running there.
+    /// </summary>
     public void EndAll()
     {
         MuxAgent[] all;
@@ -476,7 +485,7 @@ public sealed partial class Mux
 
         foreach (var agent in all)
         {
-            agent.Kill();
+            agent.Leave();
         }
 
         foreach (var agent in all)
@@ -678,6 +687,20 @@ public sealed class MuxAgent
             }
 
             return text.ToString();
+        }
+    }
+
+    /// <summary>Whether it keeps running when gg quits.</summary>
+    internal bool OutlivesTheConsole => _pty.OutlivesTheConsole;
+
+    internal void Leave()
+    {
+        try
+        {
+            _pty.Leave();
+        }
+        catch (Exception failure) when (failure is IOException or InvalidOperationException or ObjectDisposedException)
+        {
         }
     }
 

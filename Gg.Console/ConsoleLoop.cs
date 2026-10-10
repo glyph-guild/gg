@@ -424,11 +424,13 @@ public sealed class ConsoleLoop(
             switch (outcome.Exit)
             {
                 case Command.Quit:
-                    // AGENTS LIVE, SO QUITTING ASKS, NAMING THEM: quitting gg ends them.
-                    if (mux is { Any: true } && !asked)
+                    // AGENTS LIVE, SO QUITTING ASKS, NAMING THEM: quitting gg ends them. A
+                    // session on another machine is let go and keeps running, so it is not
+                    // asked about (ADR-0039 Decision 5).
+                    if (mux is { Any: true } && mux.QuitEnds() is { Count: > 0 } ending && !asked)
                     {
                         quitAsked = true;
-                        state = state with { Diagnosis = MuxColumn.QuitQuestion(mux.Labels()) };
+                        state = state with { Diagnosis = MuxColumn.QuitQuestion(ending) };
                         break;
                     }
 

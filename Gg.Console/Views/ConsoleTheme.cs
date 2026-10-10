@@ -1,5 +1,6 @@
 using Terminal.Gui.Configuration;
 using Terminal.Gui.Drawing;
+using Terminal.Gui.ViewBase;
 
 namespace Gg.Console.Views;
 
@@ -46,6 +47,29 @@ public static class ConsoleTheme
     /// </para>
     /// </remarks>
     public static Color Ground { get; } = new(StandardColor.Onyx);
+
+    /// <summary>
+    /// The shadow a modal casts: a solid dark edge, never the library's
+    /// see-through default.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A transparent shadow flashes, measured in Terminal.Gui 2.5.0.</b> It
+    /// is drawn by reading back the cell under it and dimming that, only in a
+    /// pass where the dialog itself is drawn. So when the queue or a pane
+    /// beneath repaints on a refresh and the dialog does not, the shadow cells
+    /// show the text under them at full brightness (<c>#CCCCCC</c>); the next
+    /// time the dialog draws they go to near-black (<c>#131516</c> on black). A
+    /// person sees the shadow flicker between the two.
+    /// </para>
+    /// <para>
+    /// <b>Opaque is the same dark edge, held.</b> Its margin is excluded from
+    /// what the views beneath may draw over, so their repaints never reach it.
+    /// <c>AModalShadowHoldsStillTests</c> drives both through the library's
+    /// own driver.
+    /// </para>
+    /// </remarks>
+    public static ShadowStyles ModalShadow => ShadowStyles.Opaque;
 
     /// <summary>
     /// The configuration the themes come out of, enabled once per process.

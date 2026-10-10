@@ -326,6 +326,30 @@ internal sealed class AConsolePlane : HttpMessageHandler
                 ProtocolJsonContext.Default.FlightAttribution);
         }
 
+        // A RUNNER'S RECENT FLIGHTS (slice seventy-one): one landed flight, so a
+        // reader can tell a read that answered from one that never happened.
+        if (path.StartsWith("/v1/runners/", StringComparison.Ordinal)
+            && path.EndsWith("/flights", StringComparison.Ordinal))
+        {
+            return JsonSerializer.Serialize(
+                new RunnerFlightList
+                {
+                    Flights =
+                    [
+                        new RunnerFlight
+                        {
+                            FlightId = Id(42),
+                            Number = 42,
+                            Kind = "implement",
+                            State = FlightStates.Landed,
+                            ClaimedAt = T0,
+                            EndedAt = T0.AddMinutes(5),
+                        },
+                    ],
+                },
+                ProtocolJsonContext.Default.RunnerFlightList);
+        }
+
         if (path.EndsWith("/seed", StringComparison.Ordinal))
         {
             return JsonSerializer.Serialize(

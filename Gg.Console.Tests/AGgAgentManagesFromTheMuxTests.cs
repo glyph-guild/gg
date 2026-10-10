@@ -10,7 +10,7 @@ namespace Gg.Console.Tests;
 public class AGgAgentManagesFromTheMuxTests
 {
     [Test]
-    public async Task G_in_the_menu_starts_a_gg_agent_on_its_prompt_and_tools()
+    public async Task Choosing_gg_in_the_menu_starts_a_gg_agent_on_its_prompt_and_tools()
     {
         var root = Directory.CreateTempSubdirectory("gg-manage-agent-");
         var script = Path.Combine(root.FullName, "agent.sh");
@@ -24,7 +24,7 @@ public class AGgAgentManagesFromTheMuxTests
             var showing = fixture.Showing(MuxTab.New);
             await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("manage gg", StringComparison.Ordinal)))
                 .IsTrue();
-            fixture.Terminal.Type("g");
+            await Assert.That(fixture.Choose("manage gg")).IsTrue();
 
             var argvPath = Path.Combine(root.FullName, "argv");
             await Assert.That(MuxFixture.Until(() => File.Exists(argvPath) && File.ReadAllLines(argvPath).Length > 3))

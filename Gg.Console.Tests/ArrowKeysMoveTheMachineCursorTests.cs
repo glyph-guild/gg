@@ -30,8 +30,8 @@ public class ArrowKeysMoveTheMachineCursorTests
         fixture.Mux.Reaching(() => [Vm3, Vm2], _ => new RemoteReach(link, null));
 
         var showing = fixture.Showing(MuxTab.New);
-        await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("another machine", StringComparison.Ordinal))).IsTrue();
-        fixture.Terminal.Type("m");
+        await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("Remote Control", StringComparison.Ordinal))).IsTrue();
+        await Assert.That(fixture.Choose("Remote Control")).IsTrue();
         await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("▸ vmlinux003", StringComparison.Ordinal))).IsTrue();
 
         // ONE KEY AT A TIME, waiting for each to be drawn, as a person types; and read

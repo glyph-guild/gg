@@ -27,11 +27,11 @@ public class TheMuxReachesAMachineTests
         fixture.Mux.Reaching(() => [Vm3, Vm2], machine => new RemoteReach(machine == Vm3 ? link : null, null));
 
         var showing = fixture.Showing(MuxTab.New);
-        await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("another machine", StringComparison.Ordinal)))
+        await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("Remote Control", StringComparison.Ordinal)))
             .IsTrue()
             .Because("the new-agent menu offers it.");
 
-        fixture.Terminal.Type("m");
+        await Assert.That(fixture.Choose("Remote Control")).IsTrue();
         await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("vmlinux002", StringComparison.Ordinal)))
             .IsTrue();
 
@@ -62,8 +62,8 @@ public class TheMuxReachesAMachineTests
         fixture.Mux.Reaching(() => [Vm3], _ => new RemoteReach(link, null));
 
         var showing = fixture.Showing(MuxTab.New);
-        await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("another machine", StringComparison.Ordinal))).IsTrue();
-        fixture.Terminal.Type("m");
+        await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("Remote Control", StringComparison.Ordinal))).IsTrue();
+        await Assert.That(fixture.Choose("Remote Control")).IsTrue();
         await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("vmlinux003", StringComparison.Ordinal))).IsTrue();
         fixture.Terminal.Type("\r");
         await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("a1b2", StringComparison.Ordinal))).IsTrue();
@@ -98,8 +98,8 @@ public class TheMuxReachesAMachineTests
         fixture.Mux.Reaching(() => [Vm3], _ => new RemoteReach(link, null));
 
         var showing = fixture.Showing(MuxTab.New);
-        await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("another machine", StringComparison.Ordinal))).IsTrue();
-        fixture.Terminal.Type("m");
+        await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("Remote Control", StringComparison.Ordinal))).IsTrue();
+        await Assert.That(fixture.Choose("Remote Control")).IsTrue();
         await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("vmlinux003", StringComparison.Ordinal))).IsTrue();
         fixture.Terminal.Type("\r");
         await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("new session", StringComparison.Ordinal))).IsTrue();
@@ -122,8 +122,8 @@ public class TheMuxReachesAMachineTests
         fixture.Mux.Reaching(() => [Vm3], _ => new RemoteReach(null, "vmlinux003 is offline."));
 
         var showing = fixture.Showing(MuxTab.New);
-        await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("another machine", StringComparison.Ordinal))).IsTrue();
-        fixture.Terminal.Type("m");
+        await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("Remote Control", StringComparison.Ordinal))).IsTrue();
+        await Assert.That(fixture.Choose("Remote Control")).IsTrue();
         await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("vmlinux003", StringComparison.Ordinal))).IsTrue();
         fixture.Terminal.Type("\r");
 
@@ -142,7 +142,7 @@ public class TheMuxReachesAMachineTests
         var showing = fixture.Showing(MuxTab.New);
         await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("New agent", StringComparison.Ordinal))).IsTrue();
 
-        await Assert.That(fixture.Terminal.Painted).DoesNotContain("another machine")
+        await Assert.That(fixture.Terminal.Painted).DoesNotContain("Remote Control")
             .Because("a key advertised that does nothing is worse than no key.");
 
         fixture.Terminal.Type("\u0007");

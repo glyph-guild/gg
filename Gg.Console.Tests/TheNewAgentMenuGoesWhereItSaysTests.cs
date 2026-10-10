@@ -8,7 +8,7 @@ namespace Gg.Console.Tests;
 public class TheNewAgentMenuGoesWhereItSaysTests
 {
     [Test]
-    public async Task L_asks_the_shell_for_a_plan_agent()
+    public async Task Plan_asks_the_shell_for_a_plan_agent()
     {
         using var fixture = new MuxFixture(columns: 120, rows: 16);
 
@@ -16,9 +16,9 @@ public class TheNewAgentMenuGoesWhereItSaysTests
         await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("New agent", StringComparison.Ordinal)))
             .IsTrue();
 
-        fixture.Terminal.Type("l");
+        await Assert.That(fixture.Choose("plan several flights")).IsTrue();
         await Assert.That(await showing.WaitAsync(TimeSpan.FromSeconds(20))).IsEqualTo(MuxLeave.Plan)
-            .Because("the menu says l plans with an agent, and only the shell can start one: "
+            .Because("the menu says it plans with an agent, and only the shell can start one: "
                    + "leaving for it has no next tab, which the menu read as staying.");
     }
 
@@ -39,7 +39,7 @@ public class TheNewAgentMenuGoesWhereItSaysTests
         await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("New agent", StringComparison.Ordinal)))
             .IsTrue();
 
-        fixture.Terminal.Type("c");
+        await Assert.That(fixture.Choose("Claude Code here")).IsTrue();
         await Assert.That(MuxFixture.Until(() => fixture.Mux.Screen(1).Contains("started", StringComparison.Ordinal)))
             .IsTrue();
 

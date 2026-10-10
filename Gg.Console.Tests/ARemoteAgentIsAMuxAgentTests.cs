@@ -10,8 +10,9 @@ namespace Gg.Console.Tests;
 /// <remarks>
 /// <b>One seam, so everything above it is unchanged.</b> A local agent's pty and a
 /// remote session's frames both answer <see cref="IAgentPty"/>; the column, the
-/// switching, the emulator and quitting are slice sixty-nine's and do not know which
-/// they hold.
+/// switching and the emulator are slice sixty-nine's and do not know which they
+/// hold. Quitting does: it ends a child and lets go of a session elsewhere
+/// (<c>QuittingLeavesARemoteSessionRunningTests</c>).
 /// </remarks>
 public class ARemoteAgentIsAMuxAgentTests
 {
@@ -85,33 +86,6 @@ public class ARemoteAgentIsAMuxAgentTests
         await Assert.That(MuxFixture.Until(() => fixture.Mux.Rows().Count == 0)).IsTrue()
             .Because("a row that stopped updating with nothing said is a screen that lies; the "
                    + "session itself lives on the machine and history re-attaches.");
-    }
-
-    [Test]
-    public async Task Quitting_gg_ends_the_remote_agent_too()
-    {
-        var link = new FakeLink();
-
-        using (var fixture = new MuxFixture())
-        {
-            fixture.Mux.StartRemote("claude @ vmlinux003", new RemotePty(link), "a1b2");
-            link.Hear(new AgentSessionExited { Code = 0 });
-        }
-
-        var killed = new FakeLink();
-        using (var fixture = new MuxFixture())
-        {
-            fixture.Mux.StartRemote("claude @ vmlinux003", new RemotePty(killed), "c3d4");
-            _ = Task.Run(() =>
-            {
-                MuxFixture.Until(() => killed.Sent.OfType<KillAgentSession>().Any());
-                killed.Hear(new AgentSessionExited { Code = 137 });
-            });
-            fixture.Mux.EndAll();
-        }
-
-        await Assert.That(killed.Sent.OfType<KillAgentSession>().Any()).IsTrue()
-            .Because("quitting gg asks first and then ends every agent, wherever it runs.");
     }
 
     [Test]

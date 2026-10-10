@@ -29,6 +29,12 @@ public interface IAgentPty : IDisposable
     bool WaitForExit(int milliseconds);
 
     int ExitCode { get; }
+
+    /// <summary>Whether the agent keeps running when gg quits: it is not gg's child.</summary>
+    bool OutlivesTheConsole => false;
+
+    /// <summary>What quitting gg does to it: a child of gg ends, a session elsewhere is let go.</summary>
+    void Leave() => Kill();
 }
 
 /// <summary>A child in a pty on this machine.</summary>
@@ -126,6 +132,19 @@ public sealed class RemotePty : IAgentPty
 
     public void Kill() => Send(new KillAgentSession());
 
+    public bool OutlivesTheConsole => true;
+
+    /// <summary>
+    /// Lets go of the session and leaves it running on its machine, as a tmux detach
+    /// does: the channel closes and this terminal reads its end (ADR-0039 Decision 5).
+    /// </summary>
+    public void Leave()
+    {
+        _keepAlive?.Dispose();
+        End(_exitCode);
+        _link.Dispose();
+    }
+
     public bool WaitForExit(int milliseconds) => _gone.Wait(milliseconds);
 
     public void Dispose()
@@ -163,7 +182,14 @@ public sealed class RemotePty : IAgentPty
     private void End(int code)
     {
         _exitCode = code;
-        _incoming.CompleteAdding();
+        try
+        {
+            _incoming.CompleteAdding();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+
         _gone.Set();
     }
 

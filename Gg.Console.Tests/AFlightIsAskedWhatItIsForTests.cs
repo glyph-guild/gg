@@ -77,9 +77,9 @@ public class AFlightIsAskedWhatItIsForTests
             ProviderKey = "jdx",
             Items = [new BrowseRow { Id = "18515", Title = "a thing to do", State = "Active" }],
         },
-        Estate = kinds.Length == 0
-            ? null
-            : new EstateOnThisMachine { Uncommitted = [], Names = Declaring(kinds) },
+        // NAMES READ, EVEN WITH NO KIND AMONG THEM: a console that has not read
+        // them refuses to fly at all (TheKindsAreKnownBeforeAnythingFliesTests).
+        Estate = new EstateOnThisMachine { Uncommitted = [], Names = Declaring(kinds) },
     };
 
     [Test]

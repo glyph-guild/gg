@@ -30,7 +30,7 @@ namespace Gg.Console.Tests;
 /// </remarks>
 public class TheButtonFliesWhatTheModalShowsTests
 {
-    private static AppState Browsing() => new()
+    private static AppState Browsing() => ConsoleDoubles.KnowsNoKinds(new()
     {
         ActiveTab = TabId.Intents,
         Mode = UiMode.WorkItemDetail,
@@ -48,7 +48,7 @@ public class TheButtonFliesWhatTheModalShowsTests
                 new BrowseRow { Id = "2002", Title = "the row under the cursor", State = "Active" },
             ],
         },
-    };
+    });
 
     [Test]
     public async Task Opened_from_a_listing_it_flies_the_row_the_cursor_is_on()

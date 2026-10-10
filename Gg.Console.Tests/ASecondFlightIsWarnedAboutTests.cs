@@ -31,7 +31,7 @@ public class ASecondFlightIsWarnedAboutTests
 
     private static AppState Picked() =>
         Reducer.Browsed(
-            new AppState { BrowseVisible = true },
+            ConsoleDoubles.KnowsNoKinds(new AppState { BrowseVisible = true }),
             "a-tracker",
             new BrowseOutcome.Listed(new WorkItemPage(
                 [new WorkItemSummary("18398", "A draft job fails", "New", "", null)], null)));

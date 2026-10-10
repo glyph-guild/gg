@@ -52,7 +52,7 @@ public class TheChosenRepositoryCrossesTests
 
     private static AppState Picked(AppState chosen) =>
         Reducer.Browsed(
-            chosen with { BrowseVisible = true },
+            ConsoleDoubles.KnowsNoKinds(chosen) with { BrowseVisible = true },
             "a-tracker",
             new BrowseOutcome.Listed(new WorkItemPage(
                 [new WorkItemSummary("18398", "A draft job fails", "New", "", null)], null)));

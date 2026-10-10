@@ -286,6 +286,9 @@ public abstract record CliAction
     /// </summary>
     public sealed record ManageTools : CliAction;
 
+    /// <summary>gg mux mark &lt;word&gt;: a Claude Code hook telling the mux what its agent is doing.</summary>
+    public sealed record MuxMark(string Word) : CliAction;
+
     /// <summary>gg itineraries: every plan this tenant has, and its legs.</summary>
     public sealed record Itineraries(bool Json, int? Limit = null, string? After = null, string? Intent = null)
         : CliAction, IEmitsResult;

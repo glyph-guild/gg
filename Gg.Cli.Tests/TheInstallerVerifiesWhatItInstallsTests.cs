@@ -213,6 +213,74 @@ public class TheInstallerVerifiesWhatItInstallsTests
     }
 
     [Test]
+    public async Task Old_releases_are_removed_by_their_number_and_nothing_else_here_is()
+    {
+        // NOTHING EVER REMOVED ONE: a laptop updated through a season held 25
+        // releases, nearly a gigabyte. 0.9.0 is the oldest of these and sorts
+        // LAST as text, so a lexical order would keep it and remove 0.10.0.
+        using var box = new Sandbox();
+        string[] versions = ["0.9.0", "0.10.0", "0.11.0", "0.12.0"];
+
+        foreach (var version in versions)
+        {
+            box.Attest(box.Release(version));
+        }
+
+        var lib = Path.Combine(box.Root, "usr", "local", "lib", "gg");
+        Directory.CreateDirectory(Path.Combine(lib, ".store"));
+        System.IO.File.WriteAllText(Path.Combine(lib, "gg"), "a dotnet tool shim");
+
+        (int Exit, string Output) last = (0, "");
+
+        foreach (var version in versions)
+        {
+            last = await box.RunAsync("--version", version);
+            await Assert.That(last.Exit).IsEqualTo(0).Because(last.Output);
+        }
+
+        await Assert.That(Directory.Exists(box.Lib("0.9.0"))).IsFalse().Because(last.Output);
+        await Assert.That(Directory.Exists(box.Lib("0.10.0"))).IsTrue()
+            .Because("ordered by number, not as text.");
+        await Assert.That(Directory.Exists(box.Lib("0.11.0"))).IsTrue();
+        await Assert.That(Directory.Exists(box.Lib("0.12.0"))).IsTrue();
+        await Assert.That(last.Output).Contains("removed older releases 0.9.0");
+
+        await Assert.That(System.IO.File.Exists(Path.Combine(lib, "gg"))).IsTrue()
+            .Because("the dotnet tool shape lives here too, and only a directory named as a "
+                   + "release and holding a gg is ever a candidate.");
+        await Assert.That(Directory.Exists(Path.Combine(lib, ".store"))).IsTrue();
+        await Assert.That(System.IO.File.Exists(Path.Combine(lib, "command"))).IsTrue();
+    }
+
+    [Test]
+    public async Task A_downgrade_keeps_the_release_it_left()
+    {
+        using var box = new Sandbox();
+
+        foreach (var version in (string[])["0.9.0", "0.10.0", "0.12.0"])
+        {
+            box.Attest(box.Release(version));
+        }
+
+        await box.RunAsync("--version", "0.12.0");
+        await box.RunAsync("--version", "0.10.0");
+
+        // KEEP ONE, AND THREE STAY: 0.12.0 is the newest, 0.9.0 is what was
+        // asked for, and 0.10.0 is where the link was - the way back.
+        var down = await box.RunAsync("--version", "0.9.0", "--keep", "1");
+
+        await Assert.That(down.Exit).IsEqualTo(0).Because(down.Output);
+        await Assert.That(box.Link()).IsEqualTo("/usr/local/lib/gg/0.9.0/gg");
+        await Assert.That(Directory.Exists(box.Lib("0.10.0"))).IsTrue()
+            .Because("the release the link pointed at before is the way back, however old.");
+        await Assert.That(Directory.Exists(box.Lib("0.12.0"))).IsTrue();
+        await Assert.That(down.Output).DoesNotContain("removed older releases");
+
+        var refused = await box.RunAsync("--version", "0.9.0", "--keep", "some");
+        await Assert.That(refused.Exit).IsNotEqualTo(0);
+    }
+
+    [Test]
     public async Task A_version_is_always_named_and_a_first_install_names_its_control_plane()
     {
         using var box = new Sandbox();
@@ -839,7 +907,7 @@ public class TheInstallerVerifiesWhatItInstallsTests
             foreach (var tool in (string[])
                      ["sh", "mktemp", "mkdir", "tar", "gzip", "mv", "ln", "rm", "rmdir",
                       "grep", "cut", "sha256sum", "shasum", "chmod", "cat", "stty", "id", "dirname",
-                      "readlink"])
+                      "readlink", "sort"])
             {
                 var real = ((string[])["/usr/bin", "/bin", "/usr/sbin", "/sbin"])
                     .Select(d => Path.Combine(d, tool))

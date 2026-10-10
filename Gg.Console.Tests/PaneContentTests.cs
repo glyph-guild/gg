@@ -26,6 +26,7 @@ namespace Gg.Console.Tests;
 /// </para>
 /// </remarks>
 [Category("RealStack")]
+[NeedsAControlPlane]
 public class PaneContentTests
 {
     [Test]

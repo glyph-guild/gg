@@ -290,4 +290,53 @@ public class WhatUpdatingThisMachineTakesTests
             .Because("this runs commands on somebody's machine, and a step nobody can "
                    + "explain is a step nobody should approve.");
     }
+
+    // ---- what goes under sudo ----
+
+    [Test]
+    public async Task Only_the_installer_goes_under_sudo_and_the_fetch_runs_as_the_person()
+    {
+        var steps = For(InstallKind.Native).Steps.Select(step => step.UnderSudo()).ToList();
+
+        await Assert.That(steps[0].Program).IsEqualTo("curl")
+            .Because("fetching needs no privilege, and a download run as root leaves a file "
+                   + "root owns in the person's temporary directory.");
+        await Assert.That(steps[1].Program).IsEqualTo("sudo");
+        await Assert.That(steps[1].Arguments)
+            .IsEquivalentTo((string[])["sh", "/tmp/gg-install.sh", "--version", "0.49.0"])
+            .Because("sudo takes the program as an argument, so wrapping a step adds no "
+                   + "shell and no quoting rule.");
+    }
+
+    [Test]
+    public async Task A_tool_path_it_can_write_puts_nothing_under_sudo()
+    {
+        var plan = For(InstallKind.ToolPath, toolPath: "/home/me/.gg", writable: true);
+
+        await Assert.That(plan.Steps.Any(step => step.UnderSudo().Program == "sudo")).IsFalse();
+    }
+
+    [Test]
+    public async Task A_tool_path_it_cannot_write_clears_roots_cache_not_the_persons()
+    {
+        var plan = For(InstallKind.ToolPath, toolPath: "/usr/local/lib/gg", writable: false);
+
+        await Assert.That(plan.Steps.All(step => step.Elevated)).IsTrue()
+            .Because("the stale index that reads as `not found in NuGet feeds` is in the "
+                   + "cache of whoever runs the update, and under sudo that is root.");
+    }
+
+    [Test]
+    public async Task What_a_person_pastes_runs_the_installer_only_once_it_has_arrived()
+    {
+        var plan = For(InstallKind.Native);
+
+        await Assert.That(plan.Pasteable(privileged: false)).IsEqualTo(
+            "curl -fsSL -o /tmp/gg-install.sh https://example.invalid/install.sh "
+          + "&& sudo sh /tmp/gg-install.sh --version 0.49.0")
+            .Because("shown as two lines, these were pasted joined by a pipe: "
+                   + "`curl -o FILE URL | sudo sh FILE` carries nothing down the pipe and "
+                   + "starts sh beside the download, so it read whatever had arrived.");
+        await Assert.That(plan.Pasteable(privileged: true)).DoesNotContain("sudo");
+    }
 }

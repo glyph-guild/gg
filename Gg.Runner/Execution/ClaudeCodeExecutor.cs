@@ -156,10 +156,24 @@ public sealed class ClaudeCodeExecutor(
             }
         }
 
+        // AND EVERY EXTERNAL SERVER'S CREDENTIALS, on the same terms (ADR-0040).
+        // A server started without one fails at its service, and the agent spends
+        // its turns calling it.
+        if (Resolve(request).Refused is { } unserved)
+        {
+            return ExecutorRun.Failed(
+                request.LoopId, unserved, attempts: 1, took: TimeSpan.Zero, movesUsed: []);
+        }
+
         using var process = new Process
         {
             StartInfo = StartInfo(request, secret, TokenFor(_agent, _secretFor)),
         };
+
+        // THE CONFIGURATION CARRIES SECRETS, so it goes when the run does,
+        // however the run ends. ReadAsync takes it sooner, at the agent's first
+        // line.
+        using var configuration = new Forgetting(process.StartInfo.ArgumentList);
 
         // ONLY the start is wrapped. It used to cover the read as well, and a
         // parsing bug inside it surfaced as "this runner could not start the
@@ -188,7 +202,8 @@ public sealed class ClaudeCodeExecutor(
             // on it forever in a runner with nothing to type.
             process.StandardInput.Close();
 
-            if (await ReadAsync(process, transcript, moves, request.Live, budget.Token)
+            if (await ReadAsync(
+                    process, transcript, moves, request.Live, budget.Token, configuration.Forget)
                 is { } unstarted)
             {
                 // A DECLARED CAPABILITY GAP, answered, rather than a flight that
@@ -554,6 +569,10 @@ public sealed class ClaudeCodeExecutor(
                .Where(move => Grantable(move, request))
                .Select(Tool)
                .Concat(ReadTools(request))
+               // THE LOOP'S EXTERNAL TOOLS, by the names its 'allow:' gave.
+               // No move governs them (ADR-0040): the airspace author did, in
+               // the document that named the server.
+               .Concat(ExternalTools(request))
                // ALWAYS, WHATEVER THE MOVES DECLARE. Asking a person
                // is not a move: a move bounds what an agent may do to
                // a customer's code and this touches nothing. An
@@ -580,9 +599,19 @@ public sealed class ClaudeCodeExecutor(
         ExecutorRequest request,
         IReadOnlyList<IntentReader> readers,
         string? secret = null,
-        SelfInvocation? self = null) =>
-        new ClaudeCodeExecutor("claude", readers, secretFor: null, self)
+        SelfInvocation? self = null,
+        Func<string, string?>? secretFor = null) =>
+        new ClaudeCodeExecutor("claude", readers, secretFor, self)
             .BoundingArguments(request, secret);
+
+    /// <summary>
+    /// Why this machine cannot start the external MCP servers a request names,
+    /// or null when it can - asked before anything is spent, by an executor
+    /// that launches differently.
+    /// </summary>
+    public static string? UnservedMcp(
+        ExecutorRequest request, IReadOnlyList<IntentReader> readers, Func<string, string?>? secretFor) =>
+        new ClaudeCodeExecutor("claude", readers, secretFor).Resolve(request).Refused;
 
     /// <summary>
     /// The work, as the agent is told it.
@@ -657,9 +686,140 @@ public sealed class ClaudeCodeExecutor(
         // measured. Relying on it would work until it did not, and the failure
         // would be the tracker reader silently gone from a flight that still
         // looked configured.
-        return reader is null && ours is null
+        // THE LOOP'S EXTERNAL SERVERS, resolved. ExecuteAsync has already refused
+        // a launch that cannot resolve one; a caller reaching this another way is
+        // told the same thing rather than handed a server without its credential.
+        var (external, refused) = Resolve(request);
+        if (refused is not null)
+        {
+            throw new InvalidOperationException(refused);
+        }
+
+        // IN A FILE, NEVER AS THE ARGUMENT ITSELF. The configuration carries the
+        // tracker reader's secret and each external server's, and an argument is
+        // readable by every user on the host - which is what the remark above
+        // this method said was not happening, while it was.
+        return reader is null && ours is null && external.Count == 0
             ? []
-            : ["--mcp-config", ServerConfig(reader, secret, ours)];
+            : [McpConfigFile.Flag, McpConfigFile.Write(
+                ServerConfig(reader, secret, ours, external), request.ScratchDirectory)];
+    }
+
+    /// <summary>
+    /// The loop's external MCP servers with every credential reference replaced
+    /// by the secret this machine resolves, or why that cannot be done.
+    /// </summary>
+    /// <remarks>
+    /// <b>Passed through otherwise untouched</b> (ADR-0040): gg does not know what
+    /// an external server is, so the definition is written as the author wrote
+    /// it, with exactly this one substitution.
+    /// </remarks>
+    private (IReadOnlyList<McpServer> Servers, string? Refused) Resolve(ExecutorRequest request)
+    {
+        var reserved = new[] { NominationTool.Server, ReaderFor(request)?.Key }
+            .OfType<string>()
+            .ToHashSet(StringComparer.Ordinal);
+        var resolved = new List<McpServer>(request.McpServers.Count);
+
+        foreach (var server in request.McpServers)
+        {
+            if (reserved.Contains(server.Key))
+            {
+                return ([], $"This loop uses the MCP server '{server.Key}', and that name is already "
+                          + "a server this launch configures for itself. Two servers under one name "
+                          + "would leave the agent whichever was written second. Nothing was spent; "
+                          + "rename it in root's 'mcp-servers:'.");
+            }
+
+            string? missing = null;
+
+            IReadOnlyList<McpSetting>? Substituted(IReadOnlyList<McpSetting>? settings) =>
+                settings is null
+                    ? null
+                    : [.. settings.Select(setting => setting with
+                    {
+                        Value = Substitute(setting.Value, ref missing),
+                    })];
+
+            var env = Substituted(server.Env);
+            var headers = Substituted(server.Headers);
+
+            if (missing is not null)
+            {
+                return ([], $"This loop uses the MCP server '{server.Key}', which needs the "
+                          + $"credential '{missing}', and this machine cannot resolve it. Nothing was "
+                          + "spent: a server started without its credential fails at its service, "
+                          + "and the agent spends its turns calling it. Register it here with "
+                          + "`gg credential add`, or push it to this machine.");
+            }
+
+            resolved.Add(server with { Env = env, Headers = headers });
+        }
+
+        return (resolved, null);
+    }
+
+    /// <summary>A value with each <c>${credential:&lt;locator&gt;}</c> replaced, or the first locator that would not resolve.</summary>
+    private string Substitute(string value, ref string? missing)
+    {
+        var text = new StringBuilder();
+        var rest = value;
+
+        while (rest.IndexOf(McpRules.ReferenceOpen, StringComparison.Ordinal) is var open and >= 0)
+        {
+            var close = rest.IndexOf('}', open);
+            if (close < 0)
+            {
+                break;
+            }
+
+            var locator = rest[(open + McpRules.ReferenceOpen.Length)..close];
+            text.Append(rest[..open]);
+
+            if (_secretFor(locator) is { Length: > 0 } secret)
+            {
+                text.Append(secret);
+            }
+            else
+            {
+                missing ??= locator;
+            }
+
+            rest = rest[(close + 1)..];
+        }
+
+        return text.Append(rest).ToString();
+    }
+
+    /// <summary>The allow-list names of the external tools this loop may call.</summary>
+    /// <remarks>
+    /// The agent's own convention: <c>mcp__&lt;server&gt;</c> for every tool a
+    /// server has, <c>mcp__&lt;server&gt;__&lt;tool&gt;</c> for one of them. Only
+    /// for servers the request also defines, so a name with no server is not an
+    /// allowed tool nobody can call.
+    /// </remarks>
+    private static IEnumerable<string> ExternalTools(ExecutorRequest request) =>
+        request.Mcp
+            .Where(use => request.McpServers.Any(
+                server => string.Equals(server.Key, use.Server, StringComparison.Ordinal)))
+            .SelectMany(use => use.Allow.Contains(McpRules.Everything, StringComparer.Ordinal)
+                ? (IEnumerable<string>)[$"mcp__{use.Server}"]
+                : use.Allow.Select(tool => $"mcp__{use.Server}__{tool}"));
+
+    /// <summary>Deletes a launch's configuration file once, whenever that comes first.</summary>
+    private sealed class Forgetting(IEnumerable<string> arguments) : IDisposable
+    {
+        private IEnumerable<string>? _arguments = arguments;
+
+        public void Forget()
+        {
+            if (Interlocked.Exchange(ref _arguments, null) is { } named)
+            {
+                McpConfigFile.Delete(named);
+            }
+        }
+
+        public void Dispose() => Forget();
     }
 
     /// <summary>
@@ -712,7 +872,8 @@ public sealed class ClaudeCodeExecutor(
     /// escaped by the writer rather than by hand.
     /// </remarks>
     private static string ServerConfig(
-        IntentReader? reader, string? secret, SelfInvocation? ours)
+        IntentReader? reader, string? secret, SelfInvocation? ours,
+        IReadOnlyList<McpServer>? external = null)
     {
         using var buffer = new MemoryStream();
         using (var json = new System.Text.Json.Utf8JsonWriter(buffer))
@@ -768,11 +929,63 @@ public sealed class ClaudeCodeExecutor(
                 json.WriteEndObject();
             }
 
+            // THE LOOP'S EXTERNAL SERVERS, as their definitions say, with their
+            // credentials already resolved into their own blocks (ADR-0040).
+            foreach (var server in external ?? [])
+            {
+                json.WriteStartObject(server.Key);
+
+                if (server.Type is { } type)
+                {
+                    json.WriteString("type", type);
+                }
+
+                if (server.Command is { } command)
+                {
+                    json.WriteString("command", command);
+                }
+
+                if (server.Args is { } args)
+                {
+                    json.WriteStartArray("args");
+                    foreach (var argument in args)
+                    {
+                        json.WriteStringValue(argument);
+                    }
+                    json.WriteEndArray();
+                }
+
+                Settings(json, "env", server.Env);
+
+                if (server.Url is { } url)
+                {
+                    json.WriteString("url", url);
+                }
+
+                Settings(json, "headers", server.Headers);
+                json.WriteEndObject();
+            }
+
             json.WriteEndObject();
             json.WriteEndObject();
         }
 
         return System.Text.Encoding.UTF8.GetString(buffer.ToArray());
+
+        static void Settings(System.Text.Json.Utf8JsonWriter json, string name, IReadOnlyList<McpSetting>? settings)
+        {
+            if (settings is null)
+            {
+                return;
+            }
+
+            json.WriteStartObject(name);
+            foreach (var setting in settings)
+            {
+                json.WriteString(setting.Name, setting.Value);
+            }
+            json.WriteEndObject();
+        }
     }
 
     /// <summary>
@@ -1291,12 +1504,17 @@ public sealed class ClaudeCodeExecutor(
     /// </remarks>
     private static async Task<string?> ReadAsync(
         Process process, StringBuilder transcript, List<string> moves,
-        LiveStream? live, CancellationToken cancellationToken)
+        LiveStream? live, CancellationToken cancellationToken, Action? started = null)
     {
         string? unstarted = null;
 
         while (await process.StandardOutput.ReadLineAsync(cancellationToken) is { } line)
         {
+            // THE AGENT HAS READ ITS CONFIGURATION by the time it says anything,
+            // so a file carrying secrets need not outlive its first line.
+            started?.Invoke();
+            started = null;
+
             transcript.Append(line).Append('\n');
 
             // A SERVER THAT DID NOT COME UP, from the only line that says so.

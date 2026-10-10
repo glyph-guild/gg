@@ -112,8 +112,7 @@ public class TheSweepLauncherAttachesTheWatchsServersTests
 
     private static JsonElement Server(IReadOnlyList<string> arguments, string key)
     {
-        var at = arguments.ToList().IndexOf("--mcp-config");
-        using var config = JsonDocument.Parse(arguments[at + 1]);
+        using var config = JsonDocument.Parse(McpLaunch.ConfigText(arguments));
         return config.RootElement.GetProperty("mcpServers").GetProperty(key).Clone();
     }
 

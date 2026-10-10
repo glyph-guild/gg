@@ -169,7 +169,7 @@ public class AnAgentChannelCarriesATerminalTests
     {
         var host = new Host();
         var sessions = new AgentSessions(
-            host, [Directory.CreateTempSubdirectory("gg-agent-root-").FullName],
+            host, Directory.CreateTempSubdirectory("gg-agent-root-").FullName,
             flying: () => false, now: () => T0);
 
         using var wire = await ReachAsync(new AgentChannelServer(sessions));
@@ -212,7 +212,7 @@ public class AnAgentChannelCarriesATerminalTests
     public async Task Asking_lists_what_the_machine_holds()
     {
         var sessions = new AgentSessions(
-            new Host(), [Directory.CreateTempSubdirectory("gg-agent-root-").FullName],
+            new Host(), Directory.CreateTempSubdirectory("gg-agent-root-").FullName,
             flying: () => false, now: () => T0);
         _ = await sessions.StartAsync(new StartAgentSession { Columns = 80, Rows = 24, SessionId = "held" }, CancellationToken.None);
 

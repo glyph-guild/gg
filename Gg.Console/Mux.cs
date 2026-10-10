@@ -99,6 +99,9 @@ public sealed partial class Mux
     /// <summary>The live agents' labels, in row order.</summary>
     public IReadOnlyList<string> Labels() => [.. Rows().Select(row => row.Label)];
 
+    /// <summary>The labels of the agents quitting gg ends.</summary>
+    public IReadOnlyList<string> QuitEnds() => Labels();
+
     /// <summary>The agent on row <paramref name="number"/>, from 1.</summary>
     internal MuxAgent? Agent(int number)
     {

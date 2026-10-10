@@ -1788,12 +1788,12 @@ public sealed class Doctor(
                 VersionStandingKind.Behind =>
                     $"{standing.Installed}, and {standing.Current} is current",
                 VersionStandingKind.Unrecognised =>
-                    $"{standing.Installed}, which the control plane has never published - it "
-                    + $"knows {standing.Current}. Worth asking where this one came from",
+                    $"{standing.Installed}, which gg has no record of publishing. The latest it "
+                    + $"knows of is {standing.Current}, so it's worth asking where this copy came from",
                 _ => reachable
-                    ? $"{standing.Installed}. What is current could not be established, so this "
-                    + "may or may not be it"
-                    : $"{standing.Installed}. Not checked: the control plane could not be reached",
+                    ? $"{standing.Installed}. gg couldn't check for a newer version, so it can't "
+                    + "say whether this is the latest"
+                    : $"{standing.Installed}. Not checked: gg couldn't reach the server that publishes versions",
             },
 
             // RULE 6, AS A FIELD. Nothing about a version may stop a person.

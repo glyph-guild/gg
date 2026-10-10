@@ -380,6 +380,31 @@ internal sealed class AConsolePlane : HttpMessageHandler
                     Notices = [],
                 },
                 ProtocolJsonContext.Default.WhoAmI),
+            // THE NAMES, A ROOT AND ONE KIND - enough for a reader to tell a
+            // read that answered from one that never happened.
+            "/v1/airspace/topology" => JsonSerializer.Serialize(
+                new EnvelopeTopology
+                {
+                    Names =
+                    [
+                        new TopologyName
+                        {
+                            Name = "root",
+                            Role = Roles.Root,
+                            DeclaredBy = "somebody",
+                            DeclaredAt = T0,
+                        },
+                        new TopologyName
+                        {
+                            Name = "implement",
+                            Role = Roles.WorkKind,
+                            Parent = "root",
+                            DeclaredBy = "somebody",
+                            DeclaredAt = T0,
+                        },
+                    ],
+                },
+                ProtocolJsonContext.Default.EnvelopeTopology),
             _ => "{}",
         };
     }

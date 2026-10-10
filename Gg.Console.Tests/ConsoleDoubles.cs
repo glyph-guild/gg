@@ -24,6 +24,21 @@ namespace Gg.Console.Tests;
 internal static class ConsoleDoubles
 {
     /// <summary>
+    /// The state, with the tenant's names read and no work kind among them.
+    /// </summary>
+    /// <remarks>
+    /// <b>Known to be none, which is not the same as unknown.</b> A fixture with
+    /// no estate at all is a console that has not read the names yet, and `f`
+    /// refuses to fly from one (TheKindsAreKnownBeforeAnythingFliesTests) -
+    /// what these fixtures always meant was a tenant that declared no kinds.
+    /// </remarks>
+    internal static AppState KnowsNoKinds(AppState state) => state with
+    {
+        Estate = (state.Estate ?? new EstateOnThisMachine { Uncommitted = [] })
+            with { Names = new Gg.Contracts.EnvelopeTopology { Names = [] } },
+    };
+
+    /// <summary>
     /// A person's key, in a temporary place, for any test that builds real
     /// <c>CredentialCommands</c>.
     /// </summary>

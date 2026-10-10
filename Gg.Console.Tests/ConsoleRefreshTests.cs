@@ -47,7 +47,7 @@ public class ConsoleRefreshTests
     /// <summary>A console with a browsed row under the cursor.</summary>
     private static AppState Browsing() =>
         Reducer.Browsed(
-            Booted() with { BrowseVisible = true },
+            ConsoleDoubles.KnowsNoKinds(Booted()) with { BrowseVisible = true },
             "a-tracker",
             new BrowseOutcome.Listed(new WorkItemPage(
                 [new WorkItemSummary("18398", "A draft job fails", "New", "", null)], null)));

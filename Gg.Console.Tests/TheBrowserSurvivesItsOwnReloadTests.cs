@@ -64,7 +64,7 @@ public class TheBrowserSurvivesItsOwnReloadTests
     /// </remarks>
     private static AppState Listed() =>
         Reducer.Browsed(
-            Reducer.BrowseToggled(new AppState()),
+            Reducer.BrowseToggled(ConsoleDoubles.KnowsNoKinds(new AppState())),
             "a-tracker",
             new BrowseOutcome.Listed(new WorkItemPage(
                 [

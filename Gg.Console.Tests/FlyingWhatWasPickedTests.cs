@@ -37,7 +37,7 @@ public class FlyingWhatWasPickedTests
         // showing. A fixture that sets the flag by hand describes a state the
         // console cannot reach - open, and not looked at - and then asserts
         // the cursor behaves as though somebody were looking at it.
-        var state = Reducer.BrowseToggled(new AppState { SelectedRow = 2 });
+        var state = Reducer.BrowseToggled(ConsoleDoubles.KnowsNoKinds(new AppState { SelectedRow = 2 }));
 
         return Reducer.Browsed(state, "a-tracker", new BrowseOutcome.Listed(
             new WorkItemPage(

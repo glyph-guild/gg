@@ -42,6 +42,7 @@ public class AStartedSessionCarriesThePersonsCredentialTests
         var opened = fixture.Mux.OpenRemote(Vm2, sessionId: null, alive: false);
 
         await Assert.That(opened.Refused).IsNull();
+        await Assert.That(MuxFixture.Until(() => link.Sent.OfType<StartAgentSession>().Any())).IsTrue();
         var sent = link.Sent.ToList();
         var start = sent.OfType<StartAgentSession>().Single();
         await Assert.That(sent.IndexOf(sent.OfType<DelegateAgentSession>().Single()))
@@ -59,6 +60,7 @@ public class AStartedSessionCarriesThePersonsCredentialTests
 
         _ = fixture.Mux.OpenRemote(Vm2, "ended-1", alive: false);
 
+        await Assert.That(MuxFixture.Until(() => link.Sent.OfType<StartAgentSession>().Any())).IsTrue();
         await Assert.That(link.Sent.OfType<DelegateAgentSession>()).IsNotEmpty();
     }
 
@@ -70,6 +72,7 @@ public class AStartedSessionCarriesThePersonsCredentialTests
 
         _ = fixture.Mux.OpenRemote(Vm2, "live", alive: true);
 
+        await Assert.That(MuxFixture.Until(() => link.Sent.OfType<AttachAgentSession>().Any())).IsTrue();
         await Assert.That(link.Sent.OfType<DelegateAgentSession>()).IsEmpty();
         await Assert.That(delegated).IsEmpty().Because("nothing is minted that nothing would use.");
     }
@@ -83,7 +86,7 @@ public class AStartedSessionCarriesThePersonsCredentialTests
         var opened = fixture.Mux.OpenRemote(Vm2, sessionId: null, alive: false);
 
         await Assert.That(opened.Refused).IsNull();
+        await Assert.That(MuxFixture.Until(() => link.Sent.OfType<StartAgentSession>().Any())).IsTrue();
         await Assert.That(link.Sent.OfType<DelegateAgentSession>()).IsEmpty();
-        await Assert.That(link.Sent.OfType<StartAgentSession>()).IsNotEmpty();
     }
 }

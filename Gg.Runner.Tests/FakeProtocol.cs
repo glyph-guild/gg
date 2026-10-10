@@ -171,14 +171,24 @@ internal sealed class FakeProtocol : IRunnerProtocol
     /// </remarks>
     public bool? LastAcceptsConfiguration { get; private set; }
 
+    /// <summary>What the last beat said about ad hoc agent sessions (slice seventy).</summary>
+    public bool? LastAcceptsAgentSessions { get; private set; }
+
+    /// <summary>The sessions the last beat reported.</summary>
+    public IReadOnlyList<AgentSessionStanding>? LastAgentSessions { get; private set; }
+
     public Task<HeartbeatAccepted> HeartbeatAsync(
         string runnerId,
         IReadOnlyList<string> labels,
         bool? acceptsConfiguration,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool? acceptsAgentSessions = null,
+        IReadOnlyList<AgentSessionStanding>? agentSessions = null)
     {
         Calls.Add("heartbeat");
         LastAcceptsConfiguration = acceptsConfiguration;
+        LastAcceptsAgentSessions = acceptsAgentSessions;
+        LastAgentSessions = agentSessions;
         Interlocked.Increment(ref _heartbeats);
 
         // RECORDED BEFORE IT THROWS, so a test can count the ATTEMPTS. Whether

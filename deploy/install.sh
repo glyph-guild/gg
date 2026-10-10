@@ -25,6 +25,9 @@
 #   --as <name>          the command name to install, when another program is
 #                        already called gg. Remembered, so an update needs no flag.
 #                        A runner is always gg: its service runs /usr/local/bin/gg.
+#   --keep <n>           how many releases to keep, newest first (default 3). The
+#                        one installed and the one the link pointed at before are
+#                        always kept, so going back is still one run. 0 keeps all.
 #   --root <dir>         install as if <dir> were /. For staging and for tests; the
 #                        service always runs /usr/local/bin/gg.
 #
@@ -43,6 +46,7 @@ enroll=""
 enroll_file=""
 root=""
 command_name=""
+keep=3
 
 refuse() {
   printf 'install.sh: %s\n' "$*" >&2
@@ -65,7 +69,8 @@ while [ $# -gt 0 ]; do
     --enroll-file) value "$1" $# "${2-}"; enroll_file="$2"; shift 2 ;;
     --root) value "$1" $# "${2-}"; root="$2"; shift 2 ;;
     --as) value "$1" $# "${2-}"; command_name="$2"; shift 2 ;;
-    *) refuse "'$1' is not an option. It takes --version, --control-plane, --user, --agent-binary, --enroll or --enroll-file, --as, and --root." ;;
+    --keep) value "$1" $# "${2-}"; keep="$2"; shift 2 ;;
+    *) refuse "'$1' is not an option. It takes --version, --control-plane, --user, --agent-binary, --enroll or --enroll-file, --as, --keep, and --root." ;;
   esac
 done
 
@@ -75,6 +80,10 @@ done
 version="${version#v}"
 case "$version" in
   *[!0-9A-Za-z.+-]*) refuse "'$version' is not a version." ;;
+esac
+
+case "$keep" in
+  "" | *[!0-9]*) refuse "--keep takes a count of releases, e.g. --keep 3, or 0 to keep them all." ;;
 esac
 
 # Where `gg service install` records what it wrote: its presence is how this
@@ -287,6 +296,12 @@ fi
 # THE LINK MOVES BY RENAME TOO: a new link beside the old, renamed over it, so
 # /usr/local/bin/gg is never absent for a moment. It points at where the
 # release is on the machine, not at wherever --root staged it.
+# WHAT THE LINK POINTED AT BEFORE, read before it moves: that release is the
+# way back, and is never removed below however old it is.
+previous="$(readlink "$bin/$command_name" 2>/dev/null || true)"
+previous="${previous#/usr/local/lib/gg/}"
+previous="${previous%/gg}"
+
 link="$bin/.gg.incoming.$$"
 rm -f "$link"
 ln -s "/usr/local/lib/gg/$version/gg" "$link"
@@ -294,6 +309,54 @@ mv -f "$link" "$bin/$command_name"
 printf '%s\n' "$command_name" > "$record"
 
 printf 'install.sh: %s, %s; /usr/local/bin/%s points at it.\n' "$installed" "$checked" "$command_name"
+
+# AND THE OLD RELEASES GO, all but the newest few. Nothing else ever removed
+# one: a laptop updated through a season held 25 of them, nearly a gigabyte.
+# Only a directory named as a release and holding a gg is a candidate - the
+# dotnet tool shim, its store and the command record live here too and are
+# never touched. The release just installed and the one the link left are
+# kept whatever their number, so a downgrade cannot remove the way back.
+#
+# A gg still running from a removed release keeps running - its bytes are open
+# - but one that has yet to load its native side-cars would fail to, which is
+# why the last few stay rather than only the last one.
+#
+# IN FUNCTIONS, NOT INLINE IN $( ): bash as sh mis-parses a case pattern's
+# closing paren inside a command substitution, which is macOS's /bin/sh.
+releases() {
+  for entry in "$lib"/*; do
+    name="${entry##*/}"
+    case "$name" in
+      *[!0-9A-Za-z.+-]*) continue ;;
+      [0-9]*.[0-9]*.[0-9]*) ;;
+      *) continue ;;
+    esac
+    [ -d "$entry" ] && [ ! -L "$entry" ] && [ -x "$entry/gg" ] || continue
+    printf '%s\n' "$name"
+  done
+}
+
+prune() {
+  releases | sort -t . -k 1,1nr -k 2,2nr -k 3,3nr | {
+    n=0
+    while IFS= read -r name; do
+      n=$((n + 1))
+      if [ "$n" -le "$keep" ] || [ "$name" = "$version" ] || [ "$name" = "$previous" ]; then
+        continue
+      fi
+      # AN if, NOT &&: under set -e a failed removal must not end an install
+      # that has already succeeded.
+      if rm -rf "${lib:?}/$name"; then printf ' %s' "$name"; fi
+    done
+  }
+}
+
+if [ "$keep" -gt 0 ]; then
+  removed="$(prune)"
+  if [ -n "$removed" ]; then
+    printf 'install.sh: removed older releases%s, keeping the newest %s (--keep <n> to change, 0 keeps all).\n' "$removed" "$keep"
+  fi
+fi
 
 if [ -n "$shadowing" ]; then
   printf 'install.sh: another program called gg is at %s, earlier on your PATH, so `gg` still runs that one. Install this one under a name of its own with --as <name>, e.g. --as goodgrief, or put /usr/local/bin first.\n' "$shadowing"

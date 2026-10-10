@@ -583,11 +583,17 @@ public static class FlightDetails
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        if (state.FlightFacts is not { } facts)
+        if (Facts(state) is not { } facts)
         {
+            // NOT "PRESS FOR ITS FACTS". It named a key nothing bound: the read
+            // started only on ShowFlightFacts, and `v` and a click both turn the
+            // tab with NextFlightTab - so the tab asked for a press that could
+            // not be made, and showed nothing for every flight. Turning to the
+            // tab is the asking now (FactsOwed), and this is what is left when
+            // that read did not come back.
             return state.ReadInFlight
                 ? "What it recorded is still coming."
-                : "Press for its facts to read what this flight recorded.";
+                : "What it recorded could not be read. Turn away from this tab and back to try again.";
         }
 
         return facts.Facts.Count == 0
@@ -613,11 +619,23 @@ public static class FlightDetails
     {
         var text = new StringBuilder();
 
-        foreach (var recorded in state.FlightFacts!.Facts)
+        foreach (var recorded in Facts(state)!.Facts)
         {
             text.AppendLine(
                 $"  {recorded.Fact.ObservedAt:u}  {recorded.Fact.Kind,-22}  "
               + $"{recorded.Disposition,-9}  {FactSays(recorded.Fact)}");
+
+            // THE ANALYSIS UNDER ITS TITLE. A work kind whose whole result is
+            // the landing it proposes - investigate, which opens nothing - has
+            // no other surface for it, so a row that showed the kind and
+            // nothing else showed a flight with no result.
+            if (recorded.Fact.Landing?.Description is { Length: > 0 } described)
+            {
+                foreach (var line in ControlText.Strip(described, allowLineBreaks: true).Split('\n'))
+                {
+                    text.AppendLine($"      {line.TrimEnd()}");
+                }
+            }
         }
 
         // NOT NECESSARILY ALL OF THEM. A landing ships its own fact after the
@@ -641,10 +659,49 @@ public static class FlightDetails
     /// <summary>
     /// The flight whose facts the tab owes a read, or null when it owes none.
     /// </summary>
-    public static string? FactsOwed(AppState state) => null;
+    /// <remarks>
+    /// <para>
+    /// <b>TURNING TO THE TAB IS THE ASKING.</b> The read was started by one
+    /// command, ShowFlightFacts, which no key and no click sends - `v` and the
+    /// tab bar both reduce NextFlightTab - so every flight's recorded tab said
+    /// "press for its facts" and could not be made to show any.
+    /// </para>
+    /// <para>
+    /// <b>NOT WHILE ANOTHER READ IS IN THE AIR.</b> One read runs at a time and
+    /// starting a second abandons the first, so asking while the flight's story
+    /// is still coming would drop the story. The tab waits a render.
+    /// </para>
+    /// </remarks>
+    public static string? FactsOwed(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state is { Mode: UiMode.FlightDetail, FlightTab: FlightTab.Facts, ReadInFlight: false }
+            && PaneText.Detailed(state) is { } flight
+            && Facts(state) is null
+                ? flight.FlightNumber
+                : null;
+    }
+
+    /// <summary>The facts held, when they are this flight's.</summary>
+    /// <remarks>
+    /// <b>One slot, many flights.</b> The facts are held by flight number and
+    /// were drawn without reading it, so the second flight a person opened
+    /// showed the first one's facts under its own title.
+    /// </remarks>
+    private static FlightFacts? Facts(AppState state) =>
+        state.FlightFacts is { } facts
+        && PaneText.Detailed(state) is { } flight
+        && string.Equals(facts.FlightNumber, flight.FlightNumber, StringComparison.Ordinal)
+            ? facts
+            : null;
 
     private static string FactSays(FactEnvelope fact) => fact switch
     {
+        // WHAT THE AGENT ASKED ITS LANDING BE CALLED; the description follows
+        // on the lines beneath, in FactsLines.
+        { Landing: { } landing } => ControlText.Strip(landing.Title),
+
         { Transcript: { } t } => $"{t.Bytes} bytes, {t.Scope} at {t.Locator}",
         { Proposal: { } p } =>
             $"{p.Operation} {p.Target}"

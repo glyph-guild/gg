@@ -1921,6 +1921,9 @@ static async Task<int> LaunchConsoleAsync()
                     Gg.Console.Command.LoadMoreSweeps =>
                         Gg.Console.ConsoleMore.SweepsPatch(data, current),
 
+                    Gg.Console.Command.LoadMoreIntents =>
+                        Gg.Console.ConsoleBrowsing.MorePatch(browsing, current),
+
                     // THE FIELD'S TWO ARMS, both reads, and which one is
                     // decided by what was typed rather than by a second key.
                     Gg.Console.Command.GoToOrFind =>

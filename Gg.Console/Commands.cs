@@ -1395,6 +1395,7 @@ public static class ShellCommands
         Command.LoadMoreFlights,
         Command.LoadMoreBoard,
         Command.LoadMoreSweeps,
+        Command.LoadMoreIntents,
     };
 
     /// <summary>

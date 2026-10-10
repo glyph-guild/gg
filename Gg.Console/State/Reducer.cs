@@ -258,7 +258,8 @@ public static class Reducer
             // - without it the guard reads a field nothing on this path sets,
             // and moving off the last row and back would abandon a page already
             // on the wire to ask for it again.
-            Command.LoadMoreFlights or Command.LoadMoreBoard or Command.LoadMoreSweeps =>
+            Command.LoadMoreFlights or Command.LoadMoreBoard or Command.LoadMoreSweeps
+                or Command.LoadMoreIntents =>
                 state with { ReadInFlight = true },
 
             // THE OTHER OF THE BOARD'S TWO TABLES. Each keeps its own cursor,
@@ -1820,6 +1821,11 @@ public static class Reducer
                 && state.Watches?.Next is { Length: > 0 }
                 && Reached(state.SweepSelected, Rows.Sweeps(state).Count) =>
                 Command.LoadMoreSweeps,
+
+            // THE TRACKER'S WORK ITEMS, a page at a time like the control plane's lists.
+            TabId.Intents when state.Browse?.NextCursor is { Length: > 0 }
+                && Reached(state.BrowseSelected, state.Browse.Items.Count) =>
+                Command.LoadMoreIntents,
 
             // AND EVERY OTHER TAB ASKS FOR NOTHING, including the queue, which
             // is derived from the flights read rather than fetched - there is no

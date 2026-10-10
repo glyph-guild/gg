@@ -688,6 +688,23 @@ public enum Command
     /// </remarks>
     WatchRunner,
 
+    /// <summary>Start a new agent session on the machine the runner modal is open on (slice seventy-one).</summary>
+    /// <remarks>
+    /// <b>The shell's, like <see cref="WatchRunner"/>:</b> reaching a machine is an
+    /// introduction and a channel, which a UI session may not open. Like the other three
+    /// below it carries nothing; the act reads the runner and the session from the model.
+    /// </remarks>
+    StartRemoteSession,
+
+    /// <summary>Attach to the session under the sessions view's cursor if it runs; resume it if it ended.</summary>
+    OpenRemoteSession,
+
+    /// <summary>Forget the ended session under the cursor: the machine deletes its record and transcript.</summary>
+    ForgetRemoteSession,
+
+    /// <summary>Forget every ended session on the machine the modal is open on.</summary>
+    ForgetEndedRemoteSessions,
+
     /// <summary>Watch the flight the modal is open on.</summary>
     /// <remarks>
     /// <para>
@@ -1644,6 +1661,14 @@ public static class ShellCommands
         // flight ends - the editor's shape, and for the editor's reason: what
         // it does inside is a network call a session may not make.
         Command.WatchRunner,
+
+        // A MACHINE'S AGENT SESSIONS (slice seventy-one), for WatchRunner's reason: each
+        // reaches the machine over the control plane and a channel, which a session may not
+        // open. A started or opened one is shown in the mux; the runner modal stays open.
+        Command.StartRemoteSession,
+        Command.OpenRemoteSession,
+        Command.ForgetRemoteSession,
+        Command.ForgetEndedRemoteSessions,
 
         // TAKES THE TERMINAL TO ASK FOR A SECRET, which is the one thing on this
         // list that reads from a person rather than writing to them. The echo

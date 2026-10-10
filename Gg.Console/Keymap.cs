@@ -371,6 +371,18 @@ public readonly record struct KeymapContext(
     public bool RunnerIsBeating { get; init; }
 
     /// <summary>
+    /// What the runner modal's sessions view is over, or null when its keys do not apply:
+    /// another view, or a machine whose heartbeat does not say it takes sessions (slice
+    /// seventy-one).
+    /// </summary>
+    /// <remarks>
+    /// <b>One member, not three bools.</b> On the view of a machine that takes sessions the
+    /// cursor is on no row, a live one or an ended one, and those are exclusive - crossing
+    /// three flags would ask for a cursor on a session that both runs and ended.
+    /// </remarks>
+    public RunnerSessionPane? RunnerSessions { get; init; }
+
+    /// <summary>
     /// Whether the gate under the queue's cursor asks for an agent login.
     /// </summary>
     /// <remarks>
@@ -593,6 +605,10 @@ public readonly record struct KeymapContext(
             // beats, and an introduction is picked up on a heartbeat.
             RunnerIsBeating = Rows.Selected(state) is { } watchable
                 && Gg.Client.RunnerReach.Beats(watchable.State),
+
+            // AND WHAT THE SESSIONS VIEW IS OVER, from the rows it draws and the session its
+            // cursor names, so a key offered is a key over something a person can see.
+            RunnerSessions = RunnerActivity.Pane(state),
 
             // WHOSE ALLOWANCE THE SELECTED MACHINE SPENDS FROM. Yours rather
             // than Mine: an allowance belongs to the people who registered the
@@ -876,6 +892,57 @@ public static class Keymap
                 },
             ]
             : [];
+
+    /// <summary>
+    /// The sessions view's four keys (slice seventy-one), offered only on that view of a
+    /// machine that takes sessions.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>n and D over any such machine; enter only over a row; d only over a session that
+    /// ended</b>, because the machine refuses to forget one that runs and a key that can
+    /// only be refused is worse than no key.
+    /// </para>
+    /// <para>
+    /// <b>Free letters here</b>: the runner modal binds w, c, m, o, h, r, x and v.
+    /// </para>
+    /// </remarks>
+    private static IReadOnlyList<KeyBinding> Sessions(KeymapContext context) =>
+        context.RunnerSessions is not { } over
+            ? []
+            :
+            [
+                new(KeyStroke.Char('n'), Command.StartRemoteSession, "start a session here")
+                {
+                    When = "on the sessions of a machine that takes them",
+                },
+                .. over switch
+                {
+                    RunnerSessionPane.OverALiveOne =>
+                    [
+                        new KeyBinding(KeyStroke.EnterKey, Command.OpenRemoteSession, "attach to it")
+                        {
+                            When = "over a session that is running",
+                        },
+                    ],
+                    RunnerSessionPane.OverAnEndedOne =>
+                    [
+                        new KeyBinding(KeyStroke.EnterKey, Command.OpenRemoteSession, "resume it")
+                        {
+                            When = "over a session that ended",
+                        },
+                        new KeyBinding(KeyStroke.Char('d'), Command.ForgetRemoteSession, "forget it")
+                        {
+                            When = "over a session that ended",
+                        },
+                    ],
+                    _ => (KeyBinding[])[],
+                },
+                new(KeyStroke.Char('D'), Command.ForgetEndedRemoteSessions, "forget every ended session")
+                {
+                    When = "on the sessions of a machine that takes them",
+                },
+            ];
 
     private static KeyBinding Turning { get; } =
         new(KeyStroke.Char('v'), Command.NextRunnerView, "next view");
@@ -1536,6 +1603,7 @@ public static class Keymap
                     // one place.
                 },
                 .. Owning(context),
+                .. Sessions(context),
                 Turning,
                 new(KeyStroke.Esc, Command.CloseModal, "close"),
             ]
@@ -1543,6 +1611,7 @@ public static class Keymap
             [
                 .. Watching(context),
                 .. Owning(context),
+                .. Sessions(context),
                 Turning,
                 new(KeyStroke.Esc, Command.CloseModal, "close"),
             ],
@@ -3103,6 +3172,12 @@ public static class Keymap
         c => c with { RunnerIsReserved = true },
         c => c with { RunnerIsTheTenants = true },
         c => c with { RunnerIsBeating = true },
+
+        // AND EACH THING THE SESSIONS VIEW CAN BE OVER, because each offers keys the others
+        // do not: enter only over a row, and d only over a session that ended.
+        c => c with { RunnerSessions = RunnerSessionPane.NoneSelected },
+        c => c with { RunnerSessions = RunnerSessionPane.OverALiveOne },
+        c => c with { RunnerSessions = RunnerSessionPane.OverAnEndedOne },
         c => c with { AllowanceIsMine = true },
         c => c with { FleetAllowancesOffered = true },
         c => c with { GateAsksForAgentLogin = true },

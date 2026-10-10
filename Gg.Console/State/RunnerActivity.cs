@@ -33,6 +33,19 @@ public sealed record RunnerSessionRow(
     string Ended,
     string Directory);
 
+/// <summary>What the runner modal's sessions view is over, for its keys (slice seventy-one).</summary>
+public enum RunnerSessionPane
+{
+    /// <summary>A machine that takes sessions, with no row under the cursor.</summary>
+    NoneSelected,
+
+    /// <summary>A session whose agent runs: enter attaches.</summary>
+    OverALiveOne,
+
+    /// <summary>A session whose agent ended: enter resumes, d forgets.</summary>
+    OverAnEndedOne,
+}
+
 /// <summary>
 /// What the runner under the cursor has done and is holding: the runner modal's
 /// flights and sessions views (slice seventy-one, S71.4-01).
@@ -236,6 +249,32 @@ public static class RunnerActivity
             ? "No sessions on this machine yet."
             : "This machine's configuration does not say `accept-agent-sessions`, so it runs no "
             + "agent sessions.";
+    }
+
+    /// <summary>
+    /// What the sessions view's keys are over, or null where they do not apply (slice
+    /// seventy-one).
+    /// </summary>
+    /// <remarks>
+    /// <b>Null off the view and over a machine that does not take sessions</b>, whose every
+    /// act the machine would refuse; otherwise no row, a live one or an ended one.
+    /// </remarks>
+    public static RunnerSessionPane? Pane(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state is not { Mode: UiMode.Runner, RunnerView: RunnerView.Sessions }
+            || Rows.Selected(state) is not { AcceptsAgentSessions: true })
+        {
+            return null;
+        }
+
+        return SelectedSession(state) switch
+        {
+            null => RunnerSessionPane.NoneSelected,
+            { Alive: true } => RunnerSessionPane.OverALiveOne,
+            _ => RunnerSessionPane.OverAnEndedOne,
+        };
     }
 
     private static IReadOnlyList<AgentSessionStanding> Ordered(AppState state) =>

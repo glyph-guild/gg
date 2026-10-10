@@ -166,4 +166,49 @@ public class ACredentialSaysWhatItGrantsTests
             .Because("`gg credential trust-this-machine` and `gg doctor` still name it by its "
                    + "locator, so the list must still say it.");
     }
+
+    [Test]
+    public async Task Two_credentials_at_one_locator_each_keep_their_own_account()
+    {
+        // MEASURED ON THIS TENANT: two people registered `hrtms/jdx`, so two
+        // credentials share local:hrtms/jdx - and matching names by locator
+        // printed the first one's account on both lines. The account is the
+        // whole point of the line.
+        var locator = CredentialLocator.ForRepo("hrtms/jdx");
+        CredentialSummary Registered(string id, string identity) => new()
+        {
+            CredentialId = id,
+            For = "hrtms/jdx",
+            AddedAt = DateTimeOffset.UnixEpoch,
+            Reference = AReference(locator) with { Identity = identity },
+        };
+
+        var list = new CredentialList
+        {
+            Credentials =
+            [
+                Registered("01a0fe55-cefc-75d0-ae6a-5e65958a0a60", "pcarbone"),
+                Registered("01a10ecb-aba0-71e4-bcff-bf7d38092185", "kdeenanauth"),
+            ],
+        };
+
+        var text = VerbOutput.ToText(new VerbResult.Credentials(
+            list, [],
+            [.. list.Credentials.Select(
+                c => CredentialNames.Describe(c.Reference, c.For, CredentialPlaces.None))]));
+
+        await Assert.That(text).Contains("as pcarbone");
+        await Assert.That(text).Contains("as kdeenanauth");
+    }
+
+    [Test]
+    public async Task A_credential_gg_cannot_place_says_so_where_it_is_listed()
+    {
+        var name = CredentialNames.Describe(
+            AReference(CredentialLocator.ForRepo("hrtms/jdx")), "hrtms/jdx", CredentialPlaces.None);
+
+        await Assert.That(name.Grants).Contains("service not recognised")
+            .Because("a list line that reads like every other one tells a person gg knows what "
+                   + "it opens, and here it does not.");
+    }
 }

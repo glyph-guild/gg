@@ -159,7 +159,8 @@ public sealed class AttendedExecutor(
         SelfInvocation? self = null,
         string binary = "claude",
         IAuthenticateAnAgent? agent = null,
-        string? token = null)
+        string? token = null,
+        Func<string, string?>? secretFor = null)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -185,7 +186,7 @@ public sealed class AttendedExecutor(
         };
 
         foreach (var argument in ClaudeCodeExecutor.BoundingArgumentsFor(
-                     request, readers, secret, self))
+                     request, readers, secret, self, secretFor))
         {
             info.ArgumentList.Add(argument);
         }
@@ -227,9 +228,17 @@ public sealed class AttendedExecutor(
             }
         }
 
+        // AND EVERY EXTERNAL MCP SERVER'S CREDENTIALS (ADR-0040), the same as
+        // the headless path.
+        if (ClaudeCodeExecutor.UnservedMcp(request, _readers, _secretFor) is { } unserved)
+        {
+            return ExecutorRun.Failed(
+                request.LoopId, unserved, attempts: 0, took: TimeSpan.Zero, movesUsed: []);
+        }
+
         var info = StartInfoFor(
             request, _readers, secret, _self, _binary,
-            _agent, ClaudeCodeExecutor.TokenFor(_agent, _secretFor));
+            _agent, ClaudeCodeExecutor.TokenFor(_agent, _secretFor), _secretFor);
 
         // SAID BEFORE THE CHILD STARTS, because once it starts the screen is
         // its own and nothing of ours will be read again until it exits.
@@ -245,6 +254,12 @@ public sealed class AttendedExecutor(
                                             or FileNotFoundException)
         {
             return Unstartable(request, failure.Message);
+        }
+        finally
+        {
+            // THE CONFIGURATION CARRIES SECRETS, and a person's session has
+            // ended by the time the spawn returns.
+            McpConfigFile.Delete(info.ArgumentList);
         }
 
         if (exit is null)

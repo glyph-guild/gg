@@ -50,8 +50,9 @@ public class NominateToolLaunchTests
 
     private static string ConfigIn(IReadOnlyList<string> arguments)
     {
-        var at = arguments.ToList().IndexOf("--mcp-config");
-        return at < 0 ? "" : arguments[at + 1];
+        // A PATH, AND THE FILE IS THE CONFIGURATION: it carries secrets, so it
+        // is never the argument itself.
+        return arguments.Contains("--mcp-config") ? McpLaunch.ConfigText(arguments) : "";
     }
 
     private static int Count(IReadOnlyList<string> arguments, string flag) =>
@@ -168,12 +169,14 @@ public class NominateToolLaunchTests
             self: SelfInvocation.For("/bin/gg", null));
 
         // TWO THINGS MOVE. The config document is REPLACED rather than added -
-        // one flag, one JSON value, now naming two servers - and the allow-list
+        // one flag, one file, now naming two servers - and the allow-list
         // gains the grant. Everything else is compared with both of those taken
         // out, because lumping them in would report the join as a removal.
-        var beforeRest = before.Where(a => a != ConfigIn(before)).ToList();
+        // The config's PATH is what the argument carries now, and every launch
+        // writes its own file, so it is the path that is taken out.
+        var beforeRest = before.Where(a => a != McpLaunch.ConfigPath(before)).ToList();
         var afterRest = after
-            .Where(a => a != ConfigIn(after) && a != HelpTool.Qualified)
+            .Where(a => a != McpLaunch.ConfigPath(after) && a != HelpTool.Qualified)
             .ToList();
 
         await Assert.That(afterRest).IsEquivalentTo(beforeRest.ToArray())

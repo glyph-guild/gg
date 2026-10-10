@@ -162,7 +162,7 @@ public class AServedReaderNeedsNoScriptTests
                 declaration: "", served: $"a-tracker={Host}|local:acme/board", self: Self()),
             secret: "the-secret");
 
-        var config = arguments[arguments.ToList().IndexOf("--mcp-config") + 1];
+        var config = McpLaunch.ConfigText(arguments);
 
         await Assert.That(config).Contains("runner");
         await Assert.That(config).Contains("local:acme/board");

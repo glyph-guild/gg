@@ -78,14 +78,15 @@ public class TheServerGetsTheCredentialTests
                 "a-tracker=tracker-mcp|TRACKER_TOKEN=local:acme/board"),
             secret: "the-secret");
 
-        var config = arguments[arguments.ToList().IndexOf("--mcp-config") + 1];
+        var config = McpLaunch.ConfigText(arguments);
 
         await Assert.That(config).Contains("TRACKER_TOKEN");
         await Assert.That(config).Contains("the-secret");
         await Assert.That(arguments.Count(a => a.Contains("the-secret", StringComparison.Ordinal)))
-            .IsEqualTo(1)
-            .Because("the config is the one argument that may carry it, and even that is a "
-                   + "process argument - so it must be the only one.");
+            .IsEqualTo(0)
+            .Because("the config used to be the one argument carrying it, and an argument is "
+                   + "readable by every user on the host. It is a file now, and the argument is "
+                   + "its path (slice seventy-two, S72.5-03).");
     }
 
     [Test]
@@ -94,7 +95,7 @@ public class TheServerGetsTheCredentialTests
         var arguments = ClaudeCodeExecutor.ArgumentsFor(
             ARequest(), IntentConfiguration.FromEnvironment("a-tracker=tracker-mcp"));
 
-        var config = arguments[arguments.ToList().IndexOf("--mcp-config") + 1];
+        var config = McpLaunch.ConfigText(arguments);
 
         await Assert.That(config).DoesNotContain("env");
     }
@@ -186,7 +187,7 @@ public class TheServerGetsTheCredentialTests
             .Because("a served reader resolves its own credential, so there is nothing to write "
                    + "where every ps on the host can read it.");
 
-        var config = arguments[arguments.ToList().IndexOf("--mcp-config") + 1];
+        var config = McpLaunch.ConfigText(arguments);
 
         await Assert.That(config).DoesNotContain("env")
             .Because("no secret is being placed, so there is no block to place it in.");

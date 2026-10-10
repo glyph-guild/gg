@@ -2040,6 +2040,9 @@ static async Task<int> LaunchConsoleAsync()
         // a bare terminal to type it is two screens for one decision. It is a controller
         // outside the store, so nothing of it reaches AppState or the state dump.
         broadcast: state => BroadcastFromTheConsole(state, heldSecret),
+        // AND THE WIZARD'S TOKEN, through the same holder: typed into the masked field on
+        // its account step, spent here once by the one registration, then forgotten.
+        register: state => RegisterFromTheConsole(state, heldSecret),
         tails: tails,
         // THE READ PATH, AND IT IS THE SAME ONE THE BOOT TOOK. Passing the boot
         // itself is what makes a refresh mean "as if you had just opened it"
@@ -2595,6 +2598,58 @@ static string LoginFromTheConsole(string runnerId, string provider)
         .GetResult();
 
     return ended.Said;
+}
+
+/// <summary>
+/// Registers a credential the console's wizard was told about.
+/// </summary>
+/// <remarks>
+/// <b>The answers were read and reviewed on screen</b>, so this asks nothing: what it is
+/// handed is a draft a person has already confirmed in one sentence, and the token from
+/// the holder the masked field typed into.
+/// </remarks>
+static string RegisterFromTheConsole(AppState state, HeldSecret held)
+{
+    try
+    {
+        if (state.CredentialDraft is not
+            { Subject: { } subject, Named: { } named, Scope: { } scope, Identity: { } identity })
+        {
+            return "Nothing was registered: the wizard was not finished.";
+        }
+
+        using var http = new HttpClient { BaseAddress = new Uri(ControlPlaneAddress()) };
+
+        // THE SAME COMMANDS THE CLI'S `gg credential add` RUNS, handed the holder
+        // instead of a terminal prompt - which is why it cannot tell where the token
+        // came from, and why nothing about registering had to change.
+        var commands = new CredentialCommands(
+            new ControlPlaneClient(http),
+            new FileSessionStore(),
+            MachineCredentialStore.ThisMachine(),
+            held,
+            trackerHosts: TrackerHostsDeclared());
+
+        string[] scopes = scope == CredentialScopes.Write
+            ? [CredentialScopes.Read, CredentialScopes.Write]
+            : [CredentialScopes.Read];
+
+        var registered = commands.AddAsync(named, scopes, identity, subject)
+            .GetAwaiter().GetResult();
+
+        return VerbOutput.ToText(registered);
+    }
+    catch (Exception refused) when (
+        refused is CredentialUnavailableException or CredentialRefusedException
+            or InvalidOperationException or HttpRequestException)
+    {
+        return refused.Message;
+    }
+    finally
+    {
+        // SPENT OR NOT, IT GOES, for the broadcast's reason below.
+        held.Forget();
+    }
 }
 
 /// <summary>

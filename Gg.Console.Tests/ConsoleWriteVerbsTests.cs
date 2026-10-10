@@ -70,8 +70,10 @@ public class ConsoleWriteVerbsTests
         // whether or not the remote one did.
         await Assert.That(Keymap.Resolve(KeyStroke.Char('n'), normal))
             .IsEqualTo(Command.AskHowToCompose);
+        // `c` OPENS THE WIZARD now (owner, 2026-10-10), which is still the credential
+        // write - the register happens in the shell when it finishes.
         await Assert.That(Keymap.Resolve(KeyStroke.Char('c'), normal))
-            .IsEqualTo(Command.AddCredential);
+            .IsEqualTo(Command.OpenCredentialWizard);
         await Assert.That(Keymap.Resolve(KeyStroke.Char('i'), normal)).IsEqualTo(Command.Invite);
 
         // NOT INSIDE A MODAL. A modal has the keyboard while it is open, and a

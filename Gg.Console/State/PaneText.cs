@@ -3252,6 +3252,7 @@ public static class PaneText
         UiMode.ComposeChoice => "how do you want to write this flight?",
         UiMode.WorkKindChoice => "what is this flight for?",
         UiMode.CredentialRepositoryChoice => "which repository is this credential for?",
+        UiMode.CredentialWizard => "add a credential",
         UiMode.BrowseFilter => "narrow the work list",
         UiMode.WorkItemDetail => "the work item",
         _ => "",
@@ -3577,6 +3578,7 @@ public static class PaneText
             UiMode.ComposeChoice => ComposeChoice(),
             UiMode.WorkKindChoice => WorkKindChoice(state),
             UiMode.CredentialRepositoryChoice => CredentialRepositoryChoice(state),
+            UiMode.CredentialWizard => CredentialWizard.Said(state),
             UiMode.BrowseFilter => BrowseFilter(state),
 
             // WHAT THE READER SAID, WHOLE. Wrapped like every other document in

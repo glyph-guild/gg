@@ -18,6 +18,17 @@ public static class Reducer
         {
             Command.ToggleHelp => Modal(state, UiMode.Help),
 
+            // A CREDENTIAL, ADDED ON SCREEN. Opened at its first step with nothing
+            // answered, whatever a previous one got to.
+            Command.OpenCredentialWizard => state with
+            {
+                Mode = UiMode.CredentialWizard,
+                CredentialDraft = new CredentialDraft(CredentialWizardStep.Service),
+            },
+
+            Command.WizardNext => WizardNext(state),
+            Command.WizardBack => WizardBack(state),
+
             // BOTH WAYS, because a view a person can widen and not narrow is a
             // door with no handle on the inside. The cursor goes back to the
             // top: the row it indexed is not the row at that index once the
@@ -441,6 +452,10 @@ public static class Reducer
                     Audience = [],
                     AudienceFor = null,
                     AudienceAsked = false,
+
+                    // AND A CREDENTIAL HALF-ADDED, for the same reason: reopened, it
+                    // would name an account somebody decided not to use.
+                    CredentialDraft = null,
                 },
 
             // ANSWERING OPENS; IT DOES NOT DECIDE, which is the shape the two
@@ -1568,6 +1583,121 @@ public static class Reducer
             KindSelected = Math.Clamp(row, 0, WorkKinds.Declared(state).Count),
         };
 
+    /// <summary>The wizard's cursor, clamped to the rows its step draws.</summary>
+    private static AppState PickWizardRow(AppState state, int row)
+    {
+        if (state.CredentialDraft is not { } draft)
+        {
+            return state;
+        }
+
+        var rows = CredentialWizard.Rows(state).Count;
+
+        return state with
+        {
+            CredentialDraft = draft with { Cursor = rows == 0 ? 0 : Math.Clamp(row, 0, rows - 1) },
+        };
+    }
+
+    /// <summary>
+    /// The answer under the cursor, taken, and the next step.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A step with nothing to choose stays where it is.</b> Going on with no
+    /// answer is how a credential gets registered for nothing in particular.
+    /// </para>
+    /// <para>
+    /// <b>The account is required</b>, and is written onto the draft by the screen
+    /// before this runs - a field's text is the widget's until enter. The token
+    /// is NOT checked here and cannot be: it was handed to the held secret, which
+    /// the model never sees, and the screen does not dispatch this without one.
+    /// </para>
+    /// </remarks>
+    private static AppState WizardNext(AppState state)
+    {
+        if (state.Mode is not UiMode.CredentialWizard || state.CredentialDraft is not { } draft)
+        {
+            return state;
+        }
+
+        switch (draft.Step)
+        {
+            case CredentialWizardStep.Service:
+            {
+                var services = CredentialWizard.Services;
+                var chosen = draft.Cursor < services.Count ? services[draft.Cursor].Key : null;
+
+                return state with
+                {
+                    CredentialDraft = draft with
+                    {
+                        Step = CredentialWizardStep.For, Cursor = 0, Service = chosen,
+                        Subject = null, Named = null, Scope = null,
+                    },
+                };
+            }
+
+            case CredentialWizardStep.For:
+            {
+                var targets = CredentialWizard.Targets(state);
+
+                if (draft.Cursor >= targets.Count)
+                {
+                    return state;
+                }
+
+                var target = targets[draft.Cursor];
+
+                return state with
+                {
+                    CredentialDraft = draft with
+                    {
+                        Step = CredentialWizardStep.Access, Cursor = 0,
+                        Subject = target.Subject, Named = target.Named, Scope = null,
+                    },
+                };
+            }
+
+            case CredentialWizardStep.Access:
+            {
+                var accesses = CredentialWizard.Accesses(state);
+
+                return draft.Cursor < accesses.Count
+                    ? state with
+                    {
+                        CredentialDraft = draft with
+                        {
+                            Step = CredentialWizardStep.Account, Cursor = 0,
+                            Scope = accesses[draft.Cursor].Scope,
+                        },
+                    }
+                    : state;
+            }
+
+            case CredentialWizardStep.Account:
+                return string.IsNullOrWhiteSpace(draft.Identity)
+                    ? state
+                    : state with
+                    {
+                        CredentialDraft = draft with
+                        {
+                            Step = CredentialWizardStep.Review, Identity = draft.Identity.Trim(),
+                        },
+                    };
+
+            default:
+                return state;
+        }
+    }
+
+    /// <summary>The step before, with its cursor at the top.</summary>
+    private static AppState WizardBack(AppState state) =>
+        state.Mode is UiMode.CredentialWizard
+        && state.CredentialDraft is { Step: > CredentialWizardStep.Service } draft
+            ? state with { CredentialDraft = draft with { Step = draft.Step - 1, Cursor = 0 } }
+            : state;
+
     /// <summary>
     /// Ask which repository a credential is for, here rather than at a prompt.
     /// </summary>
@@ -1684,6 +1814,8 @@ public static class Reducer
             ? PickWorkKind(state, state.KindSelected + by)
             : state.Mode is UiMode.CredentialRepositoryChoice
             ? PickCredentialRepository(state, state.CredentialRepoSelected + by)
+            : state.Mode is UiMode.CredentialWizard
+            ? PickWizardRow(state, (state.CredentialDraft?.Cursor ?? 0) + by)
             : state.Mode is UiMode.BrowseFilter
             ? PickFilterRow(state, BrowseFilters.Cursor(state) + by)
             : state.Mode is UiMode.WorkItemDetail && state.WorkItemTab is WorkItemTab.Flights
@@ -1935,6 +2067,13 @@ public static class Reducer
         if (state.Mode is UiMode.CredentialRepositoryChoice)
         {
             return PickCredentialRepository(state, row);
+        }
+
+        // AND THE WIZARD'S LIST, for the same reason: the tab behind it is the
+        // credentials tab, and falling through would move that list instead.
+        if (state.Mode is UiMode.CredentialWizard)
+        {
+            return PickWizardRow(state, row);
         }
 
         return state.ActiveTab switch

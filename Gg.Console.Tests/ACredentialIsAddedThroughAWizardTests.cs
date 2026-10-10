@@ -1,6 +1,7 @@
 using Gg.Client;
 using Gg.Console;
 using Gg.Contracts;
+using Gg.Console.Views;
 
 namespace Gg.Console.Tests;
 
@@ -206,5 +207,34 @@ public class ACredentialIsAddedThroughAWizardTests
                                         || n.Contains("secret", StringComparison.Ordinal)
                                         || n.Contains("password", StringComparison.Ordinal)))
             .IsFalse();
+    }
+
+    // ---- where the keyboard is ----
+
+    [Test]
+    public async Task Focus_goes_to_the_step_and_follows_it_when_the_step_turns()
+    {
+        // NOT THE MODAL: the wizard is its own dialog and the modal is hidden while it
+        // shows, so focusing the modal would put the keyboard on a dialog nobody sees.
+        await Assert.That(FocusChange.Wanted(
+                UiMode.CredentialWizard, TabId.Credentials, null, modalHasFocus: false,
+                wizardStep: CredentialWizardStep.Service))
+            .IsEqualTo(FocusTarget.WizardStep);
+
+        await Assert.That(FocusChange.Wanted(
+                UiMode.CredentialWizard, TabId.Credentials, null, modalHasFocus: true,
+                wizardStep: CredentialWizardStep.For,
+                landedWizardStep: CredentialWizardStep.For))
+            .IsEqualTo(FocusTarget.LeaveAlone)
+            .Because("a render once a second must not pull the keyboard back to the top of "
+                   + "a list somebody is moving along.");
+
+        await Assert.That(FocusChange.Wanted(
+                UiMode.CredentialWizard, TabId.Credentials, null, modalHasFocus: true,
+                wizardStep: CredentialWizardStep.Account,
+                landedWizardStep: CredentialWizardStep.For))
+            .IsEqualTo(FocusTarget.WizardStep)
+            .Because("the step turned while the wizard kept focus, and the keyboard has to "
+                   + "follow to the fields the new step asks with.");
     }
 }

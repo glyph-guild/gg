@@ -39,6 +39,17 @@ public sealed class ConsoleLoop(
     /// </remarks>
     Func<AppState, string>? broadcast = null,
 
+    /// <summary>
+    /// Registers what the add-a-credential wizard was told, and says what happened.
+    /// </summary>
+    /// <remarks>
+    /// <b>A delegate for <c>broadcast</c>'s reason, and handed the state for its other
+    /// one:</b> the draft is on it - service, subject, scope and account, answered and
+    /// reviewed - and the token it needs was typed into the holder the composition owns,
+    /// so it reaches neither this loop nor the state dump.
+    /// </remarks>
+    Func<AppState, string>? register = null,
+
 
     /// <summary>
     /// Asks what a flight would need, and either refuses or takes an intent and
@@ -633,6 +644,27 @@ public sealed class ConsoleLoop(
                             LastCredential = "This console is not configured to send a credential.",
                         }
                         : actions.AudienceFor(state);
+                    break;
+
+                case Command.FinishCredentialWizard:
+                    // THE ONLY PART OF THE WIZARD THAT COULD NOT HAPPEN ON SCREEN. Every
+                    // step was answered inside the session; registering reaches the
+                    // control plane, which a session may never do.
+                    //
+                    // AND THE DRAFT GOES WITH IT, so a second keypress cannot register the
+                    // same credential twice. It re-reads, as adding always has: what it
+                    // changes is the credentials tab the person is looking at.
+                    state = Reloaded(
+                        state with
+                        {
+                            LastCredential = register is null
+                                ? "This console is not configured to register credentials."
+                                : register(state),
+                            Mode = UiMode.Normal,
+                            CredentialDraft = null,
+                        },
+                        reload,
+                        asked: false);
                     break;
 
                 case Command.SendTheAudience:

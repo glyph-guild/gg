@@ -30,6 +30,15 @@ internal static class ComposeRepositoriesCondition
     internal const string Said = "on the repositories tab";
 }
 
+/// <summary>
+/// The conditions the credential wizard's keys carry, written once.
+/// </summary>
+internal static class WizardCondition
+{
+    internal const string OnAList = "on a step that is a list";
+    internal const string Behind = "behind the first step";
+}
+
 public readonly record struct KeyStroke(
     char? Input, bool Ctrl = false, bool Escape = false, bool Tab = false, bool Enter = false,
     bool Left = false, bool Right = false)
@@ -200,7 +209,26 @@ public readonly record struct KeymapContext(
     /// <c>Keymap.Raised</c>.
     /// </para>
     /// </remarks>
-    bool AudienceAsked = false)
+    bool AudienceAsked = false,
+
+    /// <summary>
+    /// Which step the add-a-credential wizard is on, or null outside it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Enter means two things and only one of them can happen inside a
+    /// session</b> - the broadcast review's reason, above. Before the review it
+    /// goes on a step, which the reducer does; on the review it REGISTERS, which
+    /// reaches the control plane and so ends the session.
+    /// </para>
+    /// <para>
+    /// <b>And back is offered only where there is a step behind, and not over
+    /// the account's fields</b>, which take the arrows for themselves. A step
+    /// rather than a flag because those are three different answers. Last,
+    /// because this is a positional record.
+    /// </para>
+    /// </remarks>
+    CredentialWizardStep? WizardStep = null)
 {
     /// <summary>
     /// Whether a code is already on the screen waiting to be approved.
@@ -587,6 +615,10 @@ public readonly record struct KeymapContext(
             // tracked here, so the view, the reducer and the keymap cannot come to
             // disagree about which half somebody is looking at.
             AudienceAsked = AudienceReview.AsksForThePassphrase(state),
+
+            // AND WHICH STEP A CREDENTIAL BEING ADDED IS ON, read off the draft the
+            // reducer moves, for AudienceAsked's reason one line up.
+            WizardStep = state.Mode is UiMode.CredentialWizard ? state.CredentialDraft?.Step : null,
 
             // AND WHETHER THERE IS A ROW AT ALL, which is what OPENING one
             // asks. Derived from the same rows the table draws, so a key
@@ -1317,7 +1349,13 @@ public static class Keymap
         // key carries a word, which is the whole reason they could move.
         UiMode.CredentialActions =>
         [
-            new(KeyStroke.Char('c'), Command.AddCredential, "register a credential"),
+            // ON SCREEN, A STEP AT A TIME (owner, 2026-10-10). The prompt it replaced
+            // tore the console down to ask five questions at the bare terminal.
+            new(KeyStroke.Char('c'), Command.OpenCredentialWizard, "register a credential"),
+
+            // AND THAT PROMPT, STILL, for what the wizard does not offer: an agent's
+            // credential, or a tracker under a key no service in the catalog uses.
+            new(KeyStroke.Char('p'), Command.AddCredential, "register one at the prompt"),
             new(KeyStroke.Char('x'), Command.ForgetCredential, "forget one"),
 
             // THE ONE THAT NEVER HAD A KEY. Nobody can be sent a credential until
@@ -1359,6 +1397,56 @@ public static class Keymap
                     { When = "while the list is being read" },
                 new(KeyStroke.Esc, Command.CloseModal, "close"),
             ],
+
+        // A STEP AT A TIME, and enter is the one key that moves forward. On the review
+        // it registers, which ends the session; everywhere before, it goes on.
+        UiMode.CredentialWizard => context.WizardStep switch
+        {
+            CredentialWizardStep.Review =>
+            [
+                new(KeyStroke.EnterKey, Command.FinishCredentialWizard, "register it")
+                    { When = "on the review" },
+                new(KeyStroke.LeftKey, Command.WizardBack, "back")
+                    { When = WizardCondition.Behind },
+                new(KeyStroke.Esc, Command.CloseModal, "drop it"),
+            ],
+
+            // THE FIELDS TAKE THE ARROWS, so back is the button here and not a key.
+            CredentialWizardStep.Account =>
+            [
+                new(KeyStroke.EnterKey, Command.WizardNext, "go on")
+                    { When = "with an account and a token" },
+                new(KeyStroke.Esc, Command.CloseModal, "drop it"),
+            ],
+
+            // THE FIRST STEP HAS NOTHING BEHIND IT, so it offers no way back.
+            CredentialWizardStep.Service =>
+            [
+                new(KeyStroke.Char('j'), Command.SelectNext, "down")
+                    { Untaught = true, OffTheHintLine = true, When = WizardCondition.OnAList },
+                new(KeyStroke.Char('k'), Command.SelectPrevious, "up")
+                    { Untaught = true, OffTheHintLine = true, When = WizardCondition.OnAList },
+                new(KeyStroke.EnterKey, Command.WizardNext, "go on")
+                    { When = WizardCondition.OnAList },
+                new(KeyStroke.Esc, Command.CloseModal, "drop it"),
+            ],
+
+            CredentialWizardStep.For or CredentialWizardStep.Access =>
+            [
+                new(KeyStroke.Char('j'), Command.SelectNext, "down")
+                    { Untaught = true, OffTheHintLine = true, When = WizardCondition.OnAList },
+                new(KeyStroke.Char('k'), Command.SelectPrevious, "up")
+                    { Untaught = true, OffTheHintLine = true, When = WizardCondition.OnAList },
+                new(KeyStroke.EnterKey, Command.WizardNext, "go on")
+                    { When = WizardCondition.OnAList },
+                new(KeyStroke.LeftKey, Command.WizardBack, "back")
+                    { When = WizardCondition.Behind },
+                new(KeyStroke.Esc, Command.CloseModal, "drop it"),
+            ],
+
+            // NO DRAFT IS NOTHING TO GO ON WITH, so the way out is all there is.
+            _ => [new(KeyStroke.Esc, Command.CloseModal, "close")],
+        },
 
         UiMode.HandFlight => [new(KeyStroke.Esc, Command.CloseModal, "close")],
 
@@ -2467,7 +2555,7 @@ public static class Keymap
                 ]
                 : (KeyBinding[])[],
 
-            new(KeyStroke.Char('c'), Command.AddCredential, "add credential")
+            new(KeyStroke.Char('c'), Command.OpenCredentialWizard, "add credential")
                 { OffTheHintLine = true },
             // `x` for forget, because `f` is freeze and fly-this and `r` is
             // reject. A store you cannot clean is a store people work around.
@@ -3014,6 +3102,13 @@ public static class Keymap
         // SEND in - the other stage means go on, and a help page that raised neither
         // would name one of the two keys this mode has.
         c => c with { AudienceAsked = true },
+
+        // AND EACH SHAPE OF THE WIZARD, because each offers keys the others do not:
+        // back only behind the first step, and enter registering only on the last.
+        c => c with { WizardStep = CredentialWizardStep.Service },
+        c => c with { WizardStep = CredentialWizardStep.For },
+        c => c with { WizardStep = CredentialWizardStep.Account },
+        c => c with { WizardStep = CredentialWizardStep.Review },
     ];
 
     /// <summary>

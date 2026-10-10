@@ -78,10 +78,13 @@ public class FocusReachesIntoTheFlightModalTests
             // sentence the table had to cut. Focus at the frame would leave
             // that table's arrows moving nothing. Its target is asserted where
             // the table is.
+            // AND THE CREDENTIAL WIZARD, which is not even the modal: it is its own
+            // dialog beside that one, made of steps, each asking with a list or with
+            // fields. Its target is asserted in ACredentialIsAddedThroughAWizardTests.
             if (mode is UiMode.FlightDetail or UiMode.Runner or UiMode.Help
                      or UiMode.BrowseFilter or UiMode.WorkItemDetail
                      or UiMode.WorkKindChoice or UiMode.CredentialRepositoryChoice
-                     or UiMode.ItineraryDetail)
+                     or UiMode.ItineraryDetail or UiMode.CredentialWizard)
             {
                 continue;
             }

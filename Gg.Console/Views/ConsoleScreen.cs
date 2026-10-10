@@ -206,6 +206,27 @@ public sealed class ConsoleScreen : Window
     private readonly Dialog _modal;
     private readonly Label _modalBody;
 
+    /// <summary>The add-a-credential wizard. See its construction for why it is hosted.</summary>
+    private readonly Wizard _wizard;
+
+    /// <summary>Each of the wizard's steps, by the step the model names.</summary>
+    private readonly Dictionary<CredentialWizardStep, WizardStep> _wizardSteps = [];
+
+    /// <summary>What each step asks, above its list or its fields.</summary>
+    private readonly Dictionary<CredentialWizardStep, Label> _wizardSaid = [];
+
+    /// <summary>The list on each step that is one.</summary>
+    private readonly Dictionary<CredentialWizardStep, TableView> _wizardChoices = [];
+
+    /// <summary>The account a credential acts as, typed on the account step.</summary>
+    private readonly TextField _wizardIdentity;
+
+    /// <summary>The token, masked, and handed to the holder rather than the model.</summary>
+    private readonly TextField _wizardToken;
+
+    /// <summary>The step focus last landed on, for <see cref="FocusChange.Wanted"/>.</summary>
+    private CredentialWizardStep? _landedWizardStep;
+
     /// <summary>The help modal's tabbed body. See the construction for why it is widgets now.</summary>
     private readonly View _helpBody;
 
@@ -2569,7 +2590,89 @@ public sealed class ConsoleScreen : Window
         // added is the order they are drawn. `_version' came from main and
         // `_notifications' from the corner; taking either list whole would
         // have dropped the other with nothing failing to compile.
-        Add(_bar, _version, _activity, _hints, _hintsStanding, _notifications, _modal);
+        // A CREDENTIAL, ADDED A STEP AT A TIME, in Terminal.Gui's own wizard
+        // (owner, 2026-10-10: adding one "puts us back on the commandline").
+        //
+        // HOSTED AND NEVER RUN, for _modal's reason exactly: a wizard is a Dialog,
+        // and a run one keeps its answers inside Terminal.Gui, where the keymap and
+        // the key walk cannot see them. So which step shows is the draft's, its
+        // next and back are cancelled and turned into the commands the keys send,
+        // and its finish ends the session for the loop to register - as the
+        // broadcast's send does.
+        _wizard = new Wizard
+        {
+            Title = PaneText.ModalTitle(new AppState { Mode = UiMode.CredentialWizard }),
+            Visible = false,
+            Width = Dim.Percent(80),
+            Height = 18,
+            ShadowStyle = ConsoleTheme.ModalShadow,
+        };
+
+        // NO HOTKEYS OF THEIR OWN, _runnerStart's rule: a button takes a letter out
+        // of its caption, and the keymap is the only place a printable key means
+        // anything here.
+        foreach (var button in (Button[])[_wizard.BackButton, _wizard.NextFinishButton])
+        {
+            button.HotKeySpecifier = new System.Text.Rune('\uffff');
+            button.ShadowStyle = ShadowStyles.None;
+        }
+
+        foreach (var step in Enum.GetValues<CredentialWizardStep>())
+        {
+            var page = new WizardStep
+            {
+                Title = WizardStepTitle(step),
+                HelpText = CredentialWizard.Help(step),
+                BackButtonText = "back",
+                NextButtonText = step is CredentialWizardStep.Review ? "register" : "next",
+            };
+
+            var said = new Label { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Auto() };
+            page.Add(said);
+            _wizardSaid[step] = said;
+
+            if (step is CredentialWizardStep.Service or CredentialWizardStep.For
+                or CredentialWizardStep.Access)
+            {
+                var choices = CollectionViews.Table();
+                choices.X = 0;
+                choices.Y = Pos.Bottom(said) + 1;
+                choices.Width = Dim.Fill();
+                choices.Height = Dim.Fill();
+                choices.ValueChanged += OnModalRowPointedAt;
+                choices.KeyDown += OnModalKeyDown;
+                page.Add(choices);
+                _wizardChoices[step] = choices;
+            }
+
+            _wizardSteps[step] = page;
+            _wizard.AddStep(page);
+        }
+
+        // THE ACCOUNT STEP ASKS WITH FIELDS, and the token's is masked - the second
+        // secret field in this program, beside the broadcast's passphrase, and on
+        // the same terms: what is typed goes to the holder, never to the model.
+        var accountSaid = _wizardSaid[CredentialWizardStep.Account];
+        var accountLabel = new Label { Text = "account", X = 0, Y = Pos.Bottom(accountSaid) + 1 };
+        _wizardIdentity = new TextField { X = 9, Y = Pos.Top(accountLabel), Width = Dim.Fill() };
+        var tokenLabel = new Label { Text = "token", X = 0, Y = Pos.Bottom(accountLabel) + 1 };
+        _wizardToken = new TextField
+        {
+            X = 9,
+            Y = Pos.Top(tokenLabel),
+            Width = Dim.Fill(),
+            Secret = true,
+        };
+        _wizardSteps[CredentialWizardStep.Account]
+            .Add(accountLabel, _wizardIdentity, tokenLabel, _wizardToken);
+
+        _wizardIdentity.KeyDown += OnWizardFieldKeyDown;
+        _wizardToken.KeyDown += OnWizardFieldKeyDown;
+        _wizard.MovingNext += OnWizardMovingNext;
+        _wizard.MovingBack += OnWizardMovingBack;
+        _wizard.Accepting += OnWizardFinishing;
+
+        Add(_bar, _version, _activity, _hints, _hintsStanding, _notifications, _modal, _wizard);
 
         // AFTER THE PANES, so it sits over whichever one is waiting rather than
         // under it. It is the last thing added for the reason `_modal' is near
@@ -2585,6 +2688,10 @@ public sealed class ConsoleScreen : Window
         // a pty: the filter modal's "pick this" resolved, reduced, and did
         // nothing anybody could see.
         _modal.KeyDown += OnModalKeyDown;
+
+        // AND THE WIZARD, for the same reason: it is a Dialog too, and gives enter a
+        // meaning of its own that the keymap must see first.
+        _wizard.KeyDown += OnModalKeyDown;
 
         // AND THE MOUSE, ONE STEP EARLIER THAN ANY VIEW. While a modal is open
         // a click that lands on what it covers asks the library to focus a view
@@ -4554,8 +4661,10 @@ public sealed class ConsoleScreen : Window
             State = Reducer.Touched(State);
         }
 
-        var overTheModal = _modal.Visible
-                        && _modal.FrameToScreen().Contains(mouse.ScreenPosition);
+        var overTheModal = (_modal.Visible
+                            && _modal.FrameToScreen().Contains(mouse.ScreenPosition))
+                        || (_wizard.Visible
+                            && _wizard.FrameToScreen().Contains(mouse.ScreenPosition));
 
         if (ConsoleMouse.SwallowedWhile(State, overTheModal))
         {
@@ -5114,9 +5223,23 @@ public sealed class ConsoleScreen : Window
         // keyboard still belongs to the page and `h' brings it back - closing
         // it would lose the cursor, the page, and everything they had set.
         _modal.Visible = Modals.IsDrawn(State.Mode)
+            && State.Mode is not UiMode.CredentialWizard
             && !(State.Mode is UiMode.Help
                  && State.HelpPage is HelpPage.Look
                  && State.Look.Peeking);
+
+        // THE WIZARD IS ITS OWN DIALOG, beside that one, and the two never show at once.
+        var wizarding = State.Mode is UiMode.CredentialWizard && State.CredentialDraft is not null;
+        _wizard.Visible = wizarding;
+
+        if (wizarding)
+        {
+            RenderWizard();
+        }
+        else
+        {
+            ForgetTheWizard();
+        }
 
         // THE FLIGHT NAMES ITSELF UP THERE. Every other mode keeps the title
         // written for it, because a refusal is a refusal whichever one it is;
@@ -6030,6 +6153,208 @@ public sealed class ConsoleScreen : Window
         }
     }
 
+    /// <summary>The wizard at the step the draft names, with that step's words and rows.</summary>
+    /// <remarks>
+    /// <b>The step is moved only when it differs</b>, and under the sync flag: moving it
+    /// raises the wizard's own events, which must not read as a person pressing next.
+    /// </remarks>
+    private void RenderWizard()
+    {
+        var draft = State.CredentialDraft!;
+        var page = _wizardSteps[draft.Step];
+
+        _syncing = true;
+
+        try
+        {
+            if (_wizard.CurrentStep != page)
+            {
+                _wizard.GoToStep(page);
+            }
+
+            _wizardSaid[draft.Step].Text = CredentialWizard.Said(State);
+
+            if (_wizardChoices.TryGetValue(draft.Step, out var choices))
+            {
+                Fill(
+                    choices, null, CredentialWizard.Rows(State), [WizardStepTitle(draft.Step)],
+                    draft.Cursor, row => [row]);
+            }
+        }
+        finally
+        {
+            _syncing = false;
+        }
+
+        // AN ACCOUNT ALREADY GIVEN IS SHOWN AGAIN on the way back to it, so going back
+        // to change the token does not cost retyping the account.
+        if (draft.Step is CredentialWizardStep.Account && _wizardIdentity.Text.Length == 0
+            && draft.Identity is { Length: > 0 } identity)
+        {
+            _wizardIdentity.Text = identity;
+        }
+    }
+
+    /// <summary>
+    /// The wizard's fields emptied and its token forgotten, once it is not showing.
+    /// </summary>
+    /// <remarks>
+    /// <b>Escaping leaves nothing behind</b>, the broadcast's rule: a token held after its
+    /// wizard closed is one the next act could be handed. Only while this wizard put one
+    /// there - the holder is shared with the broadcast, which forgets its own.
+    /// </remarks>
+    private void ForgetTheWizard()
+    {
+        if (_wizardToken.Text.Length > 0 || _wizardIdentity.Text.Length > 0 || _wizardHeld)
+        {
+            _wizardToken.Text = "";
+            _wizardIdentity.Text = "";
+
+            if (_wizardHeld)
+            {
+                _held?.Forget();
+                _wizardHeld = false;
+            }
+        }
+
+        _landedWizardStep = null;
+    }
+
+    /// <summary>Whether the token in the holder is this wizard's.</summary>
+    private bool _wizardHeld;
+
+    /// <summary>
+    /// The step's answer taken and the next step asked for - the one path both enter
+    /// and the next button take.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>On the account step the fields are read here</b>, which is the airspace path's
+    /// shape: a field's text is the widget's until enter, and the model cannot hold it
+    /// before then. The account goes onto the draft; the token goes to the holder and is
+    /// taken off the screen in the same breath.
+    /// </para>
+    /// <para>
+    /// <b>No token is no step.</b> A token already held - somebody went back from the
+    /// review - carries on without being typed again.
+    /// </para>
+    /// </remarks>
+    private void WizardForward()
+    {
+        if (State.CredentialDraft is not { } draft)
+        {
+            return;
+        }
+
+        if (draft.Step is CredentialWizardStep.Review)
+        {
+            Dispatch(Command.FinishCredentialWizard);
+            return;
+        }
+
+        if (draft.Step is CredentialWizardStep.Account)
+        {
+            var typed = _wizardToken.Text;
+
+            if (string.IsNullOrWhiteSpace(_wizardIdentity.Text))
+            {
+                _wizardIdentity.SetFocus();
+                return;
+            }
+
+            if (typed.Length == 0 && !(_wizardHeld && _held?.Holding == true))
+            {
+                _wizardToken.SetFocus();
+                return;
+            }
+
+            if (typed.Length > 0)
+            {
+                _held?.Hold(typed);
+                _wizardHeld = true;
+                _wizardToken.Text = "";
+            }
+
+            State = State with { CredentialDraft = draft with { Identity = _wizardIdentity.Text } };
+        }
+
+        Dispatch(Command.WizardNext);
+    }
+
+    /// <summary>The next button, which a click reaches without the keymap.</summary>
+    private void OnWizardMovingNext(object? sender, System.ComponentModel.CancelEventArgs args)
+    {
+        args.Cancel = true;
+
+        if (!_syncing)
+        {
+            WizardForward();
+        }
+    }
+
+    /// <summary>The back button, the same way.</summary>
+    private void OnWizardMovingBack(object? sender, System.ComponentModel.CancelEventArgs args)
+    {
+        args.Cancel = true;
+
+        if (!_syncing)
+        {
+            Dispatch(Command.WizardBack);
+        }
+    }
+
+    /// <summary>The register button on the review, which the wizard calls accepting.</summary>
+    private void OnWizardFinishing(object? sender, CommandEventArgs args)
+    {
+        args.Handled = true;
+
+        if (!_syncing && State.CredentialDraft?.Step is CredentialWizardStep.Review)
+        {
+            Dispatch(Command.FinishCredentialWizard);
+        }
+    }
+
+    /// <summary>
+    /// Enter and esc on the account step's fields, which take every other key for
+    /// themselves - the airspace path's shape and for its reason.
+    /// </summary>
+    private void OnWizardFieldKeyDown(object? sender, Key key)
+    {
+        if (key == Key.Enter)
+        {
+            key.Handled = true;
+
+            // ACCOUNT FIRST, THEN TOKEN: enter on the account moves to the token
+            // rather than going on without one.
+            if (ReferenceEquals(sender, _wizardIdentity))
+            {
+                _wizardToken.SetFocus();
+            }
+            else
+            {
+                WizardForward();
+            }
+
+            return;
+        }
+
+        if (key == Key.Esc)
+        {
+            key.Handled = true;
+            Dispatch(Command.CloseModal);
+        }
+    }
+
+    /// <summary>What each step is called, on the wizard's title and its list's column.</summary>
+    private static string WizardStepTitle(CredentialWizardStep step) => step switch
+    {
+        CredentialWizardStep.Service => "service",
+        CredentialWizardStep.For => "what for",
+        CredentialWizardStep.Access => "access",
+        CredentialWizardStep.Account => "account",
+        _ => "review",
+    };
+
     /// <summary>
     /// The registry a credential can be sent for, and the line above it.
     /// </summary>
@@ -6827,7 +7152,9 @@ public sealed class ConsoleScreen : Window
         // a sibling tab's pane is what raises "FocusChanging was not cancelled
         // and the HasFocus value did not change", which is what the owner saw.
         switch (FocusChange.Wanted(
-            State.Mode, State.ActiveTab, _landed, _modal.HasFocus && !Stranded(),
+            State.Mode, State.ActiveTab, _landed,
+            (State.Mode is UiMode.CredentialWizard ? _wizard.HasFocus : _modal.HasFocus)
+                && !Stranded(),
             _airspacePath.HasFocus,
             State.AirspaceReading, _landedReading, State.RunnerView, _landedRunnerView,
             filterView: State.FilterView, landedFilterView: _landedFilterView,
@@ -6837,9 +7164,27 @@ public sealed class ConsoleScreen : Window
             notificationsHaveFocus: _notifications.HasFocus,
             landedEmpty: _landedEmpty,
             boardTable: State.BoardTable, landedBoardTable: _landedBoardTable,
-            tabIsEmpty: TableOf(State.ActiveTab) is { Visible: false }))
+            tabIsEmpty: TableOf(State.ActiveTab) is { Visible: false },
+            wizardStep: State.Mode is UiMode.CredentialWizard ? State.CredentialDraft?.Step : null,
+            landedWizardStep: _landedWizardStep))
         {
             case FocusTarget.LeaveAlone:
+                return;
+
+            case FocusTarget.WizardStep:
+                // THE LIST OR THE FIELD THE STEP ASKS WITH, and the wizard itself on the
+                // review, whose answer is its register button. Never a list that is not
+                // drawn: SetFocus on a hidden view does nothing, silently, and the
+                // keyboard would stay on the tab behind.
+                (State.CredentialDraft?.Step switch
+                {
+                    CredentialWizardStep.Account => _wizardIdentity,
+                    { } step when _wizardChoices.TryGetValue(step, out var list) && list.Visible
+                        => list,
+                    _ => (View)_wizard,
+                }).SetFocus();
+                _landedWizardStep = State.CredentialDraft?.Step;
+                _landed = null;
                 return;
 
             case FocusTarget.Notifications:
@@ -7151,6 +7496,18 @@ public sealed class ConsoleScreen : Window
         {
             KeyDown -= OnScreenKeyDown;
             _modal.KeyDown -= OnModalKeyDown;
+            _wizard.KeyDown -= OnModalKeyDown;
+            _wizard.MovingNext -= OnWizardMovingNext;
+            _wizard.MovingBack -= OnWizardMovingBack;
+            _wizard.Accepting -= OnWizardFinishing;
+            _wizardIdentity.KeyDown -= OnWizardFieldKeyDown;
+            _wizardToken.KeyDown -= OnWizardFieldKeyDown;
+
+            foreach (var choices in _wizardChoices.Values)
+            {
+                choices.ValueChanged -= OnModalRowPointedAt;
+                choices.KeyDown -= OnModalKeyDown;
+            }
 
             foreach (var (_, _, table, _) in _filterTabbed)
             {

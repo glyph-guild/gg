@@ -37,6 +37,10 @@ public static class Modals
         UiMode.AirspaceActions,
         UiMode.CredentialActions,
         UiMode.CredentialAudience,
+        // A CREDENTIAL, ADDED A STEP AT A TIME: a Terminal.Gui wizard, which is a
+        // dialog with a step pane and back and next - hosted, like this list's
+        // own dialog, and never run.
+        UiMode.CredentialWizard,
         UiMode.FlightDetail,
         UiMode.Runner,
         UiMode.HandFlight,

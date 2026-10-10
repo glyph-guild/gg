@@ -2136,11 +2136,26 @@ public static class PlatformToolServer
             $"    on-exhaustion:    what happens when the budget runs out. "
           + $"{Either(Gg.Contracts.ExhaustionPolicies.All)}.");
         said.AppendLine(
+            "    mcp:              the external MCP servers this loop uses, keyed by the name root "
+          + "defines each under in 'mcp-servers', with 'allow:' listing the tools it may call by "
+          + $"the server's own names, or \"{Gg.Contracts.McpRules.Everything}\" alone for all of "
+          + "them. A name root does not define is refused. Naming a server, or allowing another "
+          + "tool, is reviewed.");
+        said.AppendLine(
             "  offers:             what every machine in this tenant is offered, keyed by "
           + "setting - only the settings a machine will take, and a tracker names WHERE its "
           + "secret is and never the secret. Root only: it is the tenant's. Adding one or "
           + "changing what it says is reviewed; removing it applies at once, because an offer "
           + "is a thing to take and a machine keeps what it already accepted.");
+        said.AppendLine(
+            "  mcp-servers:        external MCP servers loops may use, keyed by name, written the "
+          + "way the agent's own MCP configuration writes them. Root only, so one file says where "
+          + "every credential may go. A local server has command:, args: and env:; a remote one "
+          + $"has type: ({string.Join(" or ", Gg.Contracts.McpTransports.All.Where(t => t != Gg.Contracts.McpTransports.Stdio))}), url: "
+          + "and headers:. A value is written as-is, except that ${credential:<locator>} is "
+          + "replaced on the machine with the secret it names: NEVER write a secret here, and "
+          + "never put a credential in args:, which every user on the host can read. Defining "
+          + "or changing a server is reviewed; removing one applies at once.");
         said.AppendLine(
             "  destinations:       where finished work goes. Keyed by name.");
         said.AppendLine(

@@ -1497,5 +1497,11 @@
     "surface": "921f7fcd89c28324a3f67c12ad7a5fb674e6a51e65e65e52ebef96f5a77ce127",
     "endpoints": "34d2aefdb68250139a09bfeafaa579c0cc2aa8a02391428c3ea48ab3e5f372d7",
     "note": "A session's gg tools act as the person who started it (ADR-0039 Amendment 2; owner, 2026-10-10: a short-lived credential minted per session). Endpoint gains Delegable, set on exactly the 22 Developer routes the gg tool servers call (whoami, logout, gates, board and its decisions, flights and their story, why, log, decisions and grounding, flying, runners, watch standings, naming and retiring, and the itinerary reads, menu, check and proposal); everything else refuses a delegated session. POST /v1/auth/delegations is added: an AgentDelegationRequest (runnerId, agentSessionId, introductionId) answered by an AgentDelegation (delegationId, token, expiresAt). The agent channel gains DelegateAgentSession (kind 8, console to runner: token, expiresAt). RunnerHeartbeat and RunnerSummary gain TakesAgentDelegation (absent is no). The control plane serves the route and the Delegable policy in the PR that pins this version."
+  },
+  {
+    "version": "0.291.0",
+    "surface": "7bfef697bf5c468ee77125c385123aa717b75f3abad88076a573e1fd611aa81f",
+    "endpoints": "34d2aefdb68250139a09bfeafaa579c0cc2aa8a02391428c3ea48ab3e5f372d7",
+    "note": "Airspace names the MCP servers a loop may call (ADR-0040, slice seventy-two). Envelope gains McpServers (root only): McpServer (key, type, command, args, env, url, headers), each env or header an McpSetting (name, value) whose value is a literal or carries ${credential:<locator>}. Loop gains Mcp: LoopMcp (server, allow). LeaseLoop gains McpServers and Mcp, the definitions the loop names and its use of them. Validate refuses a definition outside root, a literal secret, a credential in an argument and a key of 'gg'; composition refuses a loop naming a server root does not define; a defined, changed or newly named server, or a newly allowed tool, is a widening."
   }
 ]

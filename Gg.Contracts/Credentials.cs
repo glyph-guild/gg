@@ -70,6 +70,16 @@ public static class CredentialSubjects
     /// </remarks>
     public const string Tracker = "tracker";
 
+    /// <summary>A code-analysis service, by the key it is named with.</summary>
+    /// <remarks>
+    /// <b>Neither a repository nor a tracker.</b> A token for a service that
+    /// scans code reads findings about a repository, not the repository, and
+    /// files nothing - so filing it as either would be this fleet's tracker
+    /// credential again, which got a repository's locator because that was the
+    /// only shape there was.
+    /// </remarks>
+    public const string Analysis = "analysis";
+
     /// <summary>Every subject a credential can be registered for.</summary>
     public static IReadOnlyList<string> All { get; } = [Repository, Agent, Tracker];
 
@@ -241,6 +251,12 @@ public static class CredentialLocator
     /// </remarks>
     public const string TrackerSegment = "tracker";
 
+    /// <summary>
+    /// The first segment reserved for code-analysis services' credentials, for
+    /// <see cref="AgentSegment"/>'s reason exactly.
+    /// </summary>
+    public const string AnalysisSegment = "analysis";
+
     /// <summary>Every segment a repository slug may not begin with.</summary>
     /// <remarks>
     /// <b>Derived, so adding a subject cannot forget to reserve its namespace.</b> The
@@ -257,6 +273,22 @@ public static class CredentialLocator
     /// would let the console and the executor derive two locators from two
     /// spellings of one agent.
     /// </remarks>
+    /// <summary>The locator a code-analysis service's credential lives under.</summary>
+    /// <remarks>
+    /// <b>Refused rather than reduced</b>, as a tracker's key is: the key names a
+    /// service, and one that does not fit a locator was mistyped.
+    /// </remarks>
+    public static string ForAnalysis(string service)
+    {
+        var locator = $"{LocalPrefix}{AnalysisSegment}/{service}";
+
+        return Validate(locator) is { } refused
+            ? throw new ArgumentException(
+                $"'{service}' is not a name an analysis service's locator can carry: {refused}",
+                nameof(service))
+            : locator;
+    }
+
     public static string ForTracker(string tracker)
     {
         var locator = $"{LocalPrefix}{TrackerSegment}/{tracker}";

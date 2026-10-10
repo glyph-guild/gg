@@ -211,4 +211,17 @@ public class ACredentialSaysWhatItGrantsTests
             .Because("a list line that reads like every other one tells a person gg knows what "
                    + "it opens, and here it does not.");
     }
+
+    [Test]
+    public async Task A_SonarCloud_token_is_named_by_what_it_lets_gg_read()
+    {
+        var name = CredentialNames.Describe(
+            AReference(CredentialLocator.ForAnalysis("sonarcloud")), "sonarcloud",
+            CredentialPlaces.None);
+
+        await Assert.That(name.Short).IsEqualTo("SonarCloud · sonarcloud");
+        await Assert.That(name.Access).IsEqualTo("Browse (read issues and measures)")
+            .Because("Browse is the permission a SonarCloud token page offers for reading, and "
+                   + "it is all the investigate agent will be given.");
+    }
 }

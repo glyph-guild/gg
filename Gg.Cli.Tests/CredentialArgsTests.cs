@@ -122,6 +122,20 @@ public class CredentialArgsTests
     }
 
     [Test]
+    public async Task Credential_add_takes_an_analysis_service()
+    {
+        // A CODE-ANALYSIS SERVICE'S TOKEN is for neither a repository nor a tracker,
+        // and filing it as either is how this fleet's tracker credential once got a
+        // repository's locator.
+        var parsed = CliArgs.Parse(["credential", "add", "--analysis", "quality"]);
+
+        await Assert.That(parsed).IsTypeOf<CliAction.CredentialAdd>();
+        var action = (CliAction.CredentialAdd)parsed;
+        await Assert.That(action.Named).IsEqualTo("quality");
+        await Assert.That(action.Subject).IsEqualTo(Gg.Contracts.CredentialSubjects.Analysis);
+    }
+
+    [Test]
     public async Task Credential_add_without_a_repository_is_refused_with_the_usage()
     {
         var parsed = CliArgs.Parse(["credential", "add"]);

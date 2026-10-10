@@ -45,6 +45,7 @@ public class ACredentialSaysWhatItIsForTests
             CredentialSubjects.Repository,
             CredentialSubjects.Agent,
             CredentialSubjects.Tracker,
+            CredentialSubjects.Analysis,
         })
             .Because("a subject gg cannot resolve is one a flight finds out about. Adding one is a "
                    + "deliberate act with a locator producer beside it, not a string somebody passes.");
@@ -56,15 +57,16 @@ public class ACredentialSaysWhatItIsForTests
         var repo = CredentialLocator.ForRepo("acme/widgets");
         var agent = CredentialLocator.ForAgent("claude");
         var tracker = CredentialLocator.ForTracker("jdnext");
+        var analysis = CredentialLocator.ForAnalysis("quality");
 
-        foreach (var locator in (string[])[repo, agent, tracker])
+        foreach (var locator in (string[])[repo, agent, tracker, analysis])
         {
             await Assert.That(CredentialLocator.Validate(locator)).IsNull()
                 .Because($"'{locator}' is produced by this contract, so this contract must accept it.");
         }
 
-        await Assert.That(new[] { repo, agent, tracker }.Distinct().Count()).IsEqualTo(3)
-            .Because("three subjects named the same thing must land in three files - one locator "
+        await Assert.That(new[] { repo, agent, tracker, analysis }.Distinct().Count()).IsEqualTo(4)
+            .Because("four subjects named the same thing must land in four files - one locator "
                    + "serving two of them is one credential overwriting another.");
     }
 
@@ -75,7 +77,9 @@ public class ACredentialSaysWhatItIsForTests
         // `agent` because a repository under that owner would share a file with an
         // agent's token. A tracker's namespace needs the same refusal on the day it
         // arrives, not on the day somebody registers a forge's tracker/something.
-        foreach (var reserved in (string[])[CredentialLocator.AgentSegment, CredentialLocator.TrackerSegment])
+        foreach (var reserved in (string[])
+                 [CredentialLocator.AgentSegment, CredentialLocator.TrackerSegment,
+                  CredentialLocator.AnalysisSegment])
         {
             var refused = Assert.Throws<ArgumentException>(
                 () => CredentialLocator.ForRepo($"{reserved}/anything"));
@@ -146,6 +150,8 @@ public class ACredentialSaysWhatItIsForTests
 
         await Assert.That(CredentialLocator.For(CredentialSubjects.Tracker, "jdnext"))
             .IsEqualTo(CredentialLocator.ForTracker("jdnext"));
+        await Assert.That(CredentialLocator.For(CredentialSubjects.Analysis, "quality"))
+            .IsEqualTo(CredentialLocator.ForAnalysis("quality"));
     }
 
     [Test]
@@ -158,6 +164,10 @@ public class ACredentialSaysWhatItIsForTests
 
         await Assert.That(CredentialLocator.SubjectOf(CredentialLocator.ForTracker("jdnext")))
             .IsEqualTo(CredentialSubjects.Tracker);
+        await Assert.That(CredentialLocator.SubjectOf(CredentialLocator.ForAnalysis("quality")))
+            .IsEqualTo(CredentialSubjects.Analysis)
+            .Because("an analysis service's token is not a repository's, and reading it back as "
+                   + "one is how a tracker's credential once got a repository's locator.");
 
         await Assert.That(CredentialLocator.SubjectOf(CredentialLocator.ForRepo("acme/widgets")))
             .IsEqualTo(CredentialSubjects.Repository)

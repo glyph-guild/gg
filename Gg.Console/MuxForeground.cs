@@ -143,7 +143,8 @@ public sealed partial class Mux
                 frame = (string.Equals(modes, mirrored, StringComparison.Ordinal) ? "" : modes)
                       + MuxColumn.Paint(MuxColumn.Lines(Rows(), MuxTab.Agent(NumberOf(agent)), terminal.Rows, armed))
                       + PtyScreen.Paint(agent.Emulator, height, width, kept.Top, footer: null,
-                            dim: kept.Open, left: MuxColumn.Width);
+                            dim: kept.Open, left: MuxColumn.Width)
+                      + agent.TakeCopied();
                 mirrored = modes;
             }
 

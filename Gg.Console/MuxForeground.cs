@@ -386,7 +386,7 @@ public sealed partial class Mux
             lines.AddRange(rows.Select((row, at) =>
                 (choosable.Count > 0 && choosable[cursor] == at ? "▸" : " ") + row.Text));
             lines.Add("");
-            lines.Add("j/k move · enter opens a plan, or resumes a session as a new agent · esc back");
+            lines.Add("↑/↓ or j/k move · enter opens a plan, or resumes a session as a new agent · esc back");
             return lines;
         }
 
@@ -403,8 +403,8 @@ public sealed partial class Mux
                 return null;
             }
 
-            var down = typed == (byte)'j' || sequence is [0x1b, (byte)'[', (byte)'B'];
-            var up = typed == (byte)'k' || sequence is [0x1b, (byte)'[', (byte)'A'];
+            var down = typed == (byte)'j' || IsArrow(sequence, (byte)'B');
+            var up = typed == (byte)'k' || IsArrow(sequence, (byte)'A');
             if (down || up)
             {
                 cursor = Math.Clamp(cursor + (down ? 1 : -1), 0, Math.Max(choosable.Count - 1, 0));
@@ -486,7 +486,7 @@ public sealed partial class Mux
             }
 
             lines.Add("");
-            lines.Add("j/k move · enter reaches it · esc back");
+            lines.Add("↑/↓ or j/k move · enter reaches it · esc back");
             return lines;
         }
 
@@ -497,8 +497,8 @@ public sealed partial class Mux
                 return (MuxTab.New, null);
             }
 
-            var down = typed == (byte)'j' || sequence is [0x1b, (byte)'[', (byte)'B'];
-            var up = typed == (byte)'k' || sequence is [0x1b, (byte)'[', (byte)'A'];
+            var down = typed == (byte)'j' || IsArrow(sequence, (byte)'B');
+            var up = typed == (byte)'k' || IsArrow(sequence, (byte)'A');
             if (down || up)
             {
                 cursor = Math.Clamp(cursor + (down ? 1 : -1), 0, Math.Max(machines.Count - 1, 0));
@@ -562,7 +562,7 @@ public sealed partial class Mux
             }
 
             lines.Add("");
-            lines.Add("j/k move · enter starts or attaches · esc back");
+            lines.Add("↑/↓ or j/k move · enter starts or attaches · esc back");
             return lines;
         }
 
@@ -573,8 +573,8 @@ public sealed partial class Mux
                 return (MuxTab.New, null);
             }
 
-            var down = typed == (byte)'j' || sequence is [0x1b, (byte)'[', (byte)'B'];
-            var up = typed == (byte)'k' || sequence is [0x1b, (byte)'[', (byte)'A'];
+            var down = typed == (byte)'j' || IsArrow(sequence, (byte)'B');
+            var up = typed == (byte)'k' || IsArrow(sequence, (byte)'A');
             if (down || up)
             {
                 cursor = Math.Clamp(cursor + (down ? 1 : -1), 0, choices.Count - 1);
@@ -822,6 +822,19 @@ public sealed partial class Mux
             terminal.Paint($"{Esc}[?25h");
         }
     }
+
+    /// <summary>
+    /// Whether a key is the arrow ending in <paramref name="final"/> - <c>A</c> up, <c>B</c> down -
+    /// in either form a terminal sends it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Both, because gg's console leaves application cursor keys on.</b> Terminal.Gui writes
+    /// <c>ESC [ ? 1 h</c> and nothing writes the <c>l</c>, so by the time a list here is on screen
+    /// the terminal sends <c>ESC O B</c>, not <c>ESC [ B</c>. Matching only the one meant only j
+    /// and k moved - found by a person reaching for the arrows.
+    /// </remarks>
+    private static bool IsArrow(byte[] sequence, byte final) =>
+        sequence is [0x1b, (byte)'[' or (byte)'O', var last] && last == final;
 
     /// <summary>
     /// One read, as the keys in it: ctrl-g, the key after it, and each mouse report are their own.

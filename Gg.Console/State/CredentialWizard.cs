@@ -233,7 +233,7 @@ public static class CredentialWizard
         return draft?.Step switch
         {
             CredentialWizardStep.Service =>
-                "Which service did this token come from?",
+                "Which service does this token come from?",
 
             CredentialWizardStep.For => Targets(state).Count == 0
                 ? $"gg doesn't have any {called} repositories set up yet. Add one first, "
@@ -267,14 +267,13 @@ public static class CredentialWizard
     /// <summary>The short help beside each step.</summary>
     public static string Help(CredentialWizardStep step) => step switch
     {
-        CredentialWizardStep.Service => "Pick the service where you made the token, or "
-                                      + "where you will make it. If it isn't listed, "
-                                      + "choose Other.",
+        CredentialWizardStep.Service => "Pick the service the token comes from. If it "
+                                      + "isn't listed, choose Other.",
         CredentialWizardStep.For => "gg only uses the token for what you pick here.",
         CredentialWizardStep.Access => "Pick the least that will work. gg can never do more "
                                      + "than the token allows.",
         CredentialWizardStep.Account => "The username shows up in gg's history, so it's clear "
-                                      + "whose access was used.",
+                                      + "whose access gg uses.",
         CredentialWizardStep.Review => "Nothing is saved until you press Enter. Press Back "
                                      + "to change something, or Esc to cancel.",
         _ => "",

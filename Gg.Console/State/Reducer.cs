@@ -74,6 +74,16 @@ public static class Reducer
                     watched.FlightId)
                 : state,
 
+            // FROM THE QUEUE, THE QUEUE'S FLIGHT. The modal reads the flights
+            // list's cursor, so it is pointed at the queued row's flight first
+            // (owner, 2026-10-10: the queue's flight pane is gone, and this is
+            // how a person reads the flight a row is about).
+            Command.ShowQueuedFlight =>
+                QueuedFlightRow(state) is { } row
+                    ? Reduce(state with { ActiveTab = TabId.Flights, FlightSelected = row }, Command.ShowFlight)
+                        with { ActiveTab = TabId.Queue }
+                    : state with { Diagnosis = null, LastAction = "This row is not a flight this console has listed, so there is nothing to open." },
+
             Command.ShowFlight => Modal(state, UiMode.FlightDetail) with
             {
                 ReadInFlight = true,
@@ -2325,6 +2335,27 @@ public static class Reducer
     /// refresh until it does.
     /// </para>
     /// </remarks>
+    /// <summary>Where the queue's selected flight sits in the flights list, or null.</summary>
+    private static int? QueuedFlightRow(AppState state)
+    {
+        if (state.Selected is not { FlightId: { Length: > 0 } id })
+        {
+            return null;
+        }
+
+        var shown = PaneText.Shown(state.Flights);
+
+        for (var i = 0; i < shown.Count; i++)
+        {
+            if (string.Equals(shown[i].FlightId, id, StringComparison.Ordinal))
+            {
+                return i;
+            }
+        }
+
+        return null;
+    }
+
     private static AppState WentToNotification(AppState state)
     {
         if (state.Notifications.Count == 0)

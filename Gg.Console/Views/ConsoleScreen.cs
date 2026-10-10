@@ -27,7 +27,6 @@ public sealed class ConsoleScreen : Window
 {
     private readonly IApplication _app;
     private readonly ListView _queue;
-    private readonly Label _flight;
 
     // THE MARK A WAITING TAB BREATHES. One Label over the whole screen rather
     // than one per tab: what it says does not depend on which tab is waiting,
@@ -40,7 +39,6 @@ public sealed class ConsoleScreen : Window
     private readonly List<View> _hiddenBehindTheMark = [];
     private readonly Label _browse;
     private readonly FrameView _queuePane;
-    private readonly FrameView _flightPane;
     private readonly FrameView _browsePane;
     private readonly FrameView _credentialsPane;
     private readonly Label _credentials;
@@ -198,26 +196,6 @@ public sealed class ConsoleScreen : Window
 
     private readonly TableView _itineraryLegsTable;
 
-    // WHAT THE FLIGHT PANE LAST SAID, AND WHAT IT SAID IT ABOUT. Building that
-    // pane walks every entry of the selected flight's story - measured at
-    // 23-45ms - and Render fills every pane on every paint whatever tab is
-    // showing, so a person on the board rebuilt it once a second and on every
-    // click to produce text that tab does not display.
-    //
-    // KEYED ON WHAT PaneText.Flight ACTUALLY READS: the flight, the story, the
-    // diagnosis, and whether anything is selected at all - which is Queue.Count
-    // rather than Selected, because Selected is computed and would allocate a
-    // row every paint just to be compared.
-    private string _flightPaneSaid = string.Empty;
-    private Gg.Contracts.FlightSummary? _flightPaneAbout;
-    private Gg.Contracts.FlightStory? _flightPaneStory;
-    private string? _flightPaneDiagnosis;
-    private bool _flightPaneHadNothingSelected = true;
-
-    // AND WHETHER IT NEEDS SAYING AGAIN. Set whenever a paint skipped the pane
-    // because its tab was not showing, so coming back to the queue repaints it
-    // once rather than leaving whatever was on it last.
-    private bool _flightPaneWantsSaying = true;
     private readonly TableView _browseTable;
     private readonly TableView _credentialsTable;
     private readonly FrameView _runnersPane;
@@ -819,16 +797,6 @@ public sealed class ConsoleScreen : Window
         _queue = CollectionViews.List();
         _queuePane.Add(_queue);
 
-        _flightPane = new FrameView
-        {
-            Title = "flight",
-            X = Pos.Right(_queuePane),
-            Y = 0,
-            Width = Dim.Fill(),
-            Height = Dim.Fill(1),
-        };
-        _flight = new Label { Width = Dim.Fill(), Height = Dim.Fill(), CanFocus = true };
-        _flightPane.Add(_flight);
 
         // CENTRED, AND NOT FOCUSABLE. It is a thing to look at while waiting,
         // never a thing to land on - a stop in the tab order over a pane that
@@ -2464,9 +2432,14 @@ public sealed class ConsoleScreen : Window
         boardTab.Add(_boardPane, _sweepsPane);
 
         var queueTab = new View { Title = "queue", Width = Dim.Fill(), Height = Dim.Fill() };
+        // THE QUEUE ALONE, THE WHOLE WIDTH (owner, 2026-10-10). The flight pane
+        // beside it was one Label that could not scroll, so a flight with any
+        // history had what it was waiting on pushed off the bottom; `o' opens
+        // the flight modal on the row instead, which has tabs, a log and a
+        // scroll.
+        _queuePane.Width = Dim.Fill();
         _queuePane.Height = Dim.Fill();
-        _flightPane.Height = Dim.Fill();
-        queueTab.Add(_queuePane, _flightPane);
+        queueTab.Add(_queuePane);
 
         // EVERY TAB, FROM THE START. The bar's job is to say what there is, so
         // all eight panes are built and all eight are inserted; which one draws
@@ -2546,7 +2519,7 @@ public sealed class ConsoleScreen : Window
         // parent, and the block is about the ROW rather than the border
         // anyway.
         _airspaceTable.SetScheme(ConsoleTheme.Picked());
-        Muted(_airspaceAbsent, _airspaceNoDocument, _flight, _modalBody,
+        Muted(_airspaceAbsent, _airspaceNoDocument, _modalBody,
             _runners, _flightIntent, _flightLogAbsent);
 
         // THE CORNER, OVER THE RIGHT-HAND END OF THE TAB STRIP - the least
@@ -4864,42 +4837,6 @@ public sealed class ConsoleScreen : Window
                 + Math.Clamp(State.SelectedRow, 0, State.Queue.Count - 1);
         }
 
-        // ONLY WHEN IT IS ON SCREEN. `_flightPane' is added to the queue tab and
-        // to no other, so every paint on any other tab was building this text
-        // and handing it to a Label nobody can see - and handing a large string
-        // to a Label is what costs: measured at 1,933ms for one assignment on a
-        // real tenant, inside a 2,031ms board paint.
-        if (State.ActiveTab == TabId.Queue)
-        {
-            var nothingSelected = State.Queue.Count == 0;
-
-            if (_flightPaneWantsSaying
-                || !ReferenceEquals(_flightPaneAbout, State.Flight)
-                || !ReferenceEquals(_flightPaneStory, State.Story)
-                || !ReferenceEquals(_flightPaneDiagnosis, State.Diagnosis)
-                || _flightPaneHadNothingSelected != nothingSelected)
-            {
-                using (Gg.Local.Timings.Active.Measure("paint.flight-build"))
-                {
-                    _flightPaneSaid = PaneText.WhatAPaneCanShow(PaneText.Flight(State));
-                }
-
-                using (Gg.Local.Timings.Active.Measure("paint.flight-assign"))
-                {
-                    _flight.Text = _flightPaneSaid;
-                }
-
-                _flightPaneAbout = State.Flight;
-                _flightPaneStory = State.Story;
-                _flightPaneDiagnosis = State.Diagnosis;
-                _flightPaneHadNothingSelected = nothingSelected;
-                _flightPaneWantsSaying = false;
-            }
-        }
-        else
-        {
-            _flightPaneWantsSaying = true;
-        }
 
         // Frozen means the pixels stop moving, so the terminal's own selection
         // can survive being made. Held lines are already kept in the model;

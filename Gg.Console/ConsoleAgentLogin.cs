@@ -112,7 +112,7 @@ public static class ConsoleAgentLogin
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return state.SelectedGate?.Maintenance is
+        return PaneText.GateHere(state)?.Maintenance is
         { Kind: GateMaintenanceKinds.AgentLogin, Runner.Length: > 0, Provider.Length: > 0 } asked
             ? asked
             : null;

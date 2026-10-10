@@ -581,6 +581,17 @@ public enum Command
     /// </remarks>
     FlyPicked,
 
+    /// <summary>
+    /// Open the flight modal on the queue row's flight (owner, 2026-10-10).
+    /// </summary>
+    /// <remarks>
+    /// <b>Its own command, not ShowFlight from the queue.</b> The modal reads the
+    /// flights list's cursor; this points that cursor at the queued flight first
+    /// and then opens it the way ShowFlight does - and it is a read, like
+    /// ShowFlight, so the story arrives beside the console.
+    /// </remarks>
+    ShowQueuedFlight,
+
     /// <summary>Show or hide what this tenant can fly against.</summary>
     /// <remarks>The shell's: showing them is a read, and a session may not make one.</remarks>
     ToggleCredentials,
@@ -1292,6 +1303,9 @@ public static class ShellCommands
     public static readonly IReadOnlySet<Command> Reads = new HashSet<Command>
     {
         Command.ShowFlight,
+
+        // THE SAME FLIGHT MODAL, OPENED FROM THE QUEUE: the same story to read.
+        Command.ShowQueuedFlight,
 
         // THE SAME FLIGHT, REACHED FROM THE CORNER. It opens the modal ShowFlight
         // opens, so it asks for what ShowFlight asks for - or the modal draws a

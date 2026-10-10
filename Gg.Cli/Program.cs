@@ -1871,7 +1871,8 @@ static async Task<int> LaunchConsoleAsync()
                     // for - and named rather than defaulted.
                     // AND THE SAME FLIGHT REACHED FROM THE CORNER, which opens
                     // the modal ShowFlight opens and so wants what it wants.
-                    Gg.Console.Command.ShowFlight or Gg.Console.Command.GoToNotification =>
+                    Gg.Console.Command.ShowFlight or Gg.Console.Command.GoToNotification
+                        or Gg.Console.Command.ShowQueuedFlight =>
                         Gg.Console.ConsoleFlightLog.Patch(data, current),
 
                     // BROWSING, WHICH THIS READER REFUSED TO SERVE UNTIL THE

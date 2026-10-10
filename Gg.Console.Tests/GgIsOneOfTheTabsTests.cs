@@ -56,8 +56,12 @@ public class GgIsOneOfTheTabsTests
         await Assert.That(screen).Contains("new MuxColumnView(");
         await Assert.That(screen).DoesNotContain("State.Agents.Count > 0")
             .Because("the column does not wait for an agent: it is there from launch.");
-        await Assert.That(screen).Contains("var left = MuxColumn.Width;")
+        // ITS ROOM COMES FROM MuxColumn.Room SINCE 2026-10-10, which is the full width at all
+        // times but one: the screensaver, which takes the whole terminal. An agent never
+        // enters into it - AScreensaverCoversAnIdleConsoleTests holds the width.
+        await Assert.That(screen).Contains("var left = MuxColumn.Room(State);")
             .Because("the console sits beside the column whether or not an agent lives.");
+        await Assert.That(MuxColumn.Room(new AppState())).IsEqualTo(MuxColumn.Width);
     }
 
     [Test]

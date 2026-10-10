@@ -2763,9 +2763,12 @@ public sealed class ConsoleScreen : Window
         // an agent lived.
         _column.Agents = State.Agents;
         _column.Armed = State.Switching;
-        _column.Visible = true;
 
-        var left = MuxColumn.Width;
+        // AND NONE AT ALL UNDER THE SCREENSAVER, room included, so the mark covers the whole
+        // terminal rather than the part the column leaves.
+        _column.Visible = MuxColumn.Shown(State);
+
+        var left = MuxColumn.Room(State);
         if (Padding!.Thickness.Left != left)
         {
             Padding.Thickness = new Terminal.Gui.Drawing.Thickness(left, Padding.Thickness.Top, Padding.Thickness.Right, Padding.Thickness.Bottom);
@@ -4841,6 +4844,11 @@ public sealed class ConsoleScreen : Window
         // in the same place; what differs is only how much they cover.
         var screening = Screensaver.Showing(State);
         var waiting = LoadingArt.Waiting(State) || screening;
+
+        // THE COLUMN FOLLOWS AT ONCE, rather than on the mux's next quarter-second tick: the
+        // mark going up beside a still-lit column, then the column vanishing, reads as two
+        // things happening.
+        Columned();
 
         if (waiting)
         {

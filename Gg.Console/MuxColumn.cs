@@ -55,11 +55,24 @@ public static class MuxColumn
     /// <summary>How wide the column is, in columns.</summary>
     public const int Width = 30;
 
-    /// <summary>Whether the column is drawn. Stub: always.</summary>
-    public static bool Shown(AppState state) => true;
+    /// <summary>Whether the column is drawn: always, except under the screensaver.</summary>
+    /// <remarks>
+    /// <b>The screensaver is the whole terminal</b> (owner, 2026-10-10). It hides every view
+    /// in the console's content, and the column lives in the window's padding - so without
+    /// this it stayed lit beside a screen that had gone dark.
+    /// </remarks>
+    public static bool Shown(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
 
-    /// <summary>How much room the column takes. Stub: always its width.</summary>
-    public static int Room(AppState state) => Width;
+        return !Screensaver.Showing(state);
+    }
+
+    /// <summary>
+    /// How much of the window's left edge the column takes: its width, or none under the
+    /// screensaver, so the mark is centred on the whole terminal.
+    /// </summary>
+    public static int Room(AppState state) => Shown(state) ? Width : 0;
 
     /// <summary>The most agents the mux holds: <c>1</c>-<c>9</c>, one key each.</summary>
     public const int Most = 9;

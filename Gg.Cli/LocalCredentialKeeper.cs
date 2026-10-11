@@ -37,10 +37,22 @@ namespace Gg.Cli;
 /// failed to store would be the one place it did.
 /// </para>
 /// </remarks>
-public sealed class LocalCredentialKeeper(ICredentialStore store)
+public sealed class LocalCredentialKeeper(ICredentialStore store, IAgreeAsAHolder? arrivedFor = null)
     : IKeepACredential, IForgetACredential
 {
     private readonly ICredentialStore _store = store;
+
+    /// <summary>
+    /// The key a console seals a push to: the runner's registered identity key.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not the key the store opens with.</b> A console can only rewrap for the key the
+    /// introduction names, which is the runner's identity key - one per runner name - and
+    /// the store rests under <see cref="MachineKey"/>, one per machine. Without this the
+    /// envelope landed, the machine reported holding it, and nothing on it could open it
+    /// (GG-1074).
+    /// </remarks>
+    private readonly IAgreeAsAHolder? _arrivedFor = arrivedFor;
 
     /// <summary>
     /// Somewhere to keep a credential, or null when this machine has not said
@@ -64,7 +76,7 @@ public sealed class LocalCredentialKeeper(ICredentialStore store)
     /// </remarks>
     public static IKeepACredential? For(
         Gg.Local.Configuration? file, ICredentialStore store, IAgreeAsAHolder? arrivedFor = null) =>
-        file?.AcceptConfigured is true ? new LocalCredentialKeeper(store) : null;
+        file?.AcceptConfigured is true ? new LocalCredentialKeeper(store, arrivedFor) : null;
 
     /// <summary>
     /// The same configuration with this machine opted in.
@@ -194,7 +206,23 @@ public sealed class LocalCredentialKeeper(ICredentialStore store)
         try
         {
             _store.WriteSealed(locator, envelope);
+
+            // AND MADE THIS MACHINE'S, by a rewrap rather than an unseal: the runner's key
+            // unwraps thirty-two bytes and wraps them for the machine key, which is the
+            // property the remark above keeps - the credential is never in the clear here.
+            if (_arrivedFor is not null
+                && SealedCredential.WrappedFor(envelope, _arrivedFor.PublicKey) is not null)
+            {
+                _store.TrustThisMachine(locator, _arrivedFor);
+            }
+
             return true;
+        }
+        catch (CredentialUnavailableException)
+        {
+            // SEALED TO THE RUNNER'S KEY AND NOT OPENABLE BY IT is an envelope that lies
+            // about its holder. It is on disk and opens for nobody here, so it did not land.
+            return false;
         }
         catch (ArgumentException)
         {

@@ -55,6 +55,12 @@ public sealed class HeldSecret : ISecretPrompt
     /// <summary>Whether anything is held, without taking it.</summary>
     public bool Holding => _held is not null;
 
+    /// <summary>How many characters the last <see cref="ReadSecret"/> handed over.</summary>
+    public int Taken => 0;
+
+    /// <summary>A refusal, with how much of the passphrase arrived.</summary>
+    public static string Refusal(string message, int taken) => message;
+
     /// <summary>
     /// The secret, taken rather than read: it is gone from here once this returns.
     /// </summary>

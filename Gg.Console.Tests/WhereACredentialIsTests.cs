@@ -104,6 +104,22 @@ public class WhereACredentialIsTests
     }
 
     [Test]
+    public async Task A_credential_nowhere_says_so_and_nothing_more()
+    {
+        // OWNER, 2026-10-10: the modal opened on enter "isn't necessary to say `b` on the
+        // credentials tab sends to a machine", nor "and none is meant to" when it is on no
+        // other machine. Where a credential is answers one question.
+        var text = PaneText.Whereabouts(new AppState
+        {
+            Mode = UiMode.CredentialWhereabouts,
+            Audience = [],
+            AudienceFor = Sonar,
+        });
+
+        await Assert.That(text.Trim()).IsEqualTo($"No machine says it holds {Sonar}.");
+    }
+
+    [Test]
     public async Task Escape_closes_it()
     {
         await Assert.That(Keymap.Resolve(

@@ -372,6 +372,7 @@ public sealed class ConsoleScreen : Window
     private readonly View _audienceMachines;
     private readonly List<CheckBox> _audienceBoxes = [];
     private readonly TextField _audienceSecret;
+    private readonly Label _audienceSecretLabel;
     private readonly Label _filterSentence;
     private readonly Terminal.Gui.Views.Tabs _filterViews;
     private readonly (BrowseFacet View, View Pane, TableView Table, Label Empty)[] _filterTabbed;
@@ -2455,16 +2456,28 @@ public sealed class ConsoleScreen : Window
 
         _audienceMachines.KeyDown += OnModalKeyDown;
 
+        // NAMED AND LIFTED OFF THE GROUND, the owner's ask: a bare row of the modal's
+        // own colour was invisible until somebody typed into it.
+        _audienceSecretLabel = new Label
+        {
+            Text = "Passphrase",
+            X = 1,
+            Y = Pos.AnchorEnd(1),
+            Visible = false,
+        };
+
         _audienceSecret = new TextField
         {
-            X = 0,
+            X = Pos.Right(_audienceSecretLabel) + 1,
             Y = Pos.AnchorEnd(1),
-            Width = Dim.Fill(),
+            Width = Dim.Fill(1),
 
             // MASKED, which is the whole reason this field can exist here at all.
             Secret = true,
             Visible = false,
         };
+
+        _audienceSecret.SetScheme(ConsoleTheme.Field());
 
         // ENTER ON THE FIELD ENDS THE SESSION with the command the keymap would have
         // resolved, which is OnStartRunner's shape and for its reason: a TextField
@@ -2481,7 +2494,7 @@ public sealed class ConsoleScreen : Window
             CanFocus = true,
         };
 
-        _audienceBody.Add(_audienceSaid, _audienceMachines, _audienceSecret);
+        _audienceBody.Add(_audienceSaid, _audienceMachines, _audienceSecretLabel, _audienceSecret);
 
         _modal.Add(
             _modalBody, _flightBody, _runnerBody, _readingBody, _helpBody, _filterBody,
@@ -5552,6 +5565,7 @@ public sealed class ConsoleScreen : Window
             SyncAudienceBoxes(focus: !asking);
 
             _audienceSecret.Visible = asking;
+            _audienceSecretLabel.Visible = asking;
 
             // EMPTIED WHENEVER IT IS NOT BEING ASKED FOR, which covers the way out: a
             // review abandoned half-typed must not reopen with the first attempt's answer

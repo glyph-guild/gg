@@ -616,6 +616,19 @@ public abstract record CliAction
     { public CliAction WithRunner(string runnerId) => this with { RunnerId = runnerId }; }
 
     /// <summary>
+    /// Puts a tracker's or an analysis service's credential onto one runner.
+    /// </summary>
+    /// <remarks>
+    /// <b>It carries the locator, derived at the parse</b> by the contract's
+    /// <c>ForTracker</c> or <c>ForAnalysis</c> - the derivation <c>gg credential
+    /// add</c> stored it under - so the handler moves a locator and derives
+    /// nothing. Three members, held by <c>AnyCredentialCanBeSentTests</c>.
+    /// </remarks>
+    public sealed record LocatorCredentialSend(
+        string RunnerId, string Locator, bool Json) : CliAction, IEmitsResult, INameAMachine
+    { public CliAction WithRunner(string runnerId) => this with { RunnerId = runnerId }; }
+
+    /// <summary>
     /// Logs a runner's agent in from here, over the channel.
     /// </summary>
     /// <remarks>

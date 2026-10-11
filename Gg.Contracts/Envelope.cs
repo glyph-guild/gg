@@ -312,6 +312,40 @@ public static class LoopMoves
     public const string ProposeDocument = "propose-document";
 
     /// <summary>
+    /// Reading a repository's history - its commits, what each changed, and who
+    /// last touched a line - through a tool this platform serves.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Why a move, and not the Bash the agent already has.</b> GG-1081
+    /// (slice seventy-four, 2026-10-11) was instructed to read the commits that
+    /// closed the story its ticket named, and every <c>git</c> call it made was
+    /// refused: a bounded loop runs with the permission check on, and nothing
+    /// grants Bash. Measured, a <c>Bash(git log:*)</c> rule would not have
+    /// helped - it admits a command typed at the repository's own root, and a
+    /// flight's root is the tree above its repositories, so <c>git -C</c> and
+    /// every <c>cd</c> form fall outside it. The door is a served tool, named
+    /// whole, on the <c>propose-*</c> moves' terms: its own move, so no
+    /// envelope in force gains it.
+    /// </para>
+    /// <para>
+    /// <b>Read-only by construction.</b> Four subcommands, a repository
+    /// resolved under the tree the launch named, and the flags that make a
+    /// read write refused by name. It reaches nothing outside the tree and
+    /// produces nothing a destination gates, so it is record-only like every
+    /// move before it.
+    /// </para>
+    /// <para>
+    /// <b>Why it costs a version</b>, on <see cref="Write"/>'s terms: a value
+    /// added to a closed vocabulary breaks every prior reader by design, and
+    /// that halt is the property being bought. Envelopes in force are
+    /// unchanged in meaning - they cannot read history, which they could not
+    /// before either.
+    /// </para>
+    /// </remarks>
+    public const string History = "history";
+
+    /// <summary>
     /// The envelope declining to bound this agent at all.
     /// </summary>
     /// <remarks>

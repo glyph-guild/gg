@@ -163,6 +163,15 @@ public static class PlatformToolServer
         // it. Each collapsed into one row, and no itinerary has ever been minted
         // because an itinerary is what a subject creates.
         bool several = false,
+        // A FLEET FLIGHT'S TREE, which every repository the history tool reads
+        // is resolved under. Null wherever the launch did not name one - a
+        // drafting session, a composing session, a sweep - and the tool says so
+        // rather than reaching for the current directory.
+        string? treeRoot = null,
+        // THE CHILD THAT RUNS GIT, handed in for the reason the airspace verbs
+        // are: the server is a function of what it is given, and a test sees
+        // the exact command line and directory without a repository on disk.
+        RunGit? history = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);

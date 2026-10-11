@@ -375,13 +375,14 @@ public class PlatformToolServerTests
             .IsEquivalentTo((string[])
             [
                 HelpTool.Name, NominationTool.Name, WorkItemProposalTool.Name,
-                LandingProposalTool.Name, DocumentProposalTool.Name,
+                LandingProposalTool.Name, DocumentProposalTool.Name, HistoryTool.Name,
             ])
             .Because("a flight nominates a work kind, asks a person for a decision it may "
                    + "not make, proposes work items, says what the proposal it opens "
-                   + "should be called, and hands back an airspace document it drafted. "
-                   + "The envelope decides which of those it is granted; the server should "
-                   + "not be offering it two more that belong to the console.");
+                   + "should be called, hands back an airspace document it drafted, and "
+                   + "reads its repository's history. The envelope decides which of those "
+                   + "it is granted; the server should not be offering it two more that "
+                   + "belong to the console.");
     }
 
     [Test]
@@ -651,21 +652,37 @@ public class PlatformToolServerTests
         // the tenant is governed by, so NO launch grants it: Claude Code asks the person before
         // each call, and that prompt is the confirmation the console's own apply asks for. A
         // loosening it sends still waits at its gate. A twelfth has to argue again.
+        //
+        // TWELVE, AND HERE IS THE ARGUMENT (slice seventy-four, 2026-10-11). `read_history` lets
+        // a fleet flight read a repository's past - log, show, blame, diff - and it exists because
+        // the alternative was measured and does not work: GG-1081 was instructed to read the
+        // commits that closed the story its ticket named, and every `git` call was refused. A
+        // bounded loop runs with the permission check on, and a `Bash(git log:*)` rule admits a
+        // command typed at the repository's own root and nothing else; a flight's root is the
+        // tree above its repositories, so `git -C`, `--git-dir` and every `cd` form fall outside
+        // it. The door has to be a tool this server serves.
+        //
+        // IT IS GRANTED THE WAY THE FOURTH AND FIFTH ARE: by its own move, `history`, whole and by
+        // name, so no envelope in force gains it. WHAT MAKES IT AFFORDABLE: four subcommands, a
+        // repository resolved under the tree the launch handed this server, the two flags that
+        // make a read write refused by name, and no credential, no session, no network. It is one
+        // more thing an injected agent can reach and not one more thing it can DO - it could
+        // already Read every file the log describes. A thirteenth has to argue again.
         var listed = (await OfferedAsync(intentPath: null, documentRoot: "/tmp/tree"))
             .Concat(await OfferedAsync(intentPath: "/tmp/intent", documentRoot: null))
             .Concat(await OfferedAsync(intentPath: null, documentRoot: null))
             .Order(StringComparer.Ordinal)
             .ToList();
 
-        await Assert.That(listed.Count).IsEqualTo(11)
-            .Because("one channel, eleven tools. A twelfth is a decision somebody has to "
-                   + "argue for, in this comment, where the last seven were argued for. "
+        await Assert.That(listed.Count).IsEqualTo(12)
+            .Because("one channel, twelve tools. A thirteenth is a decision somebody has to "
+                   + "argue for, in this comment, where the last eight were argued for. "
                    + "And each appears in exactly one shape, or a session is being offered "
                    + "something it cannot do. Found: " + string.Join(", ", listed));
         await Assert.That(listed).IsEquivalentTo(
             new[] { NominationTool.Name, HelpTool.Name, IntentTool.Name,
                     WorkItemProposalTool.Name, LandingProposalTool.Name, DocumentTool.Name,
-                    DocumentProposalTool.Name,
+                    DocumentProposalTool.Name, HistoryTool.Name,
                     AirspaceContextTool.Name, AirspacePullTool.Name,
                     AirspaceDiffTool.Name, AirspaceApplyTool.Name })
             .Because("named rather than counted, so a tool cannot arrive by swapping which "

@@ -332,7 +332,10 @@ public static class RunnerHost
         // the user's data directory when null (slice seventy-one). The CLI builds
         // the host because this project may not allocate a terminal.
         IHostAgentSessions? agentHost = null,
-        string? agentSessionHome = null)
+        string? agentSessionHome = null,
+        // WHAT THIS MACHINE'S STORE HOLDS, reported on every beat (slice seventy-three).
+        // Handed in for secretFor's reason: this project cannot see a credential store.
+        Func<IReadOnlyList<string>>? holdings = null)
     {
         // Longer than the claim's long poll, or the client aborts every idle
         // claim and the long poll becomes a busy loop with extra steps.
@@ -564,7 +567,8 @@ public static class RunnerHost
             // HOW A SLOT'S CREDENTIAL IS FOUND ON THIS MACHINE. Passed straight
             // through: the root routes by scheme, and the loop only asks.
             secretFor: secretFor,
-            agentSessions: agentSessions)
+            agentSessions: agentSessions,
+            holdings: holdings)
         {
             HoldFor = holdFor,
             FileReader = fileReader,

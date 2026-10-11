@@ -28,26 +28,39 @@ public class TheRunnerReportsWhatItHoldsTests
         public TailRead Tail(int lines) => new([], false);
     }
 
+    private static RunnerLoop Loop(
+        FakeProtocol protocol, MovableClock clock, Func<IReadOnlyList<string>>? holdings,
+        Func<CancellationTokenSource> stopping)
+    {
+        var says = new WhatThisRunnerSays(new RecordingObserver(), _ => new NoLog(), () => T0);
+
+        return new RunnerLoop(protocol, clock,
+            (_, _) =>
+            {
+                // ONE BEAT A RUN: the first wait after it ends the run.
+                stopping().Cancel();
+                return Task.CompletedTask;
+            },
+            says, new NoCredentialResolver(), new NoWorkspace(),
+            holdings: holdings);
+    }
+
     private static async Task BeatAsync(
         FakeProtocol protocol, int beats, Func<IReadOnlyList<string>>? holdings)
     {
-        using var stopping = new CancellationTokenSource();
-        var says = new WhatThisRunnerSays(new RecordingObserver(), _ => new NoLog(), () => T0);
-        var rounds = 0;
+        CancellationTokenSource? stopping = null;
+        var clock = new MovableClock(T0);
+        var loop = Loop(protocol, clock, holdings, () => stopping!);
 
-        await new RunnerLoop(protocol, new MovableClock(T0),
-                (_, _) =>
-                {
-                    if (++rounds >= beats)
-                    {
-                        stopping.Cancel();
-                    }
-
-                    return Task.CompletedTask;
-                },
-                says, new NoCredentialResolver(), new NoWorkspace(),
-                holdings: holdings)
-            .RunAsync("runner-1", ["linux"], stopping.Token);
+        for (var i = 0; i < beats; i++)
+        {
+            // PAST THE NEXT BEAT, so the second run beats again rather than
+            // finding the last one still fresh.
+            clock.Advance(TimeSpan.FromMinutes(10));
+            using var run = new CancellationTokenSource();
+            stopping = run;
+            await loop.RunAsync("runner-1", ["linux"], run.Token);
+        }
     }
 
     [Test]

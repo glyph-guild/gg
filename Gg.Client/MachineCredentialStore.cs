@@ -44,6 +44,13 @@ public sealed class MachineCredentialStore(ICredentialStore local, KeyVaultCrede
     /// cannot carry a sentence. The sentence goes to the runner's own log, where
     /// the refusal a flight then records points a person.
     /// </remarks>
+    /// <summary>What this machine's own store holds, which its runner reports on every beat.</summary>
+    /// <remarks>
+    /// <b>Its own disk only.</b> A vault reference is not held here - the only way to ask a
+    /// vault is to read it - so nothing about one is said.
+    /// </remarks>
+    public IReadOnlyList<string> Held() => _local.Held();
+
     public static string? SecretFor(string locator, TextWriter? said = null) =>
         SecretFor(ThisMachine(), locator, said);
 

@@ -103,6 +103,12 @@ public interface ICredentialStore
     /// </remarks>
     IReadOnlyList<string> HoldersOf(string locator);
 
+    /// <summary>
+    /// The locators this store holds, read off what is on disk and opening nothing; what a
+    /// runner reports on every beat (slice seventy-three).
+    /// </summary>
+    IReadOnlyList<string> Held() => [];
+
     /// <summary>Where a locator's secret is kept. Throws if the locator is not one.</summary>
     string PathFor(string locator);
 
@@ -473,6 +479,29 @@ public sealed class FileCredentialStore : ICredentialStore
           + "file can read the secret; it is resealed the next time it is read.",
         _ => $"nothing is stored here for '{locator}'.",
     };
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// <b>The file name IS the locator</b>, so this opens nothing - <see cref="Holds"/>'s
+    /// guarantee. Plaintext and sealed alike, because both are held; the contract's
+    /// <c>Reportable</c> drops anything on disk that does not name a credential.
+    /// </remarks>
+    public IReadOnlyList<string> Held()
+    {
+        if (!Directory.Exists(_root))
+        {
+            return [];
+        }
+
+        var found = Directory.EnumerateFiles(_root, "*", SearchOption.AllDirectories)
+            .Where(file => file.EndsWith(Extension, StringComparison.Ordinal)
+                        || file.EndsWith(SealedExtension, StringComparison.Ordinal))
+            .Select(file => Path.ChangeExtension(Path.GetRelativePath(_root, file), null))
+            .Select(relative => CredentialLocator.LocalPrefix
+                              + relative.Replace(Path.DirectorySeparatorChar, '/'));
+
+        return CredentialLocator.Reportable(found);
+    }
 
     public string PathFor(string locator)
     {

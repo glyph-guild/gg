@@ -191,7 +191,8 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
         bool? acceptsConfiguration,
         CancellationToken cancellationToken = default,
         bool? acceptsAgentSessions = null,
-        IReadOnlyList<AgentSessionStanding>? agentSessions = null)
+        IReadOnlyList<AgentSessionStanding>? agentSessions = null,
+        IReadOnlyList<string>? holds = null)
     {
         using var request = Request(HttpMethod.Post, $"/v1/runners/{runnerId}/heartbeat");
         request.Content = JsonContent.Create(
@@ -205,6 +206,9 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
                 // EVERY MACHINE THAT TAKES SESSIONS ON THIS BUILD hands one a delegated
                 // credential (ADR-0039 Amendment 2), so the two are said together.
                 TakesAgentDelegation = acceptsAgentSessions is true ? true : null,
+
+                // WHAT ITS STORE HOLDS (slice seventy-three), locators only.
+                Holds = holds,
             },
             RunnerJsonContext.Default.RunnerHeartbeat);
 

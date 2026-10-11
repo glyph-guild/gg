@@ -126,11 +126,12 @@ public class AnAudienceIsPickedTests
     [Test]
     public async Task The_list_marks_what_is_picked_and_where_the_cursor_is()
     {
+        var rows = Rows.Audience(Reviewing(Declared, Offered));
         var text = PaneText.Audience(Reviewing(Declared, Offered));
 
-        await Assert.That(text).Contains("[x] vmlinux001", StringComparison.Ordinal);
-        await Assert.That(text).Contains("[ ] vmlinux002", StringComparison.Ordinal);
-        await Assert.That(text).Contains("not declared", StringComparison.Ordinal);
+        await Assert.That(rows[0].Picked).IsTrue();
+        await Assert.That(rows[1].Picked).IsFalse();
+        await Assert.That(rows[1].Text).Contains("not declared", StringComparison.Ordinal);
         await Assert.That(text).Contains("space", StringComparison.Ordinal)
             .Because("a key that picks must be named where the picking happens.");
     }

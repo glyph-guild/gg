@@ -81,8 +81,8 @@ public class WhereACredentialIsTests
         await Assert.That(Keymap.Resolve(
                 KeyStroke.EnterKey, new KeymapContext(UiMode.Normal, TabId.Credentials)))
             .IsEqualTo(Command.ShowWhereCredentialIs);
-        await Assert.That(ShellCommands.Handled).Contains(Command.ShowWhereCredentialIs)
-            .Because("the fleet and the profiles are read between sessions, as the broadcast's are.");
+        await Assert.That(ShellCommands.Reads).Contains(Command.ShowWhereCredentialIs)
+            .Because("the fleet and the profiles are read beside the console, so it does not flash.");
     }
 
     [Test]

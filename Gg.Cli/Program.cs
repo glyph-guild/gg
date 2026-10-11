@@ -1961,6 +1961,13 @@ static async Task<int> LaunchConsoleAsync()
                     Gg.Console.Command.ShowRunnerFlights =>
                         Gg.Console.ConsoleRunnerFlights.Patch(data, current),
 
+                    // WHO A CREDENTIAL IS WANTED BY, and where it is: one read behind the
+                    // broadcast review and the whereabouts modal, both opened at once by
+                    // the reducer and filled when this lands.
+                    Gg.Console.Command.SendWhereNeeded or
+                    Gg.Console.Command.ShowWhereCredentialIs =>
+                        Gg.Console.ConsoleAudience.Patch(data, current),
+
                     // THE FLIGHT'S STORY, which is what this port was built
                     // for - and named rather than defaulted.
                     // AND THE SAME FLIGHT REACHED FROM THE CORNER, which opens

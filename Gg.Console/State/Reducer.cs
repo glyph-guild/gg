@@ -228,6 +228,12 @@ public static class Reducer
             // command so ShellCommands can name it a read without naming `v` one.
             Command.ShowRunnerFlights => state with { RunnerView = RunnerView.Flights },
 
+            // THE REVIEW AND WHERE A CREDENTIAL IS OPEN HERE, AT ONCE, and say they are
+            // reading. The machines are a background read that folds in when it lands
+            // (ConsoleAudience), so the screen never goes away to fetch them.
+            Command.SendWhereNeeded => OpenedAudience(state, UiMode.CredentialAudience),
+            Command.ShowWhereCredentialIs => OpenedAudience(state, UiMode.CredentialWhereabouts),
+
             Command.ToggleFlightActions => Modal(state, UiMode.FlightActions),
             Command.ToggleAirspaceActions => Modal(state, UiMode.AirspaceActions),
 
@@ -1808,6 +1814,47 @@ public static class Reducer
                 Wanted = current.ActiveTab != arrived.ActiveTab,
             },
         };
+    }
+
+    private static AppState OpenedAudience(AppState state, UiMode mode)
+    {
+        // THE CREDENTIAL UNDER THE CURSOR, not one typed. A console that asked would be
+        // asking somebody to retype what they are looking at.
+        if (AudienceReview.Chosen(state) is not { Length: > 0 } locator)
+        {
+            return state with
+            {
+                Mode = UiMode.Normal,
+                LastCredential = mode is UiMode.CredentialAudience
+                    ? "Nothing was sent: no credential is selected. "
+                    + "The credentials tab lists them; `c` registers one."
+                    : "Nothing to show: no credential is selected.",
+            };
+        }
+
+        // THE STAGE STARTS AT THE LIST, deliberately: a field already focused invites
+        // typing before reading. Emptied rather than kept, so a review of one credential
+        // never opens showing the machines of the last.
+        return state with
+        {
+            Mode = mode,
+            AudienceFor = locator,
+            Audience = [],
+            AudienceAsked = false,
+            AudienceSelected = 0,
+            AudienceToggled = [],
+            ReadInFlight = true,
+        };
+    }
+
+    /// <summary>The review's cursor on one machine - where a click or the focus put it.</summary>
+    public static AppState PointedAtAudienceMachine(AppState state, int at)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state.Mode is not UiMode.CredentialAudience || at < 0 || at >= state.Audience.Count
+            ? state
+            : state with { AudienceSelected = at };
     }
 
     private static AppState ToggledAudienceMachine(AppState state)

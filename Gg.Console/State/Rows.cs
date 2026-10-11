@@ -1529,7 +1529,16 @@ public static class Rows
     /// reached" has to name the host that could pass it on, because told only that a member
     /// is unreachable a person can do nothing with it.
     /// </remarks>
-    public sealed record AudiencePaneRow(string Machine, string Why, bool Picked = false, bool Here = false);
+    public sealed record AudiencePaneRow(
+        string Machine, string Why, bool Picked = false, bool Here = false, int Column = 16)
+    {
+        /// <summary>What its checkbox says: the machine, then why it is in the list.</summary>
+        /// <remarks>
+        /// <b>No mark</b> - the box draws its own. The machine is padded to the longest in
+        /// the list, so the reasons line up however long a name is.
+        /// </remarks>
+        public string Text => $"{ControlText.Strip(Machine).PadRight(Column)}  {ControlText.Strip(Why)}";
+    }
 
     /// <summary>The columns a broadcast review shows.</summary>
     public static IReadOnlyList<string> AudienceColumns { get; } = ["machine", "why"];
@@ -1544,13 +1553,16 @@ public static class Rows
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        var column = state.Audience.Select(row => ControlText.Strip(row.Label).Length).DefaultIfEmpty(0).Max();
+
         return
         [
             .. state.Audience.Select((row, at) => new AudiencePaneRow(
                 Machine: row.Label,
                 Why: Why(row),
                 Picked: AudienceReview.IsPicked(state, row),
-                Here: at == state.AudienceSelected)),
+                Here: at == state.AudienceSelected,
+                Column: column)),
         ];
     }
 

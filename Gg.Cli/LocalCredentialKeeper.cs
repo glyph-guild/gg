@@ -62,7 +62,8 @@ public sealed class LocalCredentialKeeper(ICredentialStore store)
     /// anywhere downstream to get wrong, and nothing to forget.
     /// </para>
     /// </remarks>
-    public static IKeepACredential? For(Gg.Local.Configuration? file, ICredentialStore store) =>
+    public static IKeepACredential? For(
+        Gg.Local.Configuration? file, ICredentialStore store, IAgreeAsAHolder? arrivedFor = null) =>
         file?.AcceptConfigured is true ? new LocalCredentialKeeper(store) : null;
 
     /// <summary>

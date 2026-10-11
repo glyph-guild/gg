@@ -108,6 +108,44 @@ public class TheOneAdapterThatKeepsACredentialTests
     }
 
     [Test]
+    public async Task A_push_sealed_to_the_runner_s_key_opens_from_this_machine_s_store()
+    {
+        // OWNER, 2026-10-11, GG-1074: a credential sent to vmlinux002 was reported as held
+        // and the flight then failed with "sealed to 2 holder(s), and this machine is not
+        // one of them". A console rewraps for the key the runner REGISTERED - its identity
+        // key, one per runner name - and the store opens with the MACHINE key, one per
+        // machine. Two keys by design, so every push landed and none could be read.
+        var root = Path.Combine(Path.GetTempPath(), $"gg-keep-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(root);
+            var machine = MachineKey.LoadOrCreate(Path.Combine(root, "machine-key"));
+            var runner = RunnerIdentityKey.LoadOrCreate(Path.Combine(root, "key-runner-here.json"));
+            var store = new FileCredentialStore(Path.Combine(root, "credentials"), machine);
+
+            var keeper = LocalCredentialKeeper.For(
+                new Gg.Local.Configuration { AcceptConfigured = true },
+                store,
+                arrivedFor: RunnerSeal.AsAHolder(runner.ForOpeningWhatWasSealedToThisRunner()));
+
+            // WHAT A CONSOLE SENDS: sealed to its person and rewrapped for the runner's key.
+            var pushed = CredentialSeal.Seal(TheSecret, [runner.PublicKey]);
+
+            await Assert.That(keeper!.Keep("local:analysis/sonarcloud", pushed)).IsTrue();
+            await Assert.That(store.Read("local:analysis/sonarcloud")).IsEqualTo(TheSecret)
+                .Because("a credential this machine says it holds has to open where the runner reads it.");
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Test]
     public async Task A_store_that_refuses_is_an_answer_rather_than_a_crash()
     {
         var keeper = new LocalCredentialKeeper(new ARefusingStore());

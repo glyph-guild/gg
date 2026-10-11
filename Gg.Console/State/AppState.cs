@@ -2164,6 +2164,9 @@ public sealed record AppState
     /// </remarks>
     public bool AudienceAsked { get; init; }
 
+    /// <summary>The audience row under the cursor.</summary>
+    public int AudienceSelected { get; init; }
+
     /// <summary>
     /// The credential being added through the wizard, or null when none is.
     /// </summary>

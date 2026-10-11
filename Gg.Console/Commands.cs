@@ -496,6 +496,9 @@ public enum Command
     /// </remarks>
     SendTheAudience,
 
+    /// <summary>Picks the machine under the cursor for a broadcast, or leaves it out.</summary>
+    ToggleAudienceMachine,
+
     /// <summary>Ask whether to retire the names the tree no longer holds.</summary>
     /// <remarks>
     /// Reduced in session - it opens a question and nothing else. `x` inside

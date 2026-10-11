@@ -4889,10 +4889,7 @@ static async Task<int> UpdateReportAsync(bool json)
     }
 
     Console.WriteLine();
-    Console.WriteLine(
-        $"  {plan.Target} is installed. THIS process is still {GgVersions.Number}: a running "
-      + "binary keeps the bytes it started with, so start gg again to be on the new one."
-      + (plan.Restarts ? " The installer restarted the service if this machine runs one." : ""));
+    Console.WriteLine($"  {plan.Done}");
 
     return ExitCodes.Ok;
 }

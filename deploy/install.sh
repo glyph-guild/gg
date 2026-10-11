@@ -226,7 +226,21 @@ fi
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
-curl -fsSL -o "$work/$asset" "https://github.com/$repo/releases/download/v$version/$asset" \
+# ON A TERMINAL, EACH STEP SAYS WHAT IT IS DOING, and the download draws curl's own bar
+# (owner, 2026-10-10): `gg update` runs this on the person's terminal, and the tarball used to
+# arrive through a silent curl - most of a minute with nothing on the screen. OFF ONE - a pipe,
+# cloud-init's log, a test - it stays as quiet as it was: a bar written into a log is a page of
+# carriage returns. On stderr, so whatever reads stdout reads only the outcome.
+if [ -t 2 ]; then
+  step() { printf 'install.sh: %s\n' "$1" >&2; }
+  fetching="--progress-bar"
+else
+  step() { :; }
+  fetching="-s"
+fi
+
+step "downloading $asset (v$version)..."
+curl -fSL "$fetching" -o "$work/$asset" "https://github.com/$repo/releases/download/v$version/$asset" \
   || refuse "could not download $asset for v$version. Is v$version a release of $repo?"
 
 sha256() {
@@ -249,6 +263,7 @@ sha256() {
 # over TLS rather than checking a signature itself; install gh for the stronger
 # one.
 digest="$(sha256 "$work/$asset")"
+step "checking it against $repo's build attestation..."
 
 if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
   gh attestation verify "$work/$asset" --repo "$repo" >/dev/null 2>&1 \
@@ -274,6 +289,7 @@ fi
 # that can replace what the OS starts.
 target="$lib/$version"
 mkdir -p "$lib" "$bin"
+step "installing v$version..."
 
 if [ -d "$target" ]; then
   installed="v$version was already at $target, and is left as it is"

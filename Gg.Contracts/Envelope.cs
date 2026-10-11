@@ -403,7 +403,7 @@ public static class LoopMoves
 
     public static IReadOnlyList<string> All { get; } =
         [Read, Edit, RunTests, Search, Write, Propose, ProposeWorkItem, ProposeLanding,
-         ProposeDocument, Anything];
+         ProposeDocument, History, Anything];
 
     /// <summary>
     /// Whether this set of moves declines to bound the agent.

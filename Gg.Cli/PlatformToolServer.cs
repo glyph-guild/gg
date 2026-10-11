@@ -199,7 +199,8 @@ public static class PlatformToolServer
 
             using (message)
             {
-                if (Answer(message.RootElement, intentPath, documentRoot, pull, airspace, inForce, sweep, several)
+                if (Answer(message.RootElement, intentPath, documentRoot, pull, airspace, inForce, sweep, several,
+                        treeRoot, history)
                         is { } answer)
                 {
                     await output.WriteLineAsync(answer);
@@ -216,7 +217,8 @@ public static class PlatformToolServer
     /// </summary>
     private static string? Answer(
         JsonElement message, string? intentPath, string? documentRoot, RunPull? pull,
-        RunAirspace? airspace, string? inForce, bool sweep, bool several)
+        RunAirspace? airspace, string? inForce, bool sweep, bool several,
+        string? treeRoot, RunGit? history)
     {
         var method = message.TryGetProperty("method", out var named) ? named.GetString() : null;
 
@@ -233,7 +235,8 @@ public static class PlatformToolServer
             "tools/list" => Listed(id, intentPath, documentRoot, sweep, several),
             "prompts/list" => Offered(id),
             "prompts/get" => Given(id, message),
-            "tools/call" => Called(id, message, intentPath, documentRoot, pull, airspace, inForce, sweep),
+            "tools/call" => Called(id, message, intentPath, documentRoot, pull, airspace, inForce, sweep,
+                treeRoot, history),
 
             // THE ID COMES BACK even on an error, or a client matching
             // responses to requests waits for ever.
@@ -434,6 +437,12 @@ public static class PlatformToolServer
                 // because putting half a grant in this file is the thing the
                 // paragraph above refuses.
                 DocumentProposal(writer);
+
+                // A SIXTH, AND THE FIRST THAT READS. Offered on the same terms:
+                // the launch grants it by the `history` move or not at all, and
+                // a tree the server was not granted a tool for is a tree it
+                // never opens.
+                History(writer);
             }
 
             writer.WriteEndArray();
@@ -1000,6 +1009,196 @@ public static class PlatformToolServer
         writer.WriteEndObject();
     }
 
+    /// <summary>Declares <c>HistoryTool</c>.</summary>
+    /// <remarks>
+    /// <b>The act first and the limits after</b>, for the reason the document
+    /// tool's description was reordered: an agent scanning for the tool that
+    /// reads a log should find it before it finds what it cannot do.
+    /// </remarks>
+    private static void History(Utf8JsonWriter writer)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("name", HistoryTool.Name);
+        writer.WriteString("description",
+            "Read a repository's history: run git log, show, blame or diff in one of this "
+          + "flight's repositories and get git's output back. Use it to find the commits "
+          + "that closed a work item (log --grep 'AB#<id>'), what a commit changed (show "
+          + "--stat <sha>), or who last touched a line (blame -L <from>,<to> <path>). It "
+          + "reads only: those four subcommands, in the repository's own directory, with no "
+          + "pager, and flags that write a file are refused. Long output is cut and says so - "
+          + "narrow the query rather than page through it. Bash cannot do this here: git "
+          + "commands typed there are refused.");
+
+        writer.WriteStartObject("inputSchema");
+        writer.WriteString("type", "object");
+        writer.WriteStartObject("properties");
+
+        writer.WriteStartObject(HistoryTool.RepositoryArgument);
+        writer.WriteString("type", "string");
+        writer.WriteString("description",
+            "Which repository, by its directory name under the flight's tree - the directory "
+          + "the files you Read sit in. Leave it out when the flight has one repository.");
+        writer.WriteEndObject();
+
+        writer.WriteStartObject(HistoryTool.CommandArgument);
+        writer.WriteString("type", "string");
+        writer.WriteStartArray("enum");
+        foreach (var command in HistoryTool.Commands)
+        {
+            writer.WriteStringValue(command);
+        }
+
+        writer.WriteEndArray();
+        writer.WriteString("description", "One of log, show, blame or diff.");
+        writer.WriteEndObject();
+
+        writer.WriteStartObject(HistoryTool.ArgumentsArgument);
+        writer.WriteString("type", "array");
+        writer.WriteStartObject("items");
+        writer.WriteString("type", "string");
+        writer.WriteEndObject();
+        writer.WriteString("description",
+            "What follows the subcommand, one argument per element, exactly as you would type "
+          + "them: [\"--oneline\", \"--grep\", \"AB#17860\"]. No shell runs, so no quoting.");
+        writer.WriteEndObject();
+
+        writer.WriteEndObject();
+        writer.WriteStartArray("required");
+        writer.WriteStringValue(HistoryTool.CommandArgument);
+        writer.WriteEndArray();
+        writer.WriteEndObject();
+
+        writer.WriteEndObject();
+    }
+
+    /// <summary>
+    /// Answers <c>HistoryTool</c>: resolves the repository under the tree,
+    /// refuses what is not a read, and relays what git said.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Every refusal is an error result in words the agent can act on</b>,
+    /// never a protocol error: a protocol error reads as a dead tool, and an
+    /// agent that believes the tool is dead reaches for Bash, which is refused
+    /// in turn, and the flight ends with nothing read.
+    /// </para>
+    /// <para>
+    /// <b>The repository is a name, resolved here.</b> One path segment, no
+    /// separators, no <c>..</c>, and it must exist as a directory under the
+    /// tree this server was handed. An agent cannot point this tool at the
+    /// runner's own home, or at another flight's tree, by naming a path.
+    /// </para>
+    /// </remarks>
+    private static string Recalled(JsonElement id, JsonElement arguments, string? treeRoot, RunGit? history)
+    {
+        var reads = string.Join(", ", HistoryTool.Commands);
+
+        if (history is null || string.IsNullOrEmpty(treeRoot))
+        {
+            // SAID, NOT DEFAULTED, for Pulled's reason: a server that reached
+            // for the current directory would be one an agent could redirect.
+            return Content(id, isError: true,
+                "Refused: this server was not told which tree it serves, so nothing was run. "
+              + "This is a wiring fault in gg rather than anything you did - the launch sets "
+              + $"{HistoryTool.TreeVariable} for a fleet flight, and this session has none.");
+        }
+
+        var command = Text(arguments, HistoryTool.CommandArgument);
+        if (command is null || !HistoryTool.Commands.Contains(command, StringComparer.Ordinal))
+        {
+            return Content(id, isError: true,
+                $"Refused: '{command}' is not something this tool runs. It reads history and "
+              + $"nothing else: {reads}. Nothing was run.");
+        }
+
+        var requested = Text(arguments, HistoryTool.RepositoryArgument);
+        var repositories = Directory.Exists(treeRoot)
+            ? Directory.GetDirectories(treeRoot).Select(Path.GetFileName).OfType<string>()
+                .Where(name => !name.StartsWith('.')).Order(StringComparer.Ordinal).ToList()
+            : [];
+
+        string repository;
+        if (requested is null)
+        {
+            if (repositories.Count != 1)
+            {
+                return Content(id, isError: true,
+                    repositories.Count == 0
+                        ? "Refused: this flight's tree holds no repository, so there is no history "
+                          + "to read. Nothing was run."
+                        : $"Refused: this flight has {repositories.Count} repositories and you did not "
+                          + $"say which: {string.Join(", ", repositories)}. Name one in "
+                          + $"'{HistoryTool.RepositoryArgument}'. Nothing was run.");
+            }
+
+            repository = repositories[0];
+        }
+        else if (requested.Length == 0
+            || requested == "." || requested == ".."
+            || requested.Contains('/') || requested.Contains('\\')
+            || !repositories.Contains(requested, StringComparer.Ordinal))
+        {
+            return Content(id, isError: true,
+                $"Refused: '{requested}' is not a repository in this flight's tree. The tree "
+              + (repositories.Count == 0
+                    ? "holds none. "
+                    : $"holds: {string.Join(", ", repositories)}. ")
+              + "A repository is named by its directory alone, never by a path. Nothing was run.");
+        }
+        else
+        {
+            repository = requested;
+        }
+
+        var given = arguments.ValueKind == JsonValueKind.Object
+            && arguments.TryGetProperty(HistoryTool.ArgumentsArgument, out var list)
+            && list.ValueKind == JsonValueKind.Array
+                ? list.EnumerateArray()
+                    .Where(item => item.ValueKind == JsonValueKind.String)
+                    .Select(item => item.GetString()!)
+                    .ToList()
+                : [];
+
+        foreach (var argument in given)
+        {
+            if (HistoryTool.RefusedFlags.Any(flag =>
+                    argument == flag || argument.StartsWith(flag + "=", StringComparison.Ordinal)))
+            {
+                return Content(id, isError: true,
+                    $"Refused: '{argument}' makes a read write - to a file, or through whatever "
+                  + "the repository's configuration names - and this tool reads only. Nothing "
+                  + "was run.");
+            }
+        }
+
+        // NO PAGER, because there is no terminal. NO EXTERNAL DIFF on the three
+        // subcommands that take the option, because a repository's own
+        // configuration must not choose what runs on this machine; blame does
+        // not take it and refuses it.
+        IReadOnlyList<string> invocation =
+            command == "blame"
+                ? ["--no-pager", command, .. given]
+                : ["--no-pager", command, "--no-ext-diff", .. given];
+
+        var report = history(invocation, Path.Combine(treeRoot, repository));
+
+        if (!report.Started)
+        {
+            return Content(id, isError: true, $"git {command} did not run: {report.Said}");
+        }
+
+        var said = report.Said is { Length: > 0 } words ? words : $"git {command} printed nothing.";
+        if (said.Length > HistoryTool.MaxOutput)
+        {
+            said = said[..HistoryTool.MaxOutput]
+                + Environment.NewLine
+                + $"[cut after {HistoryTool.MaxOutput} characters - narrow the query: fewer "
+                + "commits, --stat instead of a full diff, one path, or -L for a range]";
+        }
+
+        return Content(id, isError: report.ExitCode != 0, said);
+    }
+
     /// <summary>Declares <c>WorkItemProposalTool</c>.</summary>
     private static void Proposal(Utf8JsonWriter writer)
     {
@@ -1118,7 +1317,8 @@ public static class PlatformToolServer
 
     private static string Called(
         JsonElement id, JsonElement message, string? intentPath, string? documentRoot,
-        RunPull? pull, RunAirspace? airspace, string? inForce, bool sweep)
+        RunPull? pull, RunAirspace? airspace, string? inForce, bool sweep,
+        string? treeRoot, RunGit? history)
     {
         var parameters = message.TryGetProperty("params", out var given) ? given : default;
 
@@ -1186,6 +1386,11 @@ public static class PlatformToolServer
         if (string.Equals(called, DocumentProposalTool.Name, StringComparison.Ordinal))
         {
             return Handed(id, arguments);
+        }
+
+        if (string.Equals(called, HistoryTool.Name, StringComparison.Ordinal))
+        {
+            return Recalled(id, arguments, treeRoot, history);
         }
 
         if (sweep)

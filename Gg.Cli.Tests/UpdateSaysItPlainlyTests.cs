@@ -116,4 +116,24 @@ public class UpdateSaysItPlainlyTests
                 .Because($"'{word}' is a term of this codebase, not a sentence a person reads.");
         }
     }
+
+    [Test]
+    public async Task A_finished_update_says_only_that_the_version_is_installed()
+    {
+        // OWNER, 2026-10-10: "we only need to say 0.88.26 is installed". The ending used to explain
+        // that this process kept its old bytes and that the installer may have restarted a service.
+        var plan = UpdatePlans.For(new InstallShape(InstallKind.Native, "/usr/local/lib/gg"),
+            "0.88.25", "0.88.26", Installer, toolPathWritable: true, scratch: "/tmp/x");
+
+        await Assert.That(plan.Done).IsEqualTo("0.88.26 is installed.");
+    }
+
+    [Test]
+    public async Task The_verb_ends_with_the_plans_sentence()
+    {
+        var program = Sources.Read("Gg.Cli", "Program.cs");
+
+        await Assert.That(program).Contains("plan.Done", StringComparison.Ordinal);
+        await Assert.That(program).DoesNotContain("keeps the bytes it started with", StringComparison.Ordinal);
+    }
 }

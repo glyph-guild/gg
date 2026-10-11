@@ -501,7 +501,15 @@ public static class FactVocabulary
     /// control-plane-side and travels outward, and no runner ships one inside a
     /// fact - so the seventh ending moves the contract number and leaves this
     /// one alone. Two ledgers, and the split is doing its job.
-    public const string Version = "0.42.0";
+    ///
+    /// AND TO 0.43.0 - A VALUE, THE EXPENSIVE KIND, on 0.32.0's terms. Slice
+    /// seventy-four: LoopMoves gains `history`, a loop reading a repository's
+    /// past through a tool this platform serves. NO KIND CHANGED AND NO MEMBER
+    /// OF ONE; the surface moves because LoopMoves is part of it, and that is
+    /// the property being bought - a reader pinned before this value meets a
+    /// move it has never heard of and halts, rather than believing the loop
+    /// was bounded by the moves it does know.
+    public const string Version = "0.43.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>

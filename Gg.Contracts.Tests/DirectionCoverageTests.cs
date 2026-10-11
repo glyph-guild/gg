@@ -324,6 +324,13 @@ public class DirectionCoverageTests
             WithLoop(Doc(), l => l with { Mcp = [new LoopMcp { Server = "sonarqube", Allow = ["*"] }] }),
             ReverseAlsoWidens: false),
 
+        // An unordered scalar, like executor: naming a model, changing it and
+        // dropping it all take the widening path.
+        new("Loop.Model", "model",
+            Doc(),
+            WithLoop(Doc(), l => l with { Model = "claude-opus-5-5" }),
+            ReverseAlsoWidens: true),
+
         new("Loop.OnExhaustion", "on-exhaustion",
             Doc(),
             WithLoop(Doc(), l => l with { OnExhaustion = ExhaustionPolicies.HandoffToAgent }),

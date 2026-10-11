@@ -1576,7 +1576,7 @@ public static class EnvelopeYaml
 
     private static Loop MapLoop((string Id, MapNode Body) entry)
     {
-        Closed(entry.Body, "executor", "discharges", "moves", "budget", "on-exhaustion", "mcp");
+        Closed(entry.Body, "executor", "discharges", "moves", "budget", "on-exhaustion", "mcp", "model");
 
         var budget = RequireMap(Require(entry.Body, "budget"), $"{entry.Body.Path}.budget");
         Closed(budget, "wall-clock", "attempts");
@@ -1604,6 +1604,9 @@ public static class EnvelopeYaml
                 ? [.. RequireMap(mcp, $"{entry.Body.Path}.mcp").Entries.Select(use =>
                     MapLoopMcp(use.Key, RequireMap(use.Value, $"{entry.Body.Path}.mcp.{use.Key}")))]
                 : null,
+            // ABSENT STAYS ABSENT: null is the account's default, and Validate
+            // holds a written one to being a name.
+            Model = Optional(entry.Body, "model"),
         };
     }
 

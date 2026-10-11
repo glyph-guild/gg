@@ -268,6 +268,14 @@ public static class EnvelopeText
         {
             text.Append($"{Indent}{Scalar(loop.Id)}:\n");
             text.Append($"{Indent}{Indent}executor: {Scalar(loop.Executor)}\n");
+
+            // Written only when named - absent is the account's default, and a
+            // written default would pin the document to the day it was rendered.
+            if (loop.Model is { } model)
+            {
+                text.Append($"{Indent}{Indent}model: {Scalar(model)}\n");
+            }
+
             Sequence(text, "discharges", loop.Discharges, depth: 2);
             Sequence(text, "moves", loop.Moves, depth: 2);
             text.Append($"{Indent}{Indent}budget:\n");

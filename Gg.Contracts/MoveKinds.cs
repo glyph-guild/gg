@@ -120,6 +120,16 @@ public static class MoveKinds
             // credential and touches no disk.
             [LoopMoves.ProposeDocument] = RecordOnly,
 
+            // READING A REPOSITORY'S PAST, through a tool this platform serves
+            // (slice seventy-four). Four subcommands - log, show, blame, diff -
+            // run in a repository resolved under the tree the launch named,
+            // with the flags that make a read write refused by name. It reaches
+            // nothing outside the tree and produces nothing a destination
+            // gates: the agent could already Read every file the log describes,
+            // and what it gains is the order they arrived in and who touched
+            // them. Nothing here is an act anybody would have to recall.
+            [LoopMoves.History] = RecordOnly,
+
             // AND THE ONE THE GAP ABOVE IS ABOUT, AT ITS WIDEST. `anything`
             // grants every tool the agent binary has, with the permission check
             // off - so the cloudflared paragraph is true of it without needing

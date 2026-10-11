@@ -305,6 +305,7 @@ public sealed class ClaudeCodeExecutor(
 
         PlaceToken(info, _agent, token);
         PlaceScratch(info, request);
+        PlaceTree(info, request);
 
         // LAST, so the two above win. A tenant's document cannot redirect an
         // agent's temp files or blank its credential by naming the same thing.
@@ -323,6 +324,27 @@ public sealed class ClaudeCodeExecutor(
     /// <c>TMPDIR</c> is POSIX's and what .NET and Python ask first, <c>TMP</c>
     /// and <c>TEMP</c> are what everything with a Windows past asks.
     /// </remarks>
+    /// <summary>
+    /// Names the flight's tree for this platform's own server, which the
+    /// history tool resolves every repository under.
+    /// </summary>
+    /// <remarks>
+    /// <b>Always, not only when <c>history</c> is declared</b>, for the reason
+    /// the server offers the tool unconditionally: the grant lives in the
+    /// allow-list and nowhere else, so a server handed a tree it was not
+    /// granted a tool for still answers nothing. And through the environment
+    /// rather than the server's arguments, the way the console hands its
+    /// server an intent path - the child inherits it, and a server that went
+    /// looking for a tree would be one an agent could point elsewhere.
+    /// </remarks>
+    internal static void PlaceTree(ProcessStartInfo info, ExecutorRequest request)
+    {
+        if (request.WorkingDirectory is { Length: > 0 } tree)
+        {
+            info.Environment[Gg.Local.HistoryTool.TreeVariable] = tree;
+        }
+    }
+
     internal static void PlaceScratch(ProcessStartInfo info, ExecutorRequest request)
     {
         if (request.ScratchDirectory is not { Length: > 0 } scratch)
@@ -480,9 +502,23 @@ public sealed class ClaudeCodeExecutor(
     /// </para>
     /// </remarks>
     private string[] BoundingArguments(ExecutorRequest request, string? secret) =>
-        LoopMoves.Unbounded(request.Moves)
+        [.. LoopMoves.Unbounded(request.Moves)
             ? Unbounded(request, secret)
-            : Bounded(request, secret);
+            : Bounded(request, secret),
+         // THE LOOP'S MODEL, beside the bound rather than in it: not a
+         // permission, but the one place both launches - headless here,
+         // attended through BoundingArgumentsFor - take their arguments from,
+         // and a hand flight is the same loop watched. The FLAG, not
+         // ANTHROPIC_MODEL: the client reads the flag first, and a document
+         // that names a model has said so where a reviewer can see it.
+         .. ModelArguments(request)];
+
+    /// <summary>
+    /// <c>--model</c> and the loop's model, or nothing when the loop names none
+    /// and the account's default stands.
+    /// </summary>
+    private static string[] ModelArguments(ExecutorRequest request) =>
+        request.Model is { Length: > 0 } model ? ["--model", model] : [];
 
     /// <summary>
     /// What a loop that declared no bound is launched with.
@@ -838,7 +874,8 @@ public sealed class ClaudeCodeExecutor(
     private bool Serves(ExecutorRequest request) =>
         _self is not null
         && (request.CanAskAPerson
-            || request.Moves.Contains(Gg.Contracts.LoopMoves.Propose, StringComparer.Ordinal));
+            || request.Moves.Contains(Gg.Contracts.LoopMoves.Propose, StringComparer.Ordinal)
+            || request.Moves.Contains(Gg.Contracts.LoopMoves.History, StringComparer.Ordinal));
 
     /// <summary>
     /// Whether this move's tool may be granted on this launch.
@@ -854,14 +891,17 @@ public sealed class ClaudeCodeExecutor(
 
     /// <summary>Whether this runner is the thing that answers the move's tool.</summary>
     /// <remarks>
-    /// <b>Two moves now, and the list is here rather than at each call.</b>
+    /// <b>Three moves now, and the list is here rather than at each call.</b>
     /// Every other move maps to a tool the agent binary already has; these map
     /// to tools this runner serves, so they are granted only when the server is
     /// actually configured - or the agent is told a tool exists and spends
-    /// turns calling nothing.
+    /// turns calling nothing. <c>history</c> joins because its tool runs git in
+    /// a tree only this runner can name.
     /// </remarks>
     private static bool ServedHere(string move) =>
-        move is Gg.Contracts.LoopMoves.Propose or Gg.Contracts.LoopMoves.ProposeWorkItem;
+        move is Gg.Contracts.LoopMoves.Propose
+            or Gg.Contracts.LoopMoves.ProposeWorkItem
+            or Gg.Contracts.LoopMoves.History;
 
     /// <summary>
     /// The one server, as the flag's JSON.
@@ -1481,6 +1521,13 @@ public sealed class ClaudeCodeExecutor(
         // flights change, so a kind that may draft governance says so in its own
         // envelope rather than acquiring it by being granted something else.
         LoopMoves.ProposeDocument => DocumentProposalTool.Qualified,
+        // THE SIXTH, AND THE FIRST THAT READS RATHER THAN PROPOSES. Its own move
+        // and its own whole name, on the terms above - and served here rather
+        // than granted as a Bash rule because a rule cannot reach a repository
+        // below the working directory: measured, `Bash(git log:*)` admits a
+        // command typed at the repository's own root and nothing else, and a
+        // flight's root is the tree above its repositories.
+        LoopMoves.History => Gg.Local.HistoryTool.Qualified,
         // THE ONE VALUE WITH NO ANSWER, and the fall-through below is why it
         // has to throw rather than return one. `anything` grants no tool: it
         // removes the allow-list, so nothing ever asks this question on the

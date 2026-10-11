@@ -1509,5 +1509,17 @@
     "surface": "3f816616d1589656ca473c3ad8c1b59feaad7592b80da295fbf5453cf99ac72f",
     "endpoints": "34d2aefdb68250139a09bfeafaa579c0cc2aa8a02391428c3ea48ab3e5f372d7",
     "note": "A credential says which machines hold it (slice seventy-three, ADR-0037 Decision 11). RunnerHeartbeat and RunnerSummary gain Holds: the locators a machine's own store holds, as it last reported them; null from a runner that does not say. CredentialLocator.Reportable decides what may be reported: well-formed local: locators, once each, in order, never a vault reference. The control plane keeps the latest report per runner and serves it on the fleet read in the PR that pins this version."
+  },
+  {
+    "version": "0.293.0",
+    "surface": "3f816616d1589656ca473c3ad8c1b59feaad7592b80da295fbf5453cf99ac72f",
+    "endpoints": "34d2aefdb68250139a09bfeafaa579c0cc2aa8a02391428c3ea48ab3e5f372d7",
+    "note": "A loop may read a repository's history (slice seventy-four). LoopMoves gains history: log, show, blame and diff through the platform's own read_history tool, granted by its own move and whole name, run in a repository resolved under the flight's tree with the flags that make a read write refused. THE WIRE SURFACE DOES NOT MOVE - no type, no member - so this entry repeats 0.292.0's fingerprints, on 0.136.0's and 0.235.0's precedent. It costs a package version anyway because the constant is IN the package: a control plane pinned to 0.292.0 refuses a loop declaring the move as unknown. AND THE FACT VOCABULARY MOVES 0.42.0 -> 0.43.0 WITH IT, because LoopMoves is [VocabularyOf(Fact)]."
+  },
+  {
+    "version": "0.294.0",
+    "surface": "aef31df1beb78e0e48e6eb5dace74dbf30b72c9992bb6d4e387e609d79ad74c4",
+    "endpoints": "34d2aefdb68250139a09bfeafaa579c0cc2aa8a02391428c3ea48ab3e5f372d7",
+    "note": "A loop names the model it runs on (slice seventy-five). Loop gains Model (work-kind-only, nullable: null is the account's default, which only the agent client knows) and LeaseLoop carries it to the runner, which passes --model on every launch, headless and attended. Validate holds it to being a name - not blank, no whitespace, not on a human loop - and to no list, because model names move faster than this contract. Naming, changing or dropping it is a widening, as every unordered scalar's change is. The control plane carries it onto the lease in the PR that pins this version."
   }
 ]

@@ -200,6 +200,9 @@ public sealed class AttendedExecutor(
         // AND THE SAME SCRATCH, for the same reason: this is the same agent on
         // the same flight, watched rather than headless.
         ClaudeCodeExecutor.PlaceScratch(info, request);
+        // AND THE TREE, for the same server: an attended session granted
+        // `history` reads the same repositories a headless one does.
+        ClaudeCodeExecutor.PlaceTree(info, request);
         return info;
     }
 

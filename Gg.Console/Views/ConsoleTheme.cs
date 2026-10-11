@@ -227,6 +227,9 @@ public static class ConsoleTheme
         };
     }
 
+    /// <summary>Somewhere to type, lifted off the ground.</summary>
+    public static Scheme Field() => Grounded();
+
     private static Terminal.Gui.Drawing.Attribute OnGround(
         Terminal.Gui.Drawing.Attribute attribute) =>
         attribute.Background == Color.None

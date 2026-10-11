@@ -634,37 +634,6 @@ public sealed class ConsoleLoop(
                         asked: false);
                     break;
 
-                case Command.SendWhereNeeded:
-                    // THE AUDIENCE IS READ HERE, not in the session: it is a join of
-                    // the runner list and the fleet profiles, and a UI session may not
-                    // fetch either. What goes back is the list and the credential it is
-                    // about, with the modal opened over them - so the next keypress is
-                    // somebody answering a question they can see.
-                    //
-                    // NOTHING IS SENT BY THIS ARM. It opens a review; the send is the
-                    // case below, after a person has read the list and typed a
-                    // passphrase.
-                    state = actions is null
-                        ? state with
-                        {
-                            Mode = UiMode.Normal,
-                            LastCredential = "This console is not configured to send a credential.",
-                        }
-                        : actions.AudienceFor(state);
-                    break;
-
-                case Command.ShowWhereCredentialIs:
-                    // WHERE IT IS, read between sessions for the broadcast's reason: the
-                    // runner list and the fleet profiles are reads a session may not make.
-                    state = actions is null
-                        ? state with
-                        {
-                            Mode = UiMode.Normal,
-                            LastCredential = "This console cannot read where a credential is.",
-                        }
-                        : actions.WhereaboutsFor(state);
-                    break;
-
                 case Command.FinishCredentialWizard:
                     // THE ONLY PART OF THE WIZARD THAT COULD NOT HAPPEN ON SCREEN. Every
                     // step was answered inside the session; registering reaches the

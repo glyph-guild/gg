@@ -368,7 +368,9 @@ public sealed class ConsoleScreen : Window
     private readonly HeldSecret? _held;
 
     private readonly View _audienceBody;
-    private readonly Label _audienceList;
+    private readonly Label _audienceSaid;
+    private readonly View _audienceMachines;
+    private readonly List<CheckBox> _audienceBoxes = [];
     private readonly TextField _audienceSecret;
     private readonly Label _filterSentence;
     private readonly Terminal.Gui.Views.Tabs _filterViews;
@@ -2435,7 +2437,23 @@ public sealed class ConsoleScreen : Window
         // with no subject.
         _held = held;
 
-        _audienceList = new Label { Width = Dim.Fill(), Height = Dim.Fill(1), CanFocus = true };
+        // WHAT THE REVIEW IS ABOUT AND WHAT HAPPENS NEXT, above the machines.
+        _audienceSaid = new Label { Width = Dim.Fill(), Height = 1 };
+
+        // A CHECKBOX PER MACHINE, which a person tabs or arrows to, presses space on or
+        // clicks. Filled from the state on every render (SyncAudienceBoxes), and each box
+        // reduces rather than keeping a pick of its own - the state is what the passphrase
+        // stage and the send read. Focusable while empty, so the keys still reach the
+        // keymap while the machines are being read.
+        _audienceMachines = new View
+        {
+            Y = Pos.Bottom(_audienceSaid),
+            Width = Dim.Fill(),
+            Height = Dim.Fill(1),
+            CanFocus = true,
+        };
+
+        _audienceMachines.KeyDown += OnModalKeyDown;
 
         _audienceSecret = new TextField
         {
@@ -2463,7 +2481,7 @@ public sealed class ConsoleScreen : Window
             CanFocus = true,
         };
 
-        _audienceBody.Add(_audienceList, _audienceSecret);
+        _audienceBody.Add(_audienceSaid, _audienceMachines, _audienceSecret);
 
         _modal.Add(
             _modalBody, _flightBody, _runnerBody, _readingBody, _helpBody, _filterBody,
@@ -3141,6 +3159,177 @@ public sealed class ConsoleScreen : Window
     {
         ExitCommand = Command.PlanFromIntent;
         _app.RequestStop(this);
+    }
+
+    /// <summary>
+    /// The review's checkboxes, made to match the state: one per machine, each saying the
+    /// machine and why, checked where the state has it picked.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Rebuilt only when the machines change</b>, and re-labelled and re-checked every
+    /// render under the sync flag, so setting a box's value is never read as a person
+    /// flipping it.
+    /// </para>
+    /// <para>
+    /// <b>Focus follows the state's cursor</b> while the list is being read, and is left
+    /// alone once the passphrase is asked for - the field has it then.
+    /// </para>
+    /// </remarks>
+    private void SyncAudienceBoxes(bool focus)
+    {
+        var rows = Rows.Audience(State);
+
+        _syncing = true;
+
+        try
+        {
+            if (_audienceBoxes.Count != rows.Count)
+            {
+                foreach (var gone in _audienceBoxes)
+                {
+                    gone.KeyDown -= OnAudienceBoxKeyDown;
+                    gone.ValueChanging -= OnAudienceBoxChanging;
+                    gone.HasFocusChanged -= OnAudienceBoxFocused;
+                    _audienceMachines.Remove(gone);
+                    gone.Dispose();
+                }
+
+                _audienceBoxes.Clear();
+
+                for (var at = 0; at < rows.Count; at++)
+                {
+                    var box = new CheckBox { X = 1, Y = at, Width = Dim.Fill() };
+                    box.KeyDown += OnAudienceBoxKeyDown;
+                    box.ValueChanging += OnAudienceBoxChanging;
+                    box.HasFocusChanged += OnAudienceBoxFocused;
+                    _audienceBoxes.Add(box);
+                    _audienceMachines.Add(box);
+                }
+
+            }
+
+            // AS WIDE AS THE LONGEST ROW, because a box's Dim.Fill fills the CONTENT - a
+            // content one column wide gave every box no width at all.
+            _audienceMachines.SetContentSize(new System.Drawing.Size(
+                rows.Select(row => row.Text.Length).DefaultIfEmpty(0).Max() + 6,
+                Math.Max(1, rows.Count)));
+
+            for (var at = 0; at < rows.Count; at++)
+            {
+                var box = _audienceBoxes[at];
+                var text = rows[at].Text;
+
+                if (!string.Equals(box.Text, text, StringComparison.Ordinal))
+                {
+                    box.Text = text;
+                }
+
+                var value = rows[at].Picked ? CheckState.Checked : CheckState.UnChecked;
+
+                if (box.Value != value)
+                {
+                    box.Value = value;
+                }
+            }
+
+            if (!focus || rows.Count == 0)
+            {
+                return;
+            }
+
+            var here = Math.Clamp(State.AudienceSelected, 0, rows.Count - 1);
+
+            // KEPT IN VIEW, for a fleet taller than the modal.
+            var top = _audienceMachines.Viewport.Y;
+            var height = Math.Max(1, _audienceMachines.Viewport.Height);
+
+            if (here < top || here >= top + height)
+            {
+                _audienceMachines.Viewport = _audienceMachines.Viewport with
+                {
+                    Y = here < top ? here : here - height + 1,
+                };
+            }
+
+            if (!_audienceBoxes[here].HasFocus)
+            {
+                _audienceBoxes[here].SetFocus();
+            }
+        }
+        finally
+        {
+            _syncing = false;
+        }
+    }
+
+    /// <summary>A box was flipped - by a click, since space is the keymap's.</summary>
+    /// <remarks>
+    /// <b>Refused at the box and reduced instead</b>, so the pick lives in the state and
+    /// the box is drawn back from it on the render that follows.
+    /// </remarks>
+    private void OnAudienceBoxChanging(object? sender, ValueChangingEventArgs<CheckState> args)
+    {
+        if (_syncing)
+        {
+            return;
+        }
+
+        args.Handled = true;
+
+        var at = _audienceBoxes.IndexOf((sender as CheckBox)!);
+
+        if (at < 0)
+        {
+            return;
+        }
+
+        State = Reducer.PointedAtAudienceMachine(State, at);
+        Dispatch(Command.ToggleAudienceMachine);
+    }
+
+    /// <summary>The review's keys, heard from the box that has focus.</summary>
+    /// <remarks>
+    /// <b>The arrows move between boxes here</b>, because the keymap is pure and has no
+    /// arrow keystroke; every other key goes to the keymap first, so space, enter and esc
+    /// mean what the hint line says rather than what a checkbox would make of them.
+    /// </remarks>
+    private void OnAudienceBoxKeyDown(object? sender, Key key)
+    {
+        if (key == Key.CursorDown || key == Key.CursorUp)
+        {
+            key.Handled = true;
+            State = Reducer.Reduce(
+                Reducer.Touched(State),
+                key == Key.CursorDown ? Command.SelectNext : Command.SelectPrevious);
+            Render();
+            return;
+        }
+
+        OnModalKeyDown(sender, key);
+    }
+
+    /// <summary>A box took the focus - by tab or a click - so the cursor follows it.</summary>
+    /// <remarks>
+    /// <b>Rendered later, never from inside the focus change</b>, for
+    /// <c>OnBoardTableFocused</c>'s reason.
+    /// </remarks>
+    private void OnAudienceBoxFocused(object? sender, HasFocusEventArgs args)
+    {
+        if (_syncing || !args.NewValue || State.Mode is not UiMode.CredentialAudience)
+        {
+            return;
+        }
+
+        var at = _audienceBoxes.IndexOf((sender as CheckBox)!);
+
+        if (at < 0 || at == State.AudienceSelected)
+        {
+            return;
+        }
+
+        State = Reducer.PointedAtAudienceMachine(State, at);
+        _app.Invoke(Render);
     }
 
     /// <summary>The passphrase was typed; hand it over and let the loop push.</summary>
@@ -5352,9 +5541,15 @@ public sealed class ConsoleScreen : Window
             // THE LIST, THEN THE FIELD. Both are filled from the state every sync, so a
             // refresh that happened while somebody was reading does not leave them showing
             // the audience from before it.
-            _audienceList.Text = PaneText.Audience(State);
+            // WRAPPED AS THE BOX WAS MEASURED, so the label does not wrap a second time
+            // wherever the box happens to end.
+            var said = PaneText.Wrapped(PaneText.Audience(State), PaneText.QuestionColumns).TrimEnd('\n');
+            _audienceSaid.Text = said;
+            _audienceSaid.Height = said.Split('\n').Length + 1;
 
             var asking = AudienceReview.AsksForThePassphrase(State);
+
+            SyncAudienceBoxes(focus: !asking);
 
             _audienceSecret.Visible = asking;
 
@@ -5473,6 +5668,18 @@ public sealed class ConsoleScreen : Window
         // the shadow under it, and the blank line the dialog keeps above the
         // buttons. Five was the guess and it cut the last two lines of the body.
         var tall = body.Length + (_modalButtons.Count > 0 ? 7 : 3);
+
+        // AND THE REVIEW'S MACHINES, which are checkboxes rather than lines of the body -
+        // so the body alone would size a box with no room for the thing it is about. A
+        // line per machine (a long fleet scrolls), a blank above them, and the field's
+        // row under them; wide enough for the longest with its box and margins.
+        if (State.Mode is UiMode.CredentialAudience)
+        {
+            var machines = Rows.Audience(State);
+
+            wide = Math.Max(wide, machines.Select(row => row.Text.Length).DefaultIfEmpty(0).Max() + 10);
+            tall += Math.Min(machines.Count, 16) + 2;
+        }
 
         // THE WATCH TAKES THE TERMINAL. A document is 92 by 88, which is right
         // for prose read once - but this opens OVER a document, and two boxes

@@ -1384,6 +1384,14 @@ public static class ShellCommands
         // the modal is open and the runner already on it.
         Command.ShowRunnerFlights,
 
+        // WHO A CREDENTIAL IS WANTED BY, AND WHERE IT IS: one join of the runner list
+        // and the fleet profiles, behind two screens. Both were the shell's, so the
+        // screen went away and came back before the question was even on it - the
+        // blink this set exists to remove. The modal opens at once and says it is
+        // reading; the machines fold in when they land. Sending stays the shell's.
+        Command.SendWhereNeeded,
+        Command.ShowWhereCredentialIs,
+
         // THE SAME REGISTRY, WANTED BY A DIFFERENT SCREEN. The credential
         // chooser lists what has no credential yet, which it cannot do without
         // the registry - and it used to compensate with a row that asked a
@@ -1691,19 +1699,10 @@ public static class ShellCommands
         // person has to be at the keyboard for it by construction.
         Command.TrustThisMachine,
 
-        // AND THE BROADCAST, for a different reason from the others: the review and the
-        // passphrase both happen IN the console, and what cannot is the push. SendAsync
-        // introduces, reaches over WebRTC and waits out a heartbeat interval, and a UI
-        // session may not block - so the session ends here and the shell does the moving.
-        Command.SendWhereNeeded,
-
-        // AND WHERE A CREDENTIAL IS, for the broadcast's first reason: it is the same join
-        // of the runner list and the fleet profiles, which a UI session may not fetch.
-        Command.ShowWhereCredentialIs,
-
         // AND SENDING WHAT WAS REVIEWED, which is the push itself: one introduction,
         // one reach and one wait per machine. The review and the passphrase happened
-        // on screen; this is the only part that could not.
+        // on screen; this is the only part that could not. Opening the review is not
+        // here any more - it is a read, and Reads holds it.
         Command.SendTheAudience,
 
         // TAKES THE TERMINAL TO PRINT A URL AND READ A CODE, which is the

@@ -4357,6 +4357,12 @@ public static class PaneText
 
         var about = state.AudienceFor is { Length: > 0 } locator ? Clean(locator) : "a credential";
 
+        // NOT READ YET IS NOT NOWHERE. The modal opens before the fleet answers.
+        if (state.ReadInFlight && state.Audience.Count == 0)
+        {
+            return $"  Reading where {about} is…\n";
+        }
+
         var rows = state.Audience
             .Select(row => (row.Label, Said: Standing(row)))
             .Where(row => row.Said is not null)
@@ -4396,6 +4402,14 @@ public static class PaneText
 
         var about = state.AudienceFor is { Length: > 0 } locator ? Clean(locator) : "a credential";
 
+        // NOT READ YET IS NOT NOBODY. The review opens before the fleet answers, and an
+        // empty list said as "there is nobody to send it to" would be a false sentence
+        // for the half second it took.
+        if (state.ReadInFlight && state.Audience.Count == 0)
+        {
+            return $"  Reading which machines want {about}…\n";
+        }
+
         if (state.Audience.Count == 0)
         {
             // NOBODY IS A FACT WORTH A SENTENCE. Silence here is indistinguishable from a
@@ -4407,12 +4421,9 @@ public static class PaneText
                  + "  out, and the airspace tab applies them.\n";
         }
 
-        // A BOX PER MACHINE, and a mark on the one the cursor is on: space flips the box,
-        // so the row it flips has to be visible before the key is pressed.
-        var rows = string.Join('\n', Rows.Audience(state)
-            .Select(row => $"{(row.Here && !state.AudienceAsked ? " >" : "  ")}"
-                         + $"[{(row.Picked ? "x" : " ")}] {Clean(row.Machine),-16} {Clean(row.Why)}"));
-
+        // THE MACHINES ARE CHECKBOXES BELOW THIS, drawn by the screen from Rows.Audience -
+        // so this says what they are for and what happens next, and does not list them
+        // a second time.
         var recipients = AudienceReview.Recipients(state);
 
         var next = recipients == 0
@@ -4421,16 +4432,16 @@ public static class PaneText
             // that is not going to happen, so the only honest next step is the one the rows
             // above already name.
             ? (state.Audience.Any(row => row.Reachable)
-                ? "  Nothing is picked. space picks the machine under the cursor (j and k move it);\n  esc to stop."
+                ? "  Nothing is picked. space or a click picks a machine, and the arrows move between them. esc to stop."
                 : "  None of them can be reached, so there is nothing to send. Each row says why.")
 
             : state.AudienceAsked
                 ? $"  Your passphrase unlocks the key that moves it - once, for all "
                 + $"{recipients}.\n  enter to send, esc to stop."
-                : $"  {recipients} machine(s) will receive it. space picks or leaves out the "
-                + "one under the cursor\n  (j and k move it); enter to go on, esc to stop.";
+                : $"  {recipients} machine(s) will receive it. space or a click picks or leaves one "
+                + "out, and the arrows move between them. enter to go on, esc to stop.";
 
-        return $"  {about} can go to:\n\n{rows}\n\n{next}\n";
+        return $"  {about} can go to the machines below.\n\n{next}\n";
     }
 
     private static string Actions(AppState state) =>

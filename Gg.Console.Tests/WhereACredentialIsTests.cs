@@ -120,6 +120,37 @@ public class WhereACredentialIsTests
     }
 
     [Test]
+    public async Task A_machine_too_old_to_say_is_listed_as_not_having_said()
+    {
+        // OWNER, 2026-10-11: "i sent credentials to vmlinux001 and vmlinux002 ... when i hit
+        // enter on the credential it says the credential is not on any machine." Both ran a
+        // gg from before slice 73 (0.88.12 and 0.88.23), whose heartbeat carries no `holds`,
+        // and nothing declared the credential for them - so the modal dropped them and then
+        // said nowhere, which is a claim about machines that never answered.
+        var audience = CredentialAudience.For(
+            Sonar,
+            [
+                ARunner("r1", "vmlinux001", holds: null),
+                ARunner("r2", "vmlinux002", holds: ["local:jdx/jdnext"]),
+            ],
+            [],
+            everyone: true);
+
+        var text = PaneText.Whereabouts(new AppState
+        {
+            Mode = UiMode.CredentialWhereabouts,
+            Audience = audience,
+            AudienceFor = Sonar,
+        });
+
+        await Assert.That(text).Contains("vmlinux001").And.Contains("has not said")
+            .And.DoesNotContain("No machine says")
+            .Because("a machine that never said is not a machine that lacks it.");
+        await Assert.That(text).DoesNotContain("vmlinux002")
+            .Because("one that said, and does not hold it, is still not part of where it is.");
+    }
+
+    [Test]
     public async Task Escape_closes_it()
     {
         await Assert.That(Keymap.Resolve(

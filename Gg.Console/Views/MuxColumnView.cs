@@ -21,10 +21,14 @@ internal sealed class MuxColumnView : View
     private static readonly Color Light = new(230, 237, 243);
 
     private readonly Action<MuxTab> _chosen;
+    private readonly Action _fold;
 
-    public MuxColumnView(Action<MuxTab> chosen)
+    /// <param name="chosen">A row was clicked: switch to its tab.</param>
+    /// <param name="fold">The background was clicked: fold the column, or unfold it.</param>
+    public MuxColumnView(Action<MuxTab> chosen, Action fold)
     {
         _chosen = chosen;
+        _fold = fold;
         CanFocus = false;
     }
 
@@ -33,9 +37,12 @@ internal sealed class MuxColumnView : View
 
     public bool Armed { get; set; }
 
+    /// <summary>Whether it is folded to one cell, as the mux holds it.</summary>
+    public bool Folded { get; set; }
+
     protected override bool OnDrawingContent(DrawContext? context)
     {
-        var lines = MuxColumn.Lines(Agents, MuxTab.Gg, Math.Max(Viewport.Height, 3), Armed);
+        var lines = MuxColumn.Lines(Agents, MuxTab.Gg, Math.Max(Viewport.Height, 3), Armed, Folded);
         for (var row = 0; row < lines.Count && row < Viewport.Height; row++)
         {
             var line = lines[row];
@@ -52,14 +59,21 @@ internal sealed class MuxColumnView : View
     {
         ArgumentNullException.ThrowIfNull(mouse);
 
-        if (!mouse.IsPressed || mouse.Position is not { } at)
+        if (mouse.Position is not { } at)
         {
             return false;
         }
 
-        if (MuxColumn.At(Agents, at.Y, Math.Max(Viewport.Height, 3)) is { } tab)
+        // THE CLICK, NOT THE PRESS, FOLDS: folded on the press, the release landed on gg's content.
+        var tab = MuxColumn.At(Agents, at.Y, Math.Max(Viewport.Height, 3));
+        switch (MuxColumn.Mouse(mouse.IsPressed, mouse.IsSingleDoubleOrTripleClicked, tab))
         {
-            _chosen(tab);
+            case MuxColumnAct.Switch:
+                _chosen(tab!.Value);
+                break;
+            case MuxColumnAct.Fold:
+                _fold();
+                break;
         }
 
         mouse.Handled = true;

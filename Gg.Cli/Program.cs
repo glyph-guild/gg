@@ -55,7 +55,11 @@ return await ByName(CliArgs.Parse(args)) switch
         airspace: AirspacePullChild.Run,
         inForce: Environment.GetEnvironmentVariable(AirspaceContextTool.EnvelopeVariable),
         sweep: tools.Sweep,
-        several: tools.Several),
+        several: tools.Several,
+        // THE FLIGHT'S TREE, set by the launch and inherited here, and the git
+        // this machine has - named here and nowhere else, for pull's reason.
+        treeRoot: Environment.GetEnvironmentVariable(HistoryTool.TreeVariable),
+        history: GitHistoryChild.Run),
     // THE SAME CONTRACT, one server over. Stdout is the protocol here too, so
     // nothing on this path may print - including the credential resolution,
     // which fails as a tool error the agent can read rather than as a line.

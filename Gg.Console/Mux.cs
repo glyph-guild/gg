@@ -82,6 +82,20 @@ public sealed partial class Mux
     /// <summary>Whether an agent has ended and left something for the shell to fold.</summary>
     public bool Ending => !_endings.IsEmpty;
 
+    private volatile bool _folded;
+
+    /// <summary>
+    /// Whether the column is folded to one cell (owner, 2026-10-11). Held here, where the shell
+    /// keeps it across gg and every agent, so both painters agree on where the column ends.
+    /// </summary>
+    public bool Folded => _folded;
+
+    /// <summary>Folds the column, or unfolds it: a click on its background.</summary>
+    public void ToggleFolded() => _folded = !_folded;
+
+    /// <summary>How wide the column is drawn now.</summary>
+    internal int ColumnWidth => MuxColumn.WidthOf(_folded);
+
     /// <summary>The ledger history reads sessions from, when there is one.</summary>
     public MuxLedger? Ledger => _ledger;
 
@@ -170,7 +184,7 @@ public sealed partial class Mux
             }
         }
 
-        return Rows() is var rows ? state with { Agents = rows } : state;
+        return state with { Agents = Rows(), MuxFolded = _folded };
     }
 
     /// <summary>
@@ -349,7 +363,7 @@ public sealed partial class Mux
         bool titled = false)
     {
         var terminal = Terminal();
-        var columns = Math.Max((terminal?.Columns ?? 120) - MuxColumn.Width, 20);
+        var columns = Math.Max((terminal?.Columns ?? 120) - ColumnWidth, 20);
         var total = terminal?.Rows ?? 40;
         var rows = Math.Max(total - Math.Max(panel(Math.Max(total / 2, 2), columns).Top.Count, 1), 5);
 
@@ -423,7 +437,7 @@ public sealed partial class Mux
     public (int Columns, int Rows) PaneSize()
     {
         var terminal = Terminal();
-        return (Math.Max((terminal?.Columns ?? 120) - MuxColumn.Width, 20), Math.Max((terminal?.Rows ?? 40) - 1, 5));
+        return (Math.Max((terminal?.Columns ?? 120) - ColumnWidth, 20), Math.Max((terminal?.Rows ?? 40) - 1, 5));
     }
 
     /// <summary>Puts a started agent on its row, keeps it in the ledger, and reads it until it ends.</summary>

@@ -49,6 +49,15 @@ internal static partial class Sources
               + "person setting it would be pointing a drafting session at a tree the "
               + "pane they are looking at does not describe.",
 
+            ["GG_TREE_ROOT"] =
+                "the launch writes it into a fleet flight's own environment, naming the "
+              + "tree the flight's repositories were materialized under, so the tool "
+              + "server the agent inherits it from resolves read_history's repository "
+              + "there and nowhere else (slice seventy-four). GG_INTENT_PATH's shape, "
+              + "runner-side: a person setting it would be pointing a flight's history "
+              + "tool at a tree the flight is not working in, which is the one thing "
+              + "resolving by name under a handed tree exists to prevent.",
+
             ["GG_AIRSPACE_ENVELOPE"] =
                 "the console renders the rules in force and writes them into the tool "
               + "server's own environment, so a drafting agent can read what its document "

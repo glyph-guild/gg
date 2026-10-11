@@ -525,6 +525,9 @@ public sealed record LeaseLoop
     /// <summary>Which of those servers this loop uses, and the tools it may call on each.</summary>
     public IReadOnlyList<LoopMcp>? Mcp { get; init; }
 
+    /// <summary>The model this loop runs on, or null for the account's default.</summary>
+    public string? Model { get; init; }
+
     /// <summary>
     /// What the last attempt tried and ruled out, for a loop resuming its work.
     /// </summary>

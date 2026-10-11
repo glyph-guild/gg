@@ -1925,6 +1925,12 @@ public sealed record AppState
     /// </summary>
     public IReadOnlyList<MuxRow> Agents { get; init; } = [];
 
+    /// <summary>
+    /// Whether the mux's column is folded to one cell, as the mux holds it: a click on the
+    /// column's background folds or unfolds it (owner, 2026-10-11).
+    /// </summary>
+    public bool MuxFolded { get; init; }
+
     /// <summary>Seconds since anybody touched the keyboard or clicked.</summary>
     /// <remarks>
     /// <b>Ticks rather than a timestamp.</b> The console already counts

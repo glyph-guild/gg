@@ -76,6 +76,7 @@ public class EnvelopeModelRoundTripTests
                 Budget = new LoopBudget { WallClock = "30m", Attempts = 3 },
                 OnExhaustion = ExhaustionPolicies.HandoffToHuman,
                 Mcp = [new LoopMcp { Server = "sonarqube", Allow = ["search_sonar_issues_in_projects"] }],
+                Model = "claude-opus-5-5",
             },
         ],
         McpServers =
@@ -353,7 +354,7 @@ public class EnvelopeModelRoundTripTests
             nameof(Destination.MayWrite),
             nameof(DestinationSelection.Environments), nameof(DestinationSelection.Repositories),
             nameof(Envelope.Learned),
-            nameof(Envelope.McpServers), nameof(Loop.Mcp),
+            nameof(Envelope.McpServers), nameof(Loop.Mcp), nameof(Loop.Model),
             nameof(EnvelopeNarrowing.Obligations),
         ];
 

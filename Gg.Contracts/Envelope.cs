@@ -312,6 +312,40 @@ public static class LoopMoves
     public const string ProposeDocument = "propose-document";
 
     /// <summary>
+    /// Reading a repository's history - its commits, what each changed, and who
+    /// last touched a line - through a tool this platform serves.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Why a move, and not the Bash the agent already has.</b> GG-1081
+    /// (slice seventy-four, 2026-10-11) was instructed to read the commits that
+    /// closed the story its ticket named, and every <c>git</c> call it made was
+    /// refused: a bounded loop runs with the permission check on, and nothing
+    /// grants Bash. Measured, a <c>Bash(git log:*)</c> rule would not have
+    /// helped - it admits a command typed at the repository's own root, and a
+    /// flight's root is the tree above its repositories, so <c>git -C</c> and
+    /// every <c>cd</c> form fall outside it. The door is a served tool, named
+    /// whole, on the <c>propose-*</c> moves' terms: its own move, so no
+    /// envelope in force gains it.
+    /// </para>
+    /// <para>
+    /// <b>Read-only by construction.</b> Four subcommands, a repository
+    /// resolved under the tree the launch named, and the flags that make a
+    /// read write refused by name. It reaches nothing outside the tree and
+    /// produces nothing a destination gates, so it is record-only like every
+    /// move before it.
+    /// </para>
+    /// <para>
+    /// <b>Why it costs a version</b>, on <see cref="Write"/>'s terms: a value
+    /// added to a closed vocabulary breaks every prior reader by design, and
+    /// that halt is the property being bought. Envelopes in force are
+    /// unchanged in meaning - they cannot read history, which they could not
+    /// before either.
+    /// </para>
+    /// </remarks>
+    public const string History = "history";
+
+    /// <summary>
     /// The envelope declining to bound this agent at all.
     /// </summary>
     /// <remarks>
@@ -369,7 +403,7 @@ public static class LoopMoves
 
     public static IReadOnlyList<string> All { get; } =
         [Read, Edit, RunTests, Search, Write, Propose, ProposeWorkItem, ProposeLanding,
-         ProposeDocument, Anything];
+         ProposeDocument, History, Anything];
 
     /// <summary>
     /// Whether this set of moves declines to bound the agent.
@@ -1336,6 +1370,35 @@ public sealed record Loop
     /// </summary>
     [Composes(MergeOperators.Intersect)]
     public IReadOnlyList<LoopMcp>? Mcp { get; init; }
+
+    /// <summary>
+    /// The model this loop runs on, as the agent client names one
+    /// (<c>claude-opus-5-5</c>, or an alias it accepts). Null is the account's
+    /// default, which only the client knows.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The work kind's decision, beside <c>executor:</c></b> (slice
+    /// seventy-five). GG-1076 and GG-1081 both ran on whatever the account
+    /// defaulted to, because nothing in gg or the airspace chose, and both
+    /// stopped at the layer a stronger model is likelier to read past. Which
+    /// model investigates is a decision about the work, made in the document a
+    /// person reviews, not in one runner's environment.
+    /// </para>
+    /// <para>
+    /// <b>Nullable, never <c>required</c> and never absorbing</b> - the
+    /// declaration-shape law on <see cref="Instructions"/>: a member being
+    /// ADDED must leave every older document meaning what it meant.
+    /// </para>
+    /// <para>
+    /// <b>Held to shape, not to a list.</b> Model names change faster than
+    /// this contract, so Validate asks only that it be a name: no blank, no
+    /// whitespace, and on no <c>human</c> loop. A change is a widening, as
+    /// every unordered scalar's is.
+    /// </para>
+    /// </remarks>
+    [Composes(MergeOperators.WorkKindOnly)]
+    public string? Model { get; init; }
 }
 
 /// <summary>
@@ -2563,6 +2626,27 @@ public sealed record Envelope
             // be granted by the envelope, enforced by nothing, and reported on by
             // nothing. That is the shape `write` was added to stop being, arriving
             // through a different door.
+            // A MODEL IS A NAME, held to shape rather than to a list (slice
+            // seventy-five): model names move faster than this contract, and
+            // the client would fail a bad one at launch with less to say.
+            if (loop.Model is { } model
+                && (model.Length == 0 || model.Any(char.IsWhiteSpace)))
+            {
+                return $"Loop '{loop.Id}' names model '{model}', which is not a model's name: it is "
+                     + "blank or carries whitespace. Name one as the agent client does "
+                     + "(claude-opus-5-5, or an alias it accepts), or leave model out for the "
+                     + "account's default.";
+            }
+
+            // AND NOT ON A HUMAN LOOP, which runs no model: naming one is the
+            // document saying something untrue about itself.
+            if (loop.Model is not null
+                && string.Equals(loop.Executor, ExecutorRungs.Human, StringComparison.Ordinal))
+            {
+                return $"Loop '{loop.Id}' runs at the '{ExecutorRungs.Human}' rung and names a model. "
+                     + "A person is not launched on a model; leave model out.";
+            }
+
             if (string.Equals(loop.Executor, ExecutorRungs.Human, StringComparison.Ordinal)
                 && loop.Moves is [var declared, ..])
             {

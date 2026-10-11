@@ -408,6 +408,13 @@ public static class EnvelopeDirection
                 return exhaustion;
             }
 
+            // model: an unordered scalar like the two above. Naming one, changing
+            // it and dropping it cannot be shown to tighten, so each takes the gate.
+            if (Moved($"{at}.model", was.Model, now.Model) is { } model)
+            {
+                return model;
+            }
+
             // moves: intersect - a subset of what was allowed.
             var added = now.Moves.Except(was.Moves, StringComparer.Ordinal).ToList();
             if (added.Count > 0)

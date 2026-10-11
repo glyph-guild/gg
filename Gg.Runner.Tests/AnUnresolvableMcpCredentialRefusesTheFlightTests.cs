@@ -32,6 +32,19 @@ public class AnUnresolvableMcpCredentialRefusesTheFlightTests
     }
 
     [Test]
+    public async Task The_reason_keeps_what_to_do_after_it_is_cut()
+    {
+        // GG-1074: the sentence ran past the reason's cut, and the cut fell on
+        // "Register it here with" - the half a person acts on.
+        var run = await new ClaudeCodeExecutor(NoSuchBinary, readers: [], secretFor: _ => null)
+            .ExecuteAsync(Request([Hosted()], Uses("sonarqube")), CancellationToken.None);
+
+        await Assert.That(run.Reason).Contains("gg credential add")
+            .Because("the reason is cut to 280 characters before it leaves the machine, so the "
+                   + "remedy has to come before the explanation.");
+    }
+
+    [Test]
     public async Task A_server_under_the_tracker_readers_key_is_refused()
     {
         // Two servers under one key in one configuration: the agent would get

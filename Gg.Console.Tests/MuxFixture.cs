@@ -98,9 +98,12 @@ internal sealed class MuxFixture : IDisposable
         return painted[(at + 2)..(end < 0 ? painted.Length : end)];
     }
 
-    public static bool Until(Func<bool> held)
+    public static bool Until(Func<bool> held) => Until(held, TimeSpan.FromSeconds(20));
+
+    /// <summary>Whether <paramref name="held"/> came true within <paramref name="patience"/>.</summary>
+    public static bool Until(Func<bool> held, TimeSpan patience)
     {
-        var deadline = DateTime.UtcNow.AddSeconds(20);
+        var deadline = DateTime.UtcNow.Add(patience);
         while (DateTime.UtcNow < deadline)
         {
             if (held())

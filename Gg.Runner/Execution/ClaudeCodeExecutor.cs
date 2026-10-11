@@ -746,11 +746,13 @@ public sealed class ClaudeCodeExecutor(
 
             if (missing is not null)
             {
+                // WHAT TO DO BEFORE WHY. The reason is cut to 280 characters before it
+                // leaves the machine, and on GG-1074 the cut fell on the remedy.
                 return ([], $"This loop uses the MCP server '{server.Key}', which needs the "
-                          + $"credential '{missing}', and this machine cannot resolve it. Nothing was "
+                          + $"credential '{missing}', and this machine cannot resolve it. Register it "
+                          + "here with `gg credential add`, or push it to this machine. Nothing was "
                           + "spent: a server started without its credential fails at its service, "
-                          + "and the agent spends its turns calling it. Register it here with "
-                          + "`gg credential add`, or push it to this machine.");
+                          + "and the agent spends its turns calling it.");
             }
 
             resolved.Add(server with { Env = env, Headers = headers });

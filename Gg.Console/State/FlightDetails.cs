@@ -414,11 +414,31 @@ public static class FlightDetails
             fields.Add(new FlightField("state", ControlText.Strip(flight.State) + ending));
         }
 
+        // HOW IT ENDED, in the words of whoever ended it. GG-1074 failed because its
+        // runner could not resolve a credential, and the tab said `failed` and nothing
+        // else - the reason was in the story and only `gg show` drew it.
+        if (story is { Stage: FlightStages.Ended }
+            && story.Entries.LastOrDefault(e => e.Said is { Length: > 0 }) is { Said: { } why })
+        {
+            fields.Add(new FlightField(
+                "ended", $"{PaneText.Stated(story.State)}: {ControlText.Strip(why)}"));
+        }
+
         fields.Add(new FlightField("opened", $"{flight.CreatedAt:u}"));
         fields.Add(new FlightField("envelope", ControlText.Strip(flight.EnvelopeVersion)));
-        fields.Add(new FlightField("attempts", flight.Attempts.ToString(
+
+        // THE LIST'S ABSENCES ARE NOT ANSWERS. The list leaves attempts and facts off
+        // every row on purpose, so its 0 and its empty list said `attempts 0` and
+        // `facts (none yet)` for a flight that ran once and recorded two. The story
+        // numbers each attempt; the facts are the recorded tab's read.
+        var attempts = Math.Max(
+            flight.Attempts,
+            story?.Entries.Max(e => e.Attempt) ?? 0);
+        fields.Add(new FlightField("attempts", attempts.ToString(
             System.Globalization.CultureInfo.InvariantCulture)));
-        fields.Add(new FlightField("facts", PaneText.FactsOf(flight)));
+        fields.Add(new FlightField(
+            "facts",
+            flight.Facts.Count > 0 ? PaneText.FactsOf(flight) : "on the recorded tab"));
 
         // WHY IT CANNOT START, in the contract's own words. The same sentence
         // from the same function the pane and `gg show` render, so one reason is

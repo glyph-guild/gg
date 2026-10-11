@@ -4348,8 +4348,8 @@ public static class PaneText
     /// </summary>
     /// <remarks>
     /// <b>What machines SAY, never a log of pushes</b>, so a machine that has never said - an
-    /// older gg - is told apart from one that lacks it. A machine that neither holds it nor
-    /// is meant to is left out: offered is the broadcast's word, not this one's.
+    /// older gg - is told apart from one that lacks it. A machine that SAID it lacks it, and
+    /// is not meant to hold it, is left out: offered is the broadcast's word, not this one's.
     /// </remarks>
     public static string Whereabouts(AppState state)
     {
@@ -4391,6 +4391,12 @@ public static class PaneText
             (false, _) when row.Reported => "reported missing",
             (false, true) => "declared, missing",
             (null, true) => "declared, and it has not said what it holds (an older gg)",
+
+            // NEVER SAID IS NOT NOWHERE. A gg from before 0.88.25 sends no holds, so a
+            // credential pushed to one undeclared is somewhere this modal cannot see -
+            // and dropping the row made it say "no machine", a claim about machines that
+            // never answered.
+            (null, false) => "has not said what it holds (an older gg)",
             _ => null,
         };
     }

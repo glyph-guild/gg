@@ -3380,6 +3380,8 @@ static async Task<int> HoldAsync(
         // carry a value, and anything placed by hand dies with the container.
         // A vault reference is not delivered; it is read.
         secretFor: locator => MachineCredentialStore.SecretFor(locator),
+        // WHAT THIS MACHINE'S STORE HOLDS, said on every beat (slice seventy-three).
+        holdings: () => MachineCredentialStore.ThisMachine().Held(),
         fileReader: IntentFileReader());
 }
 
@@ -3889,6 +3891,8 @@ static async Task<int> RunnerUpAsync()
             // carry a value, and anything placed by hand dies with the container.
             // A vault reference is not delivered; it is read.
             secretFor: locator => MachineCredentialStore.SecretFor(locator),
+            // WHAT THIS MACHINE'S STORE HOLDS, said on every beat (slice seventy-three).
+            holdings: () => MachineCredentialStore.ThisMachine().Held(),
             fileReader: IntentFileReader());
     }
     finally
@@ -4236,6 +4240,8 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
         // carry a value, and anything placed by hand dies with the container.
         // A vault reference is not delivered; it is read.
         secretFor: locator => MachineCredentialStore.SecretFor(locator),
+        // WHAT THIS MACHINE'S STORE HOLDS, said on every beat (slice seventy-three).
+        holdings: () => MachineCredentialStore.ThisMachine().Held(),
         fileReader: IntentFileReader());
 }
 

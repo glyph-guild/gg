@@ -278,7 +278,8 @@ public interface IRunnerProtocol
         bool? acceptsConfiguration,
         CancellationToken cancellationToken = default,
         bool? acceptsAgentSessions = null,
-        IReadOnlyList<AgentSessionStanding>? agentSessions = null);
+        IReadOnlyList<AgentSessionStanding>? agentSessions = null,
+        IReadOnlyList<string>? holds = null);
 
     /// <summary>
     /// Says what the allowance this machine spends from has left.

@@ -461,9 +461,15 @@ public sealed class RunnerLoop(
     // THE AD HOC AGENT SESSIONS THIS MACHINE HOLDS, or null for one whose owner
     // did not opt in (slice seventy, ADR-0039). Every beat says whether it takes
     // them, lists them, and sweeps the idle ones first.
-    AgentSessions? agentSessions = null)
+    AgentSessions? agentSessions = null,
+    // WHAT THIS MACHINE'S STORE HOLDS, asked on every beat (slice seventy-three), or null
+    // for a runner given no store to ask. A thunk for secretFor's reason: Gg.Runner does
+    // not go looking for a credential store.
+    Func<IReadOnlyList<string>>? holdings = null)
 {
     private readonly AgentSessions? _agentSessions = agentSessions;
+
+    private readonly Func<IReadOnlyList<string>>? _holdings = holdings;
 
     /// <summary>Seconds the control plane may hold a claim open.</summary>
     public const int ClaimWaitSeconds = 30;
@@ -1016,7 +1022,11 @@ public sealed class RunnerLoop(
             var beat = await _protocol.HeartbeatAsync(
                 runnerId, labels, acceptsConfiguration, cancellationToken,
                 acceptsAgentSessions: _agentSessions is null ? null : true,
-                agentSessions: _agentSessions?.Standings());
+                agentSessions: _agentSessions?.Standings(),
+                // ASKED NOW, NEVER REMEMBERED: a list kept from a push would be right
+                // until the machine lost the file. Through Reportable whatever the store
+                // handed over, so only locators leave this machine.
+                holds: _holdings is null ? null : CredentialLocator.Reportable(_holdings()));
 
             // SAID AS SOON AS IT WAS ACCEPTED. What this records is that the
             // control plane was reached, which is a different fact from this

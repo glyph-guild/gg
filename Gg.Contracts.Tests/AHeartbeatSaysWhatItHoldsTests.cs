@@ -50,7 +50,7 @@ public class AHeartbeatSaysWhatItHoldsTests
         var reported = CredentialLocator.Reportable(
         [
             "local:analysis/sonarcloud",
-            "keyvault://kv-dev.vault.azure.net/ado-read",
+            "keyvault://acme-fleet.vault.example.net/repo-read",
             "local:jdx/jdnext",
             "local:analysis/sonarcloud",
         ]);

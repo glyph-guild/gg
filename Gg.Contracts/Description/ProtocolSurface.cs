@@ -2312,7 +2312,8 @@ public static class ProtocolSurface
             [typeof(RunnerParked)] = ["runnerId", "parkedAt", "parkedBy", "reason"],
             [typeof(RunnerRegistered)] = ["runnerId", "runnerToken", "expiresAt"],
             [typeof(RunnerHeartbeat)] =
-                ["labels", "acceptsConfiguration", "acceptsAgentSessions", "agentSessions", "takesAgentDelegation"],
+                ["labels", "acceptsConfiguration", "acceptsAgentSessions", "agentSessions", "takesAgentDelegation",
+                 "holds"],
             [typeof(AgentSessionStanding)] =
                 ["sessionId", "directory", "startedAt", "attachedBy", "alive", "endedAt"],
             // `introductions` is absent unless a console is waiting, so an idle
@@ -2403,7 +2404,7 @@ public static class ProtocolSurface
                  "ownership", "owner", "ownerPrincipalId", "reserved", "resident", "profile", "lacks", "readinessMeasuredAt",
                  "cpuMilliLimit", "cpuMilliUsed", "memoryLimitBytes",
                  "memoryUsedBytes", "machineMeasuredAt", "instances",
-                 "acceptsAgentSessions", "agentSessions", "takesAgentDelegation"],
+                 "acceptsAgentSessions", "agentSessions", "takesAgentDelegation", "holds"],
             [typeof(HostedInstance)] = ["environment", "instance", "flightNumber"],
             [typeof(RunnerList)] = ["runners"],
             [typeof(AgentDelegationRequest)] = ["runnerId", "agentSessionId", "introductionId"],

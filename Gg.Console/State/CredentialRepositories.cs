@@ -28,7 +28,7 @@ public static class CredentialRepositories
     /// the terminal goes away is the difference between expecting a prompt and
     /// being surprised by one.
     /// </remarks>
-    public sealed record Choice(string Path, string Said);
+    public sealed record Choice(string Path, string Said, string Locator = "");
 
     /// <summary>The columns the chooser draws, named for what they answer.</summary>
     public static IReadOnlyList<string> Columns { get; } = ["repository", "what enter does"];

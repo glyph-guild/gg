@@ -233,7 +233,8 @@ public sealed partial class Mux
 
         void Repaint()
         {
-            var width = Math.Max(terminal.Columns - MuxColumn.Width, 20);
+            var column = ColumnWidth;
+            var width = Math.Max(terminal.Columns - column, 20);
             var kept = agent.Panel(Math.Max(terminal.Rows / 2, 2), width);
             var height = Math.Max(terminal.Rows - Math.Max(kept.Top.Count, 1), 5);
             barRows = kept.Top.Count;
@@ -253,9 +254,9 @@ public sealed partial class Mux
                     agent.Emulator.SendFocusEvents, agent.Emulator.BracketedPasteMode);
 
                 frame = (string.Equals(modes, mirrored, StringComparison.Ordinal) ? "" : modes)
-                      + MuxColumn.Paint(MuxColumn.Lines(Rows(), MuxTab.Agent(NumberOf(agent)), terminal.Rows, armed))
+                      + MuxColumn.Paint(MuxColumn.Lines(Rows(), MuxTab.Agent(NumberOf(agent)), terminal.Rows, armed, Folded))
                       + PtyScreen.Paint(agent.Emulator, height, width, kept.Top, footer: null,
-                            dim: kept.Open, left: MuxColumn.Width)
+                            dim: kept.Open, left: column)
                       + agent.TakeCopied();
                 mirrored = modes;
             }
@@ -306,13 +307,21 @@ public sealed partial class Mux
                 {
                 if (Aside(bytes) is { } click)
                 {
-                    if (click.Column <= MuxColumn.Width)
+                    if (click.Column <= ColumnWidth)
                     {
-                        if (click.Pressed
-                            && MuxColumn.At(Rows(), click.Row - 1, terminal.Rows) is { } chosen
-                            && chosen != MuxTab.Agent(NumberOf(agent)))
+                        var at = MuxColumn.At(Rows(), click.Row - 1, terminal.Rows);
+                        if (click.Pressed && at is { } chosen && chosen != MuxTab.Agent(NumberOf(agent)))
                         {
                             return (chosen, null);
+                        }
+
+                        // THE BACKGROUND FOLDS IT, or unfolds it (owner, 2026-10-11): the agent is
+                        // told its new width on the repaint.
+                        if (click.Pressed && at is null)
+                        {
+                            ToggleFolded();
+                            terminal.Paint($"{Esc}[2J");
+                            Repaint();
                         }
 
                         continue;
@@ -339,7 +348,7 @@ public sealed partial class Mux
                         continue;
                     }
 
-                    var moved = MouseInput.Read(Shifted(click), barRows);
+                    var moved = MouseInput.Read(Shifted(click, ColumnWidth), barRows);
                     if (moved.Kind == MouseReading.Nothing)
                     {
                         continue;
@@ -797,10 +806,11 @@ public sealed partial class Mux
 
         void Repaint()
         {
-            var width = Math.Max(terminal.Columns - MuxColumn.Width - 2, 10);
+            var column = ColumnWidth;
+            var width = Math.Max(terminal.Columns - column - 2, 10);
             var text = new StringBuilder();
             text.Append(MouseInput.Modes(MouseTrackingMode.VT200, MouseEncoding.SGR, focus: false, paste: false));
-            text.Append(MuxColumn.Paint(MuxColumn.Lines(Rows(), shown, terminal.Rows, armed)));
+            text.Append(MuxColumn.Paint(MuxColumn.Lines(Rows(), shown, terminal.Rows, armed, Folded)));
 
             var said = lines();
             for (var row = 0; row < terminal.Rows; row++)
@@ -811,7 +821,7 @@ public sealed partial class Mux
                     line = line[..Math.Max(width - 1, 0)] + "…";
                 }
 
-                text.Append($"{Esc}[{row + 1};{MuxColumn.Width + 1}H{Esc}[0m{Esc}[K  ").Append(line);
+                text.Append($"{Esc}[{row + 1};{column + 1}H{Esc}[0m{Esc}[K  ").Append(line);
             }
 
             text.Append($"{Esc}[?25l");
@@ -845,11 +855,20 @@ public sealed partial class Mux
                 {
                 if (Aside(bytes) is { } click)
                 {
-                    if (click.Pressed && click.Column <= MuxColumn.Width
-                        && MuxColumn.At(Rows(), click.Row - 1, terminal.Rows) is { } chosen
-                        && chosen != shown)
+                    if (click.Pressed && click.Column <= ColumnWidth)
                     {
-                        return (chosen, null);
+                        var at = MuxColumn.At(Rows(), click.Row - 1, terminal.Rows);
+                        if (at is { } chosen && chosen != shown)
+                        {
+                            return (chosen, null);
+                        }
+
+                        if (at is null)
+                        {
+                            ToggleFolded();
+                            terminal.Paint($"{Esc}[2J");
+                            Repaint();
+                        }
                     }
 
                     continue;
@@ -1011,10 +1030,10 @@ public sealed partial class Mux
         return new Click(button, column, row, (char)bytes[^1]);
     }
 
-    /// <summary>The same report, its column moved past the nav column.</summary>
-    internal static ReadOnlyMemory<byte> Shifted(Click click) =>
+    /// <summary>The same report, its column moved past the nav column, <paramref name="column"/> wide.</summary>
+    internal static ReadOnlyMemory<byte> Shifted(Click click, int column) =>
         Encoding.ASCII.GetBytes(
-            $"{Esc}[<{click.Button};{click.Column - MuxColumn.Width};{click.Row}{click.Final}");
+            $"{Esc}[<{click.Button};{click.Column - column};{click.Row}{click.Final}");
 
     /// <summary>An SGR report re-encoded for a child that asked for the default encoding.</summary>
     private static byte[] X10(ReadOnlySpan<byte> sgr)

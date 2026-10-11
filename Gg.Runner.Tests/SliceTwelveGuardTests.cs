@@ -203,7 +203,14 @@ public class SliceTwelveGuardTests
     // 0.42.0 since slice sixty-two, and this time a kind DID move: intent.read, a
     // flight's record of the file its intent named and the commit it was read at.
     // KindsThatCross moved with it, to twenty, and the argument is written there.
-    private const string VocabularyAtSliceStart = "0.42.0";
+    //
+    // 0.43.0 since slice seventy-four - a VALUE, the expensive kind, and on 0.32.0's
+    // terms. LoopMoves gains `history`: a loop may read a repository's past (log,
+    // show, blame, diff) through a tool this platform serves, named whole. A reader
+    // pinned before it meets a move it has never heard of and halts, which is the
+    // property the fact fingerprint buys; the row is the price. NO KIND MOVED and
+    // KindsThatCross is unchanged, which is this guard's actual criterion.
+    private const string VocabularyAtSliceStart = "0.43.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number

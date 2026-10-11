@@ -351,13 +351,11 @@ public class VerbParityTests
                                     + "modal. Until then the verb is the command line's: "
                                     + "`gg credential send --runner <id> --agent claude`, which "
                                     + "the held runner's console observer names.",
-            ["LocatorCredentialSend"] = "a gap, closing next: the broadcast review on the "
-                                      + "credentials tab (`b`) is where the console sends a "
-                                      + "tracker's or an analysis service's credential, and "
-                                      + "it is gaining a list of every online machine to pick "
-                                      + "from rather than only those that declared a need. "
-                                      + "Until then the verb is the command line's: `gg "
-                                      + "credential send --runner <id> --analysis <key>`.",
+            ["LocatorCredentialSend"] = "RUN, from the runner modal's send (`c`), which offers "
+                                      + "every registered credential - a tracker's and an "
+                                      + "analysis service's beside the repositories - and from "
+                                      + "the credentials tab's broadcast review (`b`), which "
+                                      + "offers every online machine.",
             ["KeyCreate"] = "absent, and deliberate for now: minting a person's key reads a "
                           + "passphrase TWICE with the echo off, which is the same "
                           + "between-sessions shape CredentialSend and AgentLogin already have "

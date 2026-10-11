@@ -386,7 +386,7 @@ public class TheRepositoryForACredentialIsPickedTests
         });
 
         await Assert.That(handedRunner).IsEqualTo("01a06572-a784-72ae-b951-f147553cd48e");
-        await Assert.That(handedRepo).IsEqualTo("JDX/JDNext")
+        await Assert.That(handedRepo).IsEqualTo(CredentialLocator.ForRepo("JDX/JDNext"))
             .Because("the whole point of asking on the screen is that the answer reaches the "
                    + "sender - a chooser whose answer was dropped would ask twice.");
     }

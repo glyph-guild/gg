@@ -2219,7 +2219,7 @@ static async Task<int> LaunchConsoleAsync()
         // second answer to it.
         sendCredential: current => Gg.Console.ConsoleSendCredential.Give(
             current,
-            send: (runnerId, repository) => SendFromTheConsole(runnerId, repository)),
+            send: (runnerId, locator) => SendFromTheConsole(runnerId, locator)),
         // LOGGING AN AGENT IN FROM THE GATE THAT ASKS FOR IT, in exactly the
         // slot above: between sessions, with the terminal free, because this
         // prints a URL a person opens and then reads a code with the echo off.
@@ -2576,21 +2576,24 @@ static string SendFromTheConsole(string runnerId, string? chosen)
     // so asking here sent somebody away to look up a slug they had just been
     // looking at. Null is the chooser's last row - "ask me at the prompt" -
     // which is what this always did and is still reachable.
-    var repo = chosen;
+    // A LOCATOR, chosen on the screen: a repository's derived there by ForRepo, any
+    // other credential read off its reference. Asking for a repository is what is left
+    // for the case the screen could not answer.
+    var locator = chosen;
 
-    if (repo is not { Length: > 0 })
+    if (locator is not { Length: > 0 })
     {
         Console.WriteLine();
         Console.Write("Which repository is this credential for? ");
-        repo = Console.ReadLine();
-    }
+        var repo = Console.ReadLine();
 
-    if (repo is not { Length: > 0 })
-    {
-        return "No repository named, so nothing was sent and nothing was asked for.";
-    }
+        if (repo is not { Length: > 0 })
+        {
+            return "No repository named, so nothing was sent and nothing was asked for.";
+        }
 
-    var locator = Gg.Contracts.CredentialLocator.ForRepo(repo);
+        locator = Gg.Contracts.CredentialLocator.ForRepo(repo);
+    }
 
     // BEFORE ANYTHING IS MINTED, and before anybody is asked for a token: an
     // introduction spent on a send that has nothing to send is a minute of a

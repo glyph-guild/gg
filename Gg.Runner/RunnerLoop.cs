@@ -2576,6 +2576,8 @@ public sealed class RunnerLoop(
             // missing before: variables reached the lease and stopped here.
             McpServers = loop.McpServers ?? [],
             Mcp = loop.Mcp ?? [],
+            // AND ITS MODEL, or null for the account's default (slice seventy-five).
+            Model = loop.Model,
 
             // AND WHERE ITS STACK RUNS, so the agent's DOCKER_HOST points at the
             // daemon this flight was granted rather than at whatever this

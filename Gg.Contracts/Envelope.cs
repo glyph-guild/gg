@@ -2626,6 +2626,27 @@ public sealed record Envelope
             // be granted by the envelope, enforced by nothing, and reported on by
             // nothing. That is the shape `write` was added to stop being, arriving
             // through a different door.
+            // A MODEL IS A NAME, held to shape rather than to a list (slice
+            // seventy-five): model names move faster than this contract, and
+            // the client would fail a bad one at launch with less to say.
+            if (loop.Model is { } model
+                && (model.Length == 0 || model.Any(char.IsWhiteSpace)))
+            {
+                return $"Loop '{loop.Id}' names model '{model}', which is not a model's name: it is "
+                     + "blank or carries whitespace. Name one as the agent client does "
+                     + "(claude-opus-5-5, or an alias it accepts), or leave model out for the "
+                     + "account's default.";
+            }
+
+            // AND NOT ON A HUMAN LOOP, which runs no model: naming one is the
+            // document saying something untrue about itself.
+            if (loop.Model is not null
+                && string.Equals(loop.Executor, ExecutorRungs.Human, StringComparison.Ordinal))
+            {
+                return $"Loop '{loop.Id}' runs at the '{ExecutorRungs.Human}' rung and names a model. "
+                     + "A person is not launched on a model; leave model out.";
+            }
+
             if (string.Equals(loop.Executor, ExecutorRungs.Human, StringComparison.Ordinal)
                 && loop.Moves is [var declared, ..])
             {

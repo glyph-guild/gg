@@ -33,7 +33,7 @@ public class ALoopNamesItsModelTests
 {
     private static Envelope KindOn(string? model) => Kind(mcp: null) with
     {
-        Loops = [Loop() with { Model = model }],
+        Loops = [Loop(obligation: "investigate-in-scope") with { Model = model }],
     };
 
     [Test]
@@ -84,7 +84,13 @@ public class ALoopNamesItsModelTests
         var refusal = Envelope.Validate(
             Kind(mcp: null) with
             {
-                Loops = [Loop() with { Executor = ExecutorRungs.Human, Moves = [], Model = "opus" }],
+                Loops =
+                [
+                    Loop(obligation: "investigate-in-scope") with
+                    {
+                        Executor = ExecutorRungs.Human, Moves = [], Model = "opus",
+                    },
+                ],
             },
             Roles.WorkKind);
 

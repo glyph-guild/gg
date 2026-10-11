@@ -2334,6 +2334,10 @@ public static class PlatformToolServer
         said.AppendLine(
             $"    executor:         which rung runs it. {Either(Gg.Contracts.ExecutorRungs.All)}.");
         said.AppendLine(
+            "    model:            which model runs it, as the agent client names one "
+          + "(claude-opus-5-5, or an alias it accepts). Leave it out for the account's "
+          + "default. Not on a human loop. Changing it is reviewed.");
+        said.AppendLine(
             "    discharges:       which obligations this loop satisfies by running.");
         said.AppendLine(
             $"    moves:            what the agent is permitted to do. Any of: "

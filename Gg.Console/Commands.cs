@@ -479,6 +479,9 @@ public enum Command
     /// </remarks>
     SendWhereNeeded,
 
+    /// <summary>Opens where the credential under the cursor is (slice seventy-three).</summary>
+    ShowWhereCredentialIs,
+
     /// <summary>Having read the audience, go on to the passphrase.</summary>
     /// <remarks>
     /// <b>It advances a STAGE rather than opening a screen.</b> The list stays visible
@@ -1693,6 +1696,10 @@ public static class ShellCommands
         // introduces, reaches over WebRTC and waits out a heartbeat interval, and a UI
         // session may not block - so the session ends here and the shell does the moving.
         Command.SendWhereNeeded,
+
+        // AND WHERE A CREDENTIAL IS, for the broadcast's first reason: it is the same join
+        // of the runner list and the fleet profiles, which a UI session may not fetch.
+        Command.ShowWhereCredentialIs,
 
         // AND SENDING WHAT WAS REVIEWED, which is the push itself: one introduction,
         // one reach and one wait per machine. The review and the passphrase happened

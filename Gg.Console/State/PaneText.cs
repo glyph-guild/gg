@@ -3219,6 +3219,7 @@ public static class PaneText
         UiMode.AirspaceActions => "what can be done to the airspace",
         UiMode.CredentialActions => "what can be done about credentials",
         UiMode.CredentialAudience => "who this credential is wanted by",
+        UiMode.CredentialWhereabouts => "where this credential is",
         UiMode.FlightDetail => "this flight",
         UiMode.Watching => "watching",
         UiMode.HandFlight => "nothing was created",
@@ -3562,6 +3563,7 @@ public static class PaneText
             UiMode.AirspaceActions => AirspaceActions(state),
             UiMode.CredentialActions => CredentialActions(state),
             UiMode.CredentialAudience => Audience(state),
+            UiMode.CredentialWhereabouts => Whereabouts(state),
             UiMode.ConfirmFlight => ConfirmFlight(state),
             UiMode.ConfirmGround => ConfirmGround(state),
             UiMode.ConfirmApply => ConfirmApply(state),
@@ -4341,6 +4343,53 @@ public static class PaneText
     /// member nothing can reach.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Where a credential is: a row per machine that says it holds it, or is meant to.
+    /// </summary>
+    /// <remarks>
+    /// <b>What machines SAY, never a log of pushes</b>, so a machine that has never said - an
+    /// older gg - is told apart from one that lacks it. A machine that neither holds it nor
+    /// is meant to is left out: offered is the broadcast's word, not this one's.
+    /// </remarks>
+    public static string Whereabouts(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var about = state.AudienceFor is { Length: > 0 } locator ? Clean(locator) : "a credential";
+
+        var rows = state.Audience
+            .Select(row => (row.Label, Said: Standing(row)))
+            .Where(row => row.Said is not null)
+            .OrderBy(row => row.Said is { } said && said.StartsWith("holds it", StringComparison.Ordinal) ? 0 : 1)
+            .ThenBy(row => row.Label, StringComparer.Ordinal)
+            .Select(row => $"  {Clean(row.Label),-16} {Clean(row.Said ?? "")}")
+            .ToList();
+
+        if (rows.Count == 0)
+        {
+            return $"  No machine says it holds {about}, and none is meant to.\n\n"
+                 + "  `b` on the credentials tab sends it to a machine.\n";
+        }
+
+        return $"  {about}:\n\n{string.Join('\n', rows)}\n\n"
+             + "  This is what each machine last said, not a record of sends.\n";
+    }
+
+    private static string? Standing(Gg.Client.CredentialAudienceRow row)
+    {
+        var wanted = row.Declared || row.Reported || row.Through is { Length: > 0 };
+
+        return (row.HoldsIt, wanted) switch
+        {
+            (true, true) => "holds it",
+            (true, false) => "holds it, nothing declares it",
+            (false, _) when row.Reported => "reported missing",
+            (false, true) => "declared, missing",
+            (null, true) => "declared, and it has not said what it holds (an older gg)",
+            _ => null,
+        };
+    }
+
     public static string Audience(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);

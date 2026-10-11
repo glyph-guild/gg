@@ -239,6 +239,16 @@ public interface IConsoleActions
     /// </remarks>
     AppState AudienceFor(AppState state);
 
+    /// <summary>
+    /// Reads where the credential under the cursor is, and opens the modal that says so
+    /// (slice seventy-three). The same two reads as <see cref="AudienceFor"/>.
+    /// </summary>
+    AppState WhereaboutsFor(AppState state) => state with
+    {
+        Mode = UiMode.Normal,
+        LastCredential = "This console cannot read where a credential is.",
+    };
+
 
 
     /// <summary>

@@ -795,6 +795,43 @@ public class TheInstallerVerifiesWhatItInstallsTests
     }
 
     /// <summary>A directory standing in for one machine and one release page.</summary>
+    [Test]
+    public async Task On_a_terminal_the_download_shows_its_progress_and_each_step_says_what_it_does()
+    {
+        // OWNER, 2026-10-10: "gg update should have some indication as its downloading and
+        // updating (ideally progressbar)". gg update runs this script on the person's terminal,
+        // and the tarball arrived through a silent curl: a minute of nothing.
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.38.0"));
+
+        var run = await box.RunInTerminalAsync("--version", "0.38.0");
+
+        await Assert.That(run.Exit).IsEqualTo(0).Because(run.Output);
+        await Assert.That(box.DownloadArguments())
+            .Contains(a => a.Contains("--progress-bar", StringComparison.Ordinal)
+                        && a.Contains("/download/v0.38.0/gg-linux-x64.tar.gz", StringComparison.Ordinal))
+            .Because("curl draws its own bar on the terminal it was given.");
+        await Assert.That(run.Output).Contains("downloading gg-linux-x64.tar.gz", StringComparison.Ordinal);
+        await Assert.That(run.Output).Contains("checking it against", StringComparison.Ordinal);
+        await Assert.That(run.Output).Contains("installing v0.38.0", StringComparison.Ordinal);
+    }
+
+    [Test]
+    public async Task Off_a_terminal_it_stays_quiet()
+    {
+        // A PIPE OR A LOG gets no bar: a progress bar written into cloud-init's log is a page of
+        // carriage returns, and a script reading the output reads only what it did.
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.38.0"));
+
+        var run = await box.RunAsync("--version", "0.38.0");
+
+        await Assert.That(run.Exit).IsEqualTo(0).Because(run.Output);
+        await Assert.That(box.DownloadArguments())
+            .DoesNotContain(a => a.Contains("--progress-bar", StringComparison.Ordinal));
+        await Assert.That(run.Output).DoesNotContain("downloading", StringComparison.Ordinal);
+    }
+
     private sealed class Sandbox : IDisposable
     {
         private readonly string _dir = Directory.CreateTempSubdirectory("gg-install-").FullName;
@@ -866,6 +903,7 @@ public class TheInstallerVerifiesWhatItInstallsTests
 
             Stub("curl", """
                 #!/bin/sh
+                printf '%s\n' "$*" >> "$STUB_DIR/log/curl-args"
                 out=""; url=""
                 while [ $# -gt 0 ]; do
                   case "$1" in
@@ -997,6 +1035,9 @@ public class TheInstallerVerifiesWhatItInstallsTests
 
         public IReadOnlyList<string> Downloads() => Lines("curl");
 
+        /// <summary>Every curl, as its whole argument list.</summary>
+        public IReadOnlyList<string> DownloadArguments() => Lines("curl-args");
+
         public IReadOnlyList<string> GgArguments() => Lines("gg-args");
 
         public IReadOnlyList<string> VerifierArguments() => Lines("gh");
@@ -1057,6 +1098,64 @@ public class TheInstallerVerifiesWhatItInstallsTests
             await process.WaitForExitAsync(patience.Token);
 
             return (process.ExitCode, await output + await error);
+        }
+
+        /// <summary>The script on a terminal, as a person running it by hand or through gg update sees it.</summary>
+        public async Task<(int Exit, string Output)> RunInTerminalAsync(params string[] arguments)
+        {
+            var environment = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["PATH"] = BinAlreadyOnPath ? Stubs + ":/usr/local/bin" : Stubs,
+                ["HOME"] = _dir,
+                ["STUB_DIR"] = _dir,
+                ["TERM"] = "xterm-256color",
+            };
+
+            foreach (var (name, value) in Environment)
+            {
+                environment[name] = value;
+            }
+
+            using var pty = await Porta.Pty.PtyProvider.SpawnAsync(
+                new Porta.Pty.PtyOptions
+                {
+                    Name = "install",
+                    Cols = 120,
+                    Rows = 40,
+                    Cwd = _dir,
+                    App = "/bin/sh",
+                    CommandLine = [Script(), "--root", Root, .. arguments],
+                    Environment = environment,
+                },
+                CancellationToken.None);
+
+            var output = new StringBuilder();
+            var reading = Task.Run(() =>
+            {
+                var buffer = new byte[4096];
+                try
+                {
+                    int read;
+                    while ((read = pty.ReaderStream.Read(buffer, 0, buffer.Length)) > 0)
+                    {
+                        lock (output)
+                        {
+                            output.Append(Encoding.UTF8.GetString(buffer, 0, read));
+                        }
+                    }
+                }
+                catch (IOException)
+                {
+                }
+            });
+
+            var exited = pty.WaitForExit(60_000);
+            await Task.WhenAny(reading, Task.Run(() => reading.Wait(TimeSpan.FromSeconds(5))));
+
+            lock (output)
+            {
+                return (exited ? pty.ExitCode : -1, output.ToString());
+            }
         }
 
         public void Dispose()

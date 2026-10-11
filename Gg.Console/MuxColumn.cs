@@ -33,6 +33,18 @@ public sealed record MuxRow(int Number, string Label, TimeSpan Running, bool Cha
 /// <summary>One row of the column: its text, the tab it switches to, and whether it is the one shown.</summary>
 public readonly record struct MuxLine(string Text, MuxTab? Tab, bool Active);
 
+/// <summary>What a mouse event on the column does.</summary>
+public enum MuxColumnAct
+{
+    None,
+
+    /// <summary>Switch to the row's tab.</summary>
+    Switch,
+
+    /// <summary>Fold the column, or unfold it.</summary>
+    Fold,
+}
+
 /// <summary>
 /// The mux's navigation column (slice sixty-nine): thirty columns on the left, in the logo's blue,
 /// listing gg, each live agent, "+ new agent", and history at the bottom.
@@ -152,6 +164,27 @@ public static class MuxColumn
         var all = kept.Take(Math.Max(height, bottom.Length));
         return folded ? [.. all.Select(Folded)] : [.. all.Select(Fit)];
     }
+
+    /// <summary>
+    /// What a mouse event on the column does: a press on a row switches to it, and a finished
+    /// click on the background folds or unfolds it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Folded on the click, never the press</b> (found by the owner, 2026-10-11). Folding moves
+    /// what is under the pointer, so a fold on the press sent the release - and the click made of
+    /// the two - to whatever moved there: in gg, a view that took focus in the middle of a focus
+    /// change, which Terminal.Gui throws on. A switch can stay on the press, because it leaves
+    /// the screen it was pressed on.
+    /// </remarks>
+    /// <param name="pressed">A button went down.</param>
+    /// <param name="clicked">A button went down and came up again here.</param>
+    /// <param name="at">The tab under the pointer, or null over the background.</param>
+    public static MuxColumnAct Mouse(bool pressed, bool clicked, MuxTab? at) => (pressed, clicked, at) switch
+    {
+        (true, _, not null) => MuxColumnAct.Switch,
+        (_, true, null) => MuxColumnAct.Fold,
+        _ => MuxColumnAct.None,
+    };
 
     /// <summary>The tab a click on <paramref name="row"/> (from 0) chooses, if any.</summary>
     public static MuxTab? At(IReadOnlyList<MuxRow> agents, int row, int height)

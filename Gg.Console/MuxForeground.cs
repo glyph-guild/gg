@@ -310,14 +310,15 @@ public sealed partial class Mux
                     if (click.Column <= ColumnWidth)
                     {
                         var at = MuxColumn.At(Rows(), click.Row - 1, terminal.Rows);
-                        if (click.Pressed && at is { } chosen && chosen != MuxTab.Agent(NumberOf(agent)))
+                        var act = MuxColumn.Mouse(click.Pressed, Released(click), at);
+                        if (act == MuxColumnAct.Switch && at is { } chosen && chosen != MuxTab.Agent(NumberOf(agent)))
                         {
                             return (chosen, null);
                         }
 
-                        // THE BACKGROUND FOLDS IT, or unfolds it (owner, 2026-10-11): the agent is
-                        // told its new width on the repaint.
-                        if (click.Pressed && at is null)
+                        // THE BACKGROUND FOLDS IT, or unfolds it (owner, 2026-10-11), on the release:
+                        // the agent is told its new width on the repaint.
+                        if (act == MuxColumnAct.Fold)
                         {
                             ToggleFolded();
                             terminal.Paint($"{Esc}[2J");
@@ -855,15 +856,16 @@ public sealed partial class Mux
                 {
                 if (Aside(bytes) is { } click)
                 {
-                    if (click.Pressed && click.Column <= ColumnWidth)
+                    if (click.Column <= ColumnWidth)
                     {
                         var at = MuxColumn.At(Rows(), click.Row - 1, terminal.Rows);
-                        if (at is { } chosen && chosen != shown)
+                        var act = MuxColumn.Mouse(click.Pressed, Released(click), at);
+                        if (act == MuxColumnAct.Switch && at is { } chosen && chosen != shown)
                         {
                             return (chosen, null);
                         }
 
-                        if (at is null)
+                        if (act == MuxColumnAct.Fold)
                         {
                             ToggleFolded();
                             terminal.Paint($"{Esc}[2J");
@@ -1029,6 +1031,9 @@ public sealed partial class Mux
 
         return new Click(button, column, row, (char)bytes[^1]);
     }
+
+    /// <summary>A left button let go: the end of a click, which is what folds the column.</summary>
+    private static bool Released(Click click) => click.Final == 'm' && (click.Button & (3 | 32 | 64)) == 0;
 
     /// <summary>The same report, its column moved past the nav column, <paramref name="column"/> wide.</summary>
     internal static ReadOnlyMemory<byte> Shifted(Click click, int column) =>

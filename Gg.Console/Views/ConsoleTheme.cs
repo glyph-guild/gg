@@ -227,6 +227,35 @@ public static class ConsoleTheme
         };
     }
 
+    /// <summary>Somewhere to type, lifted off the ground.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A quarter of the way from the ground to the text</b>, by <see cref="Muted"/>'s
+    /// arithmetic rather than a colour somebody liked: lighter than the surface it sits
+    /// on whatever the theme, and still well under the text typed into it.
+    /// </para>
+    /// <para>
+    /// <b>The one scheme here that does name its own background</b>, because that is the
+    /// point of it. A field drawn on the modal's ground was invisible until somebody typed
+    /// into it - the owner's "needs a label and background color".
+    /// </para>
+    /// </remarks>
+    public static Scheme Field()
+    {
+        var grounded = Grounded();
+        var normal = grounded.GetAttributeForRole(VisualRole.Normal);
+        var lifted = new Terminal.Gui.Drawing.Attribute(
+            normal.Foreground, Partway(normal.Background, normal.Foreground, 0.25), normal.Style);
+
+        return new Scheme(grounded)
+        {
+            Normal = lifted,
+            Editable = lifted,
+            Focus = lifted,
+            Active = lifted,
+        };
+    }
+
     private static Terminal.Gui.Drawing.Attribute OnGround(
         Terminal.Gui.Drawing.Attribute attribute) =>
         attribute.Background == Color.None
@@ -299,6 +328,11 @@ public static class ConsoleTheme
                 normal.Style),
         };
     }
+
+    private static Color Partway(Color from, Color to, double fraction) => new(
+        (byte)(from.R + ((to.R - from.R) * fraction)),
+        (byte)(from.G + ((to.G - from.G) * fraction)),
+        (byte)(from.B + ((to.B - from.B) * fraction)));
 
     private static Color Halfway(Color from, Color to) => new(
         (byte)((from.R + to.R) / 2),

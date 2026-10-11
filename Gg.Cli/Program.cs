@@ -2799,8 +2799,20 @@ static string BroadcastFromTheConsole(AppState state, HeldSecret held)
         using var http = new HttpClient { BaseAddress = new Uri(ControlPlaneAddress()) };
         var control = new ControlPlaneClient(http);
 
-        var sending = SendACredential.EnvelopeFor(
-            new FileCredentialStore(), MachineKey.LoadOrCreate(), locator, held, saying: null);
+        SendACredential.ToSend? sending;
+
+        try
+        {
+            sending = SendACredential.EnvelopeFor(
+                new FileCredentialStore(), MachineKey.LoadOrCreate(), locator, held, saying: null);
+        }
+        catch (CredentialUnavailableException refused) when (held.Taken is { } taken)
+        {
+            // HOW MUCH ARRIVED, beside why it did not open: the CLI prompt prints the
+            // same count, and without it a wrong passphrase and a field that lost keys
+            // read the same.
+            return HeldSecret.Refusal(refused.Message, taken);
+        }
 
         if (sending is null)
         {

@@ -74,6 +74,9 @@ public class TheColumnFoldsToOneCellTests
 
         // ROW SIX IS BLANK: gg, a gap, agent 1, "+ new agent", then nothing until the hint.
         fixture.Terminal.Type("\u001b[<0;10;6M");
+        await Assert.That(MuxFixture.Until(() => fixture.Mux.Folded, TimeSpan.FromMilliseconds(300))).IsFalse()
+            .Because("a press alone folds nothing: the release would land on whatever the fold moved under it.");
+        fixture.Terminal.Type("\u001b[<0;10;6m");
 
         await Assert.That(MuxFixture.Until(() => fixture.Mux.Folded)).IsTrue();
         fixture.Raise("size");
@@ -82,7 +85,7 @@ public class TheColumnFoldsToOneCellTests
             .Because("the agent is told the width the column gave back.");
 
         // AND BACK: the folded column is column one, and row six is still background.
-        fixture.Terminal.Type("\u001b[<0;1;6M");
+        fixture.Terminal.Type("\u001b[<0;1;6M\u001b[<0;1;6m");
         await Assert.That(MuxFixture.Until(() => !fixture.Mux.Folded)).IsTrue();
 
         fixture.Raise("end");
@@ -104,5 +107,21 @@ public class TheColumnFoldsToOneCellTests
         await Assert.That(await showing.WaitAsync(TimeSpan.FromSeconds(20))).IsEqualTo(MuxLeave.Gg);
         await Assert.That(fixture.Mux.Folded).IsFalse();
         fixture.Raise("end");
+    }
+
+    // --- found by the owner: a press folded the column, and the release landed on gg's content ---
+
+    [Test]
+    [Arguments(true, false, false, MuxColumnAct.None)]
+    [Arguments(false, true, false, MuxColumnAct.Fold)]
+    [Arguments(true, false, true, MuxColumnAct.Switch)]
+    [Arguments(false, true, true, MuxColumnAct.None)]
+    public async Task Gg_folds_on_the_finished_click_and_switches_on_the_press(
+        bool pressed, bool clicked, bool overARow, MuxColumnAct act)
+    {
+        // TERMINAL.GUI MAKES A CLICK OF A PRESS AND A RELEASE, and sends it to the view under the
+        // release. Folded on the press, that view was gg's content, which took focus mid-change and
+        // threw "SetHasFocusFalse new focused view does not have focus".
+        await Assert.That(MuxColumn.Mouse(pressed, clicked, overARow ? MuxTab.Gg : null)).IsEqualTo(act);
     }
 }

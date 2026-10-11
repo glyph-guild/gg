@@ -3251,7 +3251,7 @@ public static class PaneText
         UiMode.FloorChoice => "how much to keep back",
         UiMode.ComposeChoice => "how do you want to write this flight?",
         UiMode.WorkKindChoice => "what is this flight for?",
-        UiMode.CredentialRepositoryChoice => "which repository is this credential for?",
+        UiMode.CredentialRepositoryChoice => "which credential should this machine get?",
         UiMode.CredentialWizard => "add a credential",
         UiMode.BrowseFilter => "narrow the work list",
         UiMode.WorkItemDetail => "the work item",

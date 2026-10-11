@@ -1,3 +1,5 @@
+using Gg.Contracts;
+
 namespace Gg.Console;
 
 /// <summary>
@@ -28,10 +30,10 @@ public static class CredentialRepositories
     /// the terminal goes away is the difference between expecting a prompt and
     /// being surprised by one.
     /// </remarks>
-    public sealed record Choice(string Path, string Said, string Locator = "");
+    public sealed record Choice(string Path, string Said, string Locator);
 
     /// <summary>The columns the chooser draws, named for what they answer.</summary>
-    public static IReadOnlyList<string> Columns { get; } = ["repository", "what enter does"];
+    public static IReadOnlyList<string> Columns { get; } = ["credential", "what enter does"];
 
     /// <summary>
     /// What answering on this row will actually do.
@@ -109,8 +111,36 @@ public static class CredentialRepositories
                         s.Repo, path, StringComparison.Ordinal))?.Standing ?? "unknown"))
                 .OrderBy(row => Rank(row.Standing))
                 .ThenBy(row => row.Path, StringComparer.Ordinal)
-                .Select(row => new Choice(row.Path, Does(row.Standing))),
+                .Select(row => new Choice(
+                    row.Path, Does(row.Standing), CredentialLocator.ForRepo(row.Path))),
+
+            // EVERY OTHER CREDENTIAL THIS TENANT REGISTERED - a tracker's, an analysis
+            // service's, an agent's - after the repositories, by the name the credentials
+            // tab gives it. A repository's reference is already a row above, keyed by the
+            // same derivation, so it is not offered twice.
+            .. Others(state),
         ];
+    }
+
+    private static IEnumerable<Choice> Others(AppState state)
+    {
+        var repositories = Offered(state)
+            .Select(CredentialLocator.ForRepo)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var named = Gg.Console.Rows.Credentials(state)
+            .GroupBy(row => row.Locator, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First().Credential, StringComparer.Ordinal);
+
+        return (state.Credentials?.Credentials ?? [])
+            .Select(summary => summary.Reference.Locator)
+            .Where(locator => locator is { Length: > 0 } && !repositories.Contains(locator))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(locator => locator, StringComparer.Ordinal)
+            .Select(locator => new Choice(
+                named.TryGetValue(locator, out var name) && name is { Length: > 0 } ? name : locator,
+                "forward the one held here, or ask you to paste one",
+                locator));
     }
 
     /// <summary>Every registered repository, by path.</summary>
@@ -162,10 +192,22 @@ public static class CredentialRepositories
         // into what a person is looking at, and Rows sorts what is left to do
         // to the top - so reading Offered here would hand back whichever
         // repository happens to sit at that position in the registry instead.
+        return Row(state)?.Path;
+    }
+
+    /// <summary>The locator of the row under the cursor, which is what a send moves.</summary>
+    public static string? ChosenLocator(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        return state.Mode is UiMode.CredentialRepositoryChoice ? Row(state)?.Locator : null;
+    }
+
+    private static Choice? Row(AppState state)
+    {
         var rows = Rows(state);
 
         return rows.Count == 0
             ? null
-            : rows[Math.Clamp(state.CredentialRepoSelected, 0, rows.Count - 1)].Path;
+            : rows[Math.Clamp(state.CredentialRepoSelected, 0, rows.Count - 1)];
     }
 }

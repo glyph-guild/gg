@@ -55,7 +55,7 @@ public static class ConsoleSendCredential
     /// about. Null still means ask - the chooser's last row - so the older
     /// behaviour is a choice rather than something that was taken away.
     /// </remarks>
-    public delegate string Send(string runnerId, string? repository);
+    public delegate string Send(string runnerId, string? locator);
 
     /// <summary>Sends one, or says why it did not.</summary>
     public static AppState Give(AppState state, Send send)
@@ -111,18 +111,17 @@ public static class ConsoleSendCredential
         // lists the registry now, and null means the registry is empty or has
         // not landed. A send carrying none would reach the runner asking it to
         // write a secret for nothing.
-        if (CredentialRepositories.Chosen(state) is not { Length: > 0 } repository)
+        if (CredentialRepositories.ChosenLocator(state) is not { Length: > 0 } locator)
         {
             return Spent(state) with
             {
                 LastCredential =
-                    "There is no repository to send a credential for. Register one with "
-                  + "`gg airspace repositories add`, or open the Repositories pane to read "
-                  + "what this tenant already has.",
+                    "There is no credential to send. Register one with `c` on the "
+                  + "credentials tab, or a repository with `gg airspace repositories add`.",
             };
         }
 
-        return Spent(state) with { LastCredential = send(row.Id, repository) };
+        return Spent(state) with { LastCredential = send(row.Id, locator) };
     }
 
     /// <summary>

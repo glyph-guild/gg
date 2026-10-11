@@ -92,9 +92,10 @@ public class AReviewedAudienceNamesWhoIsOutOfReachTests
     {
         var after = Reducer.Reduce(Reviewing(Member), Command.ConfirmAudience);
 
-        await Assert.That(PaneText.Audience(after)).Contains("gg-pool-ui-2")
+        await Assert.That(Rows.Audience(after).Single().Text).Contains("gg-pool-ui-2")
             .Because("the list stays, naming the machine and its host, because that is the whole "
                    + "of what a person can act on here.");
+        await Assert.That(PaneText.Audience(after)).Contains("None of them can be reached");
     }
 
     [Test]

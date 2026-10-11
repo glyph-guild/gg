@@ -66,14 +66,16 @@ public class TheConsoleCanBroadcastTests
     }
 
     [Test]
-    public async Task It_takes_the_terminal_like_every_other_credential_act()
+    public async Task Opening_the_review_keeps_the_console_and_only_the_push_takes_the_terminal()
     {
         // THE PUSH BLOCKS, which is the one thing a UI session may never do: SendAsync
-        // introduces, reaches over WebRTC and waits out a heartbeat interval. The review
-        // and the passphrase stay on screen; only this leaves.
-        await Assert.That(ShellCommands.Handled).Contains(Command.SendWhereNeeded)
-            .Because("a session that waited on a push would be a frozen console, and the shell is "
-                   + "where every other credential act already does its waiting.");
+        // introduces, reaches over WebRTC and waits out a heartbeat interval. Opening the
+        // review only reads, and a read folds in beside the console - so the screen does
+        // not go away and come back before the question is even asked.
+        await Assert.That(ShellCommands.Reads).Contains(Command.SendWhereNeeded)
+            .Because("the review's read is a background read, so nothing flashes.");
+        await Assert.That(ShellCommands.Handled).Contains(Command.SendTheAudience)
+            .Because("a session that waited on a push would be a frozen console.");
     }
 
     [Test]

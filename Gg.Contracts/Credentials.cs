@@ -449,6 +449,29 @@ public static class CredentialLocator
              + "run `gg credential add`, and name it here.";
     }
 
+    /// <summary>
+    /// What a machine may report it holds: well-formed <c>local:</c> locators, once each,
+    /// in order.
+    /// </summary>
+    /// <remarks>
+    /// <b>Never a vault reference</b>, because the only way to ask a vault whether it has
+    /// one is to read it; and never anything that is not a locator, because a store's own
+    /// files - a lock, a half-written temp - name no credential.
+    /// </remarks>
+    public static IReadOnlyList<string> Reportable(IEnumerable<string> locators)
+    {
+        ArgumentNullException.ThrowIfNull(locators);
+        return
+        [
+            .. locators
+                .Where(locator => locator is { Length: > 0 }
+                               && locator.StartsWith(LocalPrefix, StringComparison.Ordinal)
+                               && Validate(locator) is null)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal),
+        ];
+    }
+
     public static string? Validate(string? locator)
     {
         if (string.IsNullOrEmpty(locator))

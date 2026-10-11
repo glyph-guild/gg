@@ -1196,6 +1196,12 @@ public sealed record RunnerSummary
 
     /// <summary>Whether its last heartbeat said it hands a session a delegated credential (ADR-0039 Amendment 2).</summary>
     public bool? TakesAgentDelegation { get; init; }
+
+    /// <summary>
+    /// The credentials its last heartbeat said it holds, as locators; null when it has never
+    /// said (slice seventy-three).
+    /// </summary>
+    public IReadOnlyList<string>? Holds { get; init; }
 }
 
 /// <summary>The states a runner may be derived to be in.</summary>

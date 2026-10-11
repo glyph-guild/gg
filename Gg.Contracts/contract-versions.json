@@ -1503,5 +1503,11 @@
     "surface": "7bfef697bf5c468ee77125c385123aa717b75f3abad88076a573e1fd611aa81f",
     "endpoints": "34d2aefdb68250139a09bfeafaa579c0cc2aa8a02391428c3ea48ab3e5f372d7",
     "note": "Airspace names the MCP servers a loop may call (ADR-0040, slice seventy-two). Envelope gains McpServers (root only): McpServer (key, type, command, args, env, url, headers), each env or header an McpSetting (name, value) whose value is a literal or carries ${credential:<locator>}. Loop gains Mcp: LoopMcp (server, allow). LeaseLoop gains McpServers and Mcp, the definitions the loop names and its use of them. Validate refuses a definition outside root, a literal secret, a credential in an argument and a key of 'gg'; composition refuses a loop naming a server root does not define; a defined, changed or newly named server, or a newly allowed tool, is a widening."
+  },
+  {
+    "version": "0.292.0",
+    "surface": "3f816616d1589656ca473c3ad8c1b59feaad7592b80da295fbf5453cf99ac72f",
+    "endpoints": "34d2aefdb68250139a09bfeafaa579c0cc2aa8a02391428c3ea48ab3e5f372d7",
+    "note": "A credential says which machines hold it (slice seventy-three, ADR-0037 Decision 11). RunnerHeartbeat and RunnerSummary gain Holds: the locators a machine's own store holds, as it last reported them; null from a runner that does not say. CredentialLocator.Reportable decides what may be reported: well-formed local: locators, once each, in order, never a vault reference. The control plane keeps the latest report per runner and serves it on the fleet read in the PR that pins this version."
   }
 ]

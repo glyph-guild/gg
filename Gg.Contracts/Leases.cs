@@ -86,6 +86,18 @@ public sealed record RunnerHeartbeat
     /// for a machine that will use it, and an older machine would drop the frame.
     /// </summary>
     public bool? TakesAgentDelegation { get; init; }
+
+    /// <summary>
+    /// The credentials this machine's own store holds, as locators; null from a runner that
+    /// does not say (slice seventy-three, ADR-0037 Decision 11).
+    /// </summary>
+    /// <remarks>
+    /// <b>What the machine reports, never a value and never a vault reference</b> -
+    /// <see cref="CredentialLocator.Reportable"/> is the one place that decides. It is what
+    /// lets a person see where a credential is without a log of pushes that would outlive
+    /// the copy it describes.
+    /// </remarks>
+    public IReadOnlyList<string>? Holds { get; init; }
 }
 
 /// <summary>How long the control plane expects to wait before worrying.</summary>

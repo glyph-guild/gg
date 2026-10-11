@@ -73,6 +73,13 @@ public static class AudienceReview
         return state.AudienceAsked && state.Audience.Any(row => row.Reachable);
     }
 
+    /// <summary>The machines that will receive the credential.</summary>
+    public static IReadOnlyList<Gg.Client.CredentialAudienceRow> Picked(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        return [.. state.Audience.Where(row => row.Reachable)];
+    }
+
     /// <summary>How many machines will actually receive the credential.</summary>
     /// <remarks>
     /// <b>Recipients, not rows.</b> A count of rows would tell somebody two machines are

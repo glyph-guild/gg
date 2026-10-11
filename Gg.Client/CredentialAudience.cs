@@ -79,7 +79,8 @@ public static class CredentialAudience
     public static IReadOnlyList<CredentialAudienceRow> For(
         string locator,
         IReadOnlyList<RunnerSummary> runners,
-        IReadOnlyList<FleetProfileState> profiles)
+        IReadOnlyList<FleetProfileState> profiles,
+        bool everyone = false)
     {
         ArgumentException.ThrowIfNullOrEmpty(locator);
         ArgumentNullException.ThrowIfNull(runners);
@@ -136,6 +137,9 @@ public static class CredentialAudience
 
         return rows;
     }
+
+    /// <summary>Whether a row is wanted (declared or reported) rather than only offered.</summary>
+    public static bool Wanted(CredentialAudienceRow row) => true;
 
     private static bool Declares(RunnerSummary runner, HashSet<string> declaring) =>
         runner.Profile is { Length: > 0 } profile && declaring.Contains(profile);

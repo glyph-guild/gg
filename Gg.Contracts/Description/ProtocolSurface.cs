@@ -2156,7 +2156,7 @@ public static class ProtocolSurface
             [typeof(LeaseLoop)] =
                 ["loopId", "instance", "executor", "moves", "wallClockSeconds", "onExhaustion",
                  "resumesFrom", "instructions", "brief", "landing", "variables", "produces",
-                 "learned", "instanceHold", "hooks", "mcpServers", "mcp"],
+                 "learned", "instanceHold", "hooks", "mcpServers", "mcp", "model"],
             [typeof(LoopOutcome)] =
                 ["loopId", "outcome", "reason", "executor", "attempts", "durationMs", "movesUsed",
                  "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"],
@@ -2194,7 +2194,7 @@ public static class ProtocolSurface
             [typeof(Obligation)] = ["id", "check", "when", "rule", "approver", "provenance", "evidence"],
             [typeof(LoopBudget)] = ["wallClock", "attempts"],
             [typeof(Loop)] =
-                ["id", "executor", "discharges", "moves", "budget", "onExhaustion", "mcp"],
+                ["id", "executor", "discharges", "moves", "budget", "onExhaustion", "mcp", "model"],
             [typeof(Destination)] =
                 ["id", "kind", "requires", "preserveUnadmitted", "branch", "title", "description",
                  "opens", "opensAs", "capPerPass", "maySelect", "mayPerform", "mayWrite"],

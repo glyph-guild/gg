@@ -502,9 +502,23 @@ public sealed class ClaudeCodeExecutor(
     /// </para>
     /// </remarks>
     private string[] BoundingArguments(ExecutorRequest request, string? secret) =>
-        LoopMoves.Unbounded(request.Moves)
+        [.. LoopMoves.Unbounded(request.Moves)
             ? Unbounded(request, secret)
-            : Bounded(request, secret);
+            : Bounded(request, secret),
+         // THE LOOP'S MODEL, beside the bound rather than in it: not a
+         // permission, but the one place both launches - headless here,
+         // attended through BoundingArgumentsFor - take their arguments from,
+         // and a hand flight is the same loop watched. The FLAG, not
+         // ANTHROPIC_MODEL: the client reads the flag first, and a document
+         // that names a model has said so where a reviewer can see it.
+         .. ModelArguments(request)];
+
+    /// <summary>
+    /// <c>--model</c> and the loop's model, or nothing when the loop names none
+    /// and the account's default stands.
+    /// </summary>
+    private static string[] ModelArguments(ExecutorRequest request) =>
+        request.Model is { Length: > 0 } model ? ["--model", model] : [];
 
     /// <summary>
     /// What a loop that declared no bound is launched with.

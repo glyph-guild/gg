@@ -62,8 +62,8 @@ public class WhereACredentialIsTests
     {
         var rows = Fleet().ToDictionary(r => r.Label);
 
-        await Assert.That(rows["vmlinux002"].HoldsIt).IsEqualTo(true);
-        await Assert.That(rows["vmlinux001"].HoldsIt).IsEqualTo(false);
+        await Assert.That(rows["vmlinux002"].HoldsIt is true).IsTrue();
+        await Assert.That(rows["vmlinux001"].HoldsIt is false).IsTrue();
         await Assert.That(rows["vmlinux003"].HoldsIt).IsNull()
             .Because("a machine that never said is not a machine that lacks it.");
     }

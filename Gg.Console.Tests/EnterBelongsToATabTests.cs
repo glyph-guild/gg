@@ -75,7 +75,7 @@ public class EnterBelongsToATabTests
     {
         foreach (var tab in Tabs.All.Where(t =>
                      t is not (TabId.Flights or TabId.Queue or TabId.Runners
-                            or TabId.Envelope or TabId.Intents)))
+                            or TabId.Envelope or TabId.Intents or TabId.Credentials)))
         {
             await Assert.That(Enter(tab)).IsNull()
                 .Because($"the {tab} tab has no row enter could open, and a key offered "

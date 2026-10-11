@@ -519,6 +519,20 @@ public sealed class VerbConsoleActions(
     }
 
     /// <inheritdoc />
+    public AppState WhereaboutsFor(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var read = AudienceFor(state);
+
+        // THE AUDIENCE'S READ, OPENED AS SOMETHING ELSE: the same rows, each carrying
+        // whether its machine holds the credential, drawn read-only.
+        return read.Mode is UiMode.CredentialAudience
+            ? read with { Mode = UiMode.CredentialWhereabouts }
+            : read;
+    }
+
+    /// <inheritdoc />
     public AppState AudienceFor(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);

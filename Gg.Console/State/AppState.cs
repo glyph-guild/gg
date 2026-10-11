@@ -246,6 +246,12 @@ public enum UiMode
     /// </remarks>
     CredentialAudience,
 
+    /// <summary>
+    /// Where the credential under the cursor is: which machines say they hold it, and which
+    /// are meant to and do not (slice seventy-three). Read-only.
+    /// </summary>
+    CredentialWhereabouts,
+
     ConfirmRetire,
 
     /// <summary>The tenant's enrollment tokens, and what is left of each.</summary>

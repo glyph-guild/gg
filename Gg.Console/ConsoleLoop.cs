@@ -653,6 +653,18 @@ public sealed class ConsoleLoop(
                         : actions.AudienceFor(state);
                     break;
 
+                case Command.ShowWhereCredentialIs:
+                    // WHERE IT IS, read between sessions for the broadcast's reason: the
+                    // runner list and the fleet profiles are reads a session may not make.
+                    state = actions is null
+                        ? state with
+                        {
+                            Mode = UiMode.Normal,
+                            LastCredential = "This console cannot read where a credential is.",
+                        }
+                        : actions.WhereaboutsFor(state);
+                    break;
+
                 case Command.FinishCredentialWizard:
                     // THE ONLY PART OF THE WIZARD THAT COULD NOT HAPPEN ON SCREEN. Every
                     // step was answered inside the session; registering reaches the

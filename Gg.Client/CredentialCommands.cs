@@ -659,8 +659,17 @@ public sealed class CredentialCommands(
     /// <c>ConsoleData</c> is what <c>Every_load_the_console_can_do_is_a_verb</c> refuses.
     /// </para>
     /// </remarks>
+    public Task<VerbResult> AudienceAsync(
+        string locator, CancellationToken cancellationToken = default) =>
+        AudienceAsync(locator, everyone: false, cancellationToken);
+
+    /// <summary>
+    /// The audience, and with <paramref name="everyone"/> every other machine a send could
+    /// reach now, offered for a person to pick from - the console's review, never the
+    /// CLI's broadcast.
+    /// </summary>
     public async Task<VerbResult> AudienceAsync(
-        string locator, CancellationToken cancellationToken = default)
+        string locator, bool everyone, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(locator);
 
@@ -671,7 +680,7 @@ public sealed class CredentialCommands(
 
         return new VerbResult.CredentialAudienceFound(new VerbResult.AudienceList(
             For: locator,
-            Machines: CredentialAudience.For(locator, runners.Runners, profiles.Profiles)));
+            Machines: CredentialAudience.For(locator, runners.Runners, profiles.Profiles, everyone)));
     }
 
     public async Task<VerbResult> RemoveCredentialAsync(

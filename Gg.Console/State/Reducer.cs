@@ -244,9 +244,14 @@ public static class Reducer
             // AND IT GOES NOWHERE WHEN NOBODY IS REACHABLE. AsksForThePassphrase
             // refuses that case, so this would advance a stage the view ignores; the
             // list stays up instead, with each row saying why.
-            Command.ConfirmAudience => state.Audience.Any(row => row.Reachable)
+            Command.ConfirmAudience => AudienceReview.Picked(state).Count > 0
                 ? state with { AudienceAsked = true }
                 : state,
+
+            // PICKED OR LEFT OUT, the machine under the cursor. Only while the list is
+            // being read: once the passphrase is asked for, the audience it unlocks is
+            // the one that was read.
+            Command.ToggleAudienceMachine => ToggledAudienceMachine(state),
 
             // THE THREE THAT ALSO BLINKED. Each was the shell's so the pane
             // could be filled before it was shown, and the cost was the whole
@@ -456,6 +461,8 @@ public static class Reducer
                     Audience = [],
                     AudienceFor = null,
                     AudienceAsked = false,
+                    AudienceSelected = 0,
+                    AudienceToggled = [],
 
                     // AND A CREDENTIAL HALF-ADDED, for the same reason: reopened, it
                     // would name an account somebody decided not to use.
@@ -1803,6 +1810,31 @@ public static class Reducer
         };
     }
 
+    private static AppState ToggledAudienceMachine(AppState state)
+    {
+        if (state.Mode is not UiMode.CredentialAudience
+            || state.AudienceAsked
+            || state.AudienceSelected < 0
+            || state.AudienceSelected >= state.Audience.Count)
+        {
+            return state;
+        }
+
+        var row = state.Audience[state.AudienceSelected];
+
+        // NOTHING TO PICK on a machine nothing can reach. Its row says why.
+        if (!row.Reachable)
+        {
+            return state;
+        }
+
+        var toggled = state.AudienceToggled.Contains(row.RunnerId, StringComparer.Ordinal)
+            ? state.AudienceToggled.Where(id => !string.Equals(id, row.RunnerId, StringComparison.Ordinal))
+            : state.AudienceToggled.Append(row.RunnerId);
+
+        return state with { AudienceToggled = [.. toggled] };
+    }
+
     private static AppState Moved(AppState state, int by) =>
         // A MODAL WITH A LIST IN IT OWNS THE CURSOR, because it owns the
         // keyboard. The tab is what answers this the rest of the time, and it
@@ -1833,6 +1865,15 @@ public static class Reducer
             // three arms up.
             : state.Mode is UiMode.ItineraryDetail
             ? PickItineraryLeg(state, state.ItineraryLegSelected + by)
+
+            // THE REVIEW MOVES ITS OWN CURSOR, so space picks the row the person is on
+            // rather than the credential behind the modal.
+            : state.Mode is UiMode.CredentialAudience
+            ? state with
+            {
+                AudienceSelected = Math.Clamp(
+                    state.AudienceSelected + by, 0, Math.Max(0, state.Audience.Count - 1)),
+            }
             : state.ActiveTab switch
             {
                 TabId.Credentials => PickCredential(state, state.CredentialsSelected + by),

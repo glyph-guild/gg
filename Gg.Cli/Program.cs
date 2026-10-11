@@ -2768,7 +2768,9 @@ static string BroadcastFromTheConsole(AppState state, HeldSecret held)
         return "Nothing was sent: the review had no credential.";
     }
 
-    var recipients = state.Audience.Where(row => row.Reachable).ToList();
+    // PICKED, NOT EVERY ROW: the review offers every online machine and a person chose
+    // which receive it. One derivation, the one the review itself drew from.
+    var recipients = Gg.Console.AudienceReview.Picked(state).ToList();
 
     if (recipients.Count == 0)
     {

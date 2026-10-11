@@ -1481,6 +1481,15 @@ public static class Keymap
             ]
             :
             [
+                new(KeyStroke.Char(' '), Command.ToggleAudienceMachine, "pick this machine, or leave it out")
+                    { When = "while the list is being read" },
+                // THE ONLY WAY DOWN THE LIST, because the review is a label and has no
+                // arrows - so the review's own text names them, where the help page's
+                // rule against teaching j and k does not reach.
+                new(KeyStroke.Char('j'), Command.SelectNext, "down")
+                    { Untaught = true, OffTheHintLine = true },
+                new(KeyStroke.Char('k'), Command.SelectPrevious, "up")
+                    { Untaught = true, OffTheHintLine = true },
                 new(KeyStroke.EnterKey, Command.ConfirmAudience, "go on")
                     { When = "while the list is being read" },
                 new(KeyStroke.Esc, Command.CloseModal, "close"),

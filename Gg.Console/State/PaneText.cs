@@ -4352,14 +4352,17 @@ public static class PaneText
             // NOBODY IS A FACT WORTH A SENTENCE. Silence here is indistinguishable from a
             // broadcast that worked, and the usual cause - no fleet profile declares it -
             // is a thing a person can go and fix.
-            return $"  Nothing in this tenant declares it needs {about}, and no machine has\n"
-                 + "  reported it cannot resolve one. There is nobody to send it to.\n\n"
+            return $"  No machine is online to send {about} to, and nothing in this tenant\n"
+                 + "  declares it needs one. There is nobody to send it to.\n\n"
                  + "  Fleet profiles are what declare a need; `gg airspace pull` writes them\n"
                  + "  out, and the airspace tab applies them.\n";
         }
 
+        // A BOX PER MACHINE, and a mark on the one the cursor is on: space flips the box,
+        // so the row it flips has to be visible before the key is pressed.
         var rows = string.Join('\n', Rows.Audience(state)
-            .Select(row => $"  {Clean(row.Machine),-16} {Clean(row.Why)}"));
+            .Select(row => $"{(row.Here && !state.AudienceAsked ? " >" : "  ")}"
+                         + $"[{(row.Picked ? "x" : " ")}] {Clean(row.Machine),-16} {Clean(row.Why)}"));
 
         var recipients = AudienceReview.Recipients(state);
 
@@ -4368,14 +4371,17 @@ public static class PaneText
             // THE LIST STAYS UP SAYING WHY. Confirming cannot read a passphrase for a push
             // that is not going to happen, so the only honest next step is the one the rows
             // above already name.
-            ? "  None of them can be reached, so there is nothing to send. Each row says why."
+            ? (state.Audience.Any(row => row.Reachable)
+                ? "  Nothing is picked. space picks the machine under the cursor (j and k move it);\n  esc to stop."
+                : "  None of them can be reached, so there is nothing to send. Each row says why.")
 
             : state.AudienceAsked
                 ? $"  Your passphrase unlocks the key that moves it - once, for all "
                 + $"{recipients}.\n  enter to send, esc to stop."
-                : $"  {recipients} machine(s) will receive it. enter to go on, esc to stop.";
+                : $"  {recipients} machine(s) will receive it. space picks or leaves out the "
+                + "one under the cursor\n  (j and k move it); enter to go on, esc to stop.";
 
-        return $"  {about} is wanted by:\n\n{rows}\n\n{next}\n";
+        return $"  {about} can go to:\n\n{rows}\n\n{next}\n";
     }
 
     private static string Actions(AppState state) =>

@@ -556,6 +556,8 @@ public sealed class VerbConsoleActions(
                 Audience = found.Value.Machines,
                 AudienceFor = found.Value.For,
                 AudienceAsked = false,
+                AudienceSelected = 0,
+                AudienceToggled = [],
             };
         }
         catch (Exception refused) when (Expected(refused))

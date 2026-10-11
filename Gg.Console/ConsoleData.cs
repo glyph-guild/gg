@@ -474,9 +474,13 @@ public sealed class ConsoleData(
     public Task<VerbResult> CreateKeyAsync(CancellationToken cancellationToken = default) =>
         _credentials.CreateKeyAsync(cancellationToken);
 
+    /// <remarks>
+    /// <b>Everyone, because this is the console's review</b>: a person picks from every
+    /// machine a send could reach now, and the ones the tenant declared start picked.
+    /// </remarks>
     public Task<VerbResult> AudienceAsync(
         string locator, CancellationToken cancellationToken = default) =>
-        _credentials.AudienceAsync(locator, cancellationToken);
+        _credentials.AudienceAsync(locator, everyone: true, cancellationToken);
 
     public Task<VerbResult> TrustThisMachineAsync(
         string locator, CancellationToken cancellationToken = default) =>

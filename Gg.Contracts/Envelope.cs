@@ -1370,6 +1370,35 @@ public sealed record Loop
     /// </summary>
     [Composes(MergeOperators.Intersect)]
     public IReadOnlyList<LoopMcp>? Mcp { get; init; }
+
+    /// <summary>
+    /// The model this loop runs on, as the agent client names one
+    /// (<c>claude-opus-5-5</c>, or an alias it accepts). Null is the account's
+    /// default, which only the client knows.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The work kind's decision, beside <c>executor:</c></b> (slice
+    /// seventy-five). GG-1076 and GG-1081 both ran on whatever the account
+    /// defaulted to, because nothing in gg or the airspace chose, and both
+    /// stopped at the layer a stronger model is likelier to read past. Which
+    /// model investigates is a decision about the work, made in the document a
+    /// person reviews, not in one runner's environment.
+    /// </para>
+    /// <para>
+    /// <b>Nullable, never <c>required</c> and never absorbing</b> - the
+    /// declaration-shape law on <see cref="Instructions"/>: a member being
+    /// ADDED must leave every older document meaning what it meant.
+    /// </para>
+    /// <para>
+    /// <b>Held to shape, not to a list.</b> Model names change faster than
+    /// this contract, so Validate asks only that it be a name: no blank, no
+    /// whitespace, and on no <c>human</c> loop. A change is a widening, as
+    /// every unordered scalar's is.
+    /// </para>
+    /// </remarks>
+    [Composes(MergeOperators.WorkKindOnly)]
+    public string? Model { get; init; }
 }
 
 /// <summary>

@@ -466,6 +466,12 @@ public sealed record ExecutorRequest
     public IReadOnlyList<Gg.Contracts.LoopMcp> Mcp { get; init; } = [];
 
     /// <summary>
+    /// The model the loop runs on, as the agent client names one, or null for
+    /// the account's default.
+    /// </summary>
+    public string? Model { get; init; }
+
+    /// <summary>
     /// The environment instance hosting this flight's stack, or null when it
     /// hosts none.
     /// </summary>

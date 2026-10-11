@@ -1529,7 +1529,7 @@ public static class Rows
     /// reached" has to name the host that could pass it on, because told only that a member
     /// is unreachable a person can do nothing with it.
     /// </remarks>
-    public sealed record AudiencePaneRow(string Machine, string Why);
+    public sealed record AudiencePaneRow(string Machine, string Why, bool Picked = false, bool Here = false);
 
     /// <summary>The columns a broadcast review shows.</summary>
     public static IReadOnlyList<string> AudienceColumns { get; } = ["machine", "why"];
@@ -1546,9 +1546,11 @@ public static class Rows
 
         return
         [
-            .. state.Audience.Select(row => new AudiencePaneRow(
+            .. state.Audience.Select((row, at) => new AudiencePaneRow(
                 Machine: row.Label,
-                Why: Why(row))),
+                Why: Why(row),
+                Picked: AudienceReview.IsPicked(state, row),
+                Here: at == state.AudienceSelected)),
         ];
     }
 
@@ -1558,7 +1560,13 @@ public static class Rows
             {
                 (true, true) => "declared, and it has reported it cannot resolve one",
                 (true, false) => "declared",
-                _ => "NOT declared, but it has reported it cannot resolve one",
+                (false, true) => "NOT declared, but it has reported it cannot resolve one",
+
+                // OFFERED: nothing asked for it here. Said plainly, so a person picking it
+                // knows they are choosing a machine rather than answering one.
+                _ => row.Through is { Length: > 0 }
+                    ? "declared by its host"
+                    : "not declared - online, and yours to pick",
             }
             : row.Through is { Length: > 0 } host
                 ? $"not reached: a member of {host}, which has no profile of its own. "

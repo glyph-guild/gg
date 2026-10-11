@@ -698,6 +698,8 @@ public sealed class ConsoleLoop(
                             Audience = [],
                             AudienceFor = null,
                             AudienceAsked = false,
+                            AudienceSelected = 0,
+                            AudienceToggled = [],
                         },
                         reload,
                         asked: false);

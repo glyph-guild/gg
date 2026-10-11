@@ -70,14 +70,32 @@ public static class AudienceReview
         // what TheSignInModalReadsTests holds. What it DOES check is that somebody can
         // receive the credential, because a passphrase read for a push that is not
         // going to happen reads, to whoever typed it, as something having moved.
-        return state.AudienceAsked && state.Audience.Any(row => row.Reachable);
+        return state.AudienceAsked && Picked(state).Count > 0;
     }
 
     /// <summary>The machines that will receive the credential.</summary>
+    /// <remarks>
+    /// <b>Wanted machines start picked and offered ones do not</b>, and a person flips
+    /// either. An unreachable machine is never picked whatever was flipped: nothing is held
+    /// for it, so picking it would promise a delivery gg cannot make.
+    /// </remarks>
     public static IReadOnlyList<Gg.Client.CredentialAudienceRow> Picked(AppState state)
     {
         ArgumentNullException.ThrowIfNull(state);
-        return [.. state.Audience.Where(row => row.Reachable)];
+        return
+        [
+            .. state.Audience.Where(row => row.Reachable && IsPicked(state, row)),
+        ];
+    }
+
+    /// <summary>Whether one row is picked, reachable or not.</summary>
+    public static bool IsPicked(AppState state, Gg.Client.CredentialAudienceRow row)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(row);
+        return row.Reachable
+            && Gg.Client.CredentialAudience.Wanted(row)
+               != state.AudienceToggled.Contains(row.RunnerId, StringComparer.Ordinal);
     }
 
     /// <summary>How many machines will actually receive the credential.</summary>
@@ -89,6 +107,6 @@ public static class AudienceReview
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        return state.Audience.Count(row => row.Reachable);
+        return Picked(state).Count;
     }
 }

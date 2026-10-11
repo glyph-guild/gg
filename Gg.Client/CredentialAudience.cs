@@ -110,7 +110,16 @@ public static class CredentialAudience
 
             var throughHost = host is not null && Declares(host, declaring);
 
-            if (!declared && !reported && !throughHost)
+            // OFFERED, WHEN EVERYONE IS ASKED FOR: a machine nothing declares, offered to a
+            // person picking by hand. Only where a send can arrive now - online, and not a
+            // member, which is reached through its host - because an offer of somewhere
+            // nothing can be delivered is a promise gg cannot keep. The CLI's broadcast
+            // never asks for this: need is declared, never inferred (Decision 10).
+            var offered = everyone
+                && host is null
+                && !string.Equals(runner.State, RunnerStates.Offline, StringComparison.Ordinal);
+
+            if (!declared && !reported && !throughHost && !offered)
             {
                 continue;
             }
@@ -138,8 +147,15 @@ public static class CredentialAudience
         return rows;
     }
 
-    /// <summary>Whether a row is wanted (declared or reported) rather than only offered.</summary>
-    public static bool Wanted(CredentialAudienceRow row) => true;
+    /// <summary>
+    /// Whether a row is WANTED - declared, reported, or reached through a host that
+    /// declares it - rather than only offered to somebody picking by hand.
+    /// </summary>
+    public static bool Wanted(CredentialAudienceRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        return row.Declared || row.Reported || row.Through is { Length: > 0 };
+    }
 
     private static bool Declares(RunnerSummary runner, HashSet<string> declaring) =>
         runner.Profile is { Length: > 0 } profile && declaring.Contains(profile);

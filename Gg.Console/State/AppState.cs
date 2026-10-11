@@ -2168,6 +2168,21 @@ public sealed record AppState
     public int AudienceSelected { get; init; }
 
     /// <summary>
+    /// The machines a person has flipped from their default in the review: a wanted one
+    /// left out, or an offered one picked.
+    /// </summary>
+    /// <remarks>
+    /// <b>What was CHANGED rather than what is picked</b>, so the default - wanted machines
+    /// picked, offered ones not - needs no seeding when the list arrives, and a list read
+    /// again cannot disagree with a seeded copy of the one before it.
+    /// </remarks>
+    public IReadOnlyList<string> AudienceToggled
+    {
+        get => field ?? [];
+        init;
+    } = [];
+
+    /// <summary>
     /// The credential being added through the wizard, or null when none is.
     /// </summary>
     /// <remarks>

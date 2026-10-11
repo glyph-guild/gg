@@ -3834,7 +3834,11 @@ static async Task<int> RunnerUpAsync()
             // is the whole gate: a runner handed no port refuses for want of
             // one rather than for want of a check, the way a runner handed no
             // private key is simply unreachable.
-            keepCredential: LocalCredentialKeeper.For(inForce, new FileCredentialStore()),
+            // AND MADE THIS MACHINE'S ON ARRIVAL: a console seals to the identity key the
+            // control plane knows, and the store opens with the machine key (GG-1074).
+            keepCredential: LocalCredentialKeeper.For(
+                inForce, new FileCredentialStore(),
+                RunnerSeal.AsAHolder(identity.ForOpeningWhatWasSealedToThisRunner())),
             // AND UNCONDITIONALLY, SOMEWHERE TO DESTROY ONE. No question is
             // asked of the file: a machine agrees to be given a secret, and
             // nobody agrees to have one taken away.
@@ -4250,7 +4254,9 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
         // start wrote accept-configured above; every start after this reads it
         // from the file, so a member bounced by the pool comes back with the
         // same answer rather than a fresh assumption.
-        keepCredential: LocalCredentialKeeper.For(inForce, new FileCredentialStore()),
+        keepCredential: LocalCredentialKeeper.For(
+            inForce, new FileCredentialStore(),
+            RunnerSeal.AsAHolder(identityKey.ForOpeningWhatWasSealedToThisRunner())),
         // UNCONDITIONAL HERE TOO, and a member is the case it matters for: it
         // is the machine nobody can open a shell on to clean up by hand.
         forgetCredential: LocalCredentialKeeper.Forgetting(new FileCredentialStore()),

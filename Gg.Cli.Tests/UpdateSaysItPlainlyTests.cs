@@ -131,7 +131,13 @@ public class UpdateSaysItPlainlyTests
     [Test]
     public async Task The_verb_ends_with_the_plans_sentence()
     {
-        var program = Sources.Read("Gg.Cli", "Program.cs");
+        var here = new DirectoryInfo(AppContext.BaseDirectory);
+        while (here is not null && !File.Exists(Path.Combine(here.FullName, "Gg.Cli", "Program.cs")))
+        {
+            here = here.Parent;
+        }
+
+        var program = File.ReadAllText(Path.Combine(here!.FullName, "Gg.Cli", "Program.cs"));
 
         await Assert.That(program).Contains("plan.Done", StringComparison.Ordinal);
         await Assert.That(program).DoesNotContain("keeps the bytes it started with", StringComparison.Ordinal);

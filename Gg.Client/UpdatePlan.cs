@@ -72,6 +72,9 @@ public sealed record UpdatePlan(
     bool NeedsRoot,
     bool Restarts)
 {
+    /// <summary>What a person is told once the steps have run: the version, and nothing more.</summary>
+    public string Done => $"{Target} is installed.";
+
     /// <summary>Whether there is something to run and a reason to run it.</summary>
     public bool CanApply => Refusal is null && Steps.Count > 0;
 

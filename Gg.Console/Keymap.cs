@@ -1472,6 +1472,13 @@ public static class Keymap
         // TWO STAGES, TWO MEANINGS FOR ONE KEY. On the list `enter` goes on, which the
         // reducer does without leaving the session; on the field it SENDS, which it cannot,
         // so that one ends the session and the shell pushes. `esc` means stop in both.
+        // READ-ONLY: it says where a credential is and acts on nothing, so the one key is
+        // the way out.
+        UiMode.CredentialWhereabouts =>
+        [
+            new(KeyStroke.Esc, Command.CloseModal, "close"),
+        ],
+
         UiMode.CredentialAudience => context.AudienceAsked
             ?
             [
@@ -3022,6 +3029,14 @@ public static class Keymap
         [
             new(KeyStroke.EnterKey, Command.ShowRunner, "open this runner")
                 { OffTheHintLine = true, When = "on the runners tab" },
+        ],
+
+        // AND WHERE A CREDENTIAL IS (owner, 2026-10-11: "pressing enter on a
+        // credential"): which machines say they hold it, and which are meant to.
+        TabId.Credentials =>
+        [
+            new(KeyStroke.EnterKey, Command.ShowWhereCredentialIs, "where is it")
+                { OffTheHintLine = true, When = "on the credentials tab" },
         ],
 
         // AND THE WORK ITEM UNDER IT, which is the row this tab lists. It was in

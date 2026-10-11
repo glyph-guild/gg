@@ -30,6 +30,10 @@ namespace Gg.Client;
 /// The host that would have to pass it on, when this is a member. Null when the machine
 /// is the recipient itself. A person told only "unreachable" can do nothing with it.
 /// </param>
+/// <param name="HoldsIt">
+/// Whether the machine's last beat said it holds this credential; null when it has never
+/// said - an older gg - which is not the same as lacking it (slice seventy-three).
+/// </param>
 public sealed record CredentialAudienceRow(
     string RunnerId,
     string Label,
@@ -37,7 +41,8 @@ public sealed record CredentialAudienceRow(
     bool Declared,
     bool Reported,
     bool Reachable,
-    string? Through);
+    string? Through,
+    bool? HoldsIt = null);
 
 /// <summary>
 /// Who a credential is meant to reach, derived from what the tenant has declared and
@@ -119,7 +124,15 @@ public static class CredentialAudience
                 && host is null
                 && !string.Equals(runner.State, RunnerStates.Offline, StringComparison.Ordinal);
 
-            if (!declared && !reported && !throughHost && !offered)
+            // WHAT IT SAYS IT HOLDS, which puts a machine in the list wherever it is -
+            // offline, a member, declared by nothing - because where a credential IS
+            // includes the places nobody asked it to be. Only when everyone is asked
+            // for: the CLI's broadcast stays the declared audience.
+            var holdsIt = runner.Holds is { } holds
+                ? holds.Contains(locator, StringComparer.Ordinal)
+                : (bool?)null;
+
+            if (!declared && !reported && !throughHost && !offered && !(everyone && holdsIt is true))
             {
                 continue;
             }
@@ -141,7 +154,8 @@ public static class CredentialAudience
                 Reachable: host is null
                         && !string.Equals(runner.State, RunnerStates.Offline, StringComparison.Ordinal),
 
-                Through: host?.Label));
+                Through: host?.Label,
+                HoldsIt: holdsIt));
         }
 
         return rows;

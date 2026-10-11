@@ -133,6 +133,14 @@ public class ModalEscapeTests
           + "the shell arm; AReviewThatIsEscapedMovesNothingTests walks out of it from both "
           + "stages and asserts the audience and its subject go with the modal.",
 
+        [UiMode.CredentialWhereabouts] =
+            "opened by ConsoleLoop when enter on the credentials tab asks where a credential "
+          + "is - the same two reads the broadcast review makes, the runner list and the "
+          + "fleet profiles, so it cannot happen inside a UI session and no key can reach it "
+          + "against a fresh state. WhereACredentialIsTests holds the key, the shell arm and "
+          + "the escape, and StateGenerator emits the mode so the escape walk above covers "
+          + "getting back out.",
+
         [UiMode.FleetTokens] =
             "opened by ConsoleLoop when `t` on the fleet asks for the tenant's enrollment "
           + "tokens - a read, so it cannot happen inside a UI session and cannot be reached "

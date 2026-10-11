@@ -2812,7 +2812,16 @@ public sealed class ConsoleScreen : Window
 
         if (_column is null)
         {
-            _column = new MuxColumnView(tab => Dispatch(MuxCommands.For(tab)))
+            // THE FOLD IS THE MUX'S, so an agent shown next is given the same room: flipped there,
+            // then read back into the model like the agents are.
+            _column = new MuxColumnView(
+                tab => Dispatch(MuxCommands.For(tab)),
+                () =>
+                {
+                    _mux.ToggleFolded();
+                    State = State with { MuxFolded = _mux.Folded };
+                    Columned();
+                })
             {
                 X = 0,
                 Y = 0,
@@ -2827,6 +2836,8 @@ public sealed class ConsoleScreen : Window
         // an agent lived.
         _column.Agents = State.Agents;
         _column.Armed = State.Switching;
+        _column.Folded = State.MuxFolded;
+        _column.Width = MuxColumn.WidthOf(State.MuxFolded);
 
         // AND NONE AT ALL UNDER THE SCREENSAVER, room included, so the mark covers the whole
         // terminal rather than the part the column leaves.
@@ -2876,7 +2887,7 @@ public sealed class ConsoleScreen : Window
             // ending, which the shell folds - what an agent leaves may be a flight to open.
             _app.AddTimeout(TimeSpan.FromMilliseconds(250), () =>
             {
-                State = State with { Agents = _mux.Rows() };
+                State = State with { Agents = _mux.Rows(), MuxFolded = _mux.Folded };
                 Columned();
 
                 if (_mux.Ending)

@@ -55,6 +55,12 @@ public static class MuxColumn
     /// <summary>How wide the column is, in columns.</summary>
     public const int Width = 30;
 
+    /// <summary>
+    /// How wide it is folded or not: one cell folded (owner, 2026-10-11), so an agent gets
+    /// back all but one column of the terminal.
+    /// </summary>
+    public static int WidthOf(bool folded) => folded ? 1 : Width;
+
     /// <summary>Whether the column is drawn: always, except under the screensaver.</summary>
     /// <remarks>
     /// <b>The screensaver is the whole terminal</b> (owner, 2026-10-10). It hides every view
@@ -72,7 +78,7 @@ public static class MuxColumn
     /// How much of the window's left edge the column takes: its width, or none under the
     /// screensaver, so the mark is centred on the whole terminal.
     /// </summary>
-    public static int Room(AppState state) => Shown(state) ? Width : 0;
+    public static int Room(AppState state) => Shown(state) ? WidthOf(state.MuxFolded) : 0;
 
     /// <summary>The most agents the mux holds: <c>1</c>-<c>9</c>, one key each.</summary>
     public const int Most = 9;
@@ -98,9 +104,12 @@ public static class MuxColumn
     /// <param name="armed">
     /// Whether ctrl-g was just pressed, so the hint spells out the keys that follow it.
     /// </param>
-    /// <param name="now">Unused; the ages come in on the rows.</param>
+    /// <param name="folded">
+    /// One cell a row: <c>g</c>, an agent's number, <c>+</c> and <c>H</c> on the rows they hold
+    /// unfolded, so a click lands where it did.
+    /// </param>
     public static IReadOnlyList<MuxLine> Lines(
-        IReadOnlyList<MuxRow> agents, MuxTab shown, int height, bool armed = false)
+        IReadOnlyList<MuxRow> agents, MuxTab shown, int height, bool armed = false, bool folded = false)
     {
         ArgumentNullException.ThrowIfNull(agents);
 
@@ -140,7 +149,8 @@ public static class MuxColumn
         }
 
         kept.AddRange(bottom);
-        return [.. kept.Take(Math.Max(height, bottom.Length)).Select(Fit)];
+        var all = kept.Take(Math.Max(height, bottom.Length));
+        return folded ? [.. all.Select(Folded)] : [.. all.Select(Fit)];
     }
 
     /// <summary>The tab a click on <paramref name="row"/> (from 0) chooses, if any.</summary>
@@ -208,6 +218,18 @@ public static class MuxColumn
     private static string Running(int count) => count == 1 ? "An agent is" : $"{count} agents are";
 
     private static MuxLine Line(string text, MuxTab tab, MuxTab shown) => new(text, tab, tab == shown);
+
+    private static MuxLine Folded(MuxLine line) => line with
+    {
+        Text = line.Tab switch
+        {
+            { Place: MuxPlace.Gg } => "g",
+            { Place: MuxPlace.Agent } agent => agent.Number.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            { Place: MuxPlace.New } => "+",
+            { Place: MuxPlace.History } => "H",
+            _ => " ",
+        },
+    };
 
     private static MuxLine Fit(MuxLine line) => line with
     {

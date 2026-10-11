@@ -266,6 +266,7 @@ return await ByName(CliArgs.Parse(args)) switch
     CliAction.CredentialSend send => await SendCredentialAsync(send),
     CliAction.CredentialSendWhereNeeded everywhere => await SendWhereNeededAsync(everywhere),
     CliAction.AgentCredentialSend send => await SendAgentCredentialAsync(send),
+    CliAction.LocatorCredentialSend send => await SendUnderLocatorAsync(send.RunnerId, send.Locator, asking: null),
     CliAction.AgentLogin login => await AgentLoginAsync(login),
     CliAction.KeyCreate create => await KeyCreatedAsync(create.Json),
     CliAction.KeyList keys => await CredentialAsync(keys.Json, c => c.ListKeysAsync()),

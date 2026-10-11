@@ -94,7 +94,7 @@ public class SendingACredentialTakesNoSecretTests
         await Assert.That(refused).IsTypeOf<CliAction.Unknown>();
 
         await Assert.That(((CliAction.Unknown)refused).Message)
-            .Contains("not both", StringComparison.Ordinal)
+            .Contains("one credential under one locator", StringComparison.Ordinal)
             .Because("one send puts one credential under one locator, with or without a machine.");
     }
 

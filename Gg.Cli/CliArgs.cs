@@ -957,10 +957,10 @@ public static class CliArgs
         "gg credential add --repo <slug>|--agent <name>|--tracker <key>|--analysis <key>",
         "                                 register a credential for what it is actually for;",
         "                                 the value is prompted for and never an argument",
-        "gg credential send --repo <slug>|--agent <name>",
+        "gg credential send --repo <slug>|--agent <name>|--tracker <key>|--analysis <key>",
         "                                 send it to every machine your fleet profiles say",
         "                                 needs it; the list is printed before anything moves",
-        "gg credential send --runner <id|name> --repo <slug>|--agent <name>",
+        "gg credential send --runner <id|name> --repo <slug>|--agent <name>|--tracker <key>|--analysis <key>",
         "                                 put one on a machine that cannot be reached any other way",
         "gg key create                  mint this person's key; the passphrase is prompted for",
         "gg key list                    the public keys this tenant's people have registered",
@@ -2294,6 +2294,8 @@ public static class CliArgs
     {
         string? repo = null;
         string? agent = null;
+        string? tracker = null;
+        string? analysis = null;
 
         for (var i = 0; i < options.Count; i += 2)
         {
@@ -2317,10 +2319,18 @@ public static class CliArgs
                     agent = value;
                     break;
 
+                case "--tracker":
+                    tracker = value;
+                    break;
+
+                case "--analysis":
+                    analysis = value;
+                    break;
+
                 default:
                     return Unknown(
                         $"'{options[i]}' is not something gg credential send takes. It takes "
-                      + "--runner and one of --repo or --agent; the secret is never an "
+                      + "--runner and one of --repo, --agent, --tracker or --analysis; the secret is never an "
                       + "argument, because an argument is in shell history and in ps output "
                       + "before gg has run.");
             }
@@ -2335,15 +2345,40 @@ public static class CliArgs
         // broadcast's audience is keyed on exactly the string the recipients will look
         // under: two derivations that agree today is how a runner ends up hunting for a
         // file the CLI never wrote.
+        // ONE SEND, ONE CREDENTIAL. Two locators would be two files and one
+        // secret, and the refusal says which flag to drop.
+        var credentials = new[] { repo, agent, tracker, analysis }.Count(n => n is { Length: > 0 });
+        if (credentials > 1)
+        {
+            return Unknown(
+                "gg credential send takes one of --repo, --agent, --tracker or --analysis: one "
+              + "send puts one credential under one locator.");
+        }
+
+        // A TRACKER'S OR AN ANALYSIS SERVICE'S LOCATOR, derived here by the
+        // contract's own rule - the one `gg credential add` stored it under - and
+        // refused before any network when the key cannot be a locator.
+        string? service = null;
+        try
+        {
+            service = tracker is { Length: > 0 } t ? CredentialLocator.ForTracker(t)
+                : analysis is { Length: > 0 } a ? CredentialLocator.ForAnalysis(a)
+                : null;
+        }
+        catch (ArgumentException refused)
+        {
+            return Unknown($"gg credential send: {Sentence(refused)}");
+        }
+
+        if (service is not null)
+        {
+            return runner is { Length: > 0 }
+                ? new CliAction.LocatorCredentialSend(runner, service, json)
+                : new CliAction.CredentialSendWhereNeeded(service, json);
+        }
+
         if (runner is not { Length: > 0 })
         {
-            if (repo is { Length: > 0 } && agent is { Length: > 0 })
-            {
-                return Unknown(
-                    "gg credential send takes --repo or --agent, not both: one send puts one "
-                  + "credential under one locator.");
-            }
-
             return (repo, agent) switch
             {
                 ({ Length: > 0 } slug, _) => new CliAction.CredentialSendWhereNeeded(
@@ -2351,19 +2386,10 @@ public static class CliArgs
                 (_, { Length: > 0 } named) => new CliAction.CredentialSendWhereNeeded(
                     CredentialLocator.ForAgent(named), json),
                 _ => Unknown(
-                    "gg credential send needs to know which credential: --repo <slug> or "
-                  + "--agent <name>. Name a machine with --runner to send to one; leave it out "
+                    "gg credential send needs to know which credential: --repo <slug>, "
+                  + "--agent <name>, --tracker <key> or --analysis <key>. Name a machine with --runner to send to one; leave it out "
                   + "and gg sends it to every machine your fleet profiles say needs it."),
             };
-        }
-
-        // ONE SEND, ONE CREDENTIAL. Two locators would be two files and one
-        // secret, and the refusal says which flag to drop.
-        if (repo is { Length: > 0 } && agent is { Length: > 0 })
-        {
-            return Unknown(
-                "gg credential send takes --repo or --agent, not both: one send puts one "
-              + "credential under one locator.");
         }
 
         if (agent is { Length: > 0 })
@@ -2387,8 +2413,8 @@ public static class CliArgs
         return repo is { Length: > 0 }
             ? new CliAction.CredentialSend(runner, repo, json)
             : Unknown(
-                "gg credential send needs --repo <slug> or --agent <name>: which credential "
-              + "to send. A slug is the one `gg credential add` registered; an agent's name "
+                "gg credential send needs --repo <slug>, --agent <name>, --tracker <key> or "
+              + "--analysis <key>: which credential to send. A slug is the one `gg credential add` registered; an agent's name "
               + "is the one GG_EXECUTOR_BINARY declares, such as claude.");
     }
 

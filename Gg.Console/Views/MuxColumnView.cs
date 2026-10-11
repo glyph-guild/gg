@@ -59,18 +59,21 @@ internal sealed class MuxColumnView : View
     {
         ArgumentNullException.ThrowIfNull(mouse);
 
-        if (!mouse.IsPressed || mouse.Position is not { } at)
+        if (mouse.Position is not { } at)
         {
             return false;
         }
 
-        if (MuxColumn.At(Agents, at.Y, Math.Max(Viewport.Height, 3)) is { } tab)
+        // THE CLICK, NOT THE PRESS, FOLDS: folded on the press, the release landed on gg's content.
+        var tab = MuxColumn.At(Agents, at.Y, Math.Max(Viewport.Height, 3));
+        switch (MuxColumn.Mouse(mouse.IsPressed, mouse.IsSingleDoubleOrTripleClicked, tab))
         {
-            _chosen(tab);
-        }
-        else
-        {
-            _fold();
+            case MuxColumnAct.Switch:
+                _chosen(tab!.Value);
+                break;
+            case MuxColumnAct.Fold:
+                _fold();
+                break;
         }
 
         mouse.Handled = true;

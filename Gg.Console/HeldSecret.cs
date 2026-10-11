@@ -50,16 +50,33 @@ public sealed class HeldSecret : ISecretPrompt
     /// Called when a review is abandoned, so that escaping leaves nothing behind — which is
     /// half of what <c>AReviewThatIsEscapedMovesNothingTests</c> is about.
     /// </remarks>
-    public void Forget() => _held = null;
+    public void Forget()
+    {
+        _held = null;
+        Taken = null;
+    }
 
     /// <summary>Whether anything is held, without taking it.</summary>
     public bool Holding => _held is not null;
 
-    /// <summary>How many characters the last <see cref="ReadSecret"/> handed over.</summary>
-    public int Taken => 0;
+    /// <summary>
+    /// How many characters the last <see cref="ReadSecret"/> handed over, or null when
+    /// nothing has asked since this was last forgotten.
+    /// </summary>
+    /// <remarks>
+    /// <b>A count is not an echo</b> - <c>ConsoleSecretPrompt.Received</c>'s rule. It is the
+    /// one fact that tells a person whether what they typed arrived, and it says nothing
+    /// about what it was.
+    /// </remarks>
+    public int? Taken { get; private set; }
 
     /// <summary>A refusal, with how much of the passphrase arrived.</summary>
-    public static string Refusal(string message, int taken) => message;
+    /// <remarks>
+    /// The CLI prompt prints the same words as it reads, so the two doors report a
+    /// passphrase the same way.
+    /// </remarks>
+    public static string Refusal(string message, int taken) =>
+        $"{message} {ConsoleSecretPrompt.Received(taken)}";
 
     /// <summary>
     /// The secret, taken rather than read: it is gone from here once this returns.
@@ -73,6 +90,7 @@ public sealed class HeldSecret : ISecretPrompt
     {
         var held = _held ?? "";
         _held = null;
+        Taken = held.Length;
         return held;
     }
 

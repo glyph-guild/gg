@@ -4373,8 +4373,7 @@ public static class PaneText
 
         if (rows.Count == 0)
         {
-            return $"  No machine says it holds {about}, and none is meant to.\n\n"
-                 + "  `b` on the credentials tab sends it to a machine.\n";
+            return $"  No machine says it holds {about}.\n";
         }
 
         return $"  {about}:\n\n{string.Join('\n', rows)}\n\n"

@@ -172,6 +172,11 @@ public abstract record CliAction
         /// </remarks>
         string? Environment = null,
         /// <summary>
+        /// Which model this flight runs on, chosen here against root's
+        /// <c>models:</c>, or null for the loop's own choice (slice seventy-six).
+        /// </summary>
+        string? Model = null,
+        /// <summary>
         /// A person will watch this one from wherever they are.
         /// </summary>
         /// <remarks>
@@ -801,6 +806,14 @@ public abstract record CliAction
     /// modes and one arm.
     /// </remarks>
     public sealed record Ground(string Reference, string Because, bool Json)
+        : CliAction, IEmitsResult;
+
+    /// <summary>
+    /// Moves a flight to another model, one root's <c>models:</c> lists
+    /// (slice seventy-six). The name is not optional: the door would refuse
+    /// a blank, and this side can say what the name is for.
+    /// </summary>
+    public sealed record ModelFlight(string Reference, string Name, bool Json)
         : CliAction, IEmitsResult;
 
     /// <summary>Writes an envelope back, from a file or from stdin.</summary>

@@ -44,9 +44,11 @@ public class EveryLaunchSaysWhichModelTests
     [Test]
     public async Task A_first_launch_names_its_session_and_resumes_nothing()
     {
-        var arguments = ClaudeCodeExecutor.ArgumentsFor(Request("claude-sonnet-5-5"), readers: [], secretFor: _ => null);
+        var session = Guid.NewGuid().ToString();
+        var arguments = ClaudeCodeExecutor.ArgumentsFor(
+            Request("claude-sonnet-5-5"), readers: [], secretFor: _ => null, session: session);
 
-        await Assert.That(Guid.TryParse(After(arguments, "--session-id"), out _)).IsTrue()
+        await Assert.That(After(arguments, "--session-id")).IsEqualTo(session)
             .Because("the runner picks the id, so a child killed before it speaks is still "
                    + "resumable. Passed: " + string.Join(" ", arguments));
         await Assert.That(arguments.Contains("--resume")).IsFalse();

@@ -1553,9 +1553,13 @@ public sealed class ClaudeCodeExecutor(
         string? secret = null,
         SelfInvocation? self = null,
         Func<string, string?>? secretFor = null,
-        string? resuming = null) =>
+        string? resuming = null,
+        // THE SESSION ID, only when a test asks for one: a real launch always
+        // picks one (ExecuteAsync), and the launch-argument tests compare the
+        // whole list literally, which a random id would make impossible.
+        string? session = null) =>
         new ClaudeCodeExecutor("claude", readers, secretFor, self)
-            .StartInfo(request, secret, resuming: resuming, session: Guid.NewGuid().ToString())
+            .StartInfo(request, secret, resuming: resuming, session: session)
             .ArgumentList;
 
     /// <summary>

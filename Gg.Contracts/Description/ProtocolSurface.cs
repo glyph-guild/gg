@@ -2463,9 +2463,14 @@ public static class ProtocolSurface
             [typeof(StrategyProvenance)] = ["repository", "path", "commit"],
             [typeof(EnvironmentStrategyState)] = ["name", "version", "appliedAt", "strategy"],
             [typeof(NamedEnvelopeState)] =
-                ["name", "role", "version", "envelope", "narrowing", "updatedAt", "updatedBy"],
+                ["name", "role", "version", "envelope", "narrowing", "extension", "updatedAt",
+                 "updatedBy"],
             [typeof(NamedEnvelopeList)] = ["documents"],
-            [typeof(NamedEnvelopeApply)] = ["envelope", "narrowing"],
+            [typeof(NamedEnvelopeApply)] = ["envelope", "narrowing", "extension"],
+            [typeof(EnvelopeExtension)] =
+                ["extends", "abstract", "description", "brief", "targeting", "hosts", "accepts",
+                 "produces", "instructions", "obligations", "loops", "destinations", "remove"],
+            [typeof(ExtensionRemovals)] = ["loops", "destinations", "obligations", "instructions"],
             [typeof(StrategyList)] = ["strategies"],
             [typeof(FleetProfile)] =
                 ["roles", "environment", "agent", "forges", "destinations", "relays",

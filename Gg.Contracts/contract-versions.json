@@ -1545,5 +1545,11 @@
     "surface": "327598977c0e1d7d0f107f5e7310391ba06fc757dbf7d630423d6bbcf912ef9f",
     "endpoints": "77ba4b72cdd1eb618490a9d45b87e04c3f532af195dd344a3370051965b22226",
     "note": "Composition takes a chain of work kinds (slice seventy-seven, ADR-0041 Decision 2). EnvelopeLayer gains Extension: a work-kind layer is a full document or an extension of one, never both. Verify admits several work-kind layers that form one chain - the top the one full document under root, every other an extension naming a work kind present, at most three deep, every one reached from the top - and refuses a fork, a cycle, an orphan and a full document under a work kind. Compose resolves the chain before anything else composes, into one work-kind layer carrying the leaf's name and version, so the operator table is unchanged and shuffling the layers changes nothing; an abstract leaf is refused. One work kind composes as it always has."
+  },
+  {
+    "version": "0.299.0",
+    "surface": "d6ca50932ada38738befdd1f832eb3d244d427bc25dc237da4a82ea667448a3a",
+    "endpoints": "77ba4b72cdd1eb618490a9d45b87e04c3f532af195dd344a3370051965b22226",
+    "note": "An extension crosses the wire (slice seventy-seven, step 2). NamedEnvelopeApply and NamedEnvelopeState gain Extension, a third member beside Envelope and Narrowing, on the same PUT and GET /v1/airspace/envelopes/{name}; an apply carries exactly one of the three. EnvelopeExtension and ExtensionRemovals are declared on the surface. The control plane learns the member in the PR that pins this version; gg writes no extension until it has."
   }
 ]

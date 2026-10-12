@@ -119,7 +119,7 @@ public class NamedEnvelopeTests
             .OrderBy(n => n, StringComparer.Ordinal)
             .ToList();
 
-        await Assert.That(members).IsEquivalentTo(new[] { "Envelope", "Narrowing" });
+        await Assert.That(members).IsEquivalentTo(new[] { "Envelope", "Narrowing", "Extension" });
     }
 
     [Test]

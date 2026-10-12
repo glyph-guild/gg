@@ -407,6 +407,13 @@ public enum UiMode
     CredentialRepositoryChoice,
 
     /// <summary>
+    /// Which model to move the flight on the screen to, from root's
+    /// <c>models:</c> (slice seventy-six). A list in a text body: the cursor is
+    /// <see cref="AppState.ModelSelected"/>, and answering is the shell's.
+    /// </summary>
+    ModelChoice,
+
+    /// <summary>
     /// What to narrow the work list to, picked from what the tracker offers.
     /// </summary>
     /// <remarks>
@@ -2222,6 +2229,13 @@ public sealed record AppState
     public int CredentialRepoSelected { get; init; }
 
     /// <summary>
+    /// The row under the cursor in <see cref="UiMode.ModelChoice"/>: a cursor
+    /// and not an answer, for the member above's reason.
+    /// <c>ModelChoices.Chosen</c> reads it where it is used.
+    /// </summary>
+    public int ModelSelected { get; init; }
+
+    /// <summary>
     /// The repositories a flight opened from this console starts out naming.
     /// </summary>
     /// <remarks>
@@ -2601,6 +2615,9 @@ public sealed record AppState
     /// whichever changed, so a new arm cannot forget to say anything.
     /// </remarks>
     public string? LastGrounded { get; init; }
+
+    /// <summary>What the last move to another model came to (slice seventy-six).</summary>
+    public string? LastMoved { get; init; }
 
     /// <summary>What became of the last attempt to start a runner here, or null.</summary>
     /// <remarks>

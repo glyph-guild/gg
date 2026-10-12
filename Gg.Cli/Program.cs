@@ -2165,6 +2165,10 @@ static async Task<int> LaunchConsoleAsync()
         // is typed into $EDITOR and the write happens between sessions.
         groundFlight: (current, ask) => ConsoleGround.Ground(data, current, ask),
 
+        // MOVING THE FLIGHT ON THE SCREEN TO ANOTHER MODEL, with the terminal
+        // free: a write, between sessions (slice seventy-six).
+        moveFlight: current => ConsoleMoveModel.Move(data, current),
+
         // THE FILE, HANDED TO AN EDITOR WITH THE TERMINAL FREE. The path is
         // computed inside rather than passed, because ConfigurationFile is
         // where the XDG rule lives and a second answer here would be a second

@@ -1844,6 +1844,9 @@ public static class Keymap
                 : [],
 
             new(KeyStroke.Char('x'), Command.AskToGround, "ground it"),
+            // FROM HERE AND ONLY HERE, for Ground's reason: the flight being moved
+            // is named on the screen (slice seventy-six).
+            new(KeyStroke.Char('m'), Command.ChooseModel, "move it to another model"),
             new(KeyStroke.Char('f'), Command.AskToFlyAgain, "fly it again"),
 
             // v, AND DELIBERATELY NOT tab. tab cycles the bar one level up,
@@ -2142,6 +2145,19 @@ public static class Keymap
                 : [],
 
             new(KeyStroke.Esc, Command.CloseModal, "open nothing"),
+        ],
+
+        // WHICH MODEL TO MOVE THE FLIGHT TO (slice seventy-six): a list in a
+        // text body, the shape ConfirmGround has with a cursor added. Enter is
+        // the shell's, because it writes.
+        UiMode.ModelChoice =>
+        [
+            new(KeyStroke.Char('j'), Command.SelectNext, "down")
+                { Untaught = true, OffTheHintLine = true },
+            new(KeyStroke.Char('k'), Command.SelectPrevious, "up")
+                { Untaught = true, OffTheHintLine = true },
+            new(KeyStroke.EnterKey, Command.MoveFlight, "move it to this one") { Label = "Move" },
+            new(KeyStroke.Esc, Command.CloseModal, "leave it where it is"),
         ],
 
         UiMode.CredentialRepositoryChoice =>

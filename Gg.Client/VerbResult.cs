@@ -2133,6 +2133,11 @@ public static class VerbOutput
         text.AppendLine($"  vocabulary  {Clean(flight.FactVocabularyVersion)}");
         text.AppendLine($"  constitution {Clean(flight.ConstitutionVersion)}");
         text.AppendLine($"  envelope    {Clean(flight.EnvelopeVersion)}");
+        if (flight.Model is { Length: > 0 } model)
+        {
+            // THE CHOICE IN FORCE, when a person made one (slice seventy-six).
+            text.AppendLine($"  model       {Clean(model)}");
+        }
 
         // The reason it cannot start, by name, only when there is one. The
         // sentence derives from the kind; an unknown kind throws in Sentence.

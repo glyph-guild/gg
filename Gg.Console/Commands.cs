@@ -1549,6 +1549,9 @@ public static class ShellCommands
         // means apply: a UI session may not read, and the terminal has to be
         // provably free before somebody is handed it.
         Command.FlyByHand,
+        // MOVING A FLIGHT TO ANOTHER MODEL (slice seventy-six): a write, between
+        // sessions, like grounding.
+        Command.MoveFlight,
         Command.ApproveGate,
         Command.RejectGate,
 

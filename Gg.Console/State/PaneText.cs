@@ -744,6 +744,11 @@ public static class PaneText
             $"  {Clean(flight?.FlightNumber ?? story!.FlightNumber)}  "
           + $"{Clean(flight?.Name ?? story?.WorkKind)}".TrimEnd());
         text.AppendLine($"  id            {Clean(flight?.FlightId ?? story!.FlightId)}");
+        if (flight?.Model is { Length: > 0 } model)
+        {
+            // THE CHOICE IN FORCE, when a person made one (slice seventy-six).
+            text.AppendLine($"  model         {Clean(model)}");
+        }
 
         // STAGE AND STATE, which this pane has never shown. Two axes - how far it
         // got and what became of it - so a person can tell a flight that is still
@@ -2877,6 +2882,46 @@ public static class PaneText
             + "still a record of having been tried. You will be asked to write why, and a "
             + "flight is not grounded until you do.";
 
+    /// <summary>
+    /// Root's models with the cursor drawn in the text (slice seventy-six), or
+    /// why there is nothing to choose.
+    /// </summary>
+    /// <remarks>
+    /// <b>The cursor is in the body</b> rather than in a list view, so the
+    /// modal is the text modal ConfirmGround is and costs the screen no view;
+    /// j and k move it, and the row it is on is what enter sends.
+    /// </remarks>
+    private static string ModelChoice(AppState state)
+    {
+        if (Detailed(state) is not { } flight)
+        {
+            return "";
+        }
+
+        var rows = ModelChoices.Rows(state);
+        if (rows.Count == 0)
+        {
+            return $"{flight.FlightNumber}, {flight.Name}, cannot be moved from here: root lists no "
+                 + "models: - or this console has not read the envelope yet, which the Envelope "
+                 + "tab does. A tenant enables moving a flight by listing, at root, the models a "
+                 + "person may choose.";
+        }
+
+        var text = new StringBuilder();
+        text.AppendLine($"Move {flight.FlightNumber}, {flight.Name}, to:");
+        text.AppendLine();
+        var at = Math.Clamp(state.ModelSelected, 0, rows.Count - 1);
+        for (var row = 0; row < rows.Count; row++)
+        {
+            text.AppendLine($"{(row == at ? ">" : " ")} {Clean(rows[row])}");
+        }
+
+        text.AppendLine();
+        text.Append("The running agent is started over on it, resuming its own conversation; the ");
+        text.Append("flight's facts will show both launches.");
+        return text.ToString();
+    }
+
     /// <summary>What flying it again would mean, before the editor opens.</summary>
     /// <remarks>
     /// <b>It says the editor comes next, because that is where the decision
@@ -3226,6 +3271,7 @@ public static class PaneText
         UiMode.Runner => "no runner",
         UiMode.ConfirmFlight => "this has flown before",
         UiMode.ConfirmGround => "ground this flight?",
+        UiMode.ModelChoice => "move this flight to which model?",
         UiMode.ConfirmApply => "apply the working copy?",
         UiMode.ConfirmRetire => "retire these names?",
         UiMode.ConfirmOwnership => "say who may claim this machine?",
@@ -3566,6 +3612,7 @@ public static class PaneText
             UiMode.CredentialWhereabouts => Whereabouts(state),
             UiMode.ConfirmFlight => ConfirmFlight(state),
             UiMode.ConfirmGround => ConfirmGround(state),
+            UiMode.ModelChoice => ModelChoice(state),
             UiMode.ConfirmApply => ConfirmApply(state),
             UiMode.ConfirmRetire => ConfirmRetire(state),
             UiMode.ConfirmOwnership => ConfirmOwnership(state),
@@ -4277,6 +4324,7 @@ public static class PaneText
         UiMode.CredentialAudience => "while a broadcast is being reviewed",
         UiMode.ConfirmFlight => "when asked whether to open a second flight",
         UiMode.ConfirmGround => "when asked whether to ground a flight",
+        UiMode.ModelChoice => "when asked which model to move a flight to",
         UiMode.ConfirmOwnership => "when asked who may claim a machine",
         UiMode.FleetTokens => "while reading the tenant's enrollment tokens",
         UiMode.ConfirmRevoke => "when asked whether to revoke one",

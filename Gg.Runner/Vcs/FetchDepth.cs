@@ -48,7 +48,7 @@ public sealed record FetchDepth
     /// depth is a date or the tip.
     /// </summary>
     /// <remarks>
-    /// <b>The fallback, never the ask.</b> Azure Repos refuses
+    /// <b>The fallback, never the ask.</b> A hosted forge refuses
     /// <c>--shallow-since</c> and <c>--deepen</c> (measured 2026-10-12,
     /// GG-1085) and supports only <c>--depth</c>, which re-fetched into an
     /// existing shallow clone deepens it. A count is blunt on a merge-heavy

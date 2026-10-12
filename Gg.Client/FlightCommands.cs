@@ -126,7 +126,13 @@ public sealed class FlightCommands(
     /// that split is the owner's: <i>"gg show tells the story; log stays raw."</i>
     /// </para>
     /// </remarks>
-    public async Task<VerbResult> ShowAsync(string reference, CancellationToken cancellationToken = default)
+    /// <param name="withModel">
+    /// Also read the summary for the model a person chose (slice seventy-six).
+    /// The verb asks; the console's flight modal does not, because it opened
+    /// over the summary and already holds it.
+    /// </param>
+    public async Task<VerbResult> ShowAsync(
+        string reference, CancellationToken cancellationToken = default, bool withModel = false)
     {
         var token = Session();
         var resolved = Readable(reference);
@@ -146,9 +152,11 @@ public sealed class FlightCommands(
 
         // THE MODEL IN FORCE (slice seventy-six) lives on the summary, not the
         // story, so a person who moved a flight is told so here by a second read.
-        var summary = await _client.GetFlightAsync(token, resolved, cancellationToken);
+        var model = withModel
+            ? (await _client.GetFlightAsync(token, resolved, cancellationToken))?.Model
+            : null;
 
-        return new VerbResult.Story(story, held, summary?.Model);
+        return new VerbResult.Story(story, held, model);
     }
 
     /// <summary>

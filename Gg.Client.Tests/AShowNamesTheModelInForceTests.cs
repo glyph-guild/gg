@@ -35,7 +35,7 @@ public class AShowNamesTheModelInForceTests
             FlightAnswer = StubControlPlane.AFlight() with { Model = "claude-opus-5-5" },
         };
 
-        var text = VerbOutput.ToText(await Build(stub).ShowAsync("GG-42"));
+        var text = VerbOutput.ToText(await Build(stub).ShowAsync("GG-42", withModel: true));
 
         await Assert.That(text).Contains("model       claude-opus-5-5")
             .Because("a person who moved a flight looks for the move where they look at the flight.");
@@ -46,10 +46,21 @@ public class AShowNamesTheModelInForceTests
     {
         await using var stub = new StubControlPlane();
 
-        var text = VerbOutput.ToText(await Build(stub).ShowAsync("GG-42"));
+        var text = VerbOutput.ToText(await Build(stub).ShowAsync("GG-42", withModel: true));
 
         await Assert.That(text).DoesNotContain("model ")
             .Because("null is the loop's own model, which the work kind already says; a line "
                    + "naming nothing would read as a choice somebody made.");
+    }
+
+    [Test]
+    public async Task The_console_modal_is_not_charged_the_second_read()
+    {
+        await using var stub = new StubControlPlane();
+
+        await Build(stub).ShowAsync("GG-42");
+
+        await Assert.That(stub.ObservedPaths).DoesNotContain("/v1/flights/GG-42")
+            .Because("the modal opened over the summary and already holds the model.");
     }
 }

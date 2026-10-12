@@ -58,10 +58,11 @@ public sealed class ModelMoves(Action<string>? relaunched = null)
     }
 
     /// <summary>The executor started the agent over on <paramref name="model"/>.</summary>
-    public void Relaunched(string model)
-    {
-        _ = relaunched;
-    }
+    /// <remarks>
+    /// Called by the executor, the one place that knows a relaunch happened;
+    /// heard by whoever made the signal, which is the runner's loop and its log.
+    /// </remarks>
+    public void Relaunched(string model) => relaunched?.Invoke(model);
 
     /// <summary>Completes at the next move after this call, or now if one is already pending unread.</summary>
     public Task NextAsync(CancellationToken cancellationToken)

@@ -251,6 +251,7 @@ public sealed class ClaudeCodeExecutor(
 
                     current = next;
                     resuming = session;
+                    request.Moved!.Relaunched(next);
                     continue;
                 }
 

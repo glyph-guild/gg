@@ -137,7 +137,9 @@ internal sealed class ConsoleObserver : IRunnerObserver
     /// </summary>
     public void MoveRefused(string diagnosis) => System.Console.WriteLine($"moves: {diagnosis}");
 
-    public void Relaunched(string flightNumber, string model) { }
+    public void Relaunched(string flightNumber, string model) =>
+        System.Console.WriteLine(
+            $"moved {flightNumber} to {model}: started the agent over on its own session");
 
     /// <summary>
     /// The reference and the problem. Never anything resolving it produced.

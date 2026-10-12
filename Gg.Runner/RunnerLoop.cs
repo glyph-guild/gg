@@ -2358,7 +2358,8 @@ public sealed class RunnerLoop(
         // WHERE A MOVE ARRIVES (slice seventy-six): the renewals below write to
         // it, the executor holding the child awaits it. Made here because this
         // is the one method that sees both ends.
-        var moved = new Execution.ModelMoves();
+        var moved = new Execution.ModelMoves(
+            model => _observer.Relaunched(lease.FlightNumber, model));
         var work = ProbeThenInvokeAsync(lease, workspace, intentFile, moved, working.Token);
         var expiresAt = lease.ExpiresAt;
         var fenced = false;

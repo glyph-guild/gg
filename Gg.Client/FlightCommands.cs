@@ -144,7 +144,11 @@ public sealed class FlightCommands(
             held = (await _client.WhyAsync(token, resolved, cancellationToken))?.Held;
         }
 
-        return new VerbResult.Story(story, held);
+        // THE MODEL IN FORCE (slice seventy-six) lives on the summary, not the
+        // story, so a person who moved a flight is told so here by a second read.
+        var summary = await _client.GetFlightAsync(token, resolved, cancellationToken);
+
+        return new VerbResult.Story(story, held, summary?.Model);
     }
 
     /// <summary>

@@ -2276,6 +2276,20 @@ public static class PlatformToolServer
           + "governs. This is how a tenant tells agents how to behave without changing "
           + "any code.");
         said.AppendLine(
+            "  extends:            for a work kind, the one other work kind it changes. A "
+          + "work kind that extends another says ONLY what it changes: a brief, description, "
+          + "accepts or produces it names replaces its parent's; a loop, destination or "
+          + "obligation it names replaces its parent's entry of that id WHOLE; its "
+          + "instructions are read after its parent's. Under `remove:` it takes away "
+          + "loops, destinations or obligations by id and its parent's instructions by "
+          + "their EXACT text. It names no context and no bounds: those it inherits. At "
+          + "most three work kinds deep.");
+        said.AppendLine(
+            "  abstract:           `true` for a work kind that is never flown itself, only "
+          + "the kinds that extend it - one holding what they share, such as a loop, a "
+          + "model and instructions. It may name no destination. Not inherited: a child "
+          + "of an abstract kind is flyable unless it says `abstract: true` too.");
+        said.AppendLine(
             "  learned:            for a work kind, what earlier flights found out about "
           + "the environment, under `advice:`, with an `against:` header naming what it "
           + "was learned against - any of repository, commit, image, envelope. DRAFTED BY "

@@ -278,8 +278,12 @@ public sealed class ClaudeCodeExecutor(
     /// a skill in the repository is now the answer to it, because that one
     /// travels with the code and is the same on every runner.
     /// </remarks>
+    /// <param name="resuming">
+    /// The session to start over on a new model, or null for a first launch
+    /// (slice seventy-six). Nothing reads it yet.
+    /// </param>
     private ProcessStartInfo StartInfo(
-        ExecutorRequest request, string? secret = null, string? token = null)
+        ExecutorRequest request, string? secret = null, string? token = null, string? resuming = null)
     {
         var info = new ProcessStartInfo
         {
@@ -1485,9 +1489,10 @@ public sealed class ClaudeCodeExecutor(
         IReadOnlyList<IntentReader> readers,
         string? secret = null,
         SelfInvocation? self = null,
-        Func<string, string?>? secretFor = null) =>
+        Func<string, string?>? secretFor = null,
+        string? resuming = null) =>
         new ClaudeCodeExecutor("claude", readers, secretFor, self)
-            .StartInfo(request, secret).ArgumentList;
+            .StartInfo(request, secret, resuming: resuming).ArgumentList;
 
     private static string Tool(string move) => move switch
     {

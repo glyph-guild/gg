@@ -472,6 +472,18 @@ public sealed record ExecutorRequest
     public string? Model { get; init; }
 
     /// <summary>
+    /// Where a move to another model arrives while the child runs, or null when
+    /// nothing can move it (slice seventy-six).
+    /// </summary>
+    /// <remarks>
+    /// Set by the runner from the lease's renewals. The executor compares what
+    /// arrives with what it launched on and starts the child over on its own
+    /// session when they differ; null is every launch nothing renews - the
+    /// probe, a sweep, an attended session.
+    /// </remarks>
+    public ModelMoves? Moved { get; init; }
+
+    /// <summary>
     /// The environment instance hosting this flight's stack, or null when it
     /// hosts none.
     /// </summary>
@@ -589,6 +601,17 @@ public sealed record ExecutorRun
     /// </para>
     /// </remarks>
     public IReadOnlyList<Gg.Contracts.FlightNomination> Nominations { get; init; } = [];
+
+    /// <summary>
+    /// Every launch of the child this run made, in order: the flag each was
+    /// given and whether it was a relaunch (slice seventy-six).
+    /// </summary>
+    /// <remarks>
+    /// One for the ordinary run; two or more when a person moved the flight in
+    /// the air. Each becomes a <c>loop.model</c> fact. Empty only for a run that
+    /// started no child at all.
+    /// </remarks>
+    public IReadOnlyList<Gg.Contracts.LoopModel> Launches { get; init; } = [];
 
     /// <summary>
     /// The airspace document this run handed back, when it handed one back.

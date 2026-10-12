@@ -39,7 +39,7 @@ internal static class GitWorkingTree
         catch (InvalidOperationException refused)
             when (depth?.Since is { } since && ShallowDeepening.RefusesShallowSince(refused.Message))
         {
-            // THE SERVER HAS NO deepen-since (Azure Repos, measured 2026-10-12,
+            // THE SERVER HAS NO deepen-since (one hosted forge, measured 2026-10-12,
             // GG-1085). The window is reached by count instead, in steps, and
             // on such a server it is a floor rather than a ceiling.
             await ShallowDeepening.DeepenUntilAsync(

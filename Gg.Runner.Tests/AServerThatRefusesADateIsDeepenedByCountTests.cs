@@ -12,7 +12,7 @@ namespace Gg.Runner.Tests;
 /// <para>
 /// <b>What the walk found, one release on.</b> 0.88.32 fetched a history
 /// loop's tree with <c>--shallow-since</c>, and GG-1085 failed in one second:
-/// <i>fatal: Server does not support --shallow-since</i>. Azure Repos has no
+/// <i>fatal: Server does not support --shallow-since</i>. one hosted forge has no
 /// <c>deepen-since</c> and no <c>deepen-relative</c> either (<c>--deepen</c>
 /// hangs up), and a fresh <c>--depth 1500</c> brought 4,976 commits and
 /// 196 MB, because depth counts every parent path on a merge-heavy branch.

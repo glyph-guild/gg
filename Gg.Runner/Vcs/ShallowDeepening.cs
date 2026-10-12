@@ -8,7 +8,7 @@ namespace Gg.Runner.Vcs;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The date is asked for first; this is the fallback.</b> Azure Repos
+/// <b>The date is asked for first; this is the fallback.</b> One hosted forge
 /// refuses <c>--shallow-since</c> (no <c>deepen-since</c>) and hangs up on
 /// <c>--deepen</c> (no <c>deepen-relative</c>); what it supports is
 /// re-fetching an existing shallow clone with a larger <c>--depth</c>, which

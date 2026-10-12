@@ -169,13 +169,22 @@ public sealed record WorkItemFieldEdit
     /// <remarks>A reference path is an identifier, not a sentence.</remarks>
     public const int MaxPath = 256;
 
-    /// <summary>The most a value may be.</summary>
+    /// <summary>The most a value may be, and the most a proposal's values may be together.</summary>
     /// <remarks>
-    /// Larger than a path and far smaller than the detail: a field a person
-    /// reads in a work item's form is a value, and a document belongs in the
-    /// item's description rather than in one of its fields.
+    /// <para>
+    /// <b>The detail's size, because a rich-text field holds a document.</b>
+    /// This was 2,048 on the reasoning that a document belongs in the item's
+    /// description rather than in one of its fields. A plan field is where a
+    /// tracker keeps one, and investigate's analyses ran past 3,000 characters
+    /// of markdown before they were html.
+    /// </para>
+    /// <para>
+    /// <b>Bounded across the proposal as well as per value,</b> because a
+    /// proposal sets up to <see cref="WorkItemProposal.MaxFields"/> fields and
+    /// the facts of one flight travel in one batch.
+    /// </para>
     /// </remarks>
-    public const int MaxValue = 2048;
+    public const int MaxValue = WorkItemProposalLimits.MaxDetail;
 }
 
 /// <summary>
@@ -497,9 +506,17 @@ public sealed record WorkItemProposal
             if (edit.Value.Length > WorkItemFieldEdit.MaxValue)
             {
                 return $"The edit to '{edit.Path}' is {edit.Value.Length} characters and a "
-                     + $"field value is at most {WorkItemFieldEdit.MaxValue}. A document "
-                     + "belongs in the item's description rather than one of its fields.";
+                     + $"field value is at most {WorkItemFieldEdit.MaxValue}. Nothing is "
+                     + "shortened: write a shorter value, or link to where the rest lives.";
             }
+        }
+
+        var together = edits.Sum(e => e.Value?.Length ?? 0);
+        if (together > WorkItemFieldEdit.MaxValue)
+        {
+            return $"The values this proposal sets are {together} characters together and "
+                 + $"one proposal carries at most {WorkItemFieldEdit.MaxValue}. Split it, or "
+                 + "keep the long value in one field.";
         }
 
         return null;

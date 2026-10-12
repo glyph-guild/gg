@@ -41,6 +41,9 @@ public sealed record NamedEnvelopeState
     /// <summary>The document, when the role carries constraints only.</summary>
     public EnvelopeNarrowing? Narrowing { get; init; }
 
+    /// <summary>The document, when the work kind extends another (ADR-0041).</summary>
+    public EnvelopeExtension? Extension { get; init; }
+
     public required DateTimeOffset UpdatedAt { get; init; }
 
     /// <summary>Who made the change this version records. Article XII.</summary>
@@ -91,22 +94,25 @@ public sealed record NamedEnvelopeApply
     /// <summary>Set for a <c>narrowing</c> name.</summary>
     public EnvelopeNarrowing? Narrowing { get; init; }
 
+    /// <summary>Set for a <c>work-kind</c> name that extends another work kind.</summary>
+    public EnvelopeExtension? Extension { get; init; }
+
     /// <summary>Why this body cannot be applied at all, or null when it can.</summary>
     /// <remarks>
     /// Shape only - whether it matches the NAME's role is the control plane's to
     /// answer, because only the topology knows the role. Both sides failing
     /// closed on their own format is what makes the pair trustworthy.
     /// </remarks>
-    public string? Validate() => (Envelope, Narrowing) switch
-    {
-        (null, null) =>
-            "An apply carries a document, and this one carries neither an envelope nor a "
-          + "narrowing. An empty body is not a way to retire a name - retiring is a "
-          + "terminal version, gated and attributed like any other change.",
-        (not null, not null) =>
-            "An apply carries ONE document, and this one carries both an envelope and a "
-          + "narrowing. A name has one role, so only one of them could ever have been "
-          + "applied, and guessing which would be the control plane choosing a policy.",
-        _ => null,
-    };
+    public string? Validate() =>
+        ((Envelope is null ? 0 : 1) + (Narrowing is null ? 0 : 1) + (Extension is null ? 0 : 1)) switch
+        {
+            0 => "An apply carries a document, and this one carries no envelope, narrowing or "
+               + "extension. An empty body is not a way to retire a name - retiring is a "
+               + "terminal version, gated and attributed like any other change.",
+            1 => null,
+            _ => "An apply carries ONE document, and this one carries more than one of an "
+               + "envelope, a narrowing and an extension. A name has one shape, so only one of "
+               + "them could ever have been applied, and guessing which would be the control "
+               + "plane choosing a policy.",
+        };
 }

@@ -224,6 +224,12 @@ public abstract record VerbResult
     public sealed record NamedEnvelopeShown(Gg.Contracts.NamedEnvelopeState Value) : VerbResult
     {
         public override string Kind => VerbResultKinds.NamedEnvelopeShown;
+
+        /// <summary>
+        /// For a work kind that extends another, what it resolves to over the
+        /// parents in force (ADR-0041); null for every other document.
+        /// </summary>
+        public Gg.Contracts.Envelope? Resolved { get; init; }
     }
 
     /// <summary>One applied strategy, read back by name.</summary>
@@ -1173,7 +1179,7 @@ public static class VerbOutput
         VerbResult.NameDeclared r => NameDeclaredText(r.Value),
         VerbResult.RepositoryAdded r => RepositoryAddedText(r.Value),
         VerbResult.NameRetired r => NameRetiredText(r.Value),
-        VerbResult.NamedEnvelopeShown r => NamedEnvelopeText(r.Value),
+        VerbResult.NamedEnvelopeShown r => NamedEnvelopeText(r.Value, r.Resolved),
         VerbResult.RulesInForce r => RulesInForceText(r.WorkKind, r.Value),
         VerbResult.AirspaceDocuments r => DocumentsText(r.Value),
         VerbResult.StrategyShown r => StrategyShownText(r.Value),
@@ -4069,10 +4075,19 @@ public static class VerbOutput
     /// says. Rendered by the same renderer the pull writes files with, so what
     /// is read back is what a pull would put on disk.
     /// </remarks>
-    private static string NamedEnvelopeText(Gg.Contracts.NamedEnvelopeState document)
+    private static string NamedEnvelopeText(
+        Gg.Contracts.NamedEnvelopeState document, Gg.Contracts.Envelope? resolved = null)
     {
         var body = document.Narrowing is { } narrowing
             ? Gg.Contracts.EnvelopeText.Render(narrowing)
+            : document.Extension is { } extension
+                ? Gg.Contracts.EnvelopeText.Render(extension)
+                    + (resolved is null
+                        ? $"\n# '{extension.Extends}' or a work kind above it holds no document "
+                        + "this resolves over.\n"
+                        : $"\n# resolved over '{extension.Extends}' - what a flight of this kind "
+                        + "is governed by, before root composes:\n\n"
+                        + Gg.Contracts.EnvelopeText.Render(resolved))
             : document.Envelope is { } envelope
                 ? Gg.Contracts.EnvelopeText.Render(envelope)
                 : null;

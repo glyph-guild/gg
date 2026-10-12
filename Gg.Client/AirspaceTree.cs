@@ -78,6 +78,9 @@ public sealed record TreeDocument
 
     public EnvelopeNarrowing? Narrowing { get; init; }
 
+    /// <summary>A work kind that extends another (ADR-0041): the change it makes.</summary>
+    public EnvelopeExtension? Extension { get; init; }
+
     public EnvironmentStrategy? Strategy { get; init; }
 
     public WatchDocument? Watch { get; init; }
@@ -138,7 +141,7 @@ public sealed record TreeRead
 /// whatever else a team keeps, without the tool having an opinion about them.
 /// </para>
 /// </remarks>
-public static class AirspaceTree
+public static partial class AirspaceTree
 {
     /// <summary>The directory the estate renders into, relative to the working copy.</summary>
     public const string Directory = "airspace";
@@ -156,6 +159,7 @@ public static class AirspaceTree
         {
             var text = document.Narrowing is { } narrowing
                 ? EnvelopeText.Render(narrowing)
+                : document.Extension is { } extension ? EnvelopeText.Render(extension)
                 : document.Envelope is { } envelope ? EnvelopeText.Render(envelope) : null;
 
             if (text is null)
@@ -419,6 +423,10 @@ public static class AirspaceTree
             {
                 held[document.Name] = EnvelopeText.Render(narrowing);
             }
+            else if (document.Extension is { } extension)
+            {
+                held[document.Name] = EnvelopeText.Render(extension);
+            }
             else if (document.Envelope is { } envelope)
             {
                 held[document.Name] = EnvelopeText.Render(envelope);
@@ -451,6 +459,39 @@ public static class AirspaceTree
                 !held.TryGetValue(d.Name, out var current)
                 || !string.Equals(Render(d), current, StringComparison.Ordinal)),
         ];
+    }
+
+    /// <summary>
+    /// How many work kinds a document sits below in the tree: 0 for one that
+    /// extends nothing, one more than its parent's otherwise (ADR-0041).
+    /// </summary>
+    /// <remarks>
+    /// Bounded by the chain's own depth, so a tree whose files extend each other
+    /// in a loop orders rather than spins; the control plane refuses the loop.
+    /// </remarks>
+    public static int Depth(TreeDocument document, TreeRead tree)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(tree);
+
+        var depth = 0;
+        var at = document;
+
+        while (at.Extension is { } extension && depth < WorkKindChain.MaxDepth)
+        {
+            depth++;
+            var parent = tree.Documents.FirstOrDefault(
+                d => string.Equals(d.Name, extension.Extends, StringComparison.Ordinal));
+
+            if (parent is null)
+            {
+                break;
+            }
+
+            at = parent;
+        }
+
+        return depth;
     }
 
     /// <summary>
@@ -529,6 +570,7 @@ public static class AirspaceTree
     /// <summary>The document as text, for comparison against what is held.</summary>
     private static string Render(TreeDocument document) =>
         document.Narrowing is { } narrowing ? EnvelopeText.Render(narrowing)
+        : document.Extension is { } extension ? EnvelopeText.Render(extension)
         : document.Envelope is { } envelope ? EnvelopeText.Render(envelope)
         : document.Strategy is { } strategy ? EnvelopeText.Render(strategy)
         // A WATCH BEFORE THE EMPTY STRING, and the empty string is the reason.
@@ -592,6 +634,17 @@ public static class AirspaceTree
                 : (null, parsed.Diagnosis ?? "This does not read as an exposure.");
         }
 
+        // A WORK KIND THAT EXTENDS ANOTHER (ADR-0041) is read with its own door: the
+        // full one refuses `extends:` by name. A top-level key starts at column 0.
+        if (string.Equals(role, Roles.WorkKind, StringComparison.Ordinal)
+            && DeclaresExtends().IsMatch(text))
+        {
+            var child = EnvelopeYaml.ParseExtension(text);
+            return child.Extension is { } extension
+                ? (Document(name, role, path, child.BasedOn) with { Extension = extension }, null)
+                : (null, child.Diagnosis ?? "This does not read as a work kind that extends another.");
+        }
+
         var read = EnvelopeYaml.Parse(text);
         return read.Envelope is { } document
             ? (Document(name, role, path, read.BasedOn) with { Envelope = document }, null)
@@ -600,6 +653,9 @@ public static class AirspaceTree
 
     private static TreeDocument Document(string name, string role, string path, string? basedOn) =>
         new() { Name = name, Role = role, Path = path, BasedOn = basedOn };
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"^extends:", System.Text.RegularExpressions.RegexOptions.Multiline)]
+    private static partial System.Text.RegularExpressions.Regex DeclaresExtends();
 }
 
 /// <summary>One document an apply submitted, and what came of it.</summary>

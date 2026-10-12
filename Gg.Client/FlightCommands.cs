@@ -994,7 +994,12 @@ public sealed class FlightCommands(
         if (estate.Documents.FirstOrDefault(d =>
                 string.Equals(d.Name, name, StringComparison.Ordinal)) is { } document)
         {
-            return new VerbResult.NamedEnvelopeShown(document);
+            return new VerbResult.NamedEnvelopeShown(document)
+            {
+                Resolved = document.Extension is { } extension
+                    ? LeafOver(document.Name, extension, estate)
+                    : null,
+            };
         }
 
         // A STRATEGY IS A DOCUMENT TOO, and asking for one by name is the same
@@ -1417,7 +1422,29 @@ public sealed class FlightCommands(
         var topology = await _client.GetTopologyAsync(Session(), cancellationToken);
         var declared = new List<NameDeclared>();
 
-        var missing = AirspaceTree.Undeclared(tree, topology);
+        // PARENTS BEFORE CHILDREN (ADR-0041): a work kind that extends another is
+        // declared under it, and a parent declared later than its child would be a
+        // name the child's declaration found missing.
+        var missing = AirspaceTree.Undeclared(tree, topology)
+            .OrderBy(d => AirspaceTree.Depth(d, tree))
+            .ThenBy(d => d.Path, StringComparer.Ordinal)
+            .ToList();
+
+        // A NAME ALREADY DECLARED UNDER ANOTHER PARENT stays where it was: the
+        // control plane keeps the first declaration and says nothing, so a child
+        // whose extends: disagrees is refused here, before anything is sent.
+        foreach (var document in tree.Documents.Where(d => d.Extension is not null))
+        {
+            if (topology.Names.FirstOrDefault(n => string.Equals(n.Name, document.Name, StringComparison.Ordinal))
+                is { } live
+                && !string.Equals(live.Parent, document.Extension!.Extends, StringComparison.Ordinal))
+            {
+                throw new EnvelopeRefusedException(
+                    $"{document.Path} extends '{document.Extension.Extends}', and '{document.Name}' "
+                  + $"is declared under '{live.Parent ?? "root"}'. A parent is fixed when the name is "
+                  + "declared, so nothing was applied.");
+            }
+        }
 
         if (missing.Count > 0 && !declareNames)
         {
@@ -1425,9 +1452,10 @@ public sealed class FlightCommands(
                 "These documents name things this airspace has not declared, so nothing was "
               + "applied - a changeset is something somebody meant as a whole:\n"
               + string.Join('\n', missing.Select(
-                  d => $"  {d.Path}: gg airspace name {d.Role} {d.Name} --under root"))
-              + "\n\nRun apply with --declare-names to declare them under root first, or "
-              + "declare them yourself to put one under something else.");
+                  d => $"  {d.Path}: gg airspace name {d.Role} {d.Name} --under {d.Extension?.Extends ?? "root"}"))
+              + "\n\nRun apply with --declare-names to declare them first - under root, or "
+              + "under the work kind a file extends - or declare them yourself to put one "
+              + "under something else.");
         }
 
         foreach (var document in missing)
@@ -1436,7 +1464,8 @@ public sealed class FlightCommands(
             // and says nothing about nesting, so anything deeper stays a
             // deliberate --under.
             var answer = await DeclareNameAsync(
-                document.Role, document.Name, "root", cancellationToken: cancellationToken);
+                document.Role, document.Name, document.Extension?.Extends ?? "root",
+                cancellationToken: cancellationToken);
 
             declared.Add(((VerbResult.NameDeclared)answer).Value);
         }
@@ -1447,6 +1476,16 @@ public sealed class FlightCommands(
             .Where(d => d.Flight is { Length: > 0 })
             .Select(d => d.Name)
             .ToHashSet(StringComparer.Ordinal);
+
+        // AND A CHILD WAITS WITH ITS PARENT: it resolves over a document that is
+        // not reachable yet.
+        foreach (var document in missing.Where(d => d.Extension is not null))
+        {
+            if (waiting.Contains(document.Extension!.Extends))
+            {
+                waiting.Add(document.Name);
+            }
+        }
 
         var applied = new List<AppliedDocument>();
         ApplyRefusal? refused = null;
@@ -1718,6 +1757,26 @@ public sealed class FlightCommands(
         // widening, because obligations union and the beneficiary owns removal.
         // The overload has existed as long as the type and this was never the
         // caller.
+        // A WORK KIND THAT EXTENDS ANOTHER is judged as its leaf: both versions
+        // resolved over the parents the estate holds today, which is what the
+        // control plane compares too.
+        if (document.Extension is { } proposedExtension && held.Extension is { } heldExtension)
+        {
+            var before = LeafOver(document.Name, heldExtension, estate);
+            var after = LeafOver(document.Name, proposedExtension, estate);
+            var leafWidens = before is null || after is null
+                ? new EnvelopeWidening
+                {
+                    Field = "extends",
+                    Because = $"'{document.Name}' does not resolve over the parents this estate "
+                            + "holds, so it cannot be shown to tighten here.",
+                }
+                : EnvelopeDirection.Widening(before, after);
+            return leafWidens is null
+                ? (Changeset.Tightening, null, null)
+                : (Changeset.Widening, leafWidens.Field, leafWidens.Because);
+        }
+
         var widening =
             (held.Envelope, document.Envelope, held.Narrowing, document.Narrowing) switch
             {
@@ -1745,6 +1804,35 @@ public sealed class FlightCommands(
     }
 
     /// <summary>
+    /// A child resolved over the parents the estate holds, or null when it does
+    /// not resolve.
+    /// </summary>
+    private static Envelope? LeafOver(string name, EnvelopeExtension child, AirspaceEstate estate)
+    {
+        var chain = new List<(string Name, EnvelopeExtension Extension)> { (name, child) };
+        var at = child.Extends;
+
+        for (var depth = 1; depth < WorkKindChain.MaxDepth + 1; depth++)
+        {
+            var parent = estate.Documents.FirstOrDefault(
+                d => string.Equals(d.Name, at, StringComparison.Ordinal));
+
+            if (parent?.Extension is { } extension)
+            {
+                chain.Insert(0, (at, extension));
+                at = extension.Extends;
+                continue;
+            }
+
+            return parent?.Envelope is { } top
+                ? WorkKindChain.Resolve(at, top, chain).Effective
+                : null;
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// The envelope door's body: an envelope, or a narrowing.
     /// </summary>
     /// <remarks>
@@ -1755,7 +1843,7 @@ public sealed class FlightCommands(
     /// <see cref="TreeDocument.Strategy"/> before reaching this.
     /// </remarks>
     private static NamedEnvelopeApply Body(TreeDocument document) =>
-        new() { Envelope = document.Envelope, Narrowing = document.Narrowing };
+        new() { Envelope = document.Envelope, Narrowing = document.Narrowing, Extension = document.Extension };
 
     /// <summary>
     /// Takes a runner out of the fleet, permanently.

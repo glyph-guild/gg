@@ -146,6 +146,7 @@ public sealed record ExtensionRemovals
 }
 
 /// <summary>A chain resolved into one work kind, or why it could not be.</summary>
+[PinnedId("acd22457-9eb7-48c2-be86-c2e220d9bc29")]
 public sealed record WorkKindResolution
 {
     /// <summary>The effective work kind, or null when refused.</summary>

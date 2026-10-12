@@ -226,6 +226,7 @@ public static class Vocabulary
         typeof(EnvelopeNarrowing),
         typeof(EnvelopeExtension),
         typeof(ExtensionRemovals),
+        typeof(WorkKindResolution),
         typeof(LearnedContext),
         typeof(LearnedAgainst),
         typeof(EnvelopeVariable),

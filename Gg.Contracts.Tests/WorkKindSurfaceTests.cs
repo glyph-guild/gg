@@ -52,7 +52,10 @@ public class WorkKindSurfaceTests
         await Assert.That(ProtocolSurface.JsonMembers[typeof(FlightLaunchRequest)])
             .IsEquivalentTo((string[])
                 ["name", "intent", "workKind", "environment", "repository", "repositories",
-                 "runner", "attended"]);
+                 "runner", "attended",
+                 // AND THE MODEL A PERSON CHOOSES AT CREATION (slice seventy-six), held
+                 // to root's models: at ingress.
+                 "model"]);
     }
 
     [Test]

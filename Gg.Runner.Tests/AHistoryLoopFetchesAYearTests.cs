@@ -252,8 +252,12 @@ public class AHistoryLoopFetchesAYearTests
     {
         var depth = await DepthTheRunnerAsksForAsync(LoopMoves.Read, LoopMoves.History);
 
-        await Assert.That(depth.Since).IsEqualTo(Now - FetchDepth.HistoryWindow)
+        // A YEAR BACK FROM THE RUNNER'S CLOCK, which the loop's own waits have
+        // moved a few seconds past T0 by the time the workspace is prepared.
+        await Assert.That(depth.Since).IsNotNull()
             .Because("the lease's loop declared history, and the tree it works in has to hold some.");
+        await Assert.That(depth.Since!.Value - (Now - FetchDepth.HistoryWindow))
+            .IsBetween(TimeSpan.Zero, TimeSpan.FromMinutes(1));
     }
 
     [Test]

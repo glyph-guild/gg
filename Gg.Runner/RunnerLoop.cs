@@ -2155,8 +2155,12 @@ public sealed class RunnerLoop(
         WorkspaceResult workspace;
         try
         {
+            // A YEAR BACK FOR A LOOP THAT READS HISTORY, the tip for every other
+            // (slice seventy-four, after the walk): the moves decide, and the
+            // clock is this type's, so a test can hold it still.
             workspace = await _workspace.PrepareAsync(
-                lease.FlightId, lease.Repos, secretsByLocator, cancellationToken);
+                lease.FlightId, lease.Repos, secretsByLocator,
+                FetchDepth.For(lease.Loop?.Moves, _clock.UtcNow), cancellationToken);
         }
         catch (Exception failure) when (failure is VcsCapabilityException or InvalidOperationException)
         {

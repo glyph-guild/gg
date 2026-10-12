@@ -78,9 +78,22 @@ public sealed record GitInvocation
             environment[SecretVariable] = secret;
         }
 
-        arguments.AddRange([
-            "fetch", "--depth", "1", "--no-tags", "--no-recurse-submodules", url, resolvedRef,
-        ]);
+        // THE TIP, OR A YEAR OF IT. --depth 1 is the shape every flight has
+        // always had; --shallow-since is what a loop that reads history asks
+        // for, and git refuses the two together. The date is ISO 8601 in UTC,
+        // so the plan a test reads says the same thing git is told.
+        arguments.Add("fetch");
+        if (depth?.Since is { } since)
+        {
+            arguments.Add("--shallow-since=" + since.ToUniversalTime().ToString(
+                "yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture));
+        }
+        else
+        {
+            arguments.AddRange(["--depth", "1"]);
+        }
+
+        arguments.AddRange(["--no-tags", "--no-recurse-submodules", url, resolvedRef]);
 
         return new GitInvocation { Arguments = arguments, Environment = environment };
     }

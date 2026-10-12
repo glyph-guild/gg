@@ -47,5 +47,8 @@ public sealed record FetchDepth
     /// What a loop with these moves is fetched to: a year back when it
     /// declares <c>history</c>, the tip otherwise.
     /// </summary>
-    public static FetchDepth For(IEnumerable<string>? moves, DateTimeOffset now) => Tip;
+    public static FetchDepth For(IEnumerable<string>? moves, DateTimeOffset now) =>
+        moves is not null && moves.Contains(Gg.Contracts.LoopMoves.History, StringComparer.Ordinal)
+            ? Back(now - HistoryWindow)
+            : Tip;
 }

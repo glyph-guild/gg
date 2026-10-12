@@ -1112,8 +1112,13 @@ public static class PlatformToolServer
         }
 
         var requested = Text(arguments, HistoryTool.RepositoryArgument);
+        // A REPOSITORY HAS A .git, a file or a directory. The tree also holds
+        // the flight's scratch, which GG-1084 was asked to choose between and
+        // which is nothing to read.
         var repositories = Directory.Exists(treeRoot)
-            ? Directory.GetDirectories(treeRoot).Select(Path.GetFileName).OfType<string>()
+            ? Directory.GetDirectories(treeRoot)
+                .Where(dir => Directory.Exists(Path.Combine(dir, ".git")) || File.Exists(Path.Combine(dir, ".git")))
+                .Select(Path.GetFileName).OfType<string>()
                 .Where(name => !name.StartsWith('.')).Order(StringComparer.Ordinal).ToList()
             : [];
 

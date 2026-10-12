@@ -490,9 +490,19 @@ public static class EnvelopeComposition
         ArgumentNullException.ThrowIfNull(candidate);
         ArgumentNullException.ThrowIfNull(existing);
 
+        // MAY IT BE STORED, NOT MAY IT BE FLOWN. Composition refuses an abstract leaf
+        // because nothing is governed by one; a document being applied is asked
+        // whether it composes, and an abstract kind does - its children are flown.
+        var stored = candidate switch
+        {
+            { Document.Abstract: true } => candidate with { Document = candidate.Document with { Abstract = null } },
+            { Extension.Abstract: true } => candidate with { Extension = candidate.Extension with { Abstract = null } },
+            _ => candidate,
+        };
+
         return Compose([
             .. existing.Where(e => !string.Equals(e.Name, candidate.Name, StringComparison.Ordinal)),
-            candidate]).Refused;
+            stored]).Refused;
     }
 
     private static string? Verify(IReadOnlyList<EnvelopeLayer> layers)

@@ -1539,5 +1539,11 @@
     "surface": "6cda10a289b5d7396f98c7bf6a865141a3e40775dd56ff864110f1e4938a9adb",
     "endpoints": "77ba4b72cdd1eb618490a9d45b87e04c3f532af195dd344a3370051965b22226",
     "note": "A work kind may extend another (slice seventy-seven, ADR-0041). EnvelopeExtension names its parent and only what it changes - every member optional but extends, no root-governed member - with ExtensionRemovals taking loops, destinations and obligations away by id and instructions by exact text. WorkKindChain.Resolve applies a chain top down into one effective work kind: a named entry replaces its parent's whole, a list replaces whole, a scalar wins, instructions append, a removal that matches nothing is refused naming it, and the leaf is held to every envelope rule. Envelope gains Abstract (work-kind-only, nullable, not inherited): an abstract kind may carry no destination, and becoming flyable is a widening. EnvelopeYaml.ParseExtension reads a child, the full door refuses extends: by name, and EnvelopeText.Render writes a child back as authored."
+  },
+  {
+    "version": "0.298.0",
+    "surface": "ff45cf0122ffb9b37d97685a1fe0951ceeb4679eac0241c3be141522678751c8",
+    "endpoints": "77ba4b72cdd1eb618490a9d45b87e04c3f532af195dd344a3370051965b22226",
+    "note": "Composition takes a chain of work kinds (slice seventy-seven, ADR-0041 Decision 2). EnvelopeLayer gains Extension: a work-kind layer is a full document or an extension of one, never both. Verify admits several work-kind layers that form one chain - the top the one full document under root, every other an extension naming a work kind present, at most three deep, every one reached from the top - and refuses a fork, a cycle, an orphan and a full document under a work kind. Compose resolves the chain before anything else composes, into one work-kind layer carrying the leaf's name and version, so the operator table is unchanged and shuffling the layers changes nothing; an abstract leaf is refused. One work kind composes as it always has."
   }
 ]

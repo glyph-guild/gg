@@ -108,14 +108,23 @@ public sealed class Workspace : IWorkspace
     public Workspace(IVcsAdapter adapter, WorkingTreeRoot trees, HandoffRoot? handoff = null)
         : this([adapter], trees, handoff) { }
 
+    public Task<WorkspaceResult> PrepareAsync(
+        string flightId,
+        IReadOnlyList<LeaseRepoRef> repos,
+        IReadOnlyDictionary<string, string> secretsByLocator,
+        CancellationToken cancellationToken = default) =>
+        PrepareAsync(flightId, repos, secretsByLocator, FetchDepth.Tip, cancellationToken);
+
     public async Task<WorkspaceResult> PrepareAsync(
         string flightId,
         IReadOnlyList<LeaseRepoRef> repos,
         IReadOnlyDictionary<string, string> secretsByLocator,
+        FetchDepth depth,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(repos);
         ArgumentNullException.ThrowIfNull(secretsByLocator);
+        ArgumentNullException.ThrowIfNull(depth);
 
         var reused = _trees.AlreadyHeld(flightId);
         var materialized = new List<Materialized>(repos.Count);
@@ -148,7 +157,8 @@ public sealed class Workspace : IWorkspace
                     ContinuesFrom = repo.ContinuesFrom,
                 },
                 secret,
-                cancellationToken: cancellationToken));
+                depth,
+                cancellationToken));
         }
 
         // CREATED EVEN WHEN NOTHING WAS CLONED, because a flight with no

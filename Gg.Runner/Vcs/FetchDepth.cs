@@ -44,6 +44,29 @@ public sealed record FetchDepth
     public static FetchDepth Back(DateTimeOffset since) => new() { Since = since };
 
     /// <summary>
+    /// This many commits deep, counted every parent path, or null when the
+    /// depth is a date or the tip.
+    /// </summary>
+    /// <remarks>
+    /// <b>The fallback, never the ask.</b> Azure Repos refuses
+    /// <c>--shallow-since</c> and <c>--deepen</c> (measured 2026-10-12,
+    /// GG-1085) and supports only <c>--depth</c>, which re-fetched into an
+    /// existing shallow clone deepens it. A count is blunt on a merge-heavy
+    /// branch - JDNext at 1,500 is the whole repository - so it is asked for
+    /// in the steps below, stopping as soon as the window is reached.
+    /// </remarks>
+    public int? Commits { get; init; }
+
+    /// <summary>This many commits deep.</summary>
+    public static FetchDepth Deepened(int commits) => new() { Commits = commits };
+
+    /// <summary>
+    /// The counts tried, in order, when a server refuses a date: measured on
+    /// JDNext, 64 reached six months, 256 a year, 1024 the root.
+    /// </summary>
+    public static readonly IReadOnlyList<int> DeepeningSteps = [64, 256, 1024, 4096];
+
+    /// <summary>
     /// What a loop with these moves is fetched to: a year back when it
     /// declares <c>history</c>, the tip otherwise.
     /// </summary>

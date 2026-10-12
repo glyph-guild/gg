@@ -337,6 +337,7 @@ public static class EnvelopeComposition
         var context = baseDocument.Context;
         var environments = baseDocument.Environments;
         var repositories = baseDocument.Repositories;
+        var models = baseDocument.Models;
 
         if (root is not null && !ReferenceEquals(@base, root))
         {
@@ -361,8 +362,17 @@ public static class EnvelopeComposition
                 return new Composition { Refused = repositoryMoved };
             }
 
+            // AND THE MODELS A PERSON MAY CHOOSE (slice seventy-six), the same
+            // rule: two layers listing different ones is a mistake, not a meet.
+            if (Moved(@base, floor.Models, baseDocument.Models, "models",
+                    Op(nameof(Envelope), nameof(Envelope.Models))) is { } modelMoved)
+            {
+                return new Composition { Refused = modelMoved };
+            }
+
             environments = floor.Environments;
             repositories = floor.Repositories;
+            models = floor.Models;
 
             // SCOPE INTERSECTS, and an intersection nobody can express as one
             // glob is a refusal naming both rather than a silent pick.
@@ -427,6 +437,7 @@ public static class EnvelopeComposition
                 Context = context,
                 Environments = environments,
                 Repositories = repositories,
+                Models = models,
                 Obligations = composed,
                 Instructions = instructions,
                 Learned = learned,

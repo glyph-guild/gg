@@ -304,7 +304,7 @@ public static class FactKinds
     /// </remarks>
     public static IReadOnlyList<string> All { get; } =
         [EnvironmentIdentity, SourceProvenance, IntentRead, ChangeManifest, LoopOutcome, LoopTranscript,
-         LoopSession, DocumentProposal,
+         LoopSession, LoopModel, DocumentProposal,
          EnvironmentReclaimed,
          StackPerformed,
          DestinationLanded,
@@ -523,7 +523,7 @@ public static class FactVocabulary
     /// the property being bought - a reader pinned before this value meets a
     /// move it has never heard of and halts, rather than believing the loop
     /// was bounded by the moves it does know.
-    public const string Version = "0.43.0";
+    public const string Version = "0.44.0";
 }
 
 /// <summary>How much evidence one fact may be.</summary>
@@ -1461,6 +1461,7 @@ public sealed record FactEnvelope
         (FactKinds.LoopOutcome, envelope.Loop is not null),
         (FactKinds.LoopTranscript, envelope.Transcript is not null),
         (FactKinds.LoopSession, envelope.Session is not null),
+        (FactKinds.LoopModel, envelope.Model is not null),
         (FactKinds.EnvironmentReclaimed, envelope.Reclaimed is not null),
         (FactKinds.StackPerformed, envelope.Performed is not null),
         (FactKinds.DocumentProposal, envelope.Document is not null),

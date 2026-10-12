@@ -165,6 +165,14 @@ public static class FactHygiene
             Name = Text(document.Value.Name),
         }),
 
+        // TWO NAMES, one of them the flag the lease handed over - cleaned for the
+        // reason the instance name below is: it came from a document a person
+        // wrote, and the ledger is read by terminals.
+        FactPayload.Model model => new FactPayload.Model(model.Value with
+        {
+            LoopId = Text(model.Value.LoopId),
+            Model = model.Value.Model is { } named ? Text(named) : null,
+        }),
         FactPayload.Session session => new FactPayload.Session(session.Value with
         {
             Artifact = session.Value.Artifact with

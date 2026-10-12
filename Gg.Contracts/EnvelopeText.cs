@@ -114,6 +114,9 @@ public static class EnvelopeText
         // - the same diff-nobody-made rule the comment above states.
         Bound(text, "environments", envelope.Environments);
         Bound(text, "repositories", envelope.Repositories);
+        // AND WHAT A PERSON MAY MOVE A FLIGHT TO, by the same rule: absent is
+        // off and is not written, one name is a scalar (slice seventy-six).
+        Bound(text, "models", envelope.Models);
 
         // AND WHERE THE STACK RUNS, by the same rule: one name is a scalar, so
         // `hosts: ui` is what a person wrote and what they get back.

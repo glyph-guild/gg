@@ -23,6 +23,7 @@ public abstract record FactPayload
 
     /// <summary>The agent's own record of the session, beside our stream.</summary>
     public sealed record Session(LoopSession Value) : FactPayload;
+    public sealed record Model(LoopModel Value) : FactPayload;
 
     /// <summary>What a reclaim took out of the instance this flight was granted.</summary>
     public sealed record Reclaimed(EnvironmentReclaimed Value) : FactPayload;
@@ -136,6 +137,7 @@ public sealed record FilteredFacts(IReadOnlyList<FactEnvelope> Items);
 [JsonSerializable(typeof(LoopOutcome))]
 [JsonSerializable(typeof(ArtifactReference))]
 [JsonSerializable(typeof(LoopSession))]
+[JsonSerializable(typeof(LoopModel))]
 [JsonSerializable(typeof(EnvironmentReclaimed))]
 [JsonSerializable(typeof(StackPerformed))]
 [JsonSerializable(typeof(Gg.Contracts.IntentRead))]
@@ -477,6 +479,9 @@ public static class FactPipeline
         FactPayload.Session session => (
             FactKinds.LoopSession,
             JsonSerializer.Serialize(session.Value, FactJsonContext.Default.LoopSession)),
+        FactPayload.Model model => (
+            FactKinds.LoopModel,
+            JsonSerializer.Serialize(model.Value, FactJsonContext.Default.LoopModel)),
         FactPayload.Reclaimed reclaimed => (
             FactKinds.EnvironmentReclaimed,
             JsonSerializer.Serialize(

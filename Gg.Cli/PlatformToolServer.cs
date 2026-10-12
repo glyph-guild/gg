@@ -2246,6 +2246,10 @@ public static class PlatformToolServer
             "  repositories:       which repositories they may work in. A list, or one "
           + "name.");
         said.AppendLine(
+            "  models:             which models a person may move one flight to, at creation "
+          + "(gg fly --model) or in the air. A list, or one name; leave it out and nobody "
+          + "may. Root only. Adding a name is reviewed.");
+        said.AppendLine(
             "  environment: / repository:   the older singular spellings of those two. "
           + "Read so old documents still parse; do not write them.");
         said.AppendLine(

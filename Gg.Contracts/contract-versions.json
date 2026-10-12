@@ -1527,5 +1527,11 @@
     "surface": "aef31df1beb78e0e48e6eb5dace74dbf30b72c9992bb6d4e387e609d79ad74c4",
     "endpoints": "34d2aefdb68250139a09bfeafaa579c0cc2aa8a02391428c3ea48ab3e5f372d7",
     "note": "A field value holds a document. WorkItemFieldEdit.MaxValue rises from 2,048 to the detail's 16 KiB, so an analysis can be written into a rich-text field such as an item's plan, and the values one proposal sets are held to that bound together, because a proposal sets up to 32 fields and the facts of one flight travel in one batch. THE WIRE SURFACE DOES NOT MOVE, so this entry repeats 0.294.0's fingerprints, on 0.293.0's precedent: it costs a package version because the control plane admits proposals by this constant, and one pinned to 0.294.0 refuses every value past 2,048."
+  },
+  {
+    "version": "0.296.0",
+    "surface": "aaf25fc760bd7180ac30e7ec1d0b72e8a21b1e072b8059e2f32c1f7368afd00b",
+    "endpoints": "34d2aefdb68250139a09bfeafaa579c0cc2aa8a02391428c3ea48ab3e5f372d7",
+    "note": "A person moves a flight to another model, where root allows it (slice seventy-six). Envelope gains Models (root-only, nullable: the names a person may move one flight to; null is off, empty is refused, growing is a widening and listing anything where nothing was listed turns the door on). FlightLaunchRequest gains Model (gg fly --model, held to root's list at ingress), LeaseRenewed gains Model (the lease is composed again on every renewal, and this is where a runner holding a child learns a move), and FlightSummary gains Model (the choice in force). A new fact kind, loop.model, is shipped once per launch of the agent with the flag the runner passed or null for the account's default, and whether the child was started over - so THE FACT VOCABULARY MOVES 0.43.0 -> 0.44.0 with it. The control plane's door, reader and pump land in the PR that pins this version."
   }
 ]

@@ -149,6 +149,17 @@ public static class EnvelopeDirection
             return repository;
         }
 
+        // THE MODELS A PERSON MAY CHOOSE (slice seventy-six) are NOT the shape
+        // above, and the difference is what null means. A withdrawn bound
+        // refuses nothing; a withdrawn list here permits nothing - the door is
+        // off. So null is the tightest value, not the loosest: a name added
+        // lets a flight be put somewhere it could not before, and that is the
+        // only direction that widens.
+        if (Opened("models", applied.Models, proposed.Models) is { } model)
+        {
+            return model;
+        }
+
         // WHERE THE STACK RUNS, GROWING. A kind naming a second host may run its
         // stack somewhere it could not before, which is the same direction as the
         // bounds above and the opposite of `accepts:` below — this one widens by
@@ -674,6 +685,37 @@ public static class EnvelopeDirection
     /// removing a name from an existing set is a narrowing.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Whether a permission list gained a name: null is off, so it is the
+    /// tightest value, and only a name arriving widens.
+    /// </summary>
+    /// <remarks>
+    /// <b>The opposite of <see cref="Grew"/> at null, and its own method for
+    /// that reason.</b> A bound withdrawn refuses nothing; a permission list
+    /// withdrawn permits nothing. Folding the two into one helper with a flag
+    /// would put the one sentence that matters in an argument nobody reads.
+    /// </remarks>
+    private static EnvelopeWidening? Opened(
+        string field, IReadOnlyList<string>? applied, IReadOnlyList<string>? proposed)
+    {
+        var was = applied ?? [];
+        var gained = (proposed ?? []).Except(was, StringComparer.Ordinal).ToList();
+
+        if (gained.Count == 0)
+        {
+            return null;
+        }
+
+        return was.Count == 0
+            ? Widen(field,
+                $"{field} listed nothing, so nobody could choose, and now lists "
+              + string.Join(", ", gained) + ". Listing anything turns the door on, which is "
+              + "new reach for every person here.")
+            : Widen(field,
+                $"'{gained[0]}' was not one of the {field} a person could choose, and now it is: "
+              + "a flight can be put somewhere it could not before.");
+    }
+
     private static EnvelopeWidening? Grew(
         string field, IReadOnlyList<string>? applied, IReadOnlyList<string>? proposed)
     {

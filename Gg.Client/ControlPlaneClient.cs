@@ -26,6 +26,7 @@ namespace Gg.Client;
 [JsonSerializable(typeof(RunnerRegistrationRequest))]
 [JsonSerializable(typeof(RunnerRegistered))]
 [JsonSerializable(typeof(FlightGroundingRequest))]
+[JsonSerializable(typeof(FlightModelRequest))]
 [JsonSerializable(typeof(FlightLaunchRequest))]
 [JsonSerializable(typeof(FlightLaunched))]
 [JsonSerializable(typeof(FlightSummary))]
@@ -2671,6 +2672,49 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     /// refused rather than allowed to appear to rewrite an ending that
     /// happened.
     /// </remarks>
+    /// <summary>
+    /// Moves a flight in the air to another model root lists (slice seventy-six).
+    /// </summary>
+    /// <remarks>
+    /// <b>Grounding's shape, and one more refusal.</b> 202 with no body; 404 for
+    /// no such flight; 409 for a flight that has already ended. The 400 is the
+    /// one this door adds, and its detail is the control plane naming root's
+    /// list - or saying root lists nothing - so it is carried through as the
+    /// refusal rather than reduced to a status.
+    /// </remarks>
+    public async Task MoveToModelAsync(
+        string sessionToken,
+        string reference,
+        string model,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = Request(
+            HttpMethod.Post, $"/v1/flights/{reference}/model", sessionToken);
+        request.Content = JsonContent.Create(
+            new FlightModelRequest { Model = model },
+            ProtocolJsonContext.Default.FlightModelRequest);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await ThrowIfProtocolRefusedAsync(response, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new FlightNotFoundException(
+                $"No flight {reference}. Run gg flights to see what is there.");
+        }
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            throw new DecisionRefusedException(await RefusalAsync(response, cancellationToken));
+        }
+
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            throw new DecisionRefusedException(
+                $"Flight {reference} has already ended. Run gg show {reference} to see how.");
+        }
+
+        response.EnsureSuccessStatusCode();
+    }
+
     public async Task GroundAsync(
         string sessionToken,
         string reference,

@@ -31,6 +31,7 @@ public class ASessionCanBeDelegatedTests
         "GET /v1/flights/{ref}/log",
         "POST /v1/flights/{ref}/decisions",
         "POST /v1/flights/{ref}/grounding",
+        "POST /v1/flights/{ref}/model",
         "GET /v1/runners",
         "GET /v1/airspace/watch-standings",
         "POST /v1/airspace/names",

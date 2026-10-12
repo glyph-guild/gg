@@ -230,6 +230,10 @@ public class VerbParityTests
                       + "until step 3.",
             ["Invite"] = "reachable: a key.",
             ["Take"] = "reachable: takeover and hand-back keys.",
+            ["ModelFlight"] = "reachable, and from the same ONE place as Ground, for its reason: `m' "
+              + "in the flight modal, where the flight being moved is named on the screen. The "
+              + "picker offers root's models: and nothing else, so the keystroke cannot name what "
+              + "the door would refuse.",
             ["Ground"] = "reachable, and from ONE place: `x' in the flight modal, where the "
               + "flight being ended is named on the screen. Every other key in this console "
               + "acts on the row under the cursor, which is right for opening a flight and "

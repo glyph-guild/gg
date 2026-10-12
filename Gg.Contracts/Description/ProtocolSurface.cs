@@ -1155,6 +1155,27 @@ public static class ProtocolSurface
         },
         new()
         {
+            // A PERSON MOVES A FLIGHT IN THE AIR TO ANOTHER MODEL (slice
+            // seventy-six), one root's models: lists. Grounding's shape:
+            // 202 and no body, because what a caller does next is read the
+            // flight; 409 for one that has already ended. The 400 is this
+            // door's own - a name root does not list, a root that lists
+            // nothing, or a loop that runs no model - and its detail names
+            // the list, because a person reading it has to decide whether the
+            // document is wrong or the keystroke was.
+            //
+            // A PERSON'S DOOR, as grounding is: a runner able to choose a
+            // flight's model would be a runner choosing what it costs.
+            Method = "POST",
+            Path = "/v1/flights/{ref}/model",
+            Audience = Audience.Developer,
+            Delegable = true,
+            Request = typeof(FlightModelRequest),
+            Statuses = [202, 400, 401, 403, 404, 409, ProtocolTooOld],
+            RequiredHeaders = [SessionHeader],
+        },
+        new()
+        {
             // A PERSON STOPS A FLIGHT THAT COULD STILL HAVE BEEN DONE
             // (ADR-0017, and WorkKindExits.PersonOperated, which declared this
             // exit and left the verb for the day somebody needed it).
@@ -2386,6 +2407,7 @@ public static class ProtocolSurface
             [typeof(FlightFacts)] = ["flightNumber", "facts"],
             [typeof(FlightWithdrawalRequest)] = ["because"],
             [typeof(FlightGroundingRequest)] = ["because"],
+            [typeof(FlightModelRequest)] = ["model"],
             [typeof(NominationSummary)] =
                 ["nominationId", "nominator", "subject", "version", "workKind", "mode",
                  "state", "ending", "because", "flightId", "flightNumber", "madeAt", "endedAt",

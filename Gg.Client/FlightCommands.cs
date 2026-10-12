@@ -796,11 +796,23 @@ public sealed class FlightCommands(
     /// Moves a flight to another model root lists, and answers with the flight
     /// as it now stands (slice seventy-six).
     /// </summary>
-    public Task<VerbResult> ModelAsync(
+    /// <remarks>
+    /// <b>The read is not a courtesy</b>, for GroundAsync's reason: the door
+    /// answers 202 with no body, and the flight as it now stands - its summary
+    /// says which model is in force - is what a person who just moved it wants.
+    /// </remarks>
+    public async Task<VerbResult> ModelAsync(
         string reference,
         string model,
-        CancellationToken cancellationToken = default) =>
-        throw new NotSupportedException("not built: the door is declared and nothing opens it yet.");
+        CancellationToken cancellationToken = default)
+    {
+        var token = Session();
+        var readable = Readable(reference);
+        await _client.MoveToModelAsync(token, readable, model, cancellationToken);
+        return new VerbResult.Flight(
+            await _client.GetFlightAsync(token, readable, cancellationToken)
+            ?? throw NoSuchFlight(reference));
+    }
 
     public async Task<VerbResult> GroundAsync(
         string reference,
@@ -2049,6 +2061,9 @@ public sealed class FlightCommands(
             // could produce - the rule --ticket's shape already follows.
             WorkKind = workKind is { Length: > 0 } ? workKind : null,
             Environment = environment is { Length: > 0 } ? environment : null,
+            // THE SAME RULE FOR THE MODEL (slice seventy-six): absent stays absent,
+            // and the control plane holds a named one to root's list.
+            Model = model is { Length: > 0 } ? model : null,
             // ABSENT RATHER THAN FALSE, which is what keeps every headless
             // flight's body byte-for-byte what it always was.
             Attended = attended ? true : null,

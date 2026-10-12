@@ -912,6 +912,7 @@ public static class CliArgs
         "  --runner <id|name>           open it for one machine",
         "  --work-kind <name>           which work kind's rules govern it",
         "  --environment <name>         which charted environment it runs in",
+        "  --model <name>               which model it runs on, from root's models:",
         "  --attended                   and watch it from wherever you are",
         "  --file <repo>:<path>[@ref]   about a file in a registered repository, read by the runner",
         "gg flights [--all] [--intent <provider>#<id>|<uri>|<repo>:<path>]  flights in the air, or every one",
@@ -952,6 +953,7 @@ public static class CliArgs
         // person reaches for when a flight will not move, and it says the work
         // stopped mattering - which is usually not what happened.
         "gg ground <flight> <why>          stop a flight that could still have been done",
+        "gg model <flight> <model>         move a flight in the air to another model root lists",
         "gg take <flight> [--return <outcome> [--note <note>]]  take a flight over, and hand it back",
         "gg runner labels               what each runner advertises, with its disposition",
         "gg runner retire <id|name>     take a runner out of the fleet, for good",
@@ -1176,6 +1178,9 @@ public static class CliArgs
         // in the list, and a value in the list is matched as a verb.
         var workKind = Value(args, "--work-kind");
         var environment = Value(args, "--environment");
+        // AND --model, the same way (slice seventy-six): a value, stripped as a
+        // pair, held to root's models: by the control plane rather than here.
+        var model = Value(args, "--model");
 
         // AND --repo IS THE ONE THAT REPEATS, so it is collected rather than
         // read once, and stripped every time rather than once. A kind whose
@@ -1190,7 +1195,7 @@ public static class CliArgs
         var limit = Value(args, "--limit");
         var after = Value(args, "--after");
 
-        var rest = Without(
+        var rest = Without(Without(
             Without(
                 Without(
                     Without(
@@ -1201,7 +1206,7 @@ public static class CliArgs
                         "--work-kind"),
                     "--environment"),
                 "--limit"),
-            "--after");
+            "--after"), "--model");
 
         var pages = rest is ["flights", ..] or ["board"] or ["itineraries"] or ["watches"];
 
@@ -1325,29 +1330,34 @@ public static class CliArgs
         // THE SAME RULE, AND THE SAME REASON. Stripped globally these would let
         // `gg flights --work-kind hal-score` parse and do nothing - a flag that
         // reads as an instruction and is not one.
-        if ((workKind is not null || environment is not null) && rest is not ["fly", ..])
+        if ((workKind is not null || environment is not null || model is not null)
+            && rest is not ["fly", ..])
         {
             return Unknown(
-                "--work-kind and --environment are flags on `gg fly`: they say which regime "
-              + "governs a flight and where it runs. Only opening one takes them; on any "
-              + "other verb they would read as an instruction and do nothing.");
+                "--work-kind, --environment and --model are flags on `gg fly`: they say which regime "
+              + "governs a flight, where it runs and what model it runs on. Only opening one takes "
+              + "them; on any other verb they would read as an instruction and do nothing.");
         }
 
         // A TRAILING ONE IS SOMEBODY WHO MEANT TO NAME ONE, which is the shape
         // --repo already refuses by name. Value() answers null for a flag with
         // nothing after it, and falling through would open a flight whose text
         // is the word they meant as a flag.
-        foreach (var named in (string[])["--work-kind", "--environment"])
+        foreach (var named in (string[])["--work-kind", "--environment", "--model"])
         {
             if (args.Contains(named, StringComparer.Ordinal) && Value(args, named) is null)
             {
                 return Unknown(
                     $"gg fly {named} needs a name after it. {named} says "
-                  + (named == "--work-kind"
-                        ? "which work kind's rules govern the flight - run gg airspace show "
-                        + "to see the names this tenant has."
-                        : "which charted environment it runs in - run gg environments to see "
-                        + "what is charted."));
+                  + named switch
+                    {
+                        "--work-kind" => "which work kind's rules govern the flight - run gg airspace show "
+                                       + "to see the names this tenant has.",
+                        "--environment" => "which charted environment it runs in - run gg environments to see "
+                                         + "what is charted.",
+                        _ => "which model it runs on - one of the names root's models: lists; run "
+                           + "gg airspace show to see them.",
+                    });
             }
         }
 
@@ -1612,6 +1622,13 @@ public static class CliArgs
             // when the thing being picked is what they are approving.
             ["decide", ..] => new CliAction.Unknown(
                 "gg decide <flight> <obligation> <approved|rejected> [reason]"),
+            // A FLIGHT MOVED TO ANOTHER MODEL (slice seventy-six), the same two
+            // arms in the same order as grounding below it, for the same reason.
+            ["model", var reference, var name] => new CliAction.ModelFlight(reference, name, json),
+            ["model", ..] => Unknown(
+                "gg model <flight> <model> moves a flight in the air to another model, and the "
+              + "model is not optional: name one of those root's models: lists - run gg airspace "
+              + "show to see them. gg model GG-42 claude-sonnet-5-5."),
             // BEFORE THE BARE ARM BELOW IT, because a longer match has to be
             // tried first or `gg ground GG-42 because` parses as a refusal.
             ["ground", var reference, var because] => new CliAction.Ground(reference, because, json),
@@ -1745,13 +1762,14 @@ public static class CliArgs
             // flight that names none, one, or two.
             ["fly", "--uri", var uri] => new CliAction.Fly(null, uri, json,
                 Repositories: repositories, ByHand: byHand,
-                Runner: runner, Attended: attended, WorkKind: workKind, Environment: environment),
+                Runner: runner, Attended: attended, WorkKind: workKind, Environment: environment,
+                Model: model),
             ["fly", "--ticket", var ticket] => Ticket(
-                ticket, json, repositories, byHand, runner, attended, workKind, environment),
+                ticket, json, repositories, byHand, runner, attended, workKind, environment, model),
             // ONE ARGUMENT, as --ticket is, for the same reason: three flags would make "a
             // repository and no path" reachable here. Slice sixty-two.
             ["fly", "--file", var reference] => FileIntent(
-                reference, json, repositories, byHand, runner, attended, workKind, environment),
+                reference, json, repositories, byHand, runner, attended, workKind, environment, model),
 
             // BEFORE the free-text arm, because that arm accepts anything. A
             // word starting with a dash is an option somebody got wrong, and
@@ -1768,7 +1786,8 @@ public static class CliArgs
 
             ["fly", var text] => new CliAction.Fly(text, null, json,
                 Repositories: repositories, ByHand: byHand,
-                Runner: runner, Attended: attended, WorkKind: workKind, Environment: environment),
+                Runner: runner, Attended: attended, WorkKind: workKind, Environment: environment,
+                Model: model),
             ["fly"] => Unknown(
                 "gg fly needs something to act on: some text, --uri <uri>, "
               + "--ticket <provider>#<id>, or --file <repository>:<path>[@ref]."),
@@ -2097,12 +2116,12 @@ public static class CliArgs
     private static CliAction Ticket(
         string token, bool json, IReadOnlyList<string>? repositories = null, bool byHand = false,
         string? runner = null, bool attended = false,
-        string? workKind = null, string? environment = null) =>
+        string? workKind = null, string? environment = null, string? model = null) =>
         SplitTicket(token) is var (provider, id) && provider is not null
             ? new CliAction.Fly(
                 null, null, json, Provider: provider, Id: id, Repositories: repositories,
                 ByHand: byHand, Runner: runner, Attended: attended,
-                WorkKind: workKind, Environment: environment)
+                WorkKind: workKind, Environment: environment, Model: model)
             : Unknown(
                 $"gg fly --ticket takes <provider>#<id>, and '{token}' is not that shape. "
               + "Both halves are needed: the id alone does not say which tracker it is in.");
@@ -2118,7 +2137,7 @@ public static class CliArgs
     /// </remarks>
     private static CliAction FileIntent(
         string reference, bool json, IReadOnlyList<string>? repositories, bool byHand,
-        string? runner, bool attended, string? workKind, string? environment)
+        string? runner, bool attended, string? workKind, string? environment, string? model)
     {
         var colon = reference.IndexOf(':', StringComparison.Ordinal);
         var repository = colon > 0 ? reference[..colon] : "";
@@ -2137,7 +2156,7 @@ public static class CliArgs
 
         return new CliAction.Fly(
             null, null, json, Repositories: repositories, ByHand: byHand, Runner: runner,
-            Attended: attended, WorkKind: workKind, Environment: environment,
+            Attended: attended, WorkKind: workKind, Environment: environment, Model: model,
             FileRepository: repository, FilePath: path, FileRef: @ref);
     }
 

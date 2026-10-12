@@ -113,4 +113,47 @@ public class AProposalNamesTheFieldsItWouldSetTests
         await Assert.That(WorkItemProposal.Validate(proposal)).IsNull()
             .Because("nothing here reads a rubric, and a later reader still can.");
     }
+
+    [Test]
+    public async Task A_rich_text_field_holds_an_analysis()
+    {
+        // THE OWNER'S ASK, 2026-10-12: investigate writes its analysis into the
+        // item's Claude Code Plan field. GG-1086's landing was 3,489 characters
+        // of markdown after it had cut a 5,518-character draft, and the field
+        // is html, which is longer again. At 2,048 every real analysis was
+        // refused and the only way through was a shorter one.
+        var analysis = "<h2>Approach</h2>" + string.Concat(
+            Enumerable.Repeat("<p>Move the tab stop off the label onto the real button.</p>", 160));
+
+        await Assert.That(analysis.Length).IsGreaterThan(9_000)
+            .Because("it is the size an analysis really is, or this proves nothing.");
+        await Assert.That(WorkItemProposal.Validate(
+            Setting(new WorkItemFieldEdit { Path = "Custom.ClaudeCodePlan", Value = analysis })))
+            .IsNull()
+            .Because("a rich-text field a person reads in the form is where a plan belongs, "
+                   + "and a bound that refuses every plan is a field nothing can write.");
+    }
+
+    [Test]
+    public async Task The_values_together_hold_at_most_one_document()
+    {
+        // THIRTY-TWO FIELDS TIMES THE PER-VALUE BOUND would be half a megabyte
+        // in one fact, and the facts of one flight travel in one batch - the
+        // reason the detail is bounded. Raising one value's room must not raise
+        // the proposal's.
+        var half = new string('x', WorkItemFieldEdit.MaxValue / 2 + 1);
+
+        await Assert.That(WorkItemProposal.Validate(Setting(
+                new WorkItemFieldEdit { Path = "Custom.ClaudeCodePlan", Value = half },
+                new WorkItemFieldEdit { Path = "System.Description", Value = half })))
+            .IsNotNull()
+            .Because("two values that each fit can still sum past what one proposal carries.");
+        await Assert.That(WorkItemProposal.Validate(Setting(new WorkItemFieldEdit
+            {
+                Path = "Custom.ClaudeCodePlan",
+                Value = new string('x', WorkItemFieldEdit.MaxValue + 1),
+            })))
+            .IsNotNull()
+            .Because("one value past the bound is refused, not shortened.");
+    }
 }

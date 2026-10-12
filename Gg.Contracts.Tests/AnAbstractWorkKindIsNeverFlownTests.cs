@@ -79,3 +79,49 @@ public class AnAbstractWorkKindIsNeverFlownTests
         await Assert.That(resolved.Effective!.Abstract).IsTrue();
     }
 }
+
+/// <summary>
+/// An abstract work kind is never flown, and may still be applied.
+/// </summary>
+/// <remarks>
+/// <b>Found by slice seventy-seven's first CI run of the control plane.</b>
+/// <see cref="EnvelopeComposition.MayApply"/> asks whether a document may be
+/// stored, by composing it - and composition refuses an abstract leaf, so the
+/// base nobody flies could never be applied at all.
+/// </remarks>
+public class AnAbstractWorkKindMayBeAppliedTests
+{
+    [Test]
+    public async Task May_apply_admits_an_abstract_base()
+    {
+        var floor = ChainFixtures.Floor();
+        var implement = ChainFixtures.Base(
+            "abstract: true\n" + WorkKindFixtures.Base[
+                ..WorkKindFixtures.Base.IndexOf("destinations:", StringComparison.Ordinal)]);
+
+        await Assert.That(EnvelopeComposition.MayApply(implement, [floor])).IsNull()
+            .Because("an abstract kind is never FLOWN; whether it may be stored is a different "
+                   + "question, and refusing it makes the kind its children extend unwritable.");
+    }
+
+    [Test]
+    public async Task May_apply_admits_an_abstract_child()
+    {
+        var careful = ChainFixtures.Child(text: WorkKindFixtures.Child.Replace(
+            "extends: investigate\n", "extends: investigate\nabstract: true\n"));
+
+        await Assert.That(EnvelopeComposition.MayApply(careful, [ChainFixtures.Floor(), ChainFixtures.Base()]))
+            .IsNull();
+    }
+
+    [Test]
+    public async Task Composition_still_refuses_to_fly_one()
+    {
+        var implement = ChainFixtures.Base(
+            "abstract: true\n" + WorkKindFixtures.Base[
+                ..WorkKindFixtures.Base.IndexOf("destinations:", StringComparison.Ordinal)]);
+
+        await Assert.That(EnvelopeComposition.Compose([ChainFixtures.Floor(), implement]).Refused)
+            .IsNotNull();
+    }
+}

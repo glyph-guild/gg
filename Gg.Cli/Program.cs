@@ -94,7 +94,8 @@ return await ByName(CliArgs.Parse(args)) switch
         flights.Json,
         c => c.ListAsync(
             flights.All, intent: flights.Intent, limit: flights.Limit, after: flights.After)),
-    CliAction.Show show => await EmitAsync(show.Json, c => c.ShowAsync(show.Reference)),
+    CliAction.Show show => await EmitAsync(
+        show.Json, c => c.ShowAsync(show.Reference, withModel: true)),
     CliAction.Log log => await EmitAsync(log.Json, c => c.LogAsync(log.Reference)),
     CliAction.Facts facts =>
         await EmitAsync(facts.Json, c => c.FactsAsync(facts.Reference)),

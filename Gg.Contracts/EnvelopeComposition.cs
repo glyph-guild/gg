@@ -28,6 +28,12 @@ public sealed record EnvelopeLayer
     /// <summary>The partial document, for narrowings. Null otherwise.</summary>
     public EnvelopeNarrowing? Narrowing { get; init; }
 
+    /// <summary>
+    /// The change a work kind makes to the work kind it extends, or null for a
+    /// work kind that is a full document (ADR-0041).
+    /// </summary>
+    public EnvelopeExtension? Extension { get; init; }
+
     /// <summary>The version of that document, so the composition is reproducible.</summary>
     public required string Version { get; init; }
 }
@@ -197,6 +203,16 @@ public static class EnvelopeComposition
         {
             return new Composition { Refused = broken };
         }
+
+        // THE CHAIN FIRST (ADR-0041 Decision 2): what composes below is one work
+        // kind, the leaf as it reads over its parents.
+        var (resolvedLayers, unresolved) = Resolved(layers);
+        if (unresolved is not null)
+        {
+            return new Composition { Refused = unresolved };
+        }
+
+        layers = resolvedLayers!;
 
         var root = layers.FirstOrDefault(l => string.Equals(l.Role, Roles.Root, StringComparison.Ordinal));
         var workKind = layers.FirstOrDefault(l => string.Equals(l.Role, Roles.WorkKind, StringComparison.Ordinal));
@@ -495,9 +511,16 @@ public static class EnvelopeComposition
                      + string.Join(", ", Roles.All) + ".";
             }
 
-            var isFull = string.Equals(layer.Role, Roles.Narrowing, StringComparison.Ordinal)
-                ? layer.Narrowing is not null && layer.Document is null
-                : layer.Document is not null && layer.Narrowing is null;
+            // A WORK KIND IS A FULL DOCUMENT OR AN EXTENSION OF ONE, never both;
+            // which one it must be is the chain's question, below.
+            var isFull = layer.Role switch
+            {
+                Roles.Narrowing =>
+                    layer.Narrowing is not null && layer.Document is null && layer.Extension is null,
+                Roles.WorkKind =>
+                    layer.Narrowing is null && (layer.Document is null) != (layer.Extension is null),
+                _ => layer.Document is not null && layer.Narrowing is null && layer.Extension is null,
+            };
             if (!isFull)
             {
                 return $"'{layer.Name}' carries the wrong document shape for the "
@@ -568,14 +591,148 @@ public static class EnvelopeComposition
                  + "which is a cycle. A chain reaches the floor or it is not a chain.";
         }
 
-        var workKinds = layers.Where(l => string.Equals(l.Role, Roles.WorkKind, StringComparison.Ordinal)).ToList();
-        if (workKinds.Count > 1)
+        return Chain(layers) is { Refused: { } broken } ? broken : null;
+    }
+
+    /// <summary>
+    /// The work-kind layers as one chain from the top down, or why they are not one.
+    /// </summary>
+    /// <remarks>
+    /// <b>One chain, one leaf.</b> A flight is FOR one thing, declared at creation,
+    /// and the leaf is that thing: the documents above it are what it was written
+    /// against. The top is the one full document, under root; every other work
+    /// kind is an extension naming a work kind; and every one is reached walking
+    /// down from the top, which refuses a fork, a cycle and an orphan alike.
+    /// </remarks>
+    private static (IReadOnlyList<EnvelopeLayer>? Chain, string? Refused) Chain(
+        IReadOnlyList<EnvelopeLayer> layers)
+    {
+        var workKinds = layers
+            .Where(l => string.Equals(l.Role, Roles.WorkKind, StringComparison.Ordinal))
+            .ToList();
+
+        if (workKinds.Count == 0)
         {
-            return "Two documents claim the work-kind role. One layer supplies the sets - a "
-                 + "flight is FOR one thing, declared at creation.";
+            return ([], null);
         }
 
-        return null;
+        var tops = workKinds.Where(l => l.Document is not null).ToList();
+        if (tops.Count != 1)
+        {
+            return (null, tops.Count == 0
+                ? "No work kind in this composition is a full document: every one extends "
+                + "another, so the chain never reaches the work kind it changes."
+                : $"Both '{tops[0].Name}' and '{tops[1].Name}' are full work kinds. One layer "
+                + "supplies the sets - a flight is FOR one thing, declared at creation - and a "
+                + "work kind under another says only what it changes.");
+        }
+
+        var top = tops[0];
+        if (!string.Equals(top.Parent, Roles.Root, StringComparison.Ordinal))
+        {
+            return (null, $"'{top.Name}' is a full work kind under '{top.Parent}'. A work kind "
+                        + "under another says only what it changes: write it as an extension.");
+        }
+
+        var chain = new List<EnvelopeLayer> { top };
+        while (true)
+        {
+            var below = workKinds
+                .Where(l => string.Equals(l.Parent, chain[^1].Name, StringComparison.Ordinal))
+                .ToList();
+
+            if (below.Count == 0)
+            {
+                break;
+            }
+
+            if (below.Count > 1)
+            {
+                return (null, $"'{below[0].Name}' and '{below[1].Name}' both extend "
+                            + $"'{chain[^1].Name}'. A flight is for one leaf, and this is two.");
+            }
+
+            chain.Add(below[0]);
+
+            if (chain.Count > WorkKindChain.MaxDepth)
+            {
+                return (null, $"'{below[0].Name}' sits {chain.Count} work kinds deep, and a chain "
+                            + $"holds at most {WorkKindChain.MaxDepth}.");
+            }
+        }
+
+        if (workKinds.FirstOrDefault(l => !chain.Contains(l)) is { } stray)
+        {
+            return (null, $"'{stray.Name}' extends '{stray.Parent}', which is not reached from "
+                        + $"'{top.Name}' - a chain from the floor down, or not a chain.");
+        }
+
+        return (chain, null);
+    }
+
+    /// <summary>
+    /// The work-kind chain resolved into the one work-kind layer composition reads.
+    /// </summary>
+    /// <remarks>
+    /// <b>ADR-0041 Decision 2: before anything else composes.</b> Specialization is
+    /// ordered and the operator table is not, so they are two steps: the chain's
+    /// order is its verified parent links, and everything after is the table,
+    /// unchanged. The resolved layer carries the leaf's name and version, because
+    /// the leaf is what the flight is for.
+    /// </remarks>
+    private static (IReadOnlyList<EnvelopeLayer>? Layers, string? Refused) Resolved(
+        IReadOnlyList<EnvelopeLayer> layers)
+    {
+        var (chain, broken) = Chain(layers);
+        if (broken is not null)
+        {
+            return (null, broken);
+        }
+
+        if (chain!.Count == 0)
+        {
+            return (layers, null);
+        }
+
+        var leaf = chain[^1];
+
+        // ONE WORK KIND COMPOSES AS IT ALWAYS HAS. Resolving it would hold every
+        // stored document to Validate at composition, which nothing did before;
+        // only the abstract refusal is new, and it is the leaf's.
+        if (chain.Count == 1)
+        {
+            return leaf.Document!.Abstract is true
+                ? (null, $"'{leaf.Name}' is abstract: it is never flown itself, only the work "
+                       + "kinds that extend it.")
+                : (layers, null);
+        }
+
+        var resolution = WorkKindChain.Resolve(
+            chain[0].Name,
+            chain[0].Document!,
+            [.. chain.Skip(1).Select(l => (l.Name, l.Extension!))]);
+
+        if (resolution.Refused is { } refused)
+        {
+            return (null, refused);
+        }
+
+        if (resolution.Effective!.Abstract is true)
+        {
+            return (null, $"'{leaf.Name}' is abstract: it is never flown itself, only the work "
+                        + "kinds that extend it.");
+        }
+
+        var one = new EnvelopeLayer
+        {
+            Role = Roles.WorkKind,
+            Name = leaf.Name,
+            Parent = Roles.Root,
+            Document = resolution.Effective,
+            Version = leaf.Version,
+        };
+
+        return ([.. layers.Where(l => !chain.Contains(l)), one], null);
     }
 
     /// <summary>

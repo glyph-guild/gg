@@ -172,6 +172,18 @@ public interface IRunnerObserver
     void MoveRefused(string diagnosis);
 
     /// <summary>
+    /// A person moved this flight to another model, and the agent was started
+    /// over on its own session on that model (slice seventy-six).
+    /// </summary>
+    /// <remarks>
+    /// <b>Said where the runner says everything else.</b> The walk moved GG-1097
+    /// and the relaunch was visible only in the facts shipped at the end: the
+    /// runner's own log went from one renewal to the next as if nothing had
+    /// happened.
+    /// </remarks>
+    void Relaunched(string flightNumber, string model);
+
+    /// <summary>
     /// The work landed somewhere, or was refused, and this says which.
     /// </summary>
     /// <remarks>
@@ -269,6 +281,7 @@ public sealed class SilentObserver : IRunnerObserver
     public void FactsShipped(int count) { }
     public void LoopFinished(string loopId, string outcome, int attempts, IReadOnlyList<string> movesUsed) { }
     public void MoveRefused(string diagnosis) { }
+    public void Relaunched(string flightNumber, string model) { }
     public void Landed(string outcome, string detail) { }
     public void Held(string flightNumber, string path, long bytes, bool preserved = false) { }
 }

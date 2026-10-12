@@ -19,7 +19,7 @@ namespace Gg.Runner.Execution;
 /// every few minutes.
 /// </para>
 /// </remarks>
-public sealed class ModelMoves
+public sealed class ModelMoves(Action<string>? relaunched = null)
 {
     private readonly object _gate = new();
     private string? _latest;
@@ -55,6 +55,12 @@ public sealed class ModelMoves
         }
 
         woken.TrySetResult();
+    }
+
+    /// <summary>The executor started the agent over on <paramref name="model"/>.</summary>
+    public void Relaunched(string model)
+    {
+        _ = relaunched;
     }
 
     /// <summary>Completes at the next move after this call, or now if one is already pending unread.</summary>

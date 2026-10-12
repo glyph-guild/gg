@@ -91,6 +91,8 @@ public sealed class StopsAfterOneFlight(IRunnerObserver inner, CancellationToken
 
     public void MoveRefused(string diagnosis) => _inner.MoveRefused(diagnosis);
 
+    public void Relaunched(string flightNumber, string model) => _inner.Relaunched(flightNumber, model);
+
     public void Landed(string outcome, string detail) => _inner.Landed(outcome, detail);
 
     public void Held(string flightNumber, string path, long bytes, bool preserved = false) =>

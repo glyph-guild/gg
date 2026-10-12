@@ -188,6 +188,8 @@ public class FlyByHandWiringTests
         public void LoopFinished(
             string loopId, string outcome, int attempts, IReadOnlyList<string> movesUsed) =>
             Calls.Add("loop-finished");
+
+        public void Relaunched(string flightNumber, string model) => Calls.Add("relaunched");
         public void MoveRefused(string diagnosis) => Calls.Add("move-refused");
         public void Landed(string outcome, string detail) => Calls.Add("landed");
         public void Held(string flightNumber, string path, long bytes, bool preserved = false) =>

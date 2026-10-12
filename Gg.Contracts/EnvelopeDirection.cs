@@ -309,6 +309,16 @@ public static class EnvelopeDirection
             }
         }
 
+        // AN ABSTRACT KIND MADE FLYABLE. Every flight it could not have before
+        // is one it can now, and its loop and instructions start reaching
+        // agents directly; becoming abstract only takes that away.
+        if (applied.Abstract is true && proposed.Abstract is not true)
+        {
+            return Widen("abstract",
+                "an abstract work kind becomes one a flight can be for, which it could not be "
+              + "before.");
+        }
+
         return Destinations(applied.Destinations, proposed.Destinations);
     }
 

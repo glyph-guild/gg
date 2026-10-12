@@ -451,6 +451,13 @@ public class DirectionCoverageTests
             Doc() with { Hosts = ["ui", "production"] },
             ReverseAlsoWidens: false),
 
+        // AN ABSTRACT KIND WIDENS BY BECOMING FLYABLE: every flight it could
+        // not be for, it now can be. Becoming abstract only takes that away.
+        new("Envelope.Abstract", "abstract",
+            Doc() with { Abstract = true },
+            Doc() with { Abstract = null },
+            ReverseAlsoWidens: false),
+
         new("Envelope.Targeting", "targeting",
             Doc() with { Targeting = AllowanceTargeting.LeastSpent },
             Doc() with { Targeting = AllowanceTargeting.Any },

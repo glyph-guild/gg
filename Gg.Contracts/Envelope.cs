@@ -1837,6 +1837,23 @@ public sealed record Envelope
     [Composes(MergeOperators.WorkKindOnly)]
     public string? Description { get; init; }
 
+    /// <summary>True when this work kind is never flown itself, only its children.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>ADR-0041 Decision 4.</b> An abstract kind holds what its children
+    /// share - implement's loop, model and instructions - and need not declare
+    /// a destination, because where the work goes is what its children differ
+    /// on. It is validated through each leaf's resolved document.
+    /// </para>
+    /// <para>
+    /// <b>Not inherited</b> (see <see cref="WorkKindChain"/>), and nullable for
+    /// the reason every added member is: absent is false, and a key every
+    /// document gained by being read would be a diff in every working copy.
+    /// </para>
+    /// </remarks>
+    [Composes(MergeOperators.WorkKindOnly)]
+    public bool? Abstract { get; init; }
+
     /// <summary>
     /// One line saying what a flight of this kind is TO DO, or null for the
     /// wording every flight has always been given.
@@ -3242,7 +3259,10 @@ public sealed record Envelope
         : envelope.Loops.Count != 1
             ? $"An envelope carries one loop, and this one has {envelope.Loops.Count}. "
             + "A second is the next slice arriving early."
-        : envelope.Destinations.Count != 1
+        : envelope.Abstract is true && envelope.Destinations.Count > 1
+            ? $"An abstract work kind carries at most one destination, and this one has "
+            + $"{envelope.Destinations.Count}."
+        : envelope.Abstract is not true && envelope.Destinations.Count != 1
             ? $"An envelope carries one destination, and this one has {envelope.Destinations.Count}."
             : null;
 

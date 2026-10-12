@@ -75,6 +75,27 @@ public sealed record EnvelopeNarrowingParse
     public IReadOnlyList<string> Notes { get; init; } = [];
 }
 
+/// <summary>What reading a work kind that extends another produced.</summary>
+/// <remarks>
+/// A separate result for a separate door, the narrowing's rule: an extension
+/// is not an envelope, and a caller that reads one as an envelope is told so
+/// by <see cref="EnvelopeYaml.Parse"/> rather than handed a broken one.
+/// </remarks>
+public sealed record EnvelopeExtensionParse
+{
+    /// <summary>The version the text says it was based on, or null. Consumed, never stored.</summary>
+    public string? BasedOn { get; init; }
+
+    /// <summary>The extension, or null when there is a diagnosis.</summary>
+    public EnvelopeExtension? Extension { get; init; }
+
+    /// <summary>What was wrong, or null when nothing was.</summary>
+    public string? Diagnosis { get; init; }
+
+    /// <summary>Facts about what the round trip did. Comments are the only one today.</summary>
+    public IReadOnlyList<string> Notes { get; init; } = [];
+}
+
 /// <summary>What reading a strategy produced.</summary>
 /// <remarks>
 /// A separate result for a separate door, the narrowing's rule: the caller
@@ -279,6 +300,18 @@ public static class EnvelopeYaml
             {
                 Diagnosis = $"This is not readable as YAML at line {malformed.Start.Line}, "
                           + $"column {malformed.Start.Column}: {malformed.Message}",
+            };
+        }
+
+        // A CHILD AT THE FULL DOOR is a document missing its context, which is
+        // the wrong diagnosis for the right file: say what it is instead.
+        if (document is MapNode declared && declared.Entries.ContainsKey(ExtendsKey))
+        {
+            return new EnvelopeParse
+            {
+                Diagnosis = $"This work kind declares '{ExtendsKey}:', so it is an extension of "
+                          + "another rather than a whole envelope: read it with ParseExtension, "
+                          + "which resolves it against the work kind it names.",
             };
         }
 
@@ -668,6 +701,123 @@ public static class EnvelopeYaml
             Notes = Notes(text),
         };
     }
+
+    /// <summary>Reads a work kind that extends another, or says what is wrong with it.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Shape only.</b> Whether the child resolves over its parent into a valid
+    /// work kind needs the parent, which this text does not carry; that is
+    /// <see cref="WorkKindChain.Resolve"/>'s question.
+    /// </para>
+    /// <para>
+    /// <b>The closed key set is what a child may change.</b> Context, the bounds,
+    /// the floor's servers and learned advice are refused by not being admitted:
+    /// a child inherits them.
+    /// </para>
+    /// </remarks>
+    public static EnvelopeExtensionParse ParseExtension(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        Node document;
+        try
+        {
+            document = Read(text);
+        }
+        catch (EnvelopeSyntaxException refusal)
+        {
+            return new EnvelopeExtensionParse { Diagnosis = refusal.Message };
+        }
+        catch (YamlException malformed)
+        {
+            return new EnvelopeExtensionParse
+            {
+                Diagnosis = $"This is not readable as YAML at line {malformed.Start.Line}, "
+                          + $"column {malformed.Start.Column}: {malformed.Message}",
+            };
+        }
+
+        EnvelopeExtension extension;
+        try
+        {
+            extension = MapExtension(document);
+        }
+        catch (EnvelopeSyntaxException refusal)
+        {
+            return new EnvelopeExtensionParse { Diagnosis = refusal.Message };
+        }
+
+        if (EnvelopeExtension.Validate(extension) is { } invalid)
+        {
+            return new EnvelopeExtensionParse { Diagnosis = invalid };
+        }
+
+        return new EnvelopeExtensionParse
+        {
+            Extension = extension,
+            BasedOn = Consumed(document),
+            Notes = Notes(text),
+        };
+    }
+
+    private static EnvelopeExtension MapExtension(Node document)
+    {
+        var root = RequireMap(document, "");
+        Closed(root, BasedOnKey, ExtendsKey, "abstract", "description", "brief", "targeting",
+               "hosts", "accepts", "produces", "instructions", "remove", "obligations", "loops",
+               "destinations");
+
+        ExtensionRemovals? removals = null;
+        if (root.Entries.TryGetValue("remove", out var remove))
+        {
+            var removing = RequireMap(remove, "remove");
+            Closed(removing, "loops", "destinations", "obligations", "instructions");
+            removals = new ExtensionRemovals
+            {
+                Loops = Listed(removing, "loops", "remove.loops"),
+                Destinations = Listed(removing, "destinations", "remove.destinations"),
+                Obligations = Listed(removing, "obligations", "remove.obligations"),
+                Instructions = Listed(removing, "instructions", "remove.instructions"),
+            };
+        }
+
+        return new EnvelopeExtension
+        {
+            Extends = root.Entries.TryGetValue(ExtendsKey, out var extends)
+                ? RequireScalar(extends, ExtendsKey)
+                : "",
+            Abstract = root.Entries.TryGetValue("abstract", out var isAbstract)
+                ? Flag(isAbstract, "abstract")
+                : null,
+            Description = Optional(root, "description"),
+            Brief = Optional(root, "brief"),
+            Targeting = Optional(root, "targeting"),
+            Hosts = root.Entries.ContainsKey("hosts") ? BoundOf(root, "hosts") : null,
+            Accepts = root.Entries.TryGetValue("accepts", out var accepts)
+                ? Strings(accepts, "accepts")
+                : null,
+            Produces = root.Entries.TryGetValue("produces", out var produces)
+                ? Strings(produces, "produces")
+                : null,
+            Instructions = root.Entries.TryGetValue("instructions", out var instructions)
+                ? [.. Strings(instructions, "instructions")
+                    .Select(text => new EnvelopeInstruction { Text = text })]
+                : [],
+            Remove = removals,
+            Obligations = root.Entries.ContainsKey("obligations")
+                ? [.. Named(root, "obligations").Select(MapObligation)]
+                : [],
+            Loops = root.Entries.ContainsKey("loops")
+                ? [.. Named(root, "loops").Select(MapLoop)]
+                : [],
+            Destinations = root.Entries.ContainsKey("destinations")
+                ? [.. Named(root, "destinations").Select(MapDestination)]
+                : [],
+        };
+    }
+
+    private static IReadOnlyList<string> Listed(MapNode map, string key, string path) =>
+        map.Entries.TryGetValue(key, out var node) ? Strings(node, path) : [];
 
     /// <summary>Reads strategy text, or says what is wrong with it.</summary>
     /// <remarks>
@@ -1314,7 +1464,7 @@ public static class EnvelopeYaml
     private static Envelope Map(Node document)
     {
         var root = RequireMap(document, "");
-        Closed(root, BasedOnKey, "description", "brief", "context", "environment", "environments",
+        Closed(root, BasedOnKey, "abstract", "description", "brief", "context", "environment", "environments",
                "repository", "repositories", "models", "accepts", "produces", "learned", "variables", "mcp-servers", "targeting", "hosts", "instructions",
                "obligations", "loops", "destinations", "offers");
 
@@ -1347,6 +1497,12 @@ public static class EnvelopeYaml
             // not round trip.
             Description = root.Entries.TryGetValue("description", out var description)
                 ? RequireScalar(description, "description")
+                : null,
+
+            // ABSENT STAYS ABSENT, and `abstract: false` stays written: a key
+            // read back as a different one is a diff nobody made.
+            Abstract = root.Entries.TryGetValue("abstract", out var isAbstract)
+                ? Flag(isAbstract, "abstract")
                 : null,
 
             // THE SAME ABSENCE RULE, one member over. A brief read back as ""
@@ -1430,7 +1586,14 @@ public static class EnvelopeYaml
                 : [],
             Obligations = [.. Named(root, "obligations").Select(MapObligation)],
             Loops = [.. Named(root, "loops").Select(MapLoop)],
-            Destinations = [.. Named(root, "destinations").Select(MapDestination)],
+            // AN ABSTRACT KIND MAY OMIT THE KEY: where the work goes is what its
+            // children differ on. Every other document is still told the key is
+            // missing, in the words it always was.
+            Destinations = !root.Entries.ContainsKey("destinations")
+                           && root.Entries.TryGetValue("abstract", out var declaredAbstract)
+                           && Flag(declaredAbstract, "abstract")
+                ? []
+                : [.. Named(root, "destinations").Select(MapDestination)],
         };
     }
 
@@ -1867,6 +2030,8 @@ public static class EnvelopeYaml
     /// eventually.
     /// </remarks>
     private const string BasedOnKey = "based-on";
+
+    private const string ExtendsKey = "extends";
 
     /// <summary>
     /// Reads the precondition out of a document root, if it states one.

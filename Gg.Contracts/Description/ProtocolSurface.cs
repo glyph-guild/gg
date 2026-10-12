@@ -2222,7 +2222,7 @@ public static class ProtocolSurface
                  "opens", "opensAs", "capPerPass", "maySelect", "mayPerform", "mayWrite"],
             [typeof(DestinationSelection)] = ["environments", "repositories"],
             [typeof(Envelope)] =
-                ["description", "brief", "context", "obligations", "instructions", "loops",
+                ["description", "abstract", "brief", "context", "obligations", "instructions", "loops",
                  "destinations", "environments", "repositories", "environment", "repository",
                  "accepts", "produces", "learned", "targeting", "hosts", "variables",
                  "offers", "mcpServers", "models"],

@@ -1,4 +1,5 @@
 using Gg.Contracts;
+using Gg.Contracts.Authoring;
 
 namespace Gg.Contracts.Tests;
 
@@ -57,7 +58,7 @@ public class AnAbstractWorkKindIsNeverFlownTests
                 """))]);
 
         await Assert.That(resolved.Refused).IsNull();
-        await Assert.That(resolved.Effective!.Abstract).IsFalse()
+        await Assert.That(resolved.Effective!.Abstract).IsNotEqualTo(true)
             .Because("abstract is what a document says about itself, not what it hands down.");
         await Assert.That(resolved.Effective.Destinations.Single().Id).IsEqualTo("none");
     }

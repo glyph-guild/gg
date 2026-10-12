@@ -129,7 +129,8 @@ public abstract record ClaimAcceptance
 public abstract record RenewResult
 {
     /// <summary>Extended. The control plane's new expiry, not one we computed.</summary>
-    public sealed record Renewed(DateTimeOffset ExpiresAt) : RenewResult;
+    /// <param name="Model">What the lease now runs on, or null when nobody moved it (slice seventy-six).</param>
+    public sealed record Renewed(DateTimeOffset ExpiresAt, string? Model = null) : RenewResult;
 
     /// <summary>
     /// The generation presented is not the one the control plane holds.

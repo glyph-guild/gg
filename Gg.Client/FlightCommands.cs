@@ -1768,7 +1768,7 @@ public sealed class FlightCommands(
                 ? new EnvelopeWidening
                 {
                     Field = "extends",
-                    Because = $"'{document.Name}' does not resolve over the parents this estate "
+                    Because = $"'{document.Name}' does not resolve over the parents this airspace "
                             + "holds, so it cannot be shown to tighten here.",
                 }
                 : EnvelopeDirection.Widening(before, after);

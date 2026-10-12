@@ -123,6 +123,13 @@ public sealed class ConsoleLoop(
     /// </remarks>
     Func<AppState, Func<string>, AppState>? groundFlight = null,
 
+    /// <summary>
+    /// Moves the flight on the screen to the model under the picker's cursor
+    /// (slice seventy-six). A write, so it runs between sessions; handed the
+    /// state unclosed, because the choice is read off the picker's mode.
+    /// </summary>
+    Func<AppState, AppState>? moveFlight = null,
+
     /// <param name="configure">
     /// Hands the configuration document to an editor and writes back what
     /// validates. A delegate rather than a port for the reason every read here
@@ -800,6 +807,11 @@ public sealed class ConsoleLoop(
                             seed: FlightDetails.IntentToFlyAgain(state)),
                         reload,
                         asked: false);
+                    break;
+
+                case Command.MoveFlight:
+                    // NOT YET: the delegate is declared and nothing calls it (red).
+                    _ = moveFlight;
                     break;
 
                 case Command.GroundFlight:

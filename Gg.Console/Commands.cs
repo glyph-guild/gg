@@ -644,6 +644,12 @@ public enum Command
     GroundFlight,
 
     /// <summary>
+    /// Move the flight on the screen to the model under the cursor, one root's
+    /// <c>models:</c> lists (slice seventy-six). The shell's: a write.
+    /// </summary>
+    MoveFlight,
+
+    /// <summary>
     /// Open the verification link in a browser.
     /// </summary>
     /// <remarks>
@@ -819,6 +825,12 @@ public enum Command
     /// editor open before anybody had agreed to anything.
     /// </remarks>
     AskToGround,
+
+    /// <summary>
+    /// Ask which model to move the flight on the screen to (slice seventy-six).
+    /// Opens the picker; nothing is written until it is answered.
+    /// </summary>
+    ChooseModel,
 
     /// <summary>Asks whether to open a new flight on this one's intent.</summary>
     AskToFlyAgain,

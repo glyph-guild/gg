@@ -1315,7 +1315,7 @@ public static class EnvelopeYaml
     {
         var root = RequireMap(document, "");
         Closed(root, BasedOnKey, "description", "brief", "context", "environment", "environments",
-               "repository", "repositories", "accepts", "produces", "learned", "variables", "mcp-servers", "targeting", "hosts", "instructions",
+               "repository", "repositories", "models", "accepts", "produces", "learned", "variables", "mcp-servers", "targeting", "hosts", "instructions",
                "obligations", "loops", "destinations", "offers");
 
         var context = RequireMap(Require(root, "context"), "context");
@@ -1369,6 +1369,9 @@ public static class EnvelopeYaml
             Offers = offers,
             Environments = BoundOf(root, "environments", "environment"),
             Repositories = BoundOf(root, "repositories", "repository"),
+            // THE MODELS A PERSON MAY CHOOSE, read as the bounds above are: one
+            // name or a sequence, and absent is off (slice seventy-six).
+            Models = BoundOf(root, "models"),
             // READ THE SAME WAY, so `hosts: ui` and a sequence of two are one
             // member. There is no singular spelling to accept, because this key
             // has never shipped and so has no legacy form to be bug-compatible

@@ -211,6 +211,7 @@ public static class Vocabulary
         typeof(DestinationAdmission),
         typeof(ArtifactReference),
         typeof(LoopSession),
+        typeof(LoopModel),
         typeof(EnvironmentReclaimed),
         typeof(StackPerformed),
         typeof(DocumentProposal),

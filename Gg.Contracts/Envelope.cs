@@ -2402,6 +2402,16 @@ public sealed record Envelope
         // Airspace is trusted to direct a credential because it is reviewed, and
         // a definition in any document but the floor would scatter what the
         // review has to read.
+        // THE SAME RULE FOR THE MODELS A PERSON MAY CHOOSE (slice seventy-six):
+        // what a person may do to any flight here is the tenant's statement,
+        // and a narrowing speaks for one repository or one work kind.
+        if (envelope.Models is not null && !string.Equals(role, Roles.Root, StringComparison.Ordinal))
+        {
+            return $"A '{role}' declares 'models:', and only '{Roles.Root}' may. The list says which "
+                 + "models a person may move any flight to, which is the tenant's decision; a work "
+                 + "kind chooses its own loop's model with 'model:' under the loop.";
+        }
+
         if (envelope.McpServers is not null && !string.Equals(role, Roles.Root, StringComparison.Ordinal))
         {
             return $"A '{role}' declares 'mcp-servers:', and only '{Roles.Root}' may. A loop names "
@@ -2566,6 +2576,21 @@ public sealed record Envelope
         if (Bound(envelope.Repositories, "repositories") is { } repository)
         {
             return repository;
+        }
+
+        // THE SAME SHAPE CHECK, and then the one a loop's model: is held to
+        // (slice seventy-six): a name with whitespace in it is not a name the
+        // client would take, and the door this list enables would refuse it
+        // later with less to say.
+        if (Bound(envelope.Models, "models") is { } models)
+        {
+            return models;
+        }
+
+        if (envelope.Models?.FirstOrDefault(m => m.Any(char.IsWhiteSpace)) is { } spaced)
+        {
+            return $"models names '{spaced}', which is not a model's name: it carries whitespace. "
+                 + "Name each one as the agent client does (claude-opus-5-5, or an alias it accepts).";
         }
 
         // THE SAME SHAPE CHECK AS THE BOUNDS ABOVE, on a member that is not one.

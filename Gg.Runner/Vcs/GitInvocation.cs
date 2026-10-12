@@ -88,6 +88,12 @@ public sealed record GitInvocation
             arguments.Add("--shallow-since=" + since.ToUniversalTime().ToString(
                 "yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture));
         }
+        else if (depth?.Commits is { } commits)
+        {
+            // A COUNT, the fallback a server with no deepen-since leaves: fetched
+            // into an existing shallow clone, a larger depth deepens it.
+            arguments.AddRange(["--depth", commits.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
+        }
         else
         {
             arguments.AddRange(["--depth", "1"]);

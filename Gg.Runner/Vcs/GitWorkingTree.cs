@@ -32,7 +32,19 @@ internal static class GitWorkingTree
 
         await GitInvocation.Plain("init", "--quiet").RunAsync(intoDirectory, cancellationToken);
 
-        await GitInvocation.Fetch(url, resolvedRef, secret, depth).RunAsync(intoDirectory, cancellationToken);
+        try
+        {
+            await GitInvocation.Fetch(url, resolvedRef, secret, depth).RunAsync(intoDirectory, cancellationToken);
+        }
+        catch (InvalidOperationException refused)
+            when (depth?.Since is { } since && ShallowDeepening.RefusesShallowSince(refused.Message))
+        {
+            // THE SERVER HAS NO deepen-since (Azure Repos, measured 2026-10-12,
+            // GG-1085). The window is reached by count instead, in steps, and
+            // on such a server it is a floor rather than a ceiling.
+            await ShallowDeepening.DeepenUntilAsync(
+                url, resolvedRef, intoDirectory, secret, since, cancellationToken);
+        }
 
         // FETCH_HEAD, not a branch: the pinned ref may be a pull-request head
         // that is on no branch of the base repository, which is exactly the

@@ -1066,6 +1066,27 @@ public sealed record LeaseRenewed
 
     /// <summary>Unchanged by a renewal. A renewal extends; it does not re-grant.</summary>
     public required int Generation { get; init; }
+
+    /// <summary>
+    /// The model this lease now runs on, or null for the loop's own choice or
+    /// the account's default.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The one thing a renewal says beyond "longer"</b> (slice seventy-six).
+    /// A person may move a flight in the air to another model root lists, and
+    /// the lease is composed again on every renewal, so the renewal is where a
+    /// runner holding a child can learn it. The runner compares this to what it
+    /// launched with and relaunches on a difference; it reads nothing else
+    /// from here.
+    /// </para>
+    /// <para>
+    /// <b>Null means nothing changed hands</b>: no person chose, so the loop's
+    /// model, or the account's default, stands. A renewal written before this
+    /// member carries null and means exactly what it meant.
+    /// </para>
+    /// </remarks>
+    public string? Model { get; init; }
 }
 
 /// <summary>Gives a lease back, with what became of the work.</summary>

@@ -108,7 +108,7 @@ public class SliceThreeGuardTests
     /// every leg. It belongs to a flight on this guard's own terms: it is what one flight was
     /// given to read, and it carries names and ids, never the text.
     /// </para>
-    private const int KindsThatCross = 20;
+    private const int KindsThatCross = 21;
 
     [Test]
     public async Task A_moved_vocabulary_version_has_a_ledger_entry()
@@ -259,6 +259,7 @@ public class SliceThreeGuardTests
                 FactKinds.LoopQuestion,
                 FactKinds.LoopTranscript,
                 FactKinds.LoopSession,
+                FactKinds.LoopModel,
                 FactKinds.DocumentProposal,
                 FactKinds.SourceProvenance,
                 FactKinds.IntentRead,

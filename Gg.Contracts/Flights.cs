@@ -490,6 +490,24 @@ public sealed record FlightLaunchRequest
     /// </para>
     /// </remarks>
     public bool? Attended { get; init; }
+
+    /// <summary>
+    /// The model this flight is to run on, chosen by the person opening it, or
+    /// null for the loop's own choice.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A selection against a bound, like <see cref="Environment"/></b>
+    /// (slice seventy-six). The control plane holds it to root's <c>models:</c>
+    /// and refuses the flight, naming the list, when root lists nothing or the
+    /// name is outside it. Accepted, it is carried on the flight's own record
+    /// and composed onto every lease in place of the loop's model.
+    /// </para>
+    /// <para>
+    /// <b>Absent rather than empty</b>, for the member above's reason.
+    /// </para>
+    /// </remarks>
+    public string? Model { get; init; }
 }
 
 /// <summary>The flight that was opened.</summary>
@@ -683,6 +701,19 @@ public sealed record FlightSummary
     /// </para>
     /// </remarks>
     public string? Stage { get; init; }
+
+    /// <summary>
+    /// The model a person chose for this flight, or null when nobody did and
+    /// the loop's own choice stands.
+    /// </summary>
+    /// <remarks>
+    /// <b>The choice in force, not the model that ran</b> (slice seventy-six).
+    /// What ran is the runner's word, on a <c>loop.model</c> fact per launch;
+    /// this is the control plane's record of what a person asked for, at
+    /// creation or in the air, so a reader of <c>gg show</c> can tell the two
+    /// apart when they differ.
+    /// </remarks>
+    public string? Model { get; init; }
 }
 
 /// <summary>

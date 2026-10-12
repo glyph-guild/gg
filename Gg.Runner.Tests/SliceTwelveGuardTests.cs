@@ -210,7 +210,7 @@ public class SliceTwelveGuardTests
     // pinned before it meets a move it has never heard of and halts, which is the
     // property the fact fingerprint buys; the row is the price. NO KIND MOVED and
     // KindsThatCross is unchanged, which is this guard's actual criterion.
-    private const string VocabularyAtSliceStart = "0.43.0";
+    private const string VocabularyAtSliceStart = "0.44.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number
@@ -372,7 +372,17 @@ public class SliceTwelveGuardTests
     /// every leg. It belongs to a flight on this guard's own terms: it is what one flight was
     /// given to read, and it carries names and ids, never the text.
     /// </para>
-    private const int KindsThatCross = 20;
+    /// <para>
+    /// <b>Twenty-one, and the argument for the twenty-first.</b> <c>loop.model</c> crosses
+    /// because slice seventy-six lets a person move a flight in the air to another model, and
+    /// the only side that can say which flag each launch of the agent was given is the runner
+    /// that launched it: the control plane records what was ASKED, on the flight's own stream,
+    /// and the transcript records what ANSWERED, turn by turn, but neither says what was passed.
+    /// One per launch rather than a member on <c>loop.outcome</c>, which is shipped once per run
+    /// and so could not say a run began on one model and ended on another. It belongs to a
+    /// flight on this guard's own terms: it is about one lease's launches and outlives nothing.
+    /// </para>
+    private const int KindsThatCross = 21;
 
     [Test]
     public async Task Attestations_are_not_facts_and_the_count_moves_only_with_an_argument()

@@ -99,6 +99,20 @@ public static class FactKinds
     public const string LoopSession = "loop.session";
 
     /// <summary>
+    /// Which model one launch of the loop's agent was given, as
+    /// <see cref="LoopModel"/>: one per launch, so a flight moved in the air
+    /// has two.
+    /// </summary>
+    /// <remarks>
+    /// <b>A kind of its own rather than a member on <see cref="LoopOutcome"/></b>
+    /// (slice seventy-six): an outcome is shipped once per run, and a run that
+    /// began on one model and was moved to another would have nowhere to say
+    /// so. The flag is the runner's word; what the client did with it is the
+    /// transcript's.
+    /// </remarks>
+    public const string LoopModel = "loop.model";
+
+    /// <summary>
     /// What a reclaim removed from the environment instance this flight was
     /// granted, before it stood its stack up.
     /// </summary>
@@ -1201,6 +1215,9 @@ public sealed record FactEnvelope
     /// it wants.
     /// </remarks>
     public LoopSession? Session { get; init; }
+
+    /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.LoopModel"/>.</summary>
+    public LoopModel? Model { get; init; }
 
     /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.DocumentProposal"/>.</summary>
     /// <remarks>

@@ -131,6 +131,43 @@ public sealed record LoopSession
     public required ArtifactReference Artifact { get; init; }
 }
 
+/// <summary>
+/// Which model one launch of the loop's agent was given.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>One per launch, and the flag rather than the model</b> (slice
+/// seventy-six). The runner ships this every time it starts the agent for a
+/// loop: once for the ordinary flight, and again when a person moves the
+/// flight in the air and the child is started over on its own session. What
+/// the runner can attest to is what it passed; which model answered each turn
+/// is in the transcript it also ships, and a reader who needs the second
+/// opens that.
+/// </para>
+/// <para>
+/// <b>Null is the account's default</b>, which only the client knows: the
+/// loop named nothing and nobody chose, so no flag was passed. Shipping the
+/// fact anyway is the point - a flight with no <c>loop.model</c> at all would
+/// be one that ran before this kind existed, and the two must not read alike.
+/// </para>
+/// </remarks>
+[FactKind(FactKinds.LoopModel)]
+[PinnedId("5f1c7e2a-9d3b-4c8e-a6f0-2b7d9e4c1a53")]
+public sealed record LoopModel
+{
+    /// <summary>Which loop, by its id in the envelope.</summary>
+    public required string LoopId { get; init; }
+
+    /// <summary>What was passed as <c>--model</c>, or null when nothing was.</summary>
+    public string? Model { get; init; }
+
+    /// <summary>
+    /// True for every launch after the first within one lease: the child was
+    /// started over, resuming its session, because the lease's model changed.
+    /// </summary>
+    public bool Relaunched { get; init; }
+}
+
 /// <summary>How far a locator reaches.</summary>
 /// <remarks>
 /// Named rather than implied, because the answer today is the narrow one and a

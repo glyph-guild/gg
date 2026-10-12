@@ -2190,6 +2190,41 @@ public sealed record Envelope
     public IReadOnlyList<McpServer>? McpServers { get; init; }
 
     /// <summary>
+    /// The models a person may move one flight to, as the agent client names
+    /// them, or null when nobody may.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>What enables an override, and what bounds it, in one line</b> (slice
+    /// seventy-six). A loop's <see cref="Loop.Model"/> is the work kind's
+    /// decision, reviewed in the document and gated as a widening. This is the
+    /// tenant's decision about what a person may do to one flight at a
+    /// keystroke, at creation or in the air: a switch that admitted any name
+    /// would let that keystroke put a flight on a model nobody reviewed the
+    /// cost of, so the permission is a list, the shape
+    /// <see cref="Environments"/> already has.
+    /// </para>
+    /// <para>
+    /// <b>Root only, because it is the tenant's.</b> A narrowing speaks for one
+    /// repository or one work kind, and what a person may choose for any flight
+    /// here is not that kind of statement. The list bounds the PERSON's choice
+    /// only; a loop's own <c>model:</c> stays held to shape and not to this
+    /// list, as slice seventy-five decided.
+    /// </para>
+    /// <para>
+    /// <b>Null is off and empty is refused.</b> Every tenant today lists
+    /// nothing, and none of them should have to say so. A declared, empty list
+    /// would enable a door that admits nobody, which is the inversion
+    /// <see cref="Environments"/>'s remark names. Each name is held to the
+    /// shape a loop's is: no blank, no whitespace. Growing the list is a
+    /// widening - a person may put flights somewhere they could not before -
+    /// and shrinking it is a narrowing.
+    /// </para>
+    /// </remarks>
+    [Composes(MergeOperators.RootOnly)]
+    public IReadOnlyList<string>? Models { get; init; }
+
+    /// <summary>
     /// The environments this envelope's flights may be about: charted names, or
     /// null when unbounded.
     /// </summary>

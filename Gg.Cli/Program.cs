@@ -181,6 +181,8 @@ return await ByName(CliArgs.Parse(args)) switch
         decide.Flight, decide.Obligation, decide.Outcome, Observed(decide.Json), decide.Reason)),
     // STOPPING A FLIGHT THAT COULD STILL HAVE BEEN DONE. Not withdrawing: the
     // question is still real and a person is stopping the attempt.
+    CliAction.ModelFlight moved => await EmitAsync(
+        moved.Json, c => c.ModelAsync(moved.Reference, moved.Name)),
     CliAction.Ground ground => await EmitAsync(
         ground.Json, c => c.GroundAsync(ground.Reference, ground.Because)),
     // LOCAL, AND THE ONLY VERB THAT READS ANOTHER TOOL'S FILES. The
@@ -3201,7 +3203,8 @@ static Task<VerbResult> Flown(
         provider: fly.Provider, id: fly.Id, repositories: fly.Repositories,
         runner: fly.Runner, attended: fly.Attended,
         workKind: fly.WorkKind, environment: fly.Environment,
-        fileRepository: fly.FileRepository, filePath: fly.FilePath, fileRef: fly.FileRef);
+        fileRepository: fly.FileRepository, filePath: fly.FilePath, fileRef: fly.FileRef,
+        model: fly.Model);
 
 static async Task<int> HandAsync(CliAction.Fly fly)
 {

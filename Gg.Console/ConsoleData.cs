@@ -132,6 +132,14 @@ public sealed class ConsoleData(
         _commands.GroundAsync(reference, because, cancellationToken);
 
     /// <summary>
+    /// `gg model` - moves the flight to another model root lists (slice
+    /// seventy-six). The name is required on the wire, so it is required here.
+    /// </summary>
+    public Task<VerbResult> ModelAsync(
+        string reference, string model, CancellationToken cancellationToken = default) =>
+        _commands.ModelAsync(reference, model, cancellationToken);
+
+    /// <summary>
     /// `gg why` — why each obligation applied to a flight, or did not.
     /// </summary>
     /// <remarks>

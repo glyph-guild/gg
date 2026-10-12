@@ -228,6 +228,12 @@ public class DirectionCoverageTests
         new("Envelope.Environments", "environments",
             Doc(), Doc() with { Environments = ["dev", "prod"] }, ReverseAlsoWidens: false),
 
+        // THE MODELS A PERSON MAY CHOOSE, a bound like the two beside it:
+        // listing more lets a flight be put somewhere it could not before.
+        new("Envelope.Models", "models",
+            Doc(), Doc() with { Models = ["claude-opus-5-5", "claude-sonnet-5-5"] },
+            ReverseAlsoWidens: false),
+
         new("Envelope.Repositories", "repositories",
             Doc(), Doc() with { Repositories = ["payments", "ledger"] },
             ReverseAlsoWidens: false),

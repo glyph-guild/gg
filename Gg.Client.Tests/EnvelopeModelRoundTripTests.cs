@@ -36,6 +36,7 @@ public class EnvelopeModelRoundTripTests
         // an environment to run in, because nothing would ever perform it.
         Environments = ["aspire-payments"],
         Repositories = ["payments"],
+        Models = ["claude-opus-5-5", "claude-sonnet-5-5"],
         Accepts = [SubjectKinds.Repository],
         Produces = [FactKinds.ChangeManifest],
         Targeting = AllowanceTargeting.LeastSpent,
@@ -355,6 +356,7 @@ public class EnvelopeModelRoundTripTests
             nameof(DestinationSelection.Environments), nameof(DestinationSelection.Repositories),
             nameof(Envelope.Learned),
             nameof(Envelope.McpServers), nameof(Loop.Mcp), nameof(Loop.Model),
+            nameof(Envelope.Models),
             nameof(EnvelopeNarrowing.Obligations),
         ];
 

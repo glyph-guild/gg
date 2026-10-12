@@ -137,6 +137,8 @@ internal sealed class ConsoleObserver : IRunnerObserver
     /// </summary>
     public void MoveRefused(string diagnosis) => System.Console.WriteLine($"moves: {diagnosis}");
 
+    public void Relaunched(string flightNumber, string model) { }
+
     /// <summary>
     /// The reference and the problem. Never anything resolving it produced.
     /// </summary>

@@ -49,6 +49,8 @@ public class TheRunnerMovesARunningFlightTests
             {
                 await moved.NextAsync(cancellationToken);
                 SawMoveTo = moved.Latest;
+                // What the real executor says when it starts the agent over.
+                moved.Relaunched(SawMoveTo!);
             }
 
             return ExecutorRun.Completed(
@@ -154,6 +156,10 @@ public class TheRunnerMovesARunningFlightTests
             .Because("one fact per launch, so two bracket the move. Shipped kinds: "
                    + string.Join(", ", protocol.ShippedFacts.SelectMany(f => f.Items).Select(f => f.Kind)));
         await Assert.That(launches.Select(l => l.Relaunched)).IsEquivalentTo([false, true]);
+        await Assert.That(observer.Events).Contains($"relaunched:{FlightRef.Format(76)}:claude-opus-5-5")
+            .Because("the runner's log says a move happened when it happens, not only in the facts "
+                   + "shipped at the end - the walk on GG-1097 found it silent. Events: "
+                   + string.Join(", ", observer.Events));
     }
 
     [Test]
@@ -184,7 +190,8 @@ public class TheRunnerMovesARunningFlightTests
                 UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         }
 
-        var moved = new ModelMoves();
+        var relaunched = new List<string>();
+        var moved = new ModelMoves(relaunched.Add);
         var request = new ExecutorRequest
         {
             WorkingDirectory = Path.Combine(root, "tree"),
@@ -208,6 +215,9 @@ public class TheRunnerMovesARunningFlightTests
             .Because($"the resumed child finished. Reason: {run.Reason}");
         await Assert.That(run.Launches.Select(l => (l.Model ?? "<default>", l.Relaunched)))
             .IsEquivalentTo([("claude-sonnet-5-5", false), ("claude-opus-5-5", true)]);
+        await Assert.That(relaunched).IsEquivalentTo(["claude-opus-5-5"])
+            .Because("the executor says when it starts the agent over, which is what puts the "
+                   + "relaunch in the runner's log.");
 
         // THE LOG IS THE CHILDREN'S WORD, and the first child may be killed
         // before its shell reaches `echo` - a move already pending is acted on

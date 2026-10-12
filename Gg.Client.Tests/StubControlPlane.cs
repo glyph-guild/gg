@@ -44,6 +44,9 @@ public sealed class StubControlPlane : IAsyncDisposable
     /// <summary>The hold `/why` carries, when a test needs a leg held behind another.</summary>
     public LegHold? HeldAnswer { get; set; }
 
+    /// <summary>The flight summary a read answers, or the stock one when null.</summary>
+    public FlightSummary? FlightAnswer { get; set; }
+
         public ItineraryCheck? ItineraryAnswer { get; set; }
 
     /// <summary>The status a proposal refusal answers with: 400 by default, 409 for a supersede.</summary>
@@ -351,7 +354,7 @@ public sealed class StubControlPlane : IAsyncDisposable
 
     private const string StubFlightId = "019fe815-6136-7518-bb57-b06d6d3f411a";
 
-    private static FlightSummary AFlight() => new()
+    internal static FlightSummary AFlight() => new()
     {
         FlightId = StubFlightId,
         FlightNumber = FlightRef.Format(42),
@@ -1060,7 +1063,7 @@ public sealed class StubControlPlane : IAsyncDisposable
                 return;
 
             case var _ when path.StartsWith("/v1/flights/", StringComparison.Ordinal):
-                await WriteJsonAsync(context, 200, AFlight());
+                await WriteJsonAsync(context, 200, FlightAnswer ?? AFlight());
                 return;
 
             // RETIREMENT, BEFORE THE APPLY ARM, because its path begins with

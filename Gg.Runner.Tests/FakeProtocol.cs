@@ -564,6 +564,9 @@ internal sealed class RecordingObserver : IRunnerObserver
     /// <summary>The whole sentence, because what it SAYS is the criterion.</summary>
     public void MoveRefused(string diagnosis) => Record($"moves:{diagnosis}", lifecycle: false);
 
+    public void Relaunched(string flightNumber, string model) =>
+        Record($"relaunched:{flightNumber}:{model}", lifecycle: false);
+
     public void Landed(string outcome, string detail) =>
         Record($"landed:{outcome}", lifecycle: false);
 

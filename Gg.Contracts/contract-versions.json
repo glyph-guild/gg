@@ -1551,5 +1551,11 @@
     "surface": "d6ca50932ada38738befdd1f832eb3d244d427bc25dc237da4a82ea667448a3a",
     "endpoints": "77ba4b72cdd1eb618490a9d45b87e04c3f532af195dd344a3370051965b22226",
     "note": "An extension crosses the wire (slice seventy-seven, step 2). NamedEnvelopeApply and NamedEnvelopeState gain Extension, a third member beside Envelope and Narrowing, on the same PUT and GET /v1/airspace/envelopes/{name}; an apply carries exactly one of the three. EnvelopeExtension and ExtensionRemovals are declared on the surface. The control plane learns the member in the PR that pins this version; gg writes no extension until it has."
+  },
+  {
+    "version": "0.300.0",
+    "surface": "d6ca50932ada38738befdd1f832eb3d244d427bc25dc237da4a82ea667448a3a",
+    "endpoints": "77ba4b72cdd1eb618490a9d45b87e04c3f532af195dd344a3370051965b22226",
+    "note": "An abstract work kind may be applied (slice seventy-seven). EnvelopeComposition.MayApply asks whether a document may be stored by composing it, and composition refuses an abstract leaf because nothing is governed by one - so the base nobody flies could never be applied. MayApply now composes the candidate as if it were not abstract; Compose still refuses to govern a flight by one. THE WIRE SURFACE DOES NOT MOVE, so this entry repeats 0.299.0's fingerprints, on 0.293.0's precedent: it costs a package version because the control plane's apply door calls MayApply."
   }
 ]

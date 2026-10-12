@@ -327,6 +327,15 @@ public static class FactPipeline
                     Session = session.Value,
                 },
 
+                FactPayload.Model model => new FactEnvelope
+                {
+                    IdempotencyKey = Key(flightId, kind, digest),
+                    Kind = kind,
+                    Digest = digest,
+                    ObservedAt = observedAt,
+                    Model = model.Value,
+                },
+
                 FactPayload.Reclaimed reclaimed => new FactEnvelope
                 {
                     IdempotencyKey = Key(flightId, kind, digest),

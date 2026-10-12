@@ -2342,7 +2342,11 @@ public sealed class RunnerLoop(
     {
         using var working = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-        var work = ProbeThenInvokeAsync(lease, workspace, intentFile, working.Token);
+        // WHERE A MOVE ARRIVES (slice seventy-six): the renewals below write to
+        // it, the executor holding the child awaits it. Made here because this
+        // is the one method that sees both ends.
+        var moved = new Execution.ModelMoves();
+        var work = ProbeThenInvokeAsync(lease, workspace, intentFile, moved, working.Token);
         var expiresAt = lease.ExpiresAt;
         var fenced = false;
 
@@ -2361,6 +2365,13 @@ public sealed class RunnerLoop(
                     case RenewResult.Renewed renewed:
                         expiresAt = renewed.ExpiresAt;
                         _observer.Renewed(lease.LeaseId, expiresAt);
+                        // AND WHAT THE LEASE NOW RUNS ON, when a person moved it.
+                        // The signal ignores a name it has already heard.
+                        if (renewed.Model is { Length: > 0 } model)
+                        {
+                            moved.Move(model);
+                        }
+
                         continue;
 
                     case RenewResult.Fenced:
@@ -2412,13 +2423,13 @@ public sealed class RunnerLoop(
     /// </remarks>
     private async Task<(Execution.ProbeResult? Probe, Invocation Invoked)> ProbeThenInvokeAsync(
         LeaseGranted lease, WorkspaceResult workspace, Execution.RequestedIntentFile? intentFile,
-        CancellationToken cancellationToken)
+        Execution.ModelMoves moved, CancellationToken cancellationToken)
     {
         if (_executor is null || lease.Loop is null)
         {
             // Nothing to govern: no agent will be invoked, so there is no
             // session for a bound to hold over.
-            return (null, await InvokeAsync(lease, workspace, intentFile, cancellationToken));
+            return (null, await InvokeAsync(lease, workspace, intentFile, moved, cancellationToken));
         }
 
         // ARTICLE XI, BEFORE ANYTHING IS SPENT - including the probe, which is
@@ -2465,7 +2476,7 @@ public sealed class RunnerLoop(
         // missing fact, applied to a missing measurement.
         if (!_executor.BoundIsMeasurable)
         {
-            return (null, await InvokeAsync(lease, workspace, intentFile, cancellationToken));
+            return (null, await InvokeAsync(lease, workspace, intentFile, moved, cancellationToken));
         }
 
         // AND NOTHING TO MEASURE WHEN NOTHING WAS DECLARED. A loop that declared
@@ -2481,7 +2492,7 @@ public sealed class RunnerLoop(
         // runner had ever shipped. See ShipAsync, where the flag is read.
         if (Gg.Contracts.LoopMoves.Unbounded(lease.Loop.Moves))
         {
-            return (null, await InvokeAsync(lease, workspace, intentFile, cancellationToken));
+            return (null, await InvokeAsync(lease, workspace, intentFile, moved, cancellationToken));
         }
 
         var probe = await Execution.MoveBoundProbe.RunAsync(_executor, cancellationToken);
@@ -2490,7 +2501,7 @@ public sealed class RunnerLoop(
             return (probe, Invocation.Nothing);
         }
 
-        return (probe, await InvokeAsync(lease, workspace, intentFile, cancellationToken));
+        return (probe, await InvokeAsync(lease, workspace, intentFile, moved, cancellationToken));
     }
 
     /// <summary>
@@ -2511,7 +2522,7 @@ public sealed class RunnerLoop(
     /// </remarks>
     private async Task<Invocation> InvokeAsync(
         LeaseGranted lease, WorkspaceResult workspace, Execution.RequestedIntentFile? intentFile,
-        CancellationToken cancellationToken)
+        Execution.ModelMoves moved, CancellationToken cancellationToken)
     {
         // NO LONGER GATED ON HAVING CLONED SOMETHING. A ticket, a text intent
         // and an issue link all resolve to no repository - correctly - and
@@ -2582,6 +2593,9 @@ public sealed class RunnerLoop(
             Mcp = loop.Mcp ?? [],
             // AND ITS MODEL, or null for the account's default (slice seventy-five).
             Model = loop.Model,
+            // AND WHERE A MOVE TO ANOTHER ONE ARRIVES while the child runs, from the
+            // renewals (slice seventy-six).
+            Moved = moved,
 
             // AND WHERE ITS STACK RUNS, so the agent's DOCKER_HOST points at the
             // daemon this flight was granted rather than at whatever this
@@ -3051,6 +3065,14 @@ public sealed class RunnerLoop(
             // it first; the transcript is enormous and customer-adjacent, so
             // what crosses is a hash and a locator.
             payloads.Add(new FactPayload.Loop(run.ToFact(lease.Loop!.Executor)));
+
+            // AND WHICH MODEL EACH LAUNCH WAS GIVEN, one fact per launch, so a
+            // flight moved in the air has two that bracket the move (slice
+            // seventy-six).
+            foreach (var launch in run.Launches)
+            {
+                payloads.Add(new FactPayload.Model(launch));
+            }
 
             if (run.Transcript is { } transcript)
             {

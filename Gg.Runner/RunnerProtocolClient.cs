@@ -454,7 +454,7 @@ public sealed class RunnerProtocolClient(HttpClient httpClient, string runnerTok
         var renewed = await response.Content.ReadFromJsonAsync(
             RunnerJsonContext.Default.LeaseRenewed, cancellationToken)
             ?? throw new InvalidOperationException("Control plane renewed a lease with no body.");
-        return new RenewResult.Renewed(renewed.ExpiresAt);
+        return new RenewResult.Renewed(renewed.ExpiresAt, renewed.Model);
     }
 
     /// <summary>

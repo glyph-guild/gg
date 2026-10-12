@@ -165,70 +165,126 @@ public sealed class ClaudeCodeExecutor(
                 request.LoopId, unserved, attempts: 1, took: TimeSpan.Zero, movesUsed: []);
         }
 
-        using var process = new Process
-        {
-            StartInfo = StartInfo(request, secret, TokenFor(_agent, _secretFor)),
-        };
+        // ONE CHILD AT A TIME, AND POSSIBLY MORE THAN ONE (slice seventy-six).
+        // A person may move a flight in the air to another model; the child
+        // cannot change model itself, so the one running is killed and a new
+        // one started over on the same session, on the new model, with a line
+        // saying why. Every launch is recorded, and the transcript is one
+        // stream across all of them - the last result record is the run's.
+        //
+        // THE SESSION ID IS CHOSEN HERE, not read back from the init record: a
+        // child killed before it speaks is still resumable by an id the runner
+        // already has.
+        var launches = new List<LoopModel>();
+        var session = Guid.NewGuid().ToString();
+        var current = request.Model;
+        string? resuming = null;
 
-        // THE CONFIGURATION CARRIES SECRETS, so it goes when the run does,
-        // however the run ends. ReadAsync takes it sooner, at the agent's first
-        // line.
-        using var configuration = new Forgetting(process.StartInfo.ArgumentList);
-
-        // ONLY the start is wrapped. It used to cover the read as well, and a
-        // parsing bug inside it surfaced as "this runner could not start the
-        // executor" - a diagnosis naming a cause that was not the cause, which
-        // is the Article XI failure wearing a helpful sentence. A catch wide
-        // enough to be convenient is wide enough to lie.
-        try
+        while (true)
         {
-            process.Start();
-        }
-        catch (Exception failure) when (failure is System.ComponentModel.Win32Exception
-                                            or InvalidOperationException
-                                            or FileNotFoundException)
-        {
-            // A declared capability gap is answerable - this runner cannot
-            // serve this flight - and a stalled flight is not.
-            return ExecutorRun.Failed(
-                request.LoopId,
-                $"This runner could not start the '{Capabilities.Rung}' executor: {failure.Message}",
-                attempts: 0, started.Elapsed, moves);
-        }
-
-        try
-        {
-            // Closed at once. A child that inherited an open stdin would wait
-            // on it forever in a runner with nothing to type.
-            process.StandardInput.Close();
-
-            if (await ReadAsync(
-                    process, transcript, moves, request.Live, budget.Token, configuration.Forget)
-                is { } unstarted)
+            var launching = request with { Model = current };
+            using var process = new Process
             {
-                // A DECLARED CAPABILITY GAP, answered, rather than a flight that
-                // runs blind. The transcript is kept: the init line naming the
-                // server is the evidence for the diagnosis, and it is the only
-                // place that failure was ever written down.
+                StartInfo = StartInfo(launching, secret, TokenFor(_agent, _secretFor), resuming, session),
+            };
+
+            // THE CONFIGURATION CARRIES SECRETS, so it goes when the run does,
+            // however the run ends. ReadAsync takes it sooner, at the agent's first
+            // line.
+            using var configuration = new Forgetting(process.StartInfo.ArgumentList);
+
+            try
+            {
+                process.Start();
+            }
+            catch (Exception failure) when (failure is System.ComponentModel.Win32Exception
+                                                or InvalidOperationException
+                                                or FileNotFoundException)
+            {
+                // A declared capability gap is answerable - this runner cannot
+                // serve this flight - and a stalled flight is not.
+                return ExecutorRun.Failed(
+                    request.LoopId,
+                    $"This runner could not start the '{Capabilities.Rung}' executor: {failure.Message}",
+                    attempts: 0, started.Elapsed, moves) with { Launches = launches };
+            }
+
+            launches.Add(new LoopModel
+            {
+                LoopId = request.LoopId, Model = current, Relaunched = resuming is not null,
+            });
+
+            // A TOKEN FOR THIS CHILD beside the budget's for the run: a move
+            // ends the child, and only the budget or a shutdown ends the run.
+            using var launch = CancellationTokenSource.CreateLinkedTokenSource(budget.Token);
+            var moved = request.Moved is { } signal
+                ? MovedAsync(signal, current, launch.Token)
+                : null;
+            string? next = null;
+
+            try
+            {
+                // Closed at once. A child that inherited an open stdin would wait
+                // on it forever in a runner with nothing to type.
+                process.StandardInput.Close();
+
+                var reading = ReadAsync(
+                    process, transcript, moves, request.Live, launch.Token, configuration.Forget);
+
+                if (moved is not null
+                    && await System.Threading.Tasks.Task.WhenAny((System.Threading.Tasks.Task)reading, moved) == moved)
+                {
+                    // MOVED. The child is ended where it is; what it wrote to the
+                    // tree survives, and the next child picks the conversation up
+                    // by the session id.
+                    next = await moved;
+                    await launch.CancelAsync();
+                    Stop(process);
+                    try
+                    {
+                        await reading;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // The read was ended by the move, which is this branch.
+                    }
+
+                    current = next;
+                    resuming = session;
+                    continue;
+                }
+
+                if (await reading is { } unstarted)
+                {
+                    // A DECLARED CAPABILITY GAP, answered, rather than a flight that
+                    // runs blind. The transcript is kept: the init line naming the
+                    // server is the evidence for the diagnosis, and it is the only
+                    // place that failure was ever written down.
+                    Stop(process);
+                    return await WithTranscriptAsync(
+                        ExecutorRun.Failed(
+                            request.LoopId, unstarted, attempts: 0, started.Elapsed, movesUsed: [])
+                        with { Launches = launches },
+                        request, transcript, cancellationToken);
+                }
+
+                await process.WaitForExitAsync(budget.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested
+                                                     && next is null)
+            {
+                // The budget, not a shutdown and not a move. Ending the process
+                // ends the turn wherever it was; whatever it had already written
+                // to the tree survives and gets measured, which is what makes
+                // this a state rather than a loss.
                 Stop(process);
                 return await WithTranscriptAsync(
-                    ExecutorRun.Failed(
-                        request.LoopId, unstarted, attempts: 0, started.Elapsed, movesUsed: []),
+                    ExecutorRun.Exhausted(request.LoopId, request.WallClock, moves)
+                    with { Launches = launches },
                     request, transcript, cancellationToken);
             }
 
-            await process.WaitForExitAsync(budget.Token);
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            // The budget, not a shutdown. Ending the process ends the turn
-            // wherever it was; whatever it had already written to the tree
-            // survives and gets measured, which is what makes this a state
-            // rather than a loss.
-            Stop(process);
-            return await WithTranscriptAsync(
-                ExecutorRun.Exhausted(request.LoopId, request.WallClock, moves),
-                request, transcript, cancellationToken);
+            break;
         }
 
         var recorded = transcript.ToString();
@@ -261,7 +317,7 @@ public sealed class ClaudeCodeExecutor(
         // read, and inventing one would be the guess this whole fact refuses.
         // Nothing is lost by that - AllowanceLedger counts the machine's
         // transcripts whatever the flight did.
-        outcome = outcome with { Spent = TranscriptTokens.Spent(recorded) };
+        outcome = outcome with { Spent = TranscriptTokens.Spent(recorded), Launches = launches };
 
         return await WithTranscriptAsync(outcome, request, transcript, cancellationToken);
     }
@@ -280,10 +336,16 @@ public sealed class ClaudeCodeExecutor(
     /// </remarks>
     /// <param name="resuming">
     /// The session to start over on a new model, or null for a first launch
-    /// (slice seventy-six). Nothing reads it yet.
+    /// (slice seventy-six). A resumed child is told in a line why it was
+    /// started over rather than handed the whole brief again.
+    /// </param>
+    /// <param name="session">
+    /// The id a first launch is given, so a child killed before it speaks is
+    /// still resumable; ignored when resuming, which keeps the id it had.
     /// </param>
     private ProcessStartInfo StartInfo(
-        ExecutorRequest request, string? secret = null, string? token = null, string? resuming = null)
+        ExecutorRequest request, string? secret = null, string? token = null,
+        string? resuming = null, string? session = null)
     {
         var info = new ProcessStartInfo
         {
@@ -299,9 +361,10 @@ public sealed class ClaudeCodeExecutor(
         };
 
         foreach (var argument in (string[])
-                 ["-p", Prompt(request),
+                 ["-p", resuming is null ? Prompt(request) : Continuation(request.Model),
                   "--output-format", "stream-json",
                   "--verbose",
+                  .. SessionArguments(resuming, session),
                   .. BoundingArguments(request, secret)])
         {
             info.ArgumentList.Add(argument);
@@ -1492,7 +1555,52 @@ public sealed class ClaudeCodeExecutor(
         Func<string, string?>? secretFor = null,
         string? resuming = null) =>
         new ClaudeCodeExecutor("claude", readers, secretFor, self)
-            .StartInfo(request, secret, resuming: resuming).ArgumentList;
+            .StartInfo(request, secret, resuming: resuming, session: Guid.NewGuid().ToString())
+            .ArgumentList;
+
+    /// <summary>
+    /// <c>--session-id</c> on a first launch, <c>--resume</c> on a relaunch
+    /// (slice seventy-six). Never both: a resumed session keeps its id.
+    /// </summary>
+    private static string[] SessionArguments(string? resuming, string? session) =>
+        resuming is { Length: > 0 } ? ["--resume", resuming]
+        : session is { Length: > 0 } ? ["--session-id", session]
+        : [];
+
+    /// <summary>
+    /// What a child started over is told, in place of the brief it already
+    /// has in its transcript.
+    /// </summary>
+    private static string Continuation(string? model) =>
+        $"A person moved this flight to {model ?? "the account's default model"} while you were "
+      + "working, so you have been started over on it with your conversation so far. Everything "
+      + "above still applies: carry on from where it leaves off. If a tool call was cut short, "
+      + "make it again.";
+
+    /// <summary>
+    /// Completes with the model a running child has been moved to, once one
+    /// arrives that is not the model it launched on.
+    /// </summary>
+    /// <remarks>
+    /// <b>Subscribe, then look, then wait</b> - in that order, so a move that
+    /// lands between the look and the wait completes the subscription rather
+    /// than being missed until the next one; and a move already pending when
+    /// the child starts is seen on the first look.
+    /// </remarks>
+    private static async Task<string> MovedAsync(
+        ModelMoves moves, string? current, CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            var next = moves.NextAsync(cancellationToken);
+            if (moves.Latest is { } latest && !string.Equals(latest, current, StringComparison.Ordinal))
+            {
+                return latest;
+            }
+
+            await next;
+        }
+    }
 
     private static string Tool(string move) => move switch
     {

@@ -209,14 +209,25 @@ public class TheRunnerMovesARunningFlightTests
         await Assert.That(run.Launches.Select(l => (l.Model ?? "<default>", l.Relaunched)))
             .IsEquivalentTo([("claude-sonnet-5-5", false), ("claude-opus-5-5", true)]);
 
+        // THE LOG IS THE CHILDREN'S WORD, and the first child may be killed
+        // before its shell reaches `echo` - a move already pending is acted on
+        // the instant the child starts. So the RUN's launches are the count,
+        // and the log proves the resume: its last line is a child started over
+        // on the new model by the id the runner chose, and a first line, when
+        // the shell got that far, carries that same id as --session-id.
         var launches = File.ReadAllLines(log);
-        await Assert.That(launches.Length).IsEqualTo(2)
-            .Because("one child killed, one started over. Launches:\n" + string.Join("\n", launches));
-        await Assert.That(launches[0]).Contains("--session-id").And.Contains("--model claude-sonnet-5-5");
-        await Assert.That(launches[1]).Contains("--resume").And.Contains("--model claude-opus-5-5");
-
-        var session = launches[0].Split(' ').SkipWhile(a => a != "--session-id").Skip(1).First();
-        await Assert.That(launches[1]).Contains("--resume " + session)
-            .Because("the second child continues the first's conversation, by the id the runner chose.");
+        var resumed = launches.Last();
+        await Assert.That(resumed).Contains("--resume").And.Contains("--model claude-opus-5-5")
+            .Because("the second child continues the first's conversation. Launches:\n"
+                   + string.Join("\n", launches));
+        var session = resumed.Split(' ').SkipWhile(a => a != "--resume").Skip(1).First();
+        await Assert.That(Guid.TryParse(session, out _)).IsTrue()
+            .Because("the id is the runner's, chosen before the first child spoke.");
+        await Assert.That(resumed.Contains("--session-id", StringComparison.Ordinal)).IsFalse();
+        if (launches.Length > 1)
+        {
+            await Assert.That(launches[0]).Contains("--session-id " + session)
+                .And.Contains("--model claude-sonnet-5-5");
+        }
     }
 }

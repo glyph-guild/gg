@@ -79,6 +79,11 @@ public static class EnvelopeText
         // key emitted empty would put a diff nobody made in every working copy
         // on the next pull - the preserve-unadmitted rule, applied to the one
         // line in this document written for a person rather than an agent.
+        if (envelope.Abstract is { } isAbstract)
+        {
+            text.Append($"abstract: {(isAbstract ? "true" : "false")}\n");
+        }
+
         if (envelope.Description is { Length: > 0 } description)
         {
             text.Append($"description: {Scalar(description)}\n");
@@ -269,39 +274,7 @@ public static class EnvelopeText
         text.Append("loops:\n");
         foreach (var loop in envelope.Loops)
         {
-            text.Append($"{Indent}{Scalar(loop.Id)}:\n");
-            text.Append($"{Indent}{Indent}executor: {Scalar(loop.Executor)}\n");
-
-            // Written only when named - absent is the account's default, and a
-            // written default would pin the document to the day it was rendered.
-            if (loop.Model is { } model)
-            {
-                text.Append($"{Indent}{Indent}model: {Scalar(model)}\n");
-            }
-
-            Sequence(text, "discharges", loop.Discharges, depth: 2);
-            Sequence(text, "moves", loop.Moves, depth: 2);
-            text.Append($"{Indent}{Indent}budget:\n");
-            text.Append($"{Indent}{Indent}{Indent}wall-clock: {Scalar(loop.Budget.WallClock)}\n");
-            // The other member this emitter dropped: stored via the wire,
-            // invisible in show, and refused by the parser on the way back in.
-            // Written only when declared, digits only - null is unbounded and
-            // stays unwritten.
-            if (loop.Budget.Attempts is { } attempts)
-            {
-                text.Append($"{Indent}{Indent}{Indent}attempts: {attempts.ToString(System.Globalization.CultureInfo.InvariantCulture)}\n");
-            }
-            text.Append($"{Indent}{Indent}on-exhaustion: {Scalar(loop.OnExhaustion)}\n");
-
-            if (loop.Mcp is { } uses)
-            {
-                text.Append($"{Indent}{Indent}mcp:\n");
-                foreach (var use in uses)
-                {
-                    text.Append($"{Indent}{Indent}{Indent}{Scalar(use.Server)}:\n");
-                    Sequence(text, "allow", use.Allow, depth: 4);
-                }
-            }
+            LoopBlock(text, loop);
         }
 
         text.Append("destinations:\n");
@@ -489,6 +462,140 @@ public static class EnvelopeText
     /// call sites do not have.
     /// </para>
     /// </remarks>
+    private static void LoopBlock(StringBuilder text, Loop loop)
+    {
+        text.Append($"{Indent}{Scalar(loop.Id)}:\n");
+        text.Append($"{Indent}{Indent}executor: {Scalar(loop.Executor)}\n");
+
+        // Written only when named - absent is the account's default, and a
+        // written default would pin the document to the day it was rendered.
+        if (loop.Model is { } model)
+        {
+            text.Append($"{Indent}{Indent}model: {Scalar(model)}\n");
+        }
+
+        Sequence(text, "discharges", loop.Discharges, depth: 2);
+        Sequence(text, "moves", loop.Moves, depth: 2);
+        text.Append($"{Indent}{Indent}budget:\n");
+        text.Append($"{Indent}{Indent}{Indent}wall-clock: {Scalar(loop.Budget.WallClock)}\n");
+        // The other member this emitter dropped: stored via the wire,
+        // invisible in show, and refused by the parser on the way back in.
+        // Written only when declared, digits only - null is unbounded and
+        // stays unwritten.
+        if (loop.Budget.Attempts is { } attempts)
+        {
+            text.Append($"{Indent}{Indent}{Indent}attempts: {attempts.ToString(System.Globalization.CultureInfo.InvariantCulture)}\n");
+        }
+        text.Append($"{Indent}{Indent}on-exhaustion: {Scalar(loop.OnExhaustion)}\n");
+
+        if (loop.Mcp is { } uses)
+        {
+            text.Append($"{Indent}{Indent}mcp:\n");
+            foreach (var use in uses)
+            {
+                text.Append($"{Indent}{Indent}{Indent}{Scalar(use.Server)}:\n");
+                Sequence(text, "allow", use.Allow, depth: 4);
+            }
+        }
+    }
+
+    /// <summary>
+    /// A work kind that extends another, in the form an author writes it: the
+    /// parent first, then only what it changes.
+    /// </summary>
+    /// <remarks>
+    /// Absent stays absent on every member, because a child that gained a line
+    /// by being written back would be a child that now overrides what it used
+    /// to inherit.
+    /// </remarks>
+    public static string Render(EnvelopeExtension extension)
+    {
+        ArgumentNullException.ThrowIfNull(extension);
+
+        var text = new StringBuilder();
+        text.Append($"extends: {Scalar(extension.Extends)}\n");
+
+        if (extension.Abstract is { } isAbstract)
+        {
+            text.Append($"abstract: {(isAbstract ? "true" : "false")}\n");
+        }
+
+        if (extension.Description is { } description)
+        {
+            text.Append($"description: {Scalar(description)}\n");
+        }
+
+        if (extension.Brief is { } brief)
+        {
+            text.Append($"brief: {Scalar(brief)}\n");
+        }
+
+        Bound(text, "hosts", extension.Hosts);
+
+        if (extension.Accepts is { } accepts)
+        {
+            Sequence(text, "accepts", accepts, depth: 0);
+        }
+
+        if (extension.Produces is { } produces)
+        {
+            Sequence(text, "produces", produces, depth: 0);
+        }
+
+        if (extension.Targeting is { } targeting)
+        {
+            text.Append($"targeting: {Scalar(targeting)}\n");
+        }
+
+        if (extension.Instructions.Count > 0)
+        {
+            AsWritten(text, "instructions", [.. extension.Instructions.Select(i => i.Text)], depth: 0);
+        }
+
+        if (extension.Remove is { } removed)
+        {
+            text.Append("remove:\n");
+            foreach (var (key, values) in ((string, IReadOnlyList<string>)[])
+                [("loops", removed.Loops), ("destinations", removed.Destinations),
+                 ("obligations", removed.Obligations), ("instructions", removed.Instructions)])
+            {
+                if (values.Count > 0)
+                {
+                    AsWritten(text, key, values, depth: 1);
+                }
+            }
+        }
+
+        if (extension.Obligations.Count > 0)
+        {
+            text.Append("obligations:\n");
+            foreach (var obligation in extension.Obligations.OrderBy(o => o.Id, StringComparer.Ordinal))
+            {
+                ObligationBlock(text, obligation, withLayers: false);
+            }
+        }
+
+        if (extension.Loops.Count > 0)
+        {
+            text.Append("loops:\n");
+            foreach (var loop in extension.Loops)
+            {
+                LoopBlock(text, loop);
+            }
+        }
+
+        if (extension.Destinations.Count > 0)
+        {
+            text.Append("destinations:\n");
+            foreach (var destination in extension.Destinations)
+            {
+                DestinationBlock(text, destination);
+            }
+        }
+
+        return text.ToString();
+    }
+
     private static void McpServerBlock(StringBuilder text, McpServer server)
     {
         text.Append($"{Indent}{Scalar(server.Key)}:\n");

@@ -1533,5 +1533,11 @@
     "surface": "7a52a0fba3a6ae23ff7102c78439e3e4d61b8380bf065caf6c4222031b0c3f5f",
     "endpoints": "77ba4b72cdd1eb618490a9d45b87e04c3f532af195dd344a3370051965b22226",
     "note": "A person moves a flight to another model, where root allows it (slice seventy-six). Envelope gains Models (root-only, nullable: the names a person may move one flight to; null is off, empty is refused, growing is a widening and listing anything where nothing was listed turns the door on). FlightLaunchRequest gains Model (gg fly --model, held to root's list at ingress), LeaseRenewed gains Model (the lease is composed again on every renewal, and this is where a runner holding a child learns a move), and FlightSummary gains Model (the choice in force). A new fact kind, loop.model, is shipped once per launch of the agent with the flag the runner passed or null for the account's default, and whether the child was started over - so THE FACT VOCABULARY MOVES 0.43.0 -> 0.44.0 with it. The door itself, POST /v1/flights/{ref}/model with FlightModelRequest (a person's, grounding's shape plus a 400 whose detail names root's list), moves the ENDPOINT fingerprint too. The control plane's reader and pump land in the PR that pins this version."
+  },
+  {
+    "version": "0.297.0",
+    "surface": "a516ef37a46ed21d9010bcdb1cf1788ec28621acc9497c838ba05fa4149ac383",
+    "endpoints": "77ba4b72cdd1eb618490a9d45b87e04c3f532af195dd344a3370051965b22226",
+    "note": "A work kind may extend another (slice seventy-seven, ADR-0041). EnvelopeExtension names its parent and only what it changes - every member optional but extends, no root-governed member - with ExtensionRemovals taking loops, destinations and obligations away by id and instructions by exact text. WorkKindChain.Resolve applies a chain top down into one effective work kind: a named entry replaces its parent's whole, a list replaces whole, a scalar wins, instructions append, a removal that matches nothing is refused naming it, and the leaf is held to every envelope rule. Envelope gains Abstract (work-kind-only, nullable, not inherited): an abstract kind may carry no destination, and becoming flyable is a widening. EnvelopeYaml.ParseExtension reads a child, the full door refuses extends: by name, and EnvelopeText.Render writes a child back as authored."
   }
 ]

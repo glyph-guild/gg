@@ -224,6 +224,8 @@ public static class Vocabulary
         typeof(DestinationSelection),
         typeof(Envelope),
         typeof(EnvelopeNarrowing),
+        typeof(EnvelopeExtension),
+        typeof(ExtensionRemovals),
         typeof(LearnedContext),
         typeof(LearnedAgainst),
         typeof(EnvelopeVariable),

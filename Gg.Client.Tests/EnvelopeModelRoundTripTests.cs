@@ -32,6 +32,9 @@ public class EnvelopeModelRoundTripTests
     {
         Context = new ContextBinding { Scope = "src/**", Constitution = "1.10" },
         Brief = "Score this work item against the rubric and write the score to the tracker.",
+        // A ONE-DESTINATION ABSTRACT KIND, which Validate admits: abstract
+        // allows none and refuses only a second.
+        Abstract = true,
         // A STACK SCRIPT, which requires `hosts:` - Validate refuses one without
         // an environment to run in, because nothing would ever perform it.
         Environments = ["aspire-payments"],
@@ -147,6 +150,8 @@ public class EnvelopeModelRoundTripTests
             .Because("1.10 staying 1.10 is the Norway problem this form exists to close.");
         await Assert.That(back.Environments).IsEquivalentTo(original.Environments!);
         await Assert.That(back.Repositories).IsEquivalentTo(original.Repositories!);
+        await Assert.That(back.Abstract).IsEqualTo(original.Abstract)
+            .Because("an abstract kind read back as flyable is a widening through a round trip.");
         await Assert.That(back.Targeting).IsEqualTo(original.Targeting)
             .Because("a strategy that did not survive the text form would be re-read as "
                    + "absent, and absent means `any` - so editing any other line in the "
@@ -323,7 +328,7 @@ public class EnvelopeModelRoundTripTests
         // rendered' shipped twice because nothing forced that decision.
         string[] covered =
         [
-            nameof(Envelope.Description), nameof(Envelope.Brief),
+            nameof(Envelope.Description), nameof(Envelope.Abstract), nameof(Envelope.Brief),
             nameof(Envelope.Context), nameof(Envelope.Environments), nameof(Envelope.Repositories),
             // THE LEGACY SPELLINGS, exempted rather than covered: they are read
             // so a stored document keeps its bound and are deliberately NEVER

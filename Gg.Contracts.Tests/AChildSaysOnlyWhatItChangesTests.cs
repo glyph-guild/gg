@@ -1,4 +1,5 @@
 using Gg.Contracts;
+using Gg.Contracts.Authoring;
 
 namespace Gg.Contracts.Tests;
 
@@ -29,8 +30,8 @@ public class AChildSaysOnlyWhatItChangesTests
         await Assert.That(effective.Brief).IsEqualTo("Investigate the work item and write the plan to its tracker.");
         await Assert.That(effective.Description).IsEqualTo("Analyse a work item.");
         await Assert.That(effective.Context.Scope).IsEqualTo("**");
-        await Assert.That(effective.Accepts!).IsEquivalentTo(new[] { "repository" });
-        await Assert.That(effective.Produces!).IsEquivalentTo(new[] { "destination.landed" })
+        await Assert.That(effective.Accepts).IsEquivalentTo(new[] { "repository" });
+        await Assert.That(effective.Produces).IsEquivalentTo(new[] { "destination.landed" })
             .Because("a list the child names replaces its parent's whole.");
     }
 

@@ -67,7 +67,7 @@ public abstract record VerbResult
     /// FROM the log, and the log stays the machine-readable record three walks grep
     /// and a support bundle carries.
     /// </remarks>
-    public sealed record Story(FlightStory Value, LegHold? Held = null) : VerbResult
+    public sealed record Story(FlightStory Value, LegHold? Held = null, string? Model = null) : VerbResult
     {
         public override string Kind => VerbResultKinds.Story;
     }
@@ -1128,7 +1128,7 @@ public static class VerbOutput
         VerbResult.Launched r => Launched(r.Value),
         VerbResult.Log r => Log(r.Value),
         VerbResult.Facts r => Facts(r.Value),
-        VerbResult.Story r => StoryText(r.Value, r.Held),
+        VerbResult.Story r => StoryText(r.Value, r.Held, r.Model),
         VerbResult.Runners r => Runners(r.Value),
         VerbResult.Invited r => Invited(r.Value),
         VerbResult.Diagnosis r => Diagnosis(r.Value),
@@ -2025,7 +2025,7 @@ public static class VerbOutput
     /// owes an answer to. They are the same objects, never a second derivation.
     /// </para>
     /// </remarks>
-    private static string StoryText(FlightStory story, LegHold? held = null)
+    private static string StoryText(FlightStory story, LegHold? held = null, string? model = null)
     {
         var text = new StringBuilder();
 
@@ -2038,6 +2038,11 @@ public static class VerbOutput
         // treat the stage as an ending.
         text.AppendLine($"  stage       {Staged(story.Stage)}");
         text.AppendLine($"  state       {Rendered(story.State)}");
+        if (model is { Length: > 0 })
+        {
+            // THE CHOICE IN FORCE, when a person made one (slice seventy-six).
+            text.AppendLine($"  model       {Clean(model)}");
+        }
 
         if (story.Waiting is { } waiting)
         {

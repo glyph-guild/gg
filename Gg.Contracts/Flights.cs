@@ -821,6 +821,28 @@ public sealed record FlightGroundingRequest
     public required string Because { get; init; }
 }
 
+/// <summary>
+/// Which model a person moves a flight in the air to.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>A name, and nothing else</b> (slice seventy-six). The control plane
+/// holds it to root's <c>models:</c> and refuses, naming the list, when root
+/// lists nothing or the name is outside it; it refuses a flight that has ended
+/// and a loop that runs no model. The same name twice records nothing.
+/// </para>
+/// <para>
+/// <b>Nothing about who</b>, for <see cref="FlightGroundingRequest"/>'s
+/// reason: the actor is the authenticated principal.
+/// </para>
+/// </remarks>
+[PinnedId("9a4e6d12-7b3f-4c05-8e2a-d1f6b8c35e47")]
+public sealed record FlightModelRequest
+{
+    /// <summary>The model, as the agent client names one.</summary>
+    public required string Model { get; init; }
+}
+
 /// <summary>A flight's log, oldest first.</summary>
 [PinnedId("bf4fdf2b-d551-4f8f-b18b-e81a01e51b6e")]
 public sealed record FlightLog

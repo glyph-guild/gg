@@ -265,4 +265,31 @@ public class FlightCommandTests
         await Assert.That(undeclared).IsEmpty()
             .Because($"undeclared: {string.Join(", ", undeclared)}");
     }
+
+    [Test]
+    public async Task Fly_sends_the_model_it_was_given_and_nothing_when_none_was()
+    {
+        // S76: gg fly --model. Sent as a declared member beside environment, and
+        // held to root's list by the control plane rather than here - the
+        // refusal it writes names the list, which this side cannot see.
+        await using var stub = new StubControlPlane();
+        await Build(stub).FlyAsync(text: "investigate", uri: null, model: "claude-sonnet-5-5");
+        await Assert.That(stub.LastBody).Contains("\"model\":\"claude-sonnet-5-5\"");
+
+        await Build(stub).FlyAsync(text: "investigate", uri: null);
+        await Assert.That(stub.LastBody.Contains("\"model\"", StringComparison.Ordinal)).IsFalse()
+            .Because("absent stays absent: a flight that chose nothing says nothing.");
+    }
+
+    [Test]
+    public async Task Model_posts_to_the_flights_model_door_and_reads_the_flight()
+    {
+        await using var stub = new StubControlPlane();
+        var result = await Build(stub).ModelAsync("GG-42", "claude-sonnet-5-5");
+        await Assert.That(stub.ObservedPaths).Contains("/v1/flights/GG-42/model");
+        await Assert.That(stub.LastBody).Contains("\"model\":\"claude-sonnet-5-5\"");
+        await Assert.That(result).IsTypeOf<VerbResult.Flight>()
+            .Because("the door answers 202 with no body, so this does the reading - the flight "
+                   + "as it now stands is what a person who just moved it wants to see.");
+    }
 }

@@ -792,6 +792,16 @@ public sealed class FlightCommands(
     /// caller to. What comes back is the flight in its ending, which is the one
     /// thing a person who just grounded something wants to see.
     /// </remarks>
+    /// <summary>
+    /// Moves a flight to another model root lists, and answers with the flight
+    /// as it now stands (slice seventy-six).
+    /// </summary>
+    public Task<VerbResult> ModelAsync(
+        string reference,
+        string model,
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("not built: the door is declared and nothing opens it yet.");
+
     public async Task<VerbResult> GroundAsync(
         string reference,
         string because,
@@ -1978,7 +1988,10 @@ public sealed class FlightCommands(
         // records; a copy read here would be a second version nothing recorded.
         string? fileRepository = null,
         string? filePath = null,
-        string? fileRef = null)
+        string? fileRef = null,
+        // WHICH MODEL, chosen against root's models: (slice seventy-six), or null
+        // for the loop's own choice. Held to the list by the control plane.
+        string? model = null)
     {
         var token = Session();
 

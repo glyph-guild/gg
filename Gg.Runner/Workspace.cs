@@ -39,6 +39,18 @@ public interface IWorkspace
         IReadOnlyDictionary<string, string> secretsByLocator,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// The same, fetched to a depth: the tip, or a year back for a loop that
+    /// reads history. A workspace that does not say otherwise fetches the tip.
+    /// </summary>
+    Task<WorkspaceResult> PrepareAsync(
+        string flightId,
+        IReadOnlyList<LeaseRepoRef> repos,
+        IReadOnlyDictionary<string, string> secretsByLocator,
+        FetchDepth depth,
+        CancellationToken cancellationToken = default) =>
+        PrepareAsync(flightId, repos, secretsByLocator, cancellationToken);
+
     /// <summary>Removes everything this flight put on disk.</summary>
     void Release(string flightId);
 
@@ -136,7 +148,7 @@ public sealed class Workspace : IWorkspace
                     ContinuesFrom = repo.ContinuesFrom,
                 },
                 secret,
-                cancellationToken));
+                cancellationToken: cancellationToken));
         }
 
         // CREATED EVEN WHEN NOTHING WAS CLONED, because a flight with no

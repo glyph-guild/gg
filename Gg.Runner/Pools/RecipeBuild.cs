@@ -107,7 +107,7 @@ public sealed class GitRecipeSource(
         {
             Directory.CreateDirectory(scratchDirectory);
             cloned = await adapter.CloneAsync(
-                target, resolved.Value, clone, _secretFor(target), cancellationToken);
+                target, resolved.Value, clone, _secretFor(target), FetchDepth.Tip, cancellationToken);
         }
         catch (Exception failed) when (failed is InvalidOperationException
                                           or VcsCapabilityException

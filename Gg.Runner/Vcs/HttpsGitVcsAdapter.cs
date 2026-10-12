@@ -71,6 +71,7 @@ public sealed class HttpsGitVcsAdapter(string provider, string host, VcsCapabili
 
     public Task<CloneOutcome> CloneAsync(
         RepoTarget target, string resolvedRef, string intoDirectory, string? secret,
+        FetchDepth? depth = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(target);
@@ -78,7 +79,7 @@ public sealed class HttpsGitVcsAdapter(string provider, string host, VcsCapabili
         // The BASE repository. A fork's head is served from here too, which is
         // the decision that removes a whole class of problem.
         return GitWorkingTree.FetchAsync(
-            $"https://{_host}/{target.Slug}.git", resolvedRef, intoDirectory, secret, cancellationToken);
+            $"https://{_host}/{target.Slug}.git", resolvedRef, intoDirectory, secret, depth, cancellationToken);
     }
 
     /// <summary>Brings the base ref onto the same disk, so a diff has two points.</summary>

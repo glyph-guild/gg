@@ -101,9 +101,10 @@ public sealed class PathScopedGitVcsAdapter(string provider, string host) : IVcs
 
     public Task<CloneOutcome> CloneAsync(
         RepoTarget target, string resolvedRef, string intoDirectory, string? secret,
+        FetchDepth? depth = null,
         CancellationToken cancellationToken = default) =>
         GitWorkingTree.FetchAsync(
-            CloneUrlFor(target), resolvedRef, intoDirectory, secret, cancellationToken);
+            CloneUrlFor(target), resolvedRef, intoDirectory, secret, depth, cancellationToken);
 
     public Task<string> FetchAlsoAsync(
         RepoTarget target, string resolvedRef, string intoDirectory, string? secret,

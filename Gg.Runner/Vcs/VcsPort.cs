@@ -142,6 +142,7 @@ public interface IVcsAdapter
     /// </summary>
     Task<CloneOutcome> CloneAsync(
         RepoTarget target, string resolvedRef, string intoDirectory, string? secret,
+        FetchDepth? depth = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

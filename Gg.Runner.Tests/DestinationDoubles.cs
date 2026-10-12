@@ -80,8 +80,9 @@ internal sealed class AuthenticatingProvider(LocalVcsAdapter inner) : IVcsAdapte
     // therefore the write scope - meaningful.
     public Task<CloneOutcome> CloneAsync(
         RepoTarget target, string resolvedRef, string intoDirectory, string? secret,
+        FetchDepth? depth = null,
         CancellationToken cancellationToken = default) =>
-        inner.CloneAsync(target, resolvedRef, intoDirectory, secret: null, cancellationToken);
+        inner.CloneAsync(target, resolvedRef, intoDirectory, secret: null, depth, cancellationToken);
 
     public Task<string> FetchAlsoAsync(
         RepoTarget target, string resolvedRef, string intoDirectory, string? secret,

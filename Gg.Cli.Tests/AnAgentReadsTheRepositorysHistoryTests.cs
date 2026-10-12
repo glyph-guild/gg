@@ -70,10 +70,33 @@ public class AnAgentReadsTheRepositorysHistoryTests
         var tree = Path.Combine(Path.GetTempPath(), "gg-history-" + Guid.NewGuid().ToString("N"));
         foreach (var repository in repositories)
         {
-            Directory.CreateDirectory(Path.Combine(tree, repository));
+            // A REPOSITORY HAS A .git. A flight's tree also holds its scratch
+            // directory, which is not one.
+            Directory.CreateDirectory(Path.Combine(tree, repository, ".git"));
         }
 
         return tree;
+    }
+
+    [Test]
+    public async Task A_directory_with_no_git_in_it_is_not_a_repository()
+    {
+        // GG-1084 WAS ASKED TO CHOOSE between its repository and its scratch
+        // directory, and recovered by naming the repository. A directory with
+        // no .git is not a choice, by default or by name.
+        var tree = ATree("5b2c9211f718b10f");
+        Directory.CreateDirectory(Path.Combine(tree, "scratch"));
+
+        var (answer, ran) = await CallAsync(tree, new { command = "log", arguments = new[] { "-1" } });
+
+        await Assert.That(Failed(answer)).IsFalse().Because(Said(answer));
+        await Assert.That(ran[0].WorkingDirectory).IsEqualTo(Path.Combine(tree, "5b2c9211f718b10f"))
+            .Because("the one repository is the default, and scratch is not a second one.");
+
+        var (named, ranNamed) = await CallAsync(tree, new { repository = "scratch", command = "log" });
+
+        await Assert.That(Failed(named)).IsTrue().Because("scratch holds no .git, so it is nothing to read.");
+        await Assert.That(ranNamed).IsEmpty();
     }
 
     [Test]

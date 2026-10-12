@@ -98,7 +98,7 @@ public class RealPathScopedWiringTests
             // THE READ, through the adapter. The url this forge takes is the
             // adapter's answer, not a string this test composed.
             var clone = await reader.CloneAsync(
-                target, ((RefResolution.Ref)resolution).Value, tree, secret, CancellationToken.None);
+                target, ((RefResolution.Ref)resolution).Value, tree, secret, FetchDepth.Tip, CancellationToken.None);
 
             await Assert.That(clone.HeadCommit).Length().IsEqualTo(40)
                 .Because("this is the assertion step 0 could only make with git directly: the "

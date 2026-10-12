@@ -97,6 +97,7 @@ public static class Modals
         // pane because it is answered and gone: what it collects is spent by
         // the send that follows the session.
         UiMode.CredentialRepositoryChoice,
+        UiMode.ModelChoice,
 
         // THE ONE THAT OPENS OVER ANOTHER MODAL, and the one that takes the
         // whole screen rather than a document's 92 by 88. Both of those are

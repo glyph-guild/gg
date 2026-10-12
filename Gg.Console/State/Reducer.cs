@@ -352,6 +352,7 @@ public static class Reducer
             // nothing and `x` stopped grounding - a confirmation added to
             // grounding that broke grounding.
             Command.AskToGround => Modal(state, UiMode.ConfirmGround),
+            Command.ChooseModel => ModelAsked(state),
             Command.AskWhoMayClaim => Modal(state, UiMode.ConfirmOwnership),
             Command.AskToRevokeToken => Modal(state, UiMode.ConfirmRevoke),
             Command.AskToFlyAgain => Modal(state, UiMode.ConfirmFlyAgain),
@@ -492,6 +493,9 @@ public static class Reducer
             Command.ChooseCredentialRepository =>
                 CredentialRepositoryAsked(state) with { ReadInFlight = true },
 
+            // THE SHELL'S, like the writes beside it: the picker's cursor is the
+            // answer and the loop reads it (slice seventy-six).
+            Command.MoveFlight => state,
             Command.ComposeInEditor => state,
             Command.ComposeWithAgent => state,
             Command.PlanWithAgent => state,
@@ -1745,6 +1749,26 @@ public static class Reducer
     /// one has a synthetic row LAST, so the end that needs room is the other
     /// one.
     /// </remarks>
+    /// <summary>
+    /// Opens the picker of root's models for the flight on the screen (slice
+    /// seventy-six), with the cursor at the top for the reason the credential
+    /// chooser's is: a cursor left where it was would offer a different model
+    /// than the one somebody is looking at.
+    /// </summary>
+    public static AppState ModelAsked(AppState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        return Modal(state, UiMode.ModelChoice) with { ModelSelected = 0 };
+    }
+
+    private static AppState PickModel(AppState state, int row)
+    {
+        var rows = ModelChoices.Rows(state).Count;
+        return rows == 0
+            ? state with { ModelSelected = 0 }
+            : state with { ModelSelected = Math.Clamp(row, 0, rows - 1) };
+    }
+
     private static AppState PickCredentialRepository(AppState state, int row)
     {
         // AN EMPTY LIST IS REACHABLE NOW, and it was not while the chooser
@@ -1897,6 +1921,8 @@ public static class Reducer
             ? PickWorkKind(state, state.KindSelected + by)
             : state.Mode is UiMode.CredentialRepositoryChoice
             ? PickCredentialRepository(state, state.CredentialRepoSelected + by)
+            : state.Mode is UiMode.ModelChoice
+            ? PickModel(state, state.ModelSelected + by)
             : state.Mode is UiMode.CredentialWizard
             ? PickWizardRow(state, (state.CredentialDraft?.Cursor ?? 0) + by)
             : state.Mode is UiMode.BrowseFilter
@@ -2161,6 +2187,13 @@ public static class Reducer
         if (state.Mode is UiMode.CredentialRepositoryChoice)
         {
             return PickCredentialRepository(state, row);
+        }
+
+        // AND THE MODELS, for the same reason: the tab behind the picker is the
+        // flights tab, and falling through would move its cursor.
+        if (state.Mode is UiMode.ModelChoice)
+        {
+            return PickModel(state, row);
         }
 
         // AND THE WIZARD'S LIST, for the same reason: the tab behind it is the

@@ -810,8 +810,16 @@ public sealed class ConsoleLoop(
                     break;
 
                 case Command.MoveFlight:
-                    // NOT YET: the delegate is declared and nothing calls it (red).
-                    _ = moveFlight;
+                    // A WRITE, between sessions like grounding. Handed the state
+                    // UNCLOSED, because the picker's cursor is the answer and it
+                    // reads as nothing once the mode is Normal; the delegate
+                    // closes it on the way back.
+                    state = moveFlight is null
+                        ? Closed(state) with
+                        {
+                            LastMoved = "This console is not configured to move flights.",
+                        }
+                        : moveFlight(state);
                     break;
 
                 case Command.GroundFlight:
@@ -1447,6 +1455,7 @@ public sealed class ConsoleLoop(
         : after.LastHandFlight != before.LastHandFlight ? after.LastHandFlight
         : after.LastRunner != before.LastRunner ? after.LastRunner
         : after.LastGrounded != before.LastGrounded ? after.LastGrounded
+        : after.LastMoved != before.LastMoved ? after.LastMoved
         : after.LastSignIn != before.LastSignIn ? after.LastSignIn
         : before.LastAction;
 

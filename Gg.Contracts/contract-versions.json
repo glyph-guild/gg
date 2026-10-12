@@ -1530,8 +1530,8 @@
   },
   {
     "version": "0.296.0",
-    "surface": "aaf25fc760bd7180ac30e7ec1d0b72e8a21b1e072b8059e2f32c1f7368afd00b",
-    "endpoints": "34d2aefdb68250139a09bfeafaa579c0cc2aa8a02391428c3ea48ab3e5f372d7",
-    "note": "A person moves a flight to another model, where root allows it (slice seventy-six). Envelope gains Models (root-only, nullable: the names a person may move one flight to; null is off, empty is refused, growing is a widening and listing anything where nothing was listed turns the door on). FlightLaunchRequest gains Model (gg fly --model, held to root's list at ingress), LeaseRenewed gains Model (the lease is composed again on every renewal, and this is where a runner holding a child learns a move), and FlightSummary gains Model (the choice in force). A new fact kind, loop.model, is shipped once per launch of the agent with the flag the runner passed or null for the account's default, and whether the child was started over - so THE FACT VOCABULARY MOVES 0.43.0 -> 0.44.0 with it. The control plane's door, reader and pump land in the PR that pins this version."
+    "surface": "7a52a0fba3a6ae23ff7102c78439e3e4d61b8380bf065caf6c4222031b0c3f5f",
+    "endpoints": "77ba4b72cdd1eb618490a9d45b87e04c3f532af195dd344a3370051965b22226",
+    "note": "A person moves a flight to another model, where root allows it (slice seventy-six). Envelope gains Models (root-only, nullable: the names a person may move one flight to; null is off, empty is refused, growing is a widening and listing anything where nothing was listed turns the door on). FlightLaunchRequest gains Model (gg fly --model, held to root's list at ingress), LeaseRenewed gains Model (the lease is composed again on every renewal, and this is where a runner holding a child learns a move), and FlightSummary gains Model (the choice in force). A new fact kind, loop.model, is shipped once per launch of the agent with the flag the runner passed or null for the account's default, and whether the child was started over - so THE FACT VOCABULARY MOVES 0.43.0 -> 0.44.0 with it. The door itself, POST /v1/flights/{ref}/model with FlightModelRequest (a person's, grounding's shape plus a 400 whose detail names root's list), moves the ENDPOINT fingerprint too. The control plane's reader and pump land in the PR that pins this version."
   }
 ]

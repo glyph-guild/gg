@@ -570,7 +570,10 @@ public class EndpointSurfaceTests
         // AND 0.290.0 ADDS POST /v1/auth/delegations, a person's session for one agent
         // session, and marks the 22 routes the gg tool servers call as Delegable (ADR-0039
         // Amendment 2) - the text above now names `delegable` for each.
-            .IsEqualTo("34d2aefdb68250139a09bfeafaa579c0cc2aa8a02391428c3ea48ab3e5f372d7")
+        // AND 0.296.0 ADDS POST /v1/flights/{ref}/model: a person moves a flight in the air to
+        // another model root's `models:` lists (slice seventy-six), grounding's shape plus a
+        // 400 whose detail names the list. Delegable, as grounding is.
+            .IsEqualTo("77ba4b72cdd1eb618490a9d45b87e04c3f532af195dd344a3370051965b22226")
             .Because("an endpoint moved. If that was deliberate, record what and why here - "
                    + "and note that the contract VERSION does not move for this, which is the "
                    + "gap the test above names.");

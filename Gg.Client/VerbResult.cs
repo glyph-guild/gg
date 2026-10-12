@@ -1383,9 +1383,18 @@ public static class VerbOutput
         // "Nothing changed" is an answer, not a non-event. A version minted per
         // apply would make "which rules governed this change" differ for two
         // flights that ran under the same rules.
+        // A WIDENING DIVERTED TO A GATE IS NOT "NOTHING". The version did not move,
+        // and the request is waiting on somebody - saying only the first half
+        // sent a person to apply again, which opened a second gate for one
+        // change (slice seventy-six's root models:).
         text.AppendLine(applied.Changed
             ? $"Applied. This envelope is now {Clean(applied.Version)}."
-            : $"Nothing changed. The envelope is still {Clean(applied.Version)}.");
+            : applied.Flight is { Length: > 0 } flight
+                ? $"Waiting. This widens {Clean(applied.Widens ?? "the envelope")}, so it rides flight "
+                + $"{Clean(flight)} and waits on {Clean(applied.Awaiting ?? "its approver")}. The envelope "
+                + $"is still {Clean(applied.Version)} until that gate is answered; applying again "
+                + "opens a second one."
+                : $"Nothing changed. The envelope is still {Clean(applied.Version)}.");
 
         foreach (var note in notes)
         {

@@ -25,13 +25,14 @@ internal static class GitWorkingTree
 {
     internal static async Task<CloneOutcome> FetchAsync(
         string url, string resolvedRef, string intoDirectory, string? secret,
+        FetchDepth? depth = null,
         CancellationToken cancellationToken = default)
     {
         Directory.CreateDirectory(intoDirectory);
 
         await GitInvocation.Plain("init", "--quiet").RunAsync(intoDirectory, cancellationToken);
 
-        await GitInvocation.Fetch(url, resolvedRef, secret).RunAsync(intoDirectory, cancellationToken);
+        await GitInvocation.Fetch(url, resolvedRef, secret, depth).RunAsync(intoDirectory, cancellationToken);
 
         // FETCH_HEAD, not a branch: the pinned ref may be a pull-request head
         // that is on no branch of the base repository, which is exactly the

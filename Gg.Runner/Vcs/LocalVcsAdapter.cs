@@ -113,6 +113,7 @@ public sealed class LocalVcsAdapter(string? root = null) : IVcsAdapter
 
     public async Task<CloneOutcome> CloneAsync(
         RepoTarget target, string resolvedRef, string intoDirectory, string? secret,
+        FetchDepth? depth = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(target);
@@ -128,7 +129,7 @@ public sealed class LocalVcsAdapter(string? root = null) : IVcsAdapter
 
         return await GitWorkingTree.FetchAsync(
             new Uri(Bounded(target.Slug)).AbsoluteUri, resolvedRef, intoDirectory,
-            secret: null, cancellationToken);
+            secret: null, depth, cancellationToken);
     }
 
     public Task<string> FetchAlsoAsync(

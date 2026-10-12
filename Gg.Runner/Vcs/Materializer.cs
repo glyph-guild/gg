@@ -82,7 +82,8 @@ public sealed class Materializer(IVcsAdapter adapter, WorkingTreeRoot trees)
     private readonly WorkingTreeRoot _trees = trees;
 
     public async Task<Materialized> MaterializeAsync(
-        string flightId, RepoTarget target, string? secret, CancellationToken cancellationToken = default)
+        string flightId, RepoTarget target, string? secret, FetchDepth? depth = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(target);
 
@@ -104,7 +105,7 @@ public sealed class Materializer(IVcsAdapter adapter, WorkingTreeRoot trees)
         var directory = _trees.Prepare(flightId, target.Slug);
 
         var outcome = await _adapter.CloneAsync(
-            target, resolved.Value, directory, secret, cancellationToken);
+            target, resolved.Value, directory, secret, depth, cancellationToken);
 
         // THE BASE IS WHAT WAS CHECKED OUT, decided here because here is where it
         // is known. It used to be a second ref fetched from what the lease named,

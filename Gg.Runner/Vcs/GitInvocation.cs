@@ -47,7 +47,7 @@ public sealed record GitInvocation
     /// prompts hangs until its lease expires.
     /// </para>
     /// </remarks>
-    public static GitInvocation Fetch(string url, string resolvedRef, string? secret)
+    public static GitInvocation Fetch(string url, string resolvedRef, string? secret, FetchDepth? depth = null)
     {
         var arguments = new List<string>
         {

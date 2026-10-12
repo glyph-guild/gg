@@ -445,6 +445,7 @@ internal sealed class NoPullRequestsAdapter : IVcsAdapter
 
     public Task<CloneOutcome> CloneAsync(
         RepoTarget target, string resolvedRef, string intoDirectory, string? secret,
+        FetchDepth? depth = null,
         CancellationToken cancellationToken = default)
     {
         CloneAttempts++;

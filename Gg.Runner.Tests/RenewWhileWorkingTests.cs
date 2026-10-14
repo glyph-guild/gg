@@ -180,7 +180,7 @@ public class RenewWhileWorkingTests
         };
 
         await Build(protocol, clock, observer,
-                trees.Workspace(new LocalVcsAdapter(fixture.Directory)), executor)
+                await ReadyWorkspace.Of(trees.Workspace(new LocalVcsAdapter(fixture.Directory)), ALeaseFor(fixture, T0)), executor)
             .RunAsync("runner-1", ["linux"], stopping.Token);
 
         await Assert.That(cancelled).IsTrue()

@@ -1557,5 +1557,11 @@
     "surface": "d6ca50932ada38738befdd1f832eb3d244d427bc25dc237da4a82ea667448a3a",
     "endpoints": "77ba4b72cdd1eb618490a9d45b87e04c3f532af195dd344a3370051965b22226",
     "note": "An abstract work kind may be applied (slice seventy-seven). EnvelopeComposition.MayApply asks whether a document may be stored by composing it, and composition refuses an abstract leaf because nothing is governed by one - so the base nobody flies could never be applied. MayApply now composes the candidate as if it were not abstract; Compose still refuses to govern a flight by one. THE WIRE SURFACE DOES NOT MOVE, so this entry repeats 0.299.0's fingerprints, on 0.293.0's precedent: it costs a package version because the control plane's apply door calls MayApply."
+  },
+  {
+    "version": "0.301.0",
+    "surface": "58d9cbbaec3b827917d9cae7d5682ee7e029a9f516b7128852c79979b258431c",
+    "endpoints": "77ba4b72cdd1eb618490a9d45b87e04c3f532af195dd344a3370051965b22226",
+    "note": "A channel falls back to a relay (slice seventy-eight, ADR-0042). IceServer (urls, username, credential) is new, and RunnerIntroduction and PendingIntroduction each carry IceServers: the servers minted for the side that reads them, a TURN relay among them. Both are optional and read as empty when absent, so a control plane that predates them sends nothing and each side uses its own stun-servers as before. No route moves."
   }
 ]

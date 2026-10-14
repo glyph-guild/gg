@@ -194,10 +194,12 @@ public sealed class ConsoleChannel(
               + $"run: gg runner repin {introduction.RunnerId}");
         }
 
-        var peer = new RTCPeerConnection(new RTCConfiguration
-        {
-            iceServers = [.. stunServers.Select(u => new RTCIceServer { urls = u })],
-        });
+        // THE INTRODUCTION'S SERVERS, WHOLE, when it carried any (ADR-0042):
+        // minted for this console, a relay among them. This console's own
+        // stun-servers otherwise, as before the control plane minted anything.
+        var servers = IceServer.Choose(introduction.IceServers, stunServers);
+
+        var peer = new RTCPeerConnection(Configured(servers, relayOnly));
 
         // EVERY FAILURE BELOW CLOSES THE PEER, and cancellation is the exit none
         // of them is written for. The registration is disposed on the way out,
@@ -321,12 +323,14 @@ public sealed class ConsoleChannel(
         {
             peer.close();
             return new Reached(
-                null, ReachFailure.NoRouteBetweenUs, NoRoute(stunServers.Count > 0));
+                null, ReachFailure.NoRouteBetweenUs, NoRoute(servers));
         }
 
-        say("connected");
+        var path = PathOf(peer);
 
-        return new Reached(new Conversation(peer, channel), ReachFailure.None, "reached");
+        say(path is { } went ? $"connected, {ChannelPaths.Said(went)}" : "connected");
+
+        return new Reached(new Conversation(peer, channel), ReachFailure.None, "reached", path);
     }
 
     /// <summary>Why no route was found, which depends on whether one was sought.</summary>
@@ -358,11 +362,51 @@ public sealed class ConsoleChannel(
             + "well-known server belongs to somebody, and which one to depend on is not this "
             + "binary's decision to make.";
 
-    /// <summary>Gathers only relayed candidates, which is how a test proves the relay.</summary>
-    internal bool RelayOnly => relayOnly;
-
     /// <summary>Why no route was found, given the servers this channel asked.</summary>
-    public static string NoRoute(IReadOnlyList<IceServer> asked) => NoRoute(asked.Count > 0);
+    /// <remarks>
+    /// <b>A relay changes what no route means.</b> Without one, it is hole
+    /// punching that failed between two networks - the case the relay exists
+    /// for. With one offered and still no route, this machine could not reach
+    /// even the relay: UDP and TCP to it are both refused, which is a rule
+    /// somebody wrote and can be asked about.
+    /// </remarks>
+    public static string NoRoute(IReadOnlyList<IceServer> asked)
+    {
+        ArgumentNullException.ThrowIfNull(asked);
+
+        return asked.FirstOrDefault(server => server.IsRelay) is { } relay
+            ? "Both ends spoke and no route between them was found, even through the relay at "
+            + $"{string.Join(", ", relay.Urls)}. A relay is reached the way a web page is, out "
+            + "to one address, so this machine's network is refusing UDP and TCP to it on that "
+            + "port - a firewall rule that whoever runs this network can name."
+            : NoRoute(asked.Count > 0);
+    }
+
+    /// <summary>The peer's configuration for these servers, limited to the relay when asked.</summary>
+    /// <remarks>
+    /// <b>One library entry per url</b>, each carrying the entry's credential,
+    /// so nothing depends on how the library splits a list of urls.
+    /// </remarks>
+    private static RTCConfiguration Configured(IReadOnlyList<IceServer> servers, bool relayOnly) => new()
+    {
+        iceServers =
+        [
+            .. servers.SelectMany(server => server.Urls.Select(url => new RTCIceServer
+            {
+                urls = url,
+                username = server.Username,
+                credential = server.Credential,
+            })),
+        ],
+        iceTransportPolicy = relayOnly ? RTCIceTransportPolicy.relay : RTCIceTransportPolicy.all,
+    };
+
+    /// <summary>Which way the nominated pair goes, or null when nothing was nominated.</summary>
+    private static ChannelPath? PathOf(RTCPeerConnection peer) =>
+        peer.GetRtpChannel()?.NominatedEntry is { } pair
+            ? ChannelPaths.Of(
+                pair.LocalCandidate?.type.ToString(), pair.RemoteCandidate?.type.ToString())
+            : null;
 
     private static TimeSpan Later(DateTimeOffset deadline, DateTimeOffset from) =>
         deadline > from ? deadline - from : TimeSpan.FromSeconds(1);

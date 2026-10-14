@@ -459,18 +459,18 @@ public sealed partial class Mux
             ($"Claude Code here: {here}", () => StartClaudeCode(here) is { } started && NumberOf(started) is > 0 and var at
                 ? (MuxTab.Agent(at), null)
                 : (MuxTab.Gg, null)),
-            ("manage gg with an agent: gates, the board, flights, runners", () =>
+            ("Manage gg with an agent: gates, the board, flights, runners", () =>
                 StartManaging(here) is { } managing && NumberOf(managing) is > 0 and var shown
                     ? (MuxTab.Agent(shown), null)
                     : (MuxTab.Gg, null)),
-            ("plan several flights with an agent", () => (null, MuxLeave.Plan)),
-            ("manage the airspace with an agent", () => (null, MuxLeave.Airspace)),
-            ("a new flight (gg asks what kind, as `n` does)", () => (null, MuxLeave.Compose)),
+            ("Plan itinerary", () => (null, MuxLeave.Plan)),
+            ("Manage the airspace with an agent", () => (null, MuxLeave.Airspace)),
+            ("Plan flight", () => (null, MuxLeave.Compose)),
         ];
 
         if (_machines is not null)
         {
-            items.Add(("Remote Control…", () => ShowMachines(terminal)));
+            items.Add(("Remote control…", () => ShowMachines(terminal)));
         }
 
         IReadOnlyList<string> Lines() => full
@@ -631,7 +631,7 @@ public sealed partial class Mux
 
         IReadOnlyList<string> Lines()
         {
-            var lines = new List<string> { "Remote Control", "" };
+            var lines = new List<string> { "Remote control", "" };
 
             if (machines.Count == 0)
             {

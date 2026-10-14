@@ -61,8 +61,15 @@ public class MaterializeLoopTests
     {
         var stopping = new CancellationTokenSource();
         var seen = 0;
-        observer.OnEvent = _ =>
+        observer.OnEvent = e =>
         {
+            // NOT A RENEWAL, which this clock's instant waits let even a tiny clone ask for
+            // (GG-1123): the events counted are the flight's own.
+            if (e.StartsWith("renewed:", StringComparison.Ordinal))
+            {
+                return;
+            }
+
             if (Interlocked.Increment(ref seen) >= events)
             {
                 stopping.Cancel();

@@ -21,11 +21,11 @@ on:
 jobs:
   pack:
     name: pack the tool
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: useblacksmith/checkout@v1
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
@@ -111,18 +111,18 @@ jobs:
           # that platform, and all five are free on a public repository. The
           # laptop is why there are five - somebody joining should not have to
           # own the right shape of machine to get one command.
-          - { os: ubuntu-latest, rid: linux-x64 }
-          - { os: ubuntu-24.04-arm, rid: linux-arm64 }
-          - { os: macos-latest, rid: osx-arm64 }
+          - { os: blacksmith-4vcpu-ubuntu-2404, rid: linux-x64 }
+          - { os: blacksmith-4vcpu-ubuntu-2404-arm, rid: linux-arm64 }
+          - { os: blacksmith-6vcpu-macos-15, rid: osx-arm64 }
           # macos-latest IS APPLE SILICON, so an Intel Mac needs its own runner
           # rather than a flag on that one - and macos-13 is retired: a job
           # asking for it queues for ever rather than failing, which is the
           # worse of the two ways to be wrong.
-          - { os: macos-15-intel, rid: osx-x64 }
+          - { os: blacksmith-6vcpu-macos-15, rid: osx-x64 }
           # AND WINDOWS, where gg is the command line rather than the console:
           # the terminal UI wants SetConsoleMode and ConPTY, which are not
           # written, and gg says so and opens $EDITOR instead.
-          - { os: windows-latest, rid: win-x64 }
+          - { os: blacksmith-4vcpu-windows-2025, rid: win-x64 }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -207,7 +207,7 @@ jobs:
   release:
     name: attach everything to one release
     needs: [pack, binaries]
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       # Still no stored secret - the token is the run's own, and the two
       # additions below are minted rather than kept.
@@ -334,7 +334,7 @@ jobs:
   nuget:
     name: push the tool to nuget.org
     needs: [pack, release]
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     # NO STORED PUBLISHING KEY, and that is the point rather than a
     # convenience. A nuget.org API key can push any version under this id, and
     # repository signing does not help: it proves a package came through

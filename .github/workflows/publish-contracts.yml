@@ -7,14 +7,14 @@ on:
 jobs:
   pack:
     name: pack and publish the declared contract version
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       # Releases, because the release asset is the distribution channel that
       # actually works across repositories - see the note on the push step.
       contents: write
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: useblacksmith/checkout@v1
         with:
           fetch-depth: 0
       - uses: actions/setup-dotnet@v4

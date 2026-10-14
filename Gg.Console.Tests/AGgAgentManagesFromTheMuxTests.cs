@@ -24,7 +24,7 @@ public class AGgAgentManagesFromTheMuxTests
             var showing = fixture.Showing(MuxTab.New);
             await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("manage gg", StringComparison.Ordinal)))
                 .IsTrue();
-            await Assert.That(fixture.Choose("manage gg")).IsTrue();
+            await Assert.That(fixture.Choose("Manage gg")).IsTrue();
 
             var argvPath = Path.Combine(root.FullName, "argv");
             await Assert.That(MuxFixture.Until(() => File.Exists(argvPath) && File.ReadAllLines(argvPath).Length > 3))

@@ -366,8 +366,8 @@ public class RemoteControlStartsWhatWasChosenTests
             });
 
         var showing = fixture.Showing(MuxTab.New);
-        await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("Remote Control", StringComparison.Ordinal))).IsTrue();
-        await Assert.That(fixture.Choose("Remote Control")).IsTrue();
+        await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("Remote control", StringComparison.Ordinal))).IsTrue();
+        await Assert.That(fixture.Choose("Remote control")).IsTrue();
         await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("▸ vmlinux003", StringComparison.Ordinal))).IsTrue();
 
         fixture.Terminal.Type("\r");

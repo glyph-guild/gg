@@ -16,7 +16,7 @@ public class TheNewAgentMenuGoesWhereItSaysTests
         await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("New agent", StringComparison.Ordinal)))
             .IsTrue();
 
-        await Assert.That(fixture.Choose("plan several flights")).IsTrue();
+        await Assert.That(fixture.Choose("Plan itinerary")).IsTrue();
         await Assert.That(await showing.WaitAsync(TimeSpan.FromSeconds(20))).IsEqualTo(MuxLeave.Plan)
             .Because("the menu says it plans with an agent, and only the shell can start one: "
                    + "leaving for it has no next tab, which the menu read as staying.");

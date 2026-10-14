@@ -28,7 +28,7 @@ public class TheAirspaceAgentRunsInTheMuxTests
             .IsTrue()
             .Because("the menu says the airspace agent is there before anybody presses for it.");
 
-        await Assert.That(fixture.Choose("manage the airspace")).IsTrue();
+        await Assert.That(fixture.Choose("Manage the airspace")).IsTrue();
 
         await Assert.That(await showing.WaitAsync(TimeSpan.FromSeconds(20))).IsEqualTo(MuxLeave.Airspace);
     }
@@ -54,7 +54,7 @@ public class TheAirspaceAgentRunsInTheMuxTests
 
         await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("airspace", StringComparison.Ordinal)))
             .IsTrue();
-        await Assert.That(fixture.Choose("manage the airspace")).IsTrue();
+        await Assert.That(fixture.Choose("Manage the airspace")).IsTrue();
 
         await Assert.That(MuxFixture.Until(() => Volatile.Read(ref started) == 1)).IsTrue()
             .Because("choosing it in the menu starts it, as `l` there starts a plan agent.");

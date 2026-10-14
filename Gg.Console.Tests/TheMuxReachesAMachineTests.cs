@@ -31,11 +31,11 @@ public class TheMuxReachesAMachineTests
         fixture.Mux.Reaching(() => [Vm3, Vm2], _ => new RemoteReach(null, "the menu reaches nothing"));
 
         var showing = fixture.Showing(MuxTab.New);
-        await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("Remote Control", StringComparison.Ordinal)))
+        await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("Remote control", StringComparison.Ordinal)))
             .IsTrue()
             .Because("the new-agent menu offers it.");
 
-        await Assert.That(fixture.Choose("Remote Control")).IsTrue();
+        await Assert.That(fixture.Choose("Remote control")).IsTrue();
         await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("vmlinux002", StringComparison.Ordinal)))
             .IsTrue();
 
@@ -142,7 +142,7 @@ public class TheMuxReachesAMachineTests
         var showing = fixture.Showing(MuxTab.New);
         await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("New agent", StringComparison.Ordinal))).IsTrue();
 
-        await Assert.That(fixture.Terminal.Painted).DoesNotContain("Remote Control")
+        await Assert.That(fixture.Terminal.Painted).DoesNotContain("Remote control")
             .Because("a key advertised that does nothing is worse than no key.");
 
         fixture.Terminal.Type("\u0007");

@@ -25,11 +25,11 @@ public class TheNewAgentMenuIsAListTests
         string[] order =
         [
             "Claude Code here",
-            "manage gg with an agent",
-            "plan several flights with an agent",
-            "manage the airspace with an agent",
-            "a new flight",
-            "Remote Control…",
+            "Manage gg with an agent",
+            "Plan itinerary",
+            "Manage the airspace with an agent",
+            "Plan flight",
+            "Remote control…",
         ];
         var at = order.Select(item => menu.LastIndexOf(item, StringComparison.Ordinal)).ToArray();
         await Assert.That(at.All(index => index >= 0)).IsTrue()

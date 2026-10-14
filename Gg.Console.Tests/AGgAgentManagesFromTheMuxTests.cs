@@ -22,7 +22,7 @@ public class AGgAgentManagesFromTheMuxTests
             using var fixture = new MuxFixture(columns: 100, rows: 20, agentCommand: $"/bin/sh {script}");
 
             var showing = fixture.Showing(MuxTab.New);
-            await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("manage gg", StringComparison.Ordinal)))
+            await Assert.That(MuxFixture.Until(() => fixture.Terminal.Painted.Contains("Manage gg", StringComparison.Ordinal)))
                 .IsTrue();
             await Assert.That(fixture.Choose("Manage gg")).IsTrue();
 

@@ -80,7 +80,12 @@ public class SignalRidesTheHeartbeatTests
         // it was answering.
         var members = typeof(PendingIntroduction).GetProperties().Select(p => p.Name).ToList();
 
-        await Assert.That(members).IsEquivalentTo(new[] { "IntroductionId", "Offer" })
+        //
+        // AND WHERE TO ASK FOR A ROUTE (ADR-0042), which is not about the offer
+        // at all: the control plane mints the runner's relay credential beside
+        // the sealed bytes it still cannot open, so the relay this adds reads
+        // nothing the offer says either.
+        await Assert.That(members).IsEquivalentTo(new[] { "IntroductionId", "Offer", "IceServers" })
             .Because("a member describing the offer would be the relay reading the thing it "
                    + "exists not to read, arriving as a convenience.");
     }

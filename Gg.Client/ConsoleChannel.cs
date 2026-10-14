@@ -374,7 +374,7 @@ public sealed class ConsoleChannel(
     {
         ArgumentNullException.ThrowIfNull(asked);
 
-        return asked.FirstOrDefault(server => server.IsRelay) is { } relay
+        return asked.FirstOrDefault(server => server.IsRelay()) is { } relay
             ? "Both ends spoke and no route between them was found, even through the relay at "
             + $"{string.Join(", ", relay.Urls)}. A relay is reached the way a web page is, out "
             + "to one address, so this machine's network is refusing UDP and TCP to it on that "

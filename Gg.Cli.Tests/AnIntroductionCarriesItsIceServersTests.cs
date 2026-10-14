@@ -108,9 +108,9 @@ public class AnIntroductionCarriesItsIceServersTests
     [Test]
     public async Task An_entry_says_whether_it_is_a_relay()
     {
-        await Assert.That(Relay.IsRelay).IsTrue();
-        await Assert.That(new IceServer { Urls = ["stun:a.invalid:19302"] }.IsRelay).IsFalse();
-        await Assert.That(new IceServer { Urls = ["turns:a.invalid:443"], Username = "u", Credential = "c" }.IsRelay)
+        await Assert.That(Relay.IsRelay()).IsTrue();
+        await Assert.That(new IceServer { Urls = ["stun:a.invalid:19302"] }.IsRelay()).IsFalse();
+        await Assert.That(new IceServer { Urls = ["turns:a.invalid:443"], Username = "u", Credential = "c" }.IsRelay())
             .IsTrue();
     }
 

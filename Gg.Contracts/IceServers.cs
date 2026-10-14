@@ -54,14 +54,18 @@ public sealed record IceServer
 
         // A RELAY ANSWERS NOBODY WITHOUT ONE, and the library would try it
         // anyway and spend the gathering window on a 401.
-        return server.IsRelay
+        return server.IsRelay()
             && (string.IsNullOrEmpty(server.Username) || string.IsNullOrEmpty(server.Credential))
             ? $"'{urls[0]}' is a relay and this entry carries no credential for it."
             : null;
     }
 
     /// <summary>Whether any url of this entry is a relay.</summary>
-    public bool IsRelay =>
+    /// <remarks>
+    /// A method, not a property: a property would serialize, and the wire would
+    /// grow a member nobody declared.
+    /// </remarks>
+    public bool IsRelay() =>
         Urls.Any(u => u.StartsWith("turn:", StringComparison.OrdinalIgnoreCase)
                    || u.StartsWith("turns:", StringComparison.OrdinalIgnoreCase));
 

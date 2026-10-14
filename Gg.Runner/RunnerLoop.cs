@@ -207,6 +207,15 @@ public interface IRunnerObserver
     void Held(string flightNumber, string path, long bytes, bool preserved = false);
 
     /// <summary>
+    /// A held tree was removed because its retention passed.
+    /// </summary>
+    /// <remarks>
+    /// Said, because it may be somebody's only copy of an agent's work: a flight that was
+    /// takeable on Monday and is not on Tuesday needs a line somewhere saying why.
+    /// </remarks>
+    void Expired(HeldTree tree) { }
+
+    /// <summary>
     /// A credential the lease named could not be read here.
     /// </summary>
     /// <remarks>
@@ -1512,6 +1521,13 @@ public sealed class RunnerLoop(
                         _observer.Held(
                             lease.FlightNumber, held.Path, held.Bytes,
                             _preserved.Contains(lease.FlightId));
+                    }
+
+                    // AND WHAT IS PAST ITS RETENTION, when a flight ends - which is when a
+                    // tree is added, and long after a runner that has run for a day started.
+                    foreach (var expired in _workspace.ExpireHeld())
+                    {
+                        _observer.Expired(expired);
                     }
 
                     _landed.Remove(lease.FlightId);

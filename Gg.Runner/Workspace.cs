@@ -69,6 +69,16 @@ public interface IWorkspace
 
     /// <summary>Removes what a previous life left behind. Returns how many.</summary>
     int SweepOrphans();
+
+    /// <summary>
+    /// Removes the held trees whose retention has passed, and says which.
+    /// </summary>
+    /// <remarks>
+    /// <b>Called, which it was not</b> (2026-10-14): <see cref="HandoffRoot.Expire"/> was
+    /// written and tested and nothing ran it, so vmlinux002 held 18 GB of trees, the oldest
+    /// nearly four weeks old. Nothing by default, for a workspace that holds nothing.
+    /// </remarks>
+    IReadOnlyList<HeldTree> ExpireHeld() => [];
 }
 
 /// <summary>
@@ -183,6 +193,8 @@ public sealed class Workspace : IWorkspace
     public HeldTree? Hold(string flightId) => _handoff.Hold(flightId, _trees.For(flightId));
 
     public int SweepOrphans() => _trees.SweepOrphans();
+
+    public IReadOnlyList<HeldTree> ExpireHeld() => _handoff.Expire();
 }
 
 /// <summary>

@@ -578,6 +578,8 @@ internal sealed class RecordingObserver : IRunnerObserver
         Record(
             $"held:{flightNumber}:{bytes}" + (preserved ? ":preserved" : ""),
             lifecycle: false);
+
+    public void Expired(Gg.Runner.Vcs.HeldTree tree) => Record($"expired:{tree.FlightId}", lifecycle: false);
 }
 
 internal static class Leases

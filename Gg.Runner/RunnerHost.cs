@@ -120,6 +120,11 @@ internal sealed class ConsoleObserver : IRunnerObserver
     /// knowing that is the second failure mode of a portable handoff: two people
     /// confidently editing divergent copies of one flight.
     /// </remarks>
+    public void Expired(Vcs.HeldTree tree) =>
+        System.Console.WriteLine(
+            $"expired the tree held for flight {tree.FlightId}: {tree.Bytes / 1024} KiB, held since "
+          + $"{tree.HeldAt:O}, past the {Vcs.HandoffRoot.Retention.TotalDays:0}-day retention");
+
     public void Held(string flightNumber, string path, long bytes, bool preserved = false) =>
         System.Console.WriteLine(
             $"kept {flightNumber}'s tree for handoff: {bytes / 1024} KiB at {path}"
@@ -362,6 +367,15 @@ public static class RunnerHost
         // AND THE LIVE VIEWS, by the same rule and in a different directory.
         // They are a sibling of the transcripts rather than a child precisely so
         // that this cannot take evidence with it.
+        // AND THE HELD TREES PAST THEIR RETENTION, by the same rule the loop applies when a
+        // flight ends - so a machine that was off for a week is cleared before it claims.
+        foreach (var expired in workspace.ExpireHeld())
+        {
+            System.Console.WriteLine(
+                $"expired the tree held for flight {expired.FlightId}: {expired.Bytes / 1024} KiB, "
+              + $"held since {expired.HeldAt:O}");
+        }
+
         var views = new Execution.LiveViewSweep().SweepOrphans();
         if (views > 0)
         {

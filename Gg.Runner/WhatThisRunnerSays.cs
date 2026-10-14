@@ -335,6 +335,8 @@ public sealed class WhatThisRunnerSays(
     public void Held(string flightNumber, string path, long bytes, bool preserved = false) =>
         _inner.Held(flightNumber, path, bytes, preserved);
 
+    public void Expired(Vcs.HeldTree tree) => _inner.Expired(tree);
+
     public void CredentialUnresolved(CredentialResolutionFailure failure) =>
         _inner.CredentialUnresolved(failure);
 

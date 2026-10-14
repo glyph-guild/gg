@@ -133,7 +133,7 @@ public class TheRunnerMovesARunningFlightTests
                     return Task.CompletedTask;
                 },
                 observer, new NoCredentialResolver(),
-                trees.Workspace(new LocalVcsAdapter(fixture.Directory)),
+                await ReadyWorkspace.Of(trees.Workspace(new LocalVcsAdapter(fixture.Directory)), ALeaseFor(fixture)),
                 executor: executor)
             {
                 HoldFor = TimeSpan.FromSeconds(3),

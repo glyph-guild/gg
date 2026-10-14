@@ -2171,9 +2171,27 @@ public sealed class RunnerLoop(
             // A YEAR BACK FOR A LOOP THAT READS HISTORY, the tip for every other
             // (slice seventy-four, after the walk): the moves decide, and the
             // clock is this type's, so a test can hold it still.
-            workspace = await _workspace.PrepareAsync(
-                lease.FlightId, lease.Repos, secretsByLocator,
-                FetchDepth.For(lease.Loop?.Moves, _clock.UtcNow), cancellationToken);
+            //
+            // RENEWED WHILE IT CLONES (GG-1123): a large repository takes longer
+            // to materialize than a lease lasts, and a lease that lapses here is
+            // claimed again to clone the same tree from nothing, forever.
+            var (prepared, lostWhileCloning, renewedTo) = await RenewingAsync(
+                lease,
+                token => _workspace.PrepareAsync(
+                    lease.FlightId, lease.Repos, secretsByLocator,
+                    FetchDepth.For(lease.Loop?.Moves, _clock.UtcNow), token),
+                cancellationToken);
+            if (lostWhileCloning)
+            {
+                _observer.Fenced(lease.LeaseId);
+                return;
+            }
+
+            workspace = prepared!;
+
+            // WHAT THE CONTROL PLANE NOW SAYS, carried on, so the agent's renewal decides
+            // against the expiry it was given rather than the claim's.
+            lease = lease with { ExpiresAt = renewedTo };
         }
         catch (Exception failure) when (failure is VcsCapabilityException or InvalidOperationException)
         {
@@ -2329,6 +2347,64 @@ public sealed class RunnerLoop(
 
         await HoldAsync(
             runnerId, labels, lease, cancellationToken, disposition, detail);
+    }
+
+    /// <summary>
+    /// Any step before the agent, with the lease kept alive under it.
+    /// </summary>
+    /// <remarks>
+    /// The same rule as <see cref="InvokeRenewingAsync"/>, without a model to move: renew
+    /// inside the window, stand down when the expiry is out of reach, and on a fence cancel
+    /// the step and return <c>lost: true</c> for the caller to stop on. The expiry it ends on
+    /// is returned too, so the next step renews against it. A model a renewal names here is
+    /// not kept: the control plane names it on every good renewal, so the agent's renewal
+    /// hears it again.
+    /// </remarks>
+    private async Task<(T? Result, bool Lost, DateTimeOffset ExpiresAt)> RenewingAsync<T>(
+        LeaseGranted lease, Func<CancellationToken, Task<T>> step, CancellationToken cancellationToken)
+        where T : class
+    {
+        using var stepping = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var work = step(stepping.Token);
+        var expiresAt = lease.ExpiresAt;
+        var fenced = false;
+
+        while (!work.IsCompleted)
+        {
+            if (expiresAt - _clock.UtcNow > TimeSpan.FromDays(1))
+            {
+                break;
+            }
+
+            var renewAt = expiresAt - TimeSpan.FromSeconds(lease.RenewWithinSeconds);
+            if (_clock.UtcNow >= renewAt)
+            {
+                if (await _protocol.RenewAsync(lease.LeaseId, lease.Generation, cancellationToken)
+                    is RenewResult.Renewed renewed)
+                {
+                    expiresAt = renewed.ExpiresAt;
+                    _observer.Renewed(lease.LeaseId, expiresAt);
+                    continue;
+                }
+
+                fenced = true;
+                await stepping.CancelAsync();
+                break;
+            }
+
+            await Task.WhenAny(work, _delay(renewAt - _clock.UtcNow, stepping.Token));
+        }
+
+        try
+        {
+            return (await work, false, expiresAt);
+        }
+        catch (Exception) when (fenced && !cancellationToken.IsCancellationRequested)
+        {
+            // ANY FAILURE, NOT ONLY A CANCELLATION: a clone killed mid-fetch can surface as git's
+            // own error, and that is not this flight's diagnosis to report - it is not ours.
+            return (null, true, expiresAt);
+        }
     }
 
     /// <summary>

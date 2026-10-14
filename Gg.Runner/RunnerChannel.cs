@@ -103,7 +103,15 @@ public sealed class Served : IDisposable
     public DateTimeOffset LastHeard { get; private set; }
 
     /// <summary>Which way this channel's packets go, once it has opened; null before.</summary>
-    public ChannelPath? Path { get; private set; }
+    /// <remarks>
+    /// Read off the peer when asked rather than stamped once, because ICE may
+    /// renominate; what a journal line says should be what is true when it is
+    /// written.
+    /// </remarks>
+    public ChannelPath? Path =>
+        Opened.IsCompletedSuccessfully && Opened.Result is HandshakeFailure.None
+            ? RunnerChannel.PathOf(_peer)
+            : null;
 
     /// <summary>Records that something arrived on this channel.</summary>
     internal void Heard(DateTimeOffset at) => LastHeard = at;
@@ -202,8 +210,7 @@ public sealed class RunnerChannel(
     /// </remarks>
     private readonly Func<DateTimeOffset> _now = now ?? (() => DateTimeOffset.UtcNow);
 
-    /// <summary>Gathers only relayed candidates, which is how a test proves the relay.</summary>
-    internal bool RelayOnly => relayOnly;
+
 
     /// <summary>
     /// How long a peer is held for a console that has not turned up.
@@ -261,10 +268,10 @@ public sealed class RunnerChannel(
         // console cannot connect until the answer has been relayed, which cannot
         // happen until this returns. Every path that does not hand it over
         // closes it below.
-        var peer = new RTCPeerConnection(new RTCConfiguration
-        {
-            iceServers = [.. stunServers.Select(u => new RTCIceServer { urls = u })],
-        });
+        // THE INTRODUCTION'S SERVERS, WHOLE, when its heartbeat carried any
+        // (ADR-0042): minted for this runner. Its own stun-servers otherwise.
+        var peer = new RTCPeerConnection(
+            Configured(IceServer.Choose(pending.IceServers, stunServers), relayOnly));
 
         // WHICH LEAVES CANCELLATION AS THE ONE EXIT NOT WRITTEN HERE. The
         // registration is disposed on the way out either way, so a cancelled
@@ -424,6 +431,33 @@ public sealed class RunnerChannel(
             // the console has not been told anything yet.
             serving = new Served(peer, opened.Task, _arrivalBound, _now()));
     }
+
+
+    /// <summary>The peer's configuration for these servers, limited to the relay when asked.</summary>
+    /// <remarks>
+    /// <b>One library entry per url</b>, each carrying the entry's credential,
+    /// so nothing depends on how the library splits a list of urls.
+    /// </remarks>
+    private static RTCConfiguration Configured(IReadOnlyList<IceServer> servers, bool relayOnly) => new()
+    {
+        iceServers =
+        [
+            .. servers.SelectMany(server => server.Urls.Select(url => new RTCIceServer
+            {
+                urls = url,
+                username = server.Username,
+                credential = server.Credential,
+            })),
+        ],
+        iceTransportPolicy = relayOnly ? RTCIceTransportPolicy.relay : RTCIceTransportPolicy.all,
+    };
+
+    /// <summary>Which way the nominated pair goes, or null when nothing was nominated.</summary>
+    internal static ChannelPath? PathOf(RTCPeerConnection peer) =>
+        peer.GetRtpChannel()?.NominatedEntry is { } pair
+            ? ChannelPaths.Of(
+                pair.LocalCandidate?.type.ToString(), pair.RemoteCandidate?.type.ToString())
+            : null;
 
     private static IReadOnlyList<string> Offered(List<string> gathered)
     {

@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Gg.Contracts;
 using SIPSorcery.Net;
+using IceServer = Gg.Contracts.IceServer;
 
 namespace Gg.Client;
 
@@ -37,7 +38,7 @@ public enum ReachFailure
 
 /// <summary>What reaching a runner produced.</summary>
 public sealed record Reached(
-    Conversation? Conversation, ReachFailure Failure, string Said);
+    Conversation? Conversation, ReachFailure Failure, string Said, ChannelPath? Path = null);
 
 /// <summary>
 /// A console asking one runner about itself, for as long as the channel lasts.
@@ -136,7 +137,8 @@ public sealed class Conversation(RTCPeerConnection peer, RTCDataChannel channel)
 /// candidates inside it, to whoever substituted the key.
 /// </para>
 /// </remarks>
-public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan patience)
+public sealed class ConsoleChannel(
+    IReadOnlyList<string> stunServers, TimeSpan patience, bool relayOnly = false)
 {
     /// <summary>
     /// Reaches one runner, through an introduction the control plane minted.
@@ -355,6 +357,12 @@ public sealed class ConsoleChannel(IReadOnlyList<string> stunServers, TimeSpan p
             + "is configured, and try again. There is no built-in default because a "
             + "well-known server belongs to somebody, and which one to depend on is not this "
             + "binary's decision to make.";
+
+    /// <summary>Gathers only relayed candidates, which is how a test proves the relay.</summary>
+    internal bool RelayOnly => relayOnly;
+
+    /// <summary>Why no route was found, given the servers this channel asked.</summary>
+    public static string NoRoute(IReadOnlyList<IceServer> asked) => NoRoute(asked.Count > 0);
 
     private static TimeSpan Later(DateTimeOffset deadline, DateTimeOffset from) =>
         deadline > from ? deadline - from : TimeSpan.FromSeconds(1);

@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Gg.Contracts;
 using SIPSorcery.Net;
+using IceServer = Gg.Contracts.IceServer;
 
 namespace Gg.Runner;
 
@@ -101,6 +102,9 @@ public sealed class Served : IDisposable
     /// </remarks>
     public DateTimeOffset LastHeard { get; private set; }
 
+    /// <summary>Which way this channel's packets go, once it has opened; null before.</summary>
+    public ChannelPath? Path { get; private set; }
+
     /// <summary>Records that something arrived on this channel.</summary>
     internal void Heard(DateTimeOffset at) => LastHeard = at;
 
@@ -185,7 +189,8 @@ public sealed class RunnerChannel(
     IReadOnlyList<string> stunServers,
     TimeSpan patience,
     TimeSpan? arrivalBound = null,
-    Func<DateTimeOffset>? now = null)
+    Func<DateTimeOffset>? now = null,
+    bool relayOnly = false)
 {
     /// <summary>
     /// What time it is, for stamping when a conversation was last heard from.
@@ -196,6 +201,9 @@ public sealed class RunnerChannel(
     /// could outlive the flight that opened it.
     /// </remarks>
     private readonly Func<DateTimeOffset> _now = now ?? (() => DateTimeOffset.UtcNow);
+
+    /// <summary>Gathers only relayed candidates, which is how a test proves the relay.</summary>
+    internal bool RelayOnly => relayOnly;
 
     /// <summary>
     /// How long a peer is held for a console that has not turned up.

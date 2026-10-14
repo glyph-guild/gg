@@ -216,6 +216,23 @@ public sealed record RunnerIntroduction
 
     /// <summary>When it stops working.</summary>
     public required DateTimeOffset ExpiresAt { get; init; }
+
+    /// <summary>
+    /// Where the console asks for its route, minted for it (ADR-0042), or empty when
+    /// the control plane has no relay and its own <c>stun-servers</c> is used.
+    /// </summary>
+    /// <remarks>
+    /// <b>Used whole when present.</b> The library uses one server and prefers
+    /// a relay, and the relay answers STUN on the same port, so one minted
+    /// entry gives both the reflexive candidate and the relayed one. Empty
+    /// rather than null through the accessor: a control plane that predates
+    /// the member omits the key.
+    /// </remarks>
+    public IReadOnlyList<IceServer> IceServers
+    {
+        get => field ?? [];
+        init;
+    } = [];
 }
 
 /// <summary>

@@ -247,6 +247,23 @@ public sealed record PendingIntroduction
 
     /// <summary>The offer, sealed to this runner's registered key.</summary>
     public required RunnerSealedOffer Offer { get; init; }
+
+    /// <summary>
+    /// Where the runner asks for its route, minted for it (ADR-0042), or empty when
+    /// the control plane has no relay and its own <c>stun-servers</c> is used.
+    /// </summary>
+    /// <remarks>
+    /// <b>Used whole when present.</b> The library uses one server and prefers
+    /// a relay, and the relay answers STUN on the same port, so one minted
+    /// entry gives both the reflexive candidate and the relayed one. Empty
+    /// rather than null through the accessor: a control plane that predates
+    /// the member omits the key.
+    /// </remarks>
+    public IReadOnlyList<IceServer> IceServers
+    {
+        get => field ?? [];
+        init;
+    } = [];
 }
 
 /// <summary>Asks for a flight to work on, and waits.</summary>

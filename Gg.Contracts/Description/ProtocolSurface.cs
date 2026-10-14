@@ -2271,12 +2271,16 @@ public static class ProtocolSurface
             // declared here while ProtocolSurface.Endpoints names no route for
             // them at all. That asymmetry is the design, not an omission.
             [typeof(RunnerIntroductionRequest)] = ["ephemeralPublicKey", "purpose"],
-            [typeof(PendingIntroduction)] = ["introductionId", "offer"],
+            [typeof(PendingIntroduction)] = ["introductionId", "offer", "iceServers"],
             [typeof(RunnerKeyOffer)] = ["publicKey"],
             [typeof(RunnerMachineOffer)] = ["machine"],
             [typeof(RunnerSignalAnswer)] = ["introductionId", "answer"],
             [typeof(RunnerIntroduction)] =
-                ["introductionId", "runnerId", "runnerPublicKey", "capability", "expiresAt"],
+                ["introductionId", "runnerId", "runnerPublicKey", "capability", "expiresAt",
+                 "iceServers"],
+            // A RELAY'S CREDENTIAL IS A MEMBER, because it is minted per side and
+            // grants bandwidth only (ADR-0042); the urls are where to ask.
+            [typeof(IceServer)] = ["urls", "username", "credential"],
             [typeof(RunnerCapabilityClaims)] =
                 ["principalId", "runnerId", "purpose", "expiresAt", "ephemeralKeyHash"],
             // NO MEMBER AN SDP COULD BE READ OUT OF, deliberately, which is

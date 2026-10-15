@@ -187,8 +187,8 @@ public static class ConsoleHandFlight
             // still true.
             return state with
             {
-                LastHandFlight = "Nothing was created: " + failure.Message,
-                HandFlightProblem = "Nothing was created: " + failure.Message,
+                LastHandFlight = "Nothing was created. " + ControlPlaneFailure.Said(failure),
+                HandFlightProblem = "Nothing was created. " + ControlPlaneFailure.Said(failure),
             };
         }
 

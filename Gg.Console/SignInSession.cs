@@ -184,7 +184,7 @@ public sealed class SignInSession(
                         : started.VerificationUri),
                 ExpiresAt = started.ExpiresAt,
             },
-            Said = "Waiting for you to approve it.",
+            Said = "Waiting for approval in the browser.",
         };
     }
 

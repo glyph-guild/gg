@@ -123,9 +123,9 @@ public sealed class PtyAgentSession : IEditorSession
         SelfInvocation? self = null,
         HostRun? host = null,
         string? composeIn = null,
-        string bar = "gg · composing — ask the agent to submit when you are happy · "
+        string bar = "gg · composing — ask the agent to submit when the intent is ready · "
                    + "closing without submitting composes nothing",
-        string submitted = "gg · composing — intent submitted · close when you are done, "
+        string submitted = "gg · composing — intent submitted · close when finished, "
                          + "or submit again to replace it",
         Action<string>? say = null,
         Func<EnvelopeState?>? envelope = null)

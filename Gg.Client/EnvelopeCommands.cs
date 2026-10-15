@@ -170,7 +170,7 @@ public sealed class EnvelopeCommands(ControlPlaneClient client, ISessionStore se
 
     private string Session() =>
         _sessions.Read()?.SessionToken
-        ?? throw new NotSignedInException("Not signed in. Run gg login first.");
+        ?? throw new NotSignedInException("This machine is not signed in. Run gg login, then try again.");
 }
 
 /// <summary>What <c>gg envelope validate</c> concluded.</summary>

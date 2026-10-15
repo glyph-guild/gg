@@ -97,8 +97,8 @@ public sealed class PtyDraftSession
         _host = host ?? PtyHost.RunAsync;
         // THE AGENT IS ALREADY TOLD HOW TO START (AgentOpening.Airspace), so the bar says what a
         // person decides: every apply is theirs to approve.
-        _bar = bar ?? "gg · managing the airspace — the agent drafts and diffs; you approve each "
-             + "apply · ctrl-g then 0 for gg · closing leaves the working copy as it stands";
+        _bar = bar ?? "gg · managing the airspace — the agent drafts and diffs; each apply needs "
+             + "approval · ctrl-g then 0 for gg · closing leaves the working copy as it stands";
         _say = say ?? System.Console.WriteLine;
         _envelope = envelope ?? (() => null);
     }

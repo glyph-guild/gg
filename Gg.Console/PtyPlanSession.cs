@@ -327,7 +327,7 @@ public sealed class PtyPlanSession
         var stale = staleAgainst is not null && string.Equals(last ?? "", staleAgainst, StringComparison.Ordinal);
         text.Append('\n')
             .Append(stale
-                ? "The agent's last result, from before your edit:"
+                ? "The agent's last result, from before the latest edit:"
                 : "The agent's last result:")
             .Append('\n')
             .Append(last ?? "The agent has not called a planning tool yet.");

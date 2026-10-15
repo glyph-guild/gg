@@ -62,7 +62,7 @@ public static class CredentialRepositories
     private static string Does(string standing) => standing switch
     {
         Gg.Client.CredentialStanding.Here => "forward the one held here",
-        Gg.Client.CredentialStanding.MissingHere => "ask you to paste one",
+        Gg.Client.CredentialStanding.MissingHere => "ask for one to be pasted",
         Gg.Client.CredentialStanding.NoneRegistered => "register one first: gg credential add",
         Gg.Client.CredentialStanding.NotNeeded => "nothing - it authenticates to nothing",
         _ => "not known - it will ask, and pasting is safe",
@@ -139,7 +139,7 @@ public static class CredentialRepositories
             .OrderBy(locator => locator, StringComparer.Ordinal)
             .Select(locator => new Choice(
                 named.TryGetValue(locator, out var name) && name is { Length: > 0 } ? name : locator,
-                "forward the one held here, or ask you to paste one",
+                "forward the one held here, or ask for one to be pasted",
                 locator));
     }
 

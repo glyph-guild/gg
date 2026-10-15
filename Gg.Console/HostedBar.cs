@@ -698,7 +698,7 @@ public static class HostedBar
         HostedView.Envelope =>
             "No envelope has been read, so nothing here says what governs this flight.",
         HostedView.Intent =>
-            "Nothing has been handed back yet. An agent submits once you and it are happy.",
+            "Nothing has been handed back yet. The agent submits once both sides agree.",
         HostedView.Plan =>
             "No plan has been drafted yet. Ask the agent to start one.",
         _ => "",

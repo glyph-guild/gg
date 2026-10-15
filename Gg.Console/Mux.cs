@@ -296,7 +296,7 @@ public sealed partial class Mux
         var parts = _agentCommand.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         string? bar = null;
         HostedRows Panel(int most, int columns) =>
-            new([bar ??= "gg · managing gg — reads are free; you approve every act · ctrl-g then 0 for gg"], false);
+            new([bar ??= "gg · managing gg — reads are free; every act needs approval · ctrl-g then 0 for gg"], false);
 
         return Start("gg", parts[0],
             [.. parts.Skip(1),

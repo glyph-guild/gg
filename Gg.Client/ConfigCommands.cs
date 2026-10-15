@@ -212,7 +212,7 @@ public static class ConfigCommands
         if (File.Exists(at))
         {
             throw new ConfigurationRefused(
-                $"'{at}' is already there. gg will not overwrite it - read it with `gg config "
+                $"'{at}' already exists, so nothing was written. Read it with `gg config "
               + "show`, or change one value with `gg config set`.");
         }
 
@@ -251,7 +251,7 @@ public static class ConfigCommands
         if (read.Diagnosis is { } unreadable)
         {
             throw new ConfigurationRefused(
-                $"'{at}' cannot be read, so changing one value in it would lose the rest: "
+                $"'{at}' cannot be read, so nothing was changed; changing one value would lose the rest: "
               + unreadable);
         }
 
@@ -262,7 +262,7 @@ public static class ConfigCommands
             m => string.Equals(m.Key, key, StringComparison.OrdinalIgnoreCase)
               || string.Equals(m.Variable, key, StringComparison.OrdinalIgnoreCase))
             ?? throw new ConfigurationRefused(
-                $"'{key}' is not a setting. These are: "
+                $"'{key}' is not a setting, so nothing was changed. The settings are: "
               + string.Join(", ", Configuration.Members.Select(m => m.Key)) + ".");
 
         var changed = member.With(read.Configuration ?? new Configuration(), value);
@@ -321,8 +321,8 @@ public static class ConfigCommands
         if (offered is null)
         {
             throw new ConfigurationRefused(
-                $"nothing is offered, so there is no '{version}' to accept. Run `gg config "
-              + "offered` to see what your control plane is offering.");
+                $"Nothing is offered, so there is no '{version}' to accept. Run `gg config "
+              + "offered` to see what the control plane offers.");
         }
 
         // NAMED, OR NOTHING HAPPENS. The mismatch says what IS offered, because
@@ -331,9 +331,9 @@ public static class ConfigCommands
         if (!string.Equals(offered.Version, version, StringComparison.Ordinal))
         {
             throw new ConfigurationRefused(
-                $"'{version}' is not what is offered now - '{offered.Version}' is. Your "
-              + "control plane changed its offer since you looked, so nothing was written. "
-              + "Run `gg config offered` and read the new one.");
+                $"'{version}' is not what is offered now - '{offered.Version}' is. The "
+              + "control plane changed its offer, so nothing was written. Run "
+              + "`gg config offered` and read the new one.");
         }
 
         var read = ConfigurationFile.Read(at);
@@ -341,7 +341,7 @@ public static class ConfigCommands
         if (read.Diagnosis is { } unreadable)
         {
             throw new ConfigurationRefused(
-                $"'{at}' cannot be read, so accepting an offer into it would lose the rest: "
+                $"'{at}' cannot be read, so nothing was written; accepting an offer would lose the rest: "
               + unreadable);
         }
 
@@ -360,9 +360,9 @@ public static class ConfigCommands
         if (taken.Configuration is null && !taken.AlreadyAccepted)
         {
             throw new ConfigurationRefused(
-                $"this machine does not accept offered configuration, so '{version}' was not "
-              + $"applied. Set 'accept-offered' to true in {at} - it has no environment "
-              + "variable and cannot be offered, so opening the file is the only way.");
+                $"This machine does not accept offered configuration, so '{version}' was not "
+              + $"applied. To accept offers, set 'accept-offered' to true by editing {at}; "
+              + "this setting has no environment variable and cannot be offered.");
         }
 
         // ALREADY IN FORCE: not an error, and not a write either. The file is

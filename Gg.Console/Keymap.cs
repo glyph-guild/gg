@@ -879,16 +879,16 @@ public static class Keymap
                 new(KeyStroke.Char('o'), Command.AskWhoMayClaim,
                     context.RunnerIsTheTenants
                         ? "open it for anybody here to claim"
-                        : "hold it back for the tenant")
+                        : "keep it for organisation work")
                 {
                     When = "over a machine whose control plane says whose it is",
                 },
                 new(KeyStroke.Char('h'), Command.ReserveRunner,
                     context.RunnerIsReserved
-                        ? "let it take the tenant's work again"
-                        : "hold it to your own flights")
+                        ? "let it take organisation work again"
+                        : "reserve it for its owner's flights")
                 {
-                    When = "over a machine somebody has claimed",
+                    When = "over a claimed machine",
                 },
             ]
             : [];
@@ -1449,7 +1449,7 @@ public static class Keymap
             // THE ONE THAT NEVER HAD A KEY. Nobody can be sent a credential until
             // their key is registered, so this is the act that has to happen before
             // the holder column can name a person at all.
-            new(KeyStroke.Char('m'), Command.MintPersonKey, "mint your key"),
+            new(KeyStroke.Char('m'), Command.MintPersonKey, "create a personal key"),
 
             // THE ACT THE HOLDER COLUMN ASKS FOR. That column says who can open each
             // credential, and on the machine a person registered one from the answer
@@ -1954,7 +1954,7 @@ public static class Keymap
 
         UiMode.ComposeChoice =>
         [
-            new(KeyStroke.Char('w'), Command.ComposeInEditor, "write it in your editor")
+            new(KeyStroke.Char('w'), Command.ComposeInEditor, "write it in the editor")
                 { Label = "Editor" },
             new(KeyStroke.Char('m'), Command.ComposeWithAgent, "compose it with an agent")
                 { Label = "Agent" },
@@ -2622,14 +2622,14 @@ public static class Keymap
             // cannot drift.
             .. context.Takeable
                 ? (KeyBinding[])[new(KeyStroke.Char('t'), Command.TakeFlight, "take over")
-                    { When = "when the flight has a tree somebody is holding" }]
+                    { When = "when this machine has the flight's working tree" }]
                 : [],
             // Only after somebody has taken it. Handing back a flight nobody
             // took is a key that does nothing, and the hints come from the same
             // context dispatch does.
             .. context.HandedBackable
                 ? (KeyBinding[])[new(KeyStroke.Char('h'), Command.HandBack, "hand back")
-                    { When = "after you have taken it" }]
+                    { When = "after taking it over" }]
                 : [],
 
             // TENANT-LEVEL WRITES, in Normal mode only. A modal holds the keyboard
@@ -2668,7 +2668,7 @@ public static class Keymap
                     new KeyBinding(
                         KeyStroke.Char('o'), Command.AskToKeepAShare, "keep a share back")
                     {
-                        When = "on your own machine's allowance, on the runners tab",
+                        When = "on this machine's allowance, on the runners tab",
                     },
                 ]
                 : (KeyBinding[])[],

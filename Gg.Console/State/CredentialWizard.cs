@@ -236,20 +236,20 @@ public static class CredentialWizard
                 "Which service does this token come from?",
 
             CredentialWizardStep.For => Targets(state).Count == 0
-                ? $"gg doesn't have any {called} repositories set up yet. Add one first, "
+                ? $"gg has no {called} repositories set up yet. Add one first, "
                 + "or press Back and pick a different service."
                 : "What should gg use this token for?",
 
             CredentialWizardStep.Access => service?.TokenPage is { } page
                 ? "How much should gg be allowed to do with it?\n"
-                + $"When you make the token on {called}, give it the same permission:\n"
+                + $"When creating the token on {called}, give it the same permission:\n"
                 + $"  {page}"
                 : "How much should gg be allowed to do with it?",
 
             CredentialWizardStep.Account =>
                 $"Which {called} account does this token belong to? Type the username, "
               + "then paste the token.\n"
-              + "The token is hidden as you type, and gg keeps it encrypted on this computer.",
+              + "The token is hidden while it is typed, and gg keeps it encrypted on this computer.",
 
             CredentialWizardStep.Review when draft is { Scope: { } scope, Identity: { } identity } =>
                 "Check this is right, then press Enter to save it.\n\n"
@@ -268,13 +268,13 @@ public static class CredentialWizard
     public static string Help(CredentialWizardStep step) => step switch
     {
         CredentialWizardStep.Service => "Pick the service the token comes from. If it "
-                                      + "isn't listed, choose Other.",
-        CredentialWizardStep.For => "gg only uses the token for what you pick here.",
+                                      + "is not listed, choose Other.",
+        CredentialWizardStep.For => "gg only uses the token for what is picked here.",
         CredentialWizardStep.Access => "Pick the least that will work. gg can never do more "
                                      + "than the token allows.",
-        CredentialWizardStep.Account => "The username shows up in gg's history, so it's clear "
+        CredentialWizardStep.Account => "The username shows up in gg's history, so it is clear "
                                       + "whose access gg uses.",
-        CredentialWizardStep.Review => "Nothing is saved until you press Enter. Press Back "
+        CredentialWizardStep.Review => "Nothing is saved until Enter is pressed. Press Back "
                                      + "to change something, or Esc to cancel.",
         _ => "",
     };

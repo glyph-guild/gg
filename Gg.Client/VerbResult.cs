@@ -1795,9 +1795,9 @@ public static class VerbOutput
     {
         var starts = minted.Ownership switch
         {
-            Gg.Contracts.RunnerOwnerships.Tenant => "the tenant's",
-            Gg.Contracts.RunnerOwnerships.Claimed when minted.Reserved => "yours, and reserved to your flights",
-            Gg.Contracts.RunnerOwnerships.Claimed => "yours",
+            Gg.Contracts.RunnerOwnerships.Tenant => "kept for organisation work",
+            Gg.Contracts.RunnerOwnerships.Claimed when minted.Reserved => "claimed by the token's creator, and reserved to their flights",
+            Gg.Contracts.RunnerOwnerships.Claimed => "claimed by the token's creator",
             _ => "open",
         };
 
@@ -1814,7 +1814,7 @@ public static class VerbOutput
     {
         if (list.Tokens.Count == 0)
         {
-            return "No enrollment tokens. gg fleet enroll --profile <name> --uses <n> --expires <duration> mints one.";
+            return "No enrollment tokens. To create one, run gg fleet enroll --profile <name> --uses <n> --expires <duration>.";
         }
 
         var text = new StringBuilder();
@@ -1842,14 +1842,14 @@ public static class VerbOutput
             // CLAIMED IS NOT RESERVED, and that is the case the split exists
             // for - so it is said, with the verb that changes it.
             Gg.Contracts.RunnerOwnerships.Claimed =>
-                $"{id} is {Clean(owned.Owner)}'s. It still takes the tenant's work; "
-              + $"gg runner reserve {id} keeps it to theirs.",
+                $"{id} is {Clean(owned.Owner)}'s. It still takes organisation work; "
+              + $"gg runner reserve {id} keeps it to {Clean(owned.Owner)}'s flights.",
             Gg.Contracts.RunnerOwnerships.Tenant =>
-                $"{id} is the tenant's: nobody may claim it. An admin can open it with "
+                $"{id} is kept for organisation work: nobody may claim it. An admin can open it with "
               + $"gg runner ownership {id} open.",
             Gg.Contracts.RunnerOwnerships.Open =>
-                $"{id} is open: anybody here may claim it for themselves with gg runner claim {id}.",
-            _ => $"{id}: the control plane said '{Clean(owned.Ownership)}', which this gg does not know.",
+                $"{id} is open: any person in this organisation may claim it with gg runner claim {id}.",
+            _ => $"{id}: the control plane said '{Clean(owned.Ownership)}', which this gg does not know. Run gg update to get a newer gg.",
         };
     }
 
@@ -1857,7 +1857,7 @@ public static class VerbOutput
     private static string RunnerReservationText(Gg.Contracts.RunnerReserved reservation) =>
         reservation.ReservedTo is { Length: > 0 } holder
             ? $"{Clean(reservation.RunnerId)} is reserved: it takes only {Clean(holder)}'s flights."
-            : $"{Clean(reservation.RunnerId)} is not reserved: it takes the tenant's work.";
+            : $"{Clean(reservation.RunnerId)} is not reserved: it takes organisation work.";
 
     private static string RunnerRepinnedText(Gg.Client.RunnerRepinned repinned) =>
         repinned.Forgotten
@@ -2801,7 +2801,7 @@ public static class VerbOutput
     {
         var whose = runner.Ownership switch
         {
-            RunnerOwnerships.Tenant => "  the tenant's",
+            RunnerOwnerships.Tenant => "  organisation's",
             RunnerOwnerships.Open => "  open",
             RunnerOwnerships.Claimed =>
                 $"  {Clean(runner.Owner)}'s{(runner.Reserved ? ", reserved" : "")}",

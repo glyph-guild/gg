@@ -95,20 +95,20 @@ public sealed class TakeSession(
     private readonly TimeProvider _time = time ?? TimeProvider.System;
 
     /// <summary>The reason not to hand the terminal over, or null.</summary>
-    private static string? Refusal(TakeoverClaim claim) => claim switch
+    private static string? Refusal(TakeoverClaim claim, string flight) => claim switch
     {
         TakeoverClaim.Granted => null,
 
         TakeoverClaim.Refused { Holder: { } holder } =>
-            $"{holder.By} has held this since {holder.Since:HH:mm} and until "
-          + $"{holder.HeldUntil:HH:mm}. Nothing was started: exactly one person holds a flight at "
-          + "a time, which is what stops two people editing the same work.",
+            $"{holder.By} took this flight over at {holder.Since:HH:mm} and has it until "
+          + $"{holder.HeldUntil:HH:mm}. Nothing was started: only one person can take over a "
+          + $"flight at a time. Ask {holder.By}, or try again after {holder.HeldUntil:HH:mm}.",
 
         TakeoverClaim.Refused =>
-            "Somebody holds this flight and the control plane would not say who. Nothing was "
-          + "started - a hold nobody can be attributed to is still a hold.",
+            "This flight has already been taken over, and the control plane cannot say by "
+          + $"whom. Nothing was started. Run gg show {flight} to see its current state.",
 
-        _ => "The control plane has no such flight, so there is nothing to take over.",
+        _ => "The control plane has no such flight, so there is nothing to take over. Run gg flights to list flights.",
     };
 
     public TakeResult Take(TakeRequest request)
@@ -119,7 +119,7 @@ public sealed class TakeSession(
         // holds a flight at a time, and the refusal names who - which is the whole
         // difference between a portable handoff and two people editing divergent
         // copies of the same work.
-        if (_claim is not null && Refusal(_claim(request.FlightNumber)) is { } refused)
+        if (_claim is not null && Refusal(_claim(request.FlightNumber), request.FlightNumber) is { } refused)
         {
             return new TakeResult
             {
@@ -138,13 +138,13 @@ public sealed class TakeSession(
         System.Console.WriteLine($"Taking over {request.FlightNumber} in {request.TreePath}");
         System.Console.WriteLine(placement switch
         {
-            SeedPlacement.Clipboard => "The handoff summary is on your clipboard. Paste it in.",
+            SeedPlacement.Clipboard => "The handoff summary is on the clipboard. Paste it in.",
             SeedPlacement.File(var path, var why) =>
                 $"No clipboard here ({why}). The handoff summary is at {path}.",
             _ => "",
         });
         System.Console.WriteLine(
-            $"When you are done, write your decision to {TakeoverReturnReader.PathIn(request.TreePath)}");
+            $"When finished, write the decision to {TakeoverReturnReader.PathIn(request.TreePath)}");
         System.Console.WriteLine();
 
         var started = _time.GetTimestamp();
@@ -167,11 +167,13 @@ public sealed class TakeSession(
             using var child = Process.Start(start);
             child?.WaitForExit();
         }
-        catch (Exception failure)
+        catch (Exception)
         {
             // The person still has the seed and the tree. Saying which command
             // could not start beats a takeover that looks like it happened.
-            System.Console.WriteLine($"'{_command}' could not be started: {failure.Message}");
+            System.Console.WriteLine(
+                $"'{_command}' could not be started. Check that it is installed and on PATH, "
+              + "then run the takeover again.");
         }
 
         var held = _time.GetElapsedTime(started);

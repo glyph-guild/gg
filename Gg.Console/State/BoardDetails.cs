@@ -206,7 +206,7 @@ public static class BoardDetails
                 "standing",
                 nomination.Ending is { Length: > 0 } ending
                     ? ControlText.Strip(ending)
-                    : "waiting for somebody"));
+                    : "waiting for a person"));
 
             fields.Add(new BoardField("nominated", $"{nomination.MadeAt:u}"));
 
@@ -288,7 +288,7 @@ public static class BoardDetails
             // SAID, NOT BLANK, and reachable: a board re-read underneath
             // somebody, or a row answered from another console.
             return "There is nothing on this row any more.\n"
-                 + "The board may have been read again since you opened it.";
+                 + "The board may have been read again since this row was opened.";
         }
 
         var text = new System.Text.StringBuilder();
@@ -308,9 +308,9 @@ public static class BoardDetails
         {
             text.AppendLine();
             text.AppendLine(
-                "Either answer opens your editor for the reason, and nothing is sent until "
-              + "you save and quit. The reason is the only thing that survives to tell a "
-              + "later reader why.");
+                "Either answer opens the editor for the reason, and nothing is sent until "
+              + "the file is saved and the editor closed. The reason is kept with the "
+              + "decision.");
         }
 
         return text.ToString();

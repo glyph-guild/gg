@@ -422,7 +422,7 @@ public static class Looks
         LookSetting.ModalBorder => "The line round a dialog, which is what tells "
                                  + "one apart from the panes behind it.",
         LookSetting.TabLine => "The line the tab strip is drawn with.",
-        LookSetting.TabMark => "How the tab you are on is marked out. The first four "
+        LookSetting.TabMark => "How the current tab is marked out. The first four "
                              + "change its text; Accent changes its colour.",
         LookSetting.TabSide => "Which side of the pane the tab strip sits on.",
         LookSetting.TabDepth => "How tall a tab is, in rows.",
@@ -431,10 +431,10 @@ public static class Looks
         LookSetting.TableLines => "How much rule work a table carries, from every cell "
                                 + "boxed to none at all.",
         LookSetting.TableHeaders => "Whether a table says what its columns are.",
-        LookSetting.RowSelect => "What the cursor marks: one cell, or the whole row you "
-                               + "picked.",
+        LookSetting.RowSelect => "What the cursor marks: one cell, or the whole "
+                               + "selected row.",
         LookSetting.HeaderTint => "Whether the header row is coloured apart from the body.",
-        LookSetting.UnselectedTabs => "How far back the tabs you are NOT on sit. Faint is "
+        LookSetting.UnselectedTabs => "How far back the other tabs sit. Faint is "
                                     + "the terminal's own dim and some ignore it; Grey "
                                     + "always works.",
         LookSetting.StatusText => "How far back the activity line and the key hints sit.",

@@ -699,5 +699,5 @@ public sealed class CredentialCommands(
 
     private string Session() =>
         _sessions.Read()?.SessionToken
-        ?? throw new NotSignedInException("Not signed in. Run gg login.");
+        ?? throw new NotSignedInException("This machine is not signed in. Run gg login, then try again.");
 }

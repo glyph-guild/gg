@@ -54,7 +54,7 @@ public interface IQueueSort
 /// </remarks>
 public sealed class OldestFirst : IQueueSort
 {
-    public string Name => "oldest first (placeholder: no urgency signal exists yet)";
+    public string Name => "oldest first";
 
     public IReadOnlyList<QueueRow> Order(IReadOnlyList<QueueRow> rows)
     {

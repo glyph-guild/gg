@@ -141,7 +141,7 @@ public sealed class VerbConsoleActions(
                                             or RunnerNotFoundException
                                             or EnrollmentRefusedException)
         {
-            return refusal.Message;
+            return ControlPlaneFailure.Said(refusal);
         }
     }
 
@@ -182,7 +182,7 @@ public sealed class VerbConsoleActions(
             // NAMED EXCEPTIONS, and the model stays intact. Swallowing everything
             // here would turn a bug into a console that looks like it answered - the
             // exact shape this whole change exists to remove.
-            return $"{flight}: {obligation} was not answered — {refusal.Message}";
+            return $"{flight}: {obligation} was not answered. {ControlPlaneFailure.Said(refusal)}";
         }
     }
 
@@ -239,7 +239,7 @@ public sealed class VerbConsoleActions(
         }
         catch (Exception refusal) when (Expected(refusal))
         {
-            return new Opening($"Nothing was answered — {refusal.Message}", Refused: true);
+            return new Opening($"Nothing was answered. {ControlPlaneFailure.Said(refusal)}", Refused: true);
         }
     }
 
@@ -259,12 +259,12 @@ public sealed class VerbConsoleActions(
 
             return share is { } kept
                 ? $"{allowance} keeps {(int)Math.Round(kept * 100)}% of each window back. "
-                + "Fleet work stops there; your own does not."
+                + "Fleet work stops there; the owner's own work does not."
                 : $"{allowance} keeps nothing back. Fleet work may spend all of it.";
         }
         catch (Exception refusal) when (Expected(refusal))
         {
-            return refusal.Message;
+            return ControlPlaneFailure.Said(refusal);
         }
     }
 
@@ -281,7 +281,7 @@ public sealed class VerbConsoleActions(
         }
         catch (Exception refusal) when (Expected(refusal))
         {
-            return new Opening($"Nothing was opened — {refusal.Message}");
+            return new Opening($"Nothing was opened. {ControlPlaneFailure.Said(refusal)}");
         }
     }
 
@@ -301,7 +301,7 @@ public sealed class VerbConsoleActions(
         }
         catch (Exception refusal) when (Expected(refusal))
         {
-            return new Opening($"Nothing was opened — {refusal.Message}");
+            return new Opening($"Nothing was opened. {ControlPlaneFailure.Said(refusal)}");
         }
     }
 
@@ -313,8 +313,8 @@ public sealed class VerbConsoleActions(
     /// </remarks>
     private static Opening Launched(VerbResult opened) => opened is VerbResult.Launched launched
         ? new Opening(
-            $"Opened {launched.Value.FlightId}. Its number is minted when it materializes, "
-            + "and it appears here when it does.",
+            $"Opened {launched.Value.FlightId}. It receives a number once it is set up, "
+            + "and appears here then.",
             launched.Value.FlightId)
         : new Opening("The flight was accepted.");
 
@@ -350,7 +350,7 @@ public sealed class VerbConsoleActions(
         catch (Exception refusal) when (Expected(refusal))
         {
             return $"This console could not check whether {provider}#{id} has already been "
-                 + $"flown — {refusal.Message}";
+                 + $"flown. {ControlPlaneFailure.Said(refusal)}";
         }
     }
 
@@ -436,7 +436,7 @@ public sealed class VerbConsoleActions(
             // THE MESSAGE IS SHOWN, KEPT, DUMPED AND BUNDLED, so what it may contain
             // matters more here than anywhere else in this file. It carries the
             // refusal's own words, and the refusal never saw the value.
-            return $"Nothing was registered — {refusal.Message}";
+            return $"Nothing was registered. {ControlPlaneFailure.Said(refusal)}";
         }
     }
 
@@ -471,14 +471,14 @@ public sealed class VerbConsoleActions(
         {
             return _data.CreateKeyAsync().GetAwaiter().GetResult() is VerbResult.KeyCreated minted
                 ? VerbOutput.ToText(minted)
-                : "Nothing was written: the key could not be minted.";
+                : "Nothing was written: the key could not be created.";
         }
         catch (Exception refused) when (refused is InvalidOperationException or HttpRequestException)
         {
             // THE REFUSALS ARE SENTENCES A PERSON CAN ACT ON - an empty passphrase,
             // two that did not match, a key already on this machine - and each is
             // already worded by the verb. Nothing is reworded here.
-            return refused.Message;
+            return ControlPlaneFailure.Said(refused);
         }
     }
 
@@ -514,7 +514,7 @@ public sealed class VerbConsoleActions(
             // ALREADY SENTENCES A PERSON CAN ACT ON - a wrong passphrase, a key this
             // machine has not got, a credential sealed to somebody else - each worded
             // by the verb or by CredentialSeal. Nothing is reworded here.
-            return refused.Message;
+            return ControlPlaneFailure.Said(refused);
         }
     }
 
@@ -545,7 +545,7 @@ public sealed class VerbConsoleActions(
                 // and a person whose credential is already gone need different
                 // next moves, and "not found" is both.
                 var known = held.Value.Credentials.Count == 0
-                    ? "this tenant holds none"
+                    ? "this organisation has none"
                     : string.Join(", ", held.Value.Credentials.Select(c => c.For));
 
                 return $"Nothing was forgotten: no credential for {repo} ({known}).";
@@ -564,7 +564,7 @@ public sealed class VerbConsoleActions(
         }
         catch (Exception refusal) when (Expected(refusal))
         {
-            return $"Nothing was forgotten — {refusal.Message}";
+            return $"Nothing was forgotten. {ControlPlaneFailure.Said(refusal)}";
         }
     }
 
@@ -599,7 +599,7 @@ public sealed class VerbConsoleActions(
             return placed switch
             {
                 SeedPlacement.Clipboard =>
-                    "An invitation is on your clipboard. It expires "
+                    "An invitation is on the clipboard. It expires "
                   + $"{invitation.Value.ExpiresAt:yyyy-MM-dd HH:mm} UTC.",
                 SeedPlacement.File(var path, var why) =>
                     $"No clipboard here ({why}). The invitation is at {path}, and it expires "
@@ -609,7 +609,7 @@ public sealed class VerbConsoleActions(
         }
         catch (Exception refusal) when (Expected(refusal))
         {
-            return $"No invitation was issued — {refusal.Message}";
+            return $"No invitation was issued. {ControlPlaneFailure.Said(refusal)}";
         }
     }
 

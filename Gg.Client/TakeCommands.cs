@@ -65,15 +65,16 @@ public sealed class TakeCommands(ControlPlaneClient client, ISessionStore sessio
 
         var seed = await _client.GetSeedAsync(session, reference, cancellationToken)
             ?? throw new TakeoverRefusedException(
-                $"'{reference}' names no flight for this tenant, so there is nothing to take over.");
+                $"'{reference}' does not name a flight in this organisation, so nothing was taken "
+              + "over. Run gg flights to list flights.");
 
         return new VerbResult.Taken(seed,
         [
-            $"You hold {seed.FlightNumber} until {hold.HeldUntil:yyyy-MM-dd HH:mm} UTC.",
-            $"Renew within {hold.RenewWithinSeconds}s of that, or it goes back and somebody else "
-          + "may take it.",
-            $"When you are done: gg take {reference} --return <outcome>, one of "
-          + string.Join(", ", TakeoverOutcomes.All) + ".",
+            $"{seed.FlightNumber} is taken over until {hold.HeldUntil:yyyy-MM-dd HH:mm} UTC.",
+            $"Renew within {hold.RenewWithinSeconds}s of that time, or the takeover ends and "
+          + "another person may take the flight over.",
+            $"When finished, run gg take {reference} --return <outcome>, where <outcome> is one "
+          + "of " + string.Join(", ", TakeoverOutcomes.All) + ".",
         ]);
     }
 
@@ -108,7 +109,7 @@ public sealed class TakeCommands(ControlPlaneClient client, ISessionStore sessio
         if (!TakeoverOutcomes.All.Contains(outcome, StringComparer.Ordinal))
         {
             throw new ArgumentException(
-                $"'{outcome}' is not an outcome this version understands. Expected one of: "
+                $"'{outcome}' is not an outcome gg recognises. Nothing was recorded. Use one of: "
               + string.Join(", ", TakeoverOutcomes.All) + ".", nameof(outcome));
         }
 
@@ -130,14 +131,15 @@ public sealed class TakeCommands(ControlPlaneClient client, ISessionStore sessio
         if (!accepted)
         {
             throw new TakeoverRefusedException(
-                $"The decision about {reference} was not recorded. The hold moved on, so it is left "
-              + "where it is rather than applied against somebody else's - a decision on the wrong "
-              + "hold is worse than a decision lost.");
+                $"The decision about {reference} was not recorded, because the takeover has "
+              + "ended or passed to another person. Nothing was changed. Run "
+              + $"gg show {reference} to see its current state.");
         }
 
         var log = await _client.GetFlightLogAsync(session, reference, cancellationToken)
             ?? throw new TakeoverRefusedException(
-                $"The decision about {reference} was recorded and its log could not be read back.");
+                $"The decision about {reference} was recorded, but its log could not be read back. "
+              + $"Run gg log {reference} to read it.");
 
         return new VerbResult.Log(log);
     }
@@ -162,7 +164,7 @@ public sealed class TakeCommands(ControlPlaneClient client, ISessionStore sessio
     /// </remarks>
     public string Principal() =>
         _sessions.Read()?.PrincipalDisplay
-        ?? throw new NotSignedInException("Not signed in. Run gg login.");
+        ?? throw new NotSignedInException("This machine is not signed in. Run gg login, then try again.");
 
     /// <summary>
     /// Claims the flight, for a caller that is about to hand over a terminal.
@@ -189,19 +191,20 @@ public sealed class TakeCommands(ControlPlaneClient client, ISessionStore sessio
         TakeoverClaim.Granted granted => granted.Hold,
 
         TakeoverClaim.Refused { Holder: { } holder } => throw new TakeoverRefusedException(
-            $"{holder.By} has held {reference} since {holder.Since:yyyy-MM-dd HH:mm} UTC, until "
-          + $"{holder.HeldUntil:HH:mm}. Ask them, or take it after that - exactly one person holds "
-          + "a flight at a time, which is what stops two people editing the same work."),
+            $"{holder.By} took over {reference} at {holder.Since:yyyy-MM-dd HH:mm} UTC, until "
+          + $"{holder.HeldUntil:HH:mm} UTC. Nothing was changed: only one person can take over a "
+          + $"flight at a time. Ask {holder.By}, or run gg take {reference} again after that."),
 
         TakeoverClaim.Refused => throw new TakeoverRefusedException(
-            $"{reference} is held by somebody this control plane would not name. It is refused "
-          + "rather than granted: a hold nobody can be attributed to is still a hold."),
+            $"{reference} has already been taken over, and the control plane cannot say by "
+          + $"whom. Nothing was changed. Run gg show {reference} to see its current state."),
 
         _ => throw new TakeoverRefusedException(
-            $"'{reference}' names no flight for this tenant."),
+            $"'{reference}' does not name a flight in this organisation. Nothing was changed. "
+          + "Run gg flights to list flights."),
     };
 
     private string Session() =>
         _sessions.Read()?.SessionToken
-        ?? throw new NotSignedInException("Not signed in. Run gg login.");
+        ?? throw new NotSignedInException("This machine is not signed in. Run gg login, then try again.");
 }

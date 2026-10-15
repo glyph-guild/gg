@@ -262,6 +262,7 @@ public static class WorkKindChain
             Accepts = child.Accepts ?? parent.Accepts,
             Produces = child.Produces ?? parent.Produces,
             Consults = child.Consults ?? parent.Consults,
+            InstructionsFrom = child.InstructionsFrom ?? parent.InstructionsFrom,
             Instructions =
             [
                 .. parent.Instructions.Where(i => !removed.Instructions.Contains(i.Text, StringComparer.Ordinal)),

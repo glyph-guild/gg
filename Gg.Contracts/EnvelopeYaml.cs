@@ -764,7 +764,7 @@ public static class EnvelopeYaml
     {
         var root = RequireMap(document, "");
         Closed(root, BasedOnKey, ExtendsKey, "abstract", "description", "brief", "targeting",
-               "hosts", "accepts", "produces", "consults", "instructions", "remove", "obligations", "loops",
+               "hosts", "accepts", "produces", "consults", "instructions-from", "instructions", "remove", "obligations", "loops",
                "destinations");
 
         ExtensionRemovals? removals = null;
@@ -792,6 +792,7 @@ public static class EnvelopeYaml
             Description = Optional(root, "description"),
             Brief = Optional(root, "brief"),
             Targeting = Optional(root, "targeting"),
+            InstructionsFrom = Optional(root, "instructions-from"),
             Hosts = root.Entries.ContainsKey("hosts") ? BoundOf(root, "hosts") : null,
             Accepts = root.Entries.TryGetValue("accepts", out var accepts)
                 ? Strings(accepts, "accepts")
@@ -1468,7 +1469,7 @@ public static class EnvelopeYaml
     {
         var root = RequireMap(document, "");
         Closed(root, BasedOnKey, "abstract", "description", "brief", "context", "environment", "environments",
-               "repository", "repositories", "models", "accepts", "produces", "consults", "learned", "variables", "mcp-servers", "targeting", "hosts", "instructions",
+               "repository", "repositories", "models", "accepts", "produces", "consults", "instructions-from", "learned", "variables", "mcp-servers", "targeting", "hosts", "instructions",
                "obligations", "loops", "destinations", "offers");
 
         var context = RequireMap(Require(root, "context"), "context");
@@ -1574,6 +1575,7 @@ public static class EnvelopeYaml
             // `any`; reading it back as "" would be refused by Validate as an
             // undeclared strategy, which is the round trip failing on a
             // document nobody wrote.
+            InstructionsFrom = Optional(root, "instructions-from"),
             Targeting = root.Entries.TryGetValue("targeting", out var targeting)
                 ? RequireScalar(targeting, "targeting")
                 : null,

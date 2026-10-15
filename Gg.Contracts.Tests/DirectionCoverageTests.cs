@@ -252,6 +252,11 @@ public class DirectionCoverageTests
 
         // ARRIVING IS THE WIDENING, as learned advice's is (slice seventy-nine): another
         // family's findings are agents' words reaching every later flight of the kind.
+        // ARRIVING OR CHANGING IS THE WIDENING (slice eighty-two): a field's text reaching
+        // every flight of the kind as its instructions.
+        new("Envelope.InstructionsFrom", "instructions-from",
+            Doc(), Doc() with { InstructionsFrom = "Custom.ClaudeCodePlan" }, ReverseAlsoWidens: false),
+
         new("Envelope.Consults", "consults",
             Doc(), Doc() with { Consults = ["review"] }, ReverseAlsoWidens: false),
 

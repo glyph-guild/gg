@@ -2456,6 +2456,25 @@ public sealed record Envelope
             }
         }
 
+        // WHERE A FLIGHT'S INSTRUCTIONS COME FROM is a property of the kind of work too (slice
+        // eighty-two), and it names one exact field: a prefix would let the item decide.
+        if (envelope.InstructionsFrom is { } field)
+        {
+            if (!isWorkKind)
+            {
+                return $"A '{role}' declares 'instructions-from:', and only a '{Roles.WorkKind}' may. "
+                     + "Move it to the work kind whose flights take their instructions from that field.";
+            }
+
+            if (field.Length == 0
+                || field.Any(char.IsWhiteSpace)
+                || field.Contains(WorkItemFields.Wildcard, StringComparison.Ordinal))
+            {
+                return $"'instructions-from:' names '{field}', which is not one exact field path. "
+                     + "Name the field as the tracker does, for example Custom.ClaudeCodePlan.";
+            }
+        }
+
         // ONE FILE SAYS WHERE EVERY CREDENTIAL MAY GO (ADR-0040 Amendment 1).
         // Airspace is trusted to direct a credential because it is reviewed, and
         // a definition in any document but the floor would scatter what the

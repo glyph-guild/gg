@@ -168,6 +168,13 @@ public static class FactHygiene
         // TWO NAMES, one of them the flag the lease handed over - cleaned for the
         // reason the instance name below is: it came from a document a person
         // wrote, and the ledger is read by terminals.
+        // AN ITEM ID AND FIELD PATHS FROM A TRACKER, cleaned for the reason a model name is.
+        FactPayload.Written written => new FactPayload.Written(written.Value with
+        {
+            DestinationId = Text(written.Value.DestinationId),
+            Target = Text(written.Value.Target),
+            Fields = [.. written.Value.Fields.Select(Text)],
+        }),
         FactPayload.Model model => new FactPayload.Model(model.Value with
         {
             LoopId = Text(model.Value.LoopId),

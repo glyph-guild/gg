@@ -1587,5 +1587,11 @@
     "surface": "902ad5cc460022fe0e9967101ef73ce362ac11fd1256d66b745dedcff448fcbc",
     "endpoints": "77ba4b72cdd1eb618490a9d45b87e04c3f532af195dd344a3370051965b22226",
     "note": "A work kind may take its instructions from a tracker field (slice eighty-two, ADR-0041 Decision 10). Envelope and EnvelopeExtension gain InstructionsFrom, work-kind only: one exact field path (no whitespace, no wildcard), inherited down a chain unless a child names its own, and declaring or changing it is a widening. LeaseLoop gains InstructionsFrom, carried from the governing envelope for the runner to read. No route moves."
+  },
+  {
+    "version": "0.306.0",
+    "surface": "4ce357148ff71fc37e6ceb2fa3bd3e0e7ece40354ba1d74d7a8ad2d1a7dbdb40",
+    "endpoints": "77ba4b72cdd1eb618490a9d45b87e04c3f532af195dd344a3370051965b22226",
+    "note": "A tracker field write records the revision it produced (slice eighty-two, ADR-0041 Decision 10). WorkItemWritten (destination, target, fields, revision) is new, a fact of its own kind, work-item.written, shipped after the write as a landing's fact is after its push; FactEnvelope gains Written. EarlierFinding gains Target, Field and Revision, so a later flight can ask whether any revision after that one touched the field rather than comparing text a tracker rewrites on save. Fact vocabulary 0.45.0. No route moves."
   }
 ]

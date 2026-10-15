@@ -257,7 +257,35 @@ public sealed class WiqlWorkItemSink : IWorkItemSink
 
         await RefusedAsync(answer, proposal, target, cancellationToken);
 
-        return new WorkItemWrite(proposal.Operation, target, Where(target), AlreadyDone: false);
+        // THE REVISION THE WRITE PRODUCED (slice eighty-two), from the tracker's own answer: a
+        // later flight asks whether any revision after it touched the field. Null when the
+        // answer does not say, which a later flight reports rather than guesses past.
+        return new WorkItemWrite(proposal.Operation, target, Where(target), AlreadyDone: false)
+        {
+            Revision = await RevisionOfAsync(answer, cancellationToken),
+            Fields = string.Equals(proposal.Operation, WorkItemOperations.Field, StringComparison.Ordinal)
+                ? [.. (proposal.Fields ?? []).Select(edit => edit.Path)]
+                : [],
+        };
+    }
+
+    private static async Task<int?> RevisionOfAsync(
+        HttpResponseMessage answer, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(
+                await answer.Content.ReadAsStringAsync(cancellationToken));
+            return document.RootElement.TryGetProperty("rev", out var rev)
+                && rev.ValueKind == JsonValueKind.Number
+                && rev.TryGetInt32(out var number)
+                    ? number
+                    : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     /// <summary>

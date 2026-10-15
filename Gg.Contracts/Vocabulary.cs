@@ -213,6 +213,7 @@ public static class Vocabulary
         typeof(ArtifactReference),
         typeof(LoopSession),
         typeof(LoopModel),
+        typeof(WorkItemWritten),
         typeof(EnvironmentReclaimed),
         typeof(StackPerformed),
         typeof(DocumentProposal),

@@ -22,6 +22,7 @@ return await ByName(CliArgs.Parse(args)) switch
         ? commands.ReturnAsync(take.Reference, outcome, take.Note)
         : commands.TakeAsync(take.Reference)),
     CliAction.PrintVersion => PrintVersion(),
+    CliAction.PrintReference => PrintReference(),
     CliAction.Login => await AuthAsync(commands => commands.LoginAsync(Environment.MachineName)),
     CliAction.Logout => await AuthAsync(commands => commands.LogoutAsync()),
     CliAction.WhoAmI => await AuthAsync(commands => commands.WhoAmIAsync()),
@@ -2483,6 +2484,12 @@ static int PrintRegistration(CliAction.ItineraryRegistration registration)
 {
     Console.WriteLine(ItineraryToolServer.Registration(
         registration.Draft, Gg.Local.OnPath.Find("gg"), Gg.Local.SelfInvocation.Current));
+    return 0;
+}
+
+static int PrintReference()
+{
+    Console.WriteLine(Reference.ToJson(Reference.Build()));
     return 0;
 }
 

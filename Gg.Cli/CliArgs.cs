@@ -973,7 +973,7 @@ public static class CliArgs
         "gg fleet tokens                this tenant's enrollment tokens, without their secrets",
         "gg fleet revoke <id>           an enrollment token enrolls nothing more",
         "gg runner claim|unclaim <id|name>  make a machine yours, or give it back",
-        "gg runner reserve|release <id> keep your machine to your own flights, or not",
+        "gg runner reserve|release <id>  keep your machine to your own flights, or not",
         "gg runner ownership <id> tenant|open  an admin's word: nobody's to claim, or anybody's",
         "gg runner watch <id|name>      watch it, and whatever it flies next",
         "gg runner repin <id>           trust a runner's key again after it changed",
@@ -1382,7 +1382,9 @@ public static class CliArgs
         {
             [] => new CliAction.LaunchConsole(),
             ["--version"] or ["-v"] or ["version"] => new CliAction.PrintVersion(),
-            ["reference", "--json"] => new CliAction.PrintReference(),
+            // --json IS ALREADY OFF THE LIST by here, like every verb's; the flag
+            // is required because the output is for a build, not a person.
+            ["reference"] when json => new CliAction.PrintReference(),
             ["login"] => new CliAction.Login(),
             ["logout"] => new CliAction.Logout(),
             ["whoami"] => new CliAction.WhoAmI(),

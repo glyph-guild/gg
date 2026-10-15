@@ -459,6 +459,8 @@ public class VerbParityTests
             ["LaunchConsole"] = "this IS the console. A verb for entering the thing you are "
                               + "already in is not a pane.",
             ["PrintVersion"] = "a line in the help modal is the right shape, not a pane.",
+            ["PrintReference"] = "output for the docs site's build. The console's own help page "
+                               + "already draws the same keys from the same catalogue.",
             // REWRITTEN, because the sentence that was here stopped being true.
             // It said "deliberately outside: it is the verb a person reaches
             // for when the console looks broken, which makes inside the console

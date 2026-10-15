@@ -2674,6 +2674,13 @@ public sealed class RunnerLoop(
             // this flight is owed. Passed through untouched: reformatting it here would
             // be the second wording LeaseLoop.Instructions exists to stop.
             Learned = loop.Learned,
+            // WHAT EARLIER FLIGHTS ON THIS INTENT FOUND (slice seventy-nine), as the control
+            // plane chose them, and the commit each fetched tree is at for the prompt to
+            // compare them with: the tree never leaves this machine.
+            Findings = loop.Findings,
+            TreeHeads = workspace.Trees
+                .GroupBy(tree => tree.Slug, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.Last().HeadCommit, StringComparer.Ordinal),
             // THE CLASSIFIER'S HANDOVER, carried the same way and for the
             // same reason: prose from outside this platform that the prompt
             // must show and the agent must not obey.

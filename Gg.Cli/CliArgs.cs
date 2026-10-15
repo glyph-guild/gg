@@ -915,142 +915,142 @@ public static class CliArgs
 
     private static readonly string[] Verbs =
     [
-        "gg                             the console",
-        "gg fly <text>|--uri <uri>|--ticket <provider>#<id>  open a flight",
-        "  --repo <name>                which repository it is about, by its registered name",
-        "  --runner <id|name>           open it for one machine",
-        "  --work-kind <name>           which work kind's rules govern it",
-        "  --environment <name>         which charted environment it runs in",
-        "  --model <name>               which model it runs on, from root's models:",
-        "  --attended                   and watch it from wherever you are",
-        "  --file <repo>:<path>[@ref]   about a file in a registered repository, read by the runner",
-        "gg flights [--all] [--intent <provider>#<id>|<uri>|<repo>:<path>] [--kind <work kind>]  flights in the air, or every one",
-        "  --limit <rows> --after <cursor>  one page of them, and where to carry on",
-        "gg show <flight>               one flight, by GG-42 or by id",
-        "gg log <flight>                a flight's log",
-        "gg facts <flight>              what a flight recorded, and which budget held it",
-        "gg runners                     the runners this tenant has",
+        "gg                             open the console",
+        "gg fly <text>|--uri <uri>|--ticket <provider>#<id>  open a flight (a piece of work an agent carries out)",
+        "  --repo <name>                the repository it is about, by its registered name",
+        "  --runner <id|name>           run it on one named machine only",
+        "  --work-kind <name>           the work kind whose rules govern it",
+        "  --environment <name>         the charted environment it runs in",
+        "  --model <name>               the model it runs on; gg airspace show lists them",
+        "  --attended                   say that a person will watch it while it runs",
+        "  --file <repo>:<path>[@ref]   work from a file in a registered repository, which the runner reads",
+        "gg flights [--all] [--intent <provider>#<id>|<uri>|<repo>:<path>] [--kind <work kind>]  list flights in progress, or every flight with --all",
+        "  --limit <rows> --after <cursor>  show one page, and continue from the cursor it prints",
+        "gg show <flight>               show one flight, by number (GG-42) or by id",
+        "gg log <flight>                show a flight's log",
+        "gg facts <flight>              show what a flight recorded, and the budget each item counted against",
+        "gg runners                     list this organisation's runners",
         // BESIDE RUNNERS, because it answers the same question about the other
         // kind of machine work: a runner reports by beating, and a watch
         // reports by sweeping. Nobody is watching a sweep while it runs, so
         // asking is the only way to know one is alive.
-        "gg watches [--limit <rows>] [--after <cursor>]  how each watch is doing: executor, last report, cost",
-        "gg plan [flight]               what must hold before a flight can start",
-        "gg itinerary check <file>      what admission would do with each leg of a plan",
-        "gg itinerary propose <file>    propose a plan; nothing opens until its gate is answered",
-        "gg itinerary tools [--draft <name>]  a tool server any Claude Code session drafts a plan with",
-        "gg manage tools                    gg's management layer as tools for a Claude Code session",
-        "gg mux mark <working|waiting|notification>  what a mux agent's own hooks run; always exits 0",
-        "gg itineraries [--intent <key>] [--limit <rows>] [--after <cursor>]  every plan here, and its legs",
-        "gg itinerary show <ITN-n>          one plan, and every leg of it in full",
-        "  --print-registration         the `claude mcp add` line that registers it",
-        "gg gates                       flights stopped, waiting on somebody",
+        "gg watches [--limit <rows>] [--after <cursor>]  show how each watch is doing: executor, last report, cost",
+        "gg plan [flight]               show what must be true before a flight can start",
+        "gg itinerary check <file>      check a plan file and show what would happen to each leg",
+        "gg itinerary propose <file>    propose a plan; nothing starts until a person answers its gate",
+        "gg itinerary tools [--draft <name>]  run a tool server that a Claude Code session drafts a plan with",
+        "gg manage tools                    run gg's management commands as tools for a Claude Code session",
+        "gg mux mark <working|waiting|notification>  record an agent's state for the mux; its hooks run this, and it always exits 0",
+        "gg itineraries [--intent <key>] [--limit <rows>] [--after <cursor>]  list every plan and its legs",
+        "gg itinerary show <ITN-n>          show one plan and every leg in full",
+        "  --print-registration         print the `claude mcp add` line that registers it",
+        "gg gates                       list flights waiting for a person to decide (gates)",
         // BESIDE GATES, because it is the same question one noun earlier: what
         // is waiting on a person. A gate is a flight that has stopped; a
         // standing nomination is work that has not started.
-        "gg board [--all] [--limit <rows>] [--after <cursor>]  what has been nominated and "
-      + "needs somebody",
-        "gg board open <id> <why>       turn a standing nomination into a flight",
-        "gg board decline <id> <why>    say it is not going to be one",
-        "gg why <flight> [obligation]   why a flight is stopped, and what would open it",
+        "gg board [--all] [--limit <rows>] [--after <cursor>]  list proposed work (nominations) "
+      + "waiting for a person",
+        "gg board open <id> <why>       turn a waiting nomination into a flight",
+        "gg board decline <id> <why>    decline a waiting nomination",
+        "gg why <flight> [obligation]   explain why a flight is stopped, and what would let it continue",
         // <outcome> rather than the two words it takes, because spelling them
         // here trips the guard that forbids advertising a `gg approve` verb
         // that does not exist. `gg decide` with the wrong arguments prints the
         // full form, which is where somebody typing it will be anyway.
-        "gg decide <flight> <obligation> <outcome> [reason]  open a gate, or refuse it",
+        "gg decide <flight> <obligation> <outcome> [reason]  answer a gate: let the flight continue, or turn it down",
         // WHAT IT IS NOT is half the line's job. `withdraw` is the sentence a
         // person reaches for when a flight will not move, and it says the work
         // stopped mattering - which is usually not what happened.
-        "gg ground <flight> <why>          stop a flight that could still have been done",
-        "gg model <flight> <model>         move a flight in the air to another model root lists",
-        "gg take <flight> [--return <outcome> [--note <note>]]  take a flight over, and hand it back",
-        "gg runner labels               what each runner advertises, with its disposition",
-        "gg runner retire <id|name>     take a runner out of the fleet, for good",
-        "gg tenant name <name>          what this tenant is called; only somebody who",
-        "                                 administers it may say",
+        "gg ground <flight> <why>          stop a flight for good and record why",
+        "gg model <flight> <model>         move a flight in progress to another model; gg airspace show lists them",
+        "gg take <flight> [--return <outcome> [--note <note>]]  take over a flight in person, and hand it back",
+        "gg runner labels               show what each runner advertises, and its disposition",
+        "gg runner retire <id|name>     remove a runner from the fleet permanently",
+        "gg tenant name <name>          rename this organisation; only an",
+        "                                 administrator can do this",
         "gg fleet enroll --profile <name> --uses <n> --expires <duration> [--tenant | --claim [--reserve]]",
-        "                                 a token some machines may join with, shown once",
-        "gg fleet tokens                this tenant's enrollment tokens, without their secrets",
-        "gg fleet revoke <id>           an enrollment token enrolls nothing more",
-        "gg runner claim|unclaim <id|name>  make a machine yours, or give it back",
-        "gg runner reserve|release <id>  keep your machine to your own flights, or not",
-        "gg runner ownership <id> tenant|open  an admin's word: nobody's to claim, or anybody's",
-        "gg runner watch <id|name>      watch it, and whatever it flies next",
-        "gg runner repin <id>           trust a runner's key again after it changed",
-        "gg invite                      a link that makes somebody a second principal here",
+        "                                 create a token that lets machines join the fleet; it is shown once",
+        "gg fleet tokens                list this organisation's enrollment tokens, without their secrets",
+        "gg fleet revoke <id>           stop an enrollment token from enrolling any more machines",
+        "gg runner claim|unclaim <id|name>  take ownership of a machine, or give it up",
+        "gg runner reserve|release <id>  keep an owned machine for its owner's flights only, or undo that",
+        "gg runner ownership <id> tenant|open  administrators: give a machine to the organisation, or open it to anyone to claim",
+        "gg runner watch <id|name>      watch a runner live, and the flights it takes next",
+        "gg runner repin <id>           trust a runner's new key after it changed",
+        "gg invite                      create a link that adds another person to this organisation",
         "gg credential add --repo <slug>|--agent <name>|--tracker <key>|--analysis <key>",
-        "                                 register a credential for what it is actually for;",
-        "                                 the value is prompted for and never an argument",
+        "                                 register a credential for one repository, agent, tracker or",
+        "                                 analysis service; gg asks for the value",
         "gg credential send --repo <slug>|--agent <name>|--tracker <key>|--analysis <key>",
-        "                                 send it to every machine your fleet profiles say",
-        "                                 needs it; the list is printed before anything moves",
+        "                                 send a credential to every machine whose fleet profile",
+        "                                 needs it; gg prints the list before sending",
         "gg credential send --runner <id|name> --repo <slug>|--agent <name>|--tracker <key>|--analysis <key>",
-        "                                 put one on a machine that cannot be reached any other way",
-        "gg key create                  mint this person's key; the passphrase is prompted for",
-        "gg key list                    the public keys this tenant's people have registered",
-        "gg credential list             the references the control plane holds",
-        "gg credential rm <id>          forget one, here and there",
+        "                                 send a credential to one machine that cannot be reached any other way",
+        "gg key create                  create a key for the signed-in person; gg asks for the passphrase",
+        "gg key list                    list the public keys people in this organisation have registered",
+        "gg credential list             list the credential references the control plane stores",
+        "gg credential rm <id>          delete a credential from this machine and the control plane",
         "gg credential trust-this-machine <locator>",
-        "                                 let THIS machine open a credential sealed to you, so a",
-        "                                 flight here can resolve it with nobody present",
+        "                                 let this machine open a credential sealed to the signed-in",
+        "                                 person, so flights here can use it with nobody present",
         "gg agent login --runner <id|name> [--agent <name>]",
-        "                                 log a runner's agent in from here: it runs the ceremony,",
-        "                                 you visit the URL and bring back the code",
+        "                                 sign a runner's agent in from this machine: gg starts the",
+        "                                 sign-in, then a person opens the URL and enters the code here",
         // WAS "the repositories this tenant has registered", which describes
         // neither `show` (the topology - envelope names and their roles) nor
         // the working-copy verbs beside it. Repositories are a different read
         // and the console is its only caller.
-        "gg airspace show|pull|diff|apply  its names, and its working copy",
-        "    apply --declare-names        declare names it needs, under root, first",
-        "gg airspace retire <name>      retire a name - always opens a gate",
-        "gg airspace name <role> <name> [--under <parent>]  declare a name a document can reach",
-        "gg airspace name watch <name> --personal  declare a watch that is yours alone; its gate is yours",
+        "gg airspace show|pull|diff|apply  show the airspace's names, and sync its working copy",
+        "    apply --declare-names        declare any names it needs first, under root",
+        "gg airspace retire <name>      retire a name; a person must answer a gate first",
+        "gg airspace name <role> <name> [--under <parent>]  declare a name that a document can refer to",
+        "gg airspace name watch <name> --personal  declare a watch for one person only; that person answers its gate",
         "gg airspace repositories add --name <n> --provider <p> --id <id> --path <path>",
         "    [--ref <ref>] [--credential required|none] [--narrowings <dir>]",
-        "                               make a repository nameable - a new one rides a gate",
-        "gg envelope show               the rules governing this tenant's flights",
+        "                               register a repository so flights can name it; a new one needs a gate answered",
+        "gg envelope show               show the rules (envelope) that govern this organisation's flights",
         "gg strategy apply <name> <file>  manage a pool under the named strategy",
-        "gg strategy build <name>       build the strategy's recipe; the pin moves when it lands",
+        "gg strategy build <name>       build a strategy's recipe; the strategy uses the build once it finishes",
         "gg environment chart <name> [--means <predicate>]",
-        "                               chart one, so an envelope may select it - rides a gate",
-        "gg environments                every environment name an envelope may select",
-        "gg strategies                  what furnishes each of them, and inside which bounds",
-        "gg pools                       what each managed pool last attested, and when",
-        "gg envelope apply <file>|-     write them back",
+        "                               chart an environment so an envelope can select it; needs a gate answered",
+        "gg environments                list every environment an envelope can select",
+        "gg strategies                  list what provides each environment, and within which limits",
+        "gg pools                       show what each managed pool last reported about itself, and when",
+        "gg envelope apply <file>|-     send a changed envelope to the control plane",
         "gg envelope validate <file>|-  check a file without sending it anywhere",
-        "gg config show                 every setting, and where its value came from",
-        "gg config init                 write a file seeded from what is in force",
+        "gg config show                 show every setting, and where its value came from",
+        "gg config init                 write a settings file from the values in use now",
         "gg config set <key> <value>    change one setting",
         "gg config validate <file>|-    check a configuration without applying it",
-        "gg config offered              what your control plane offers this machine",
-        "gg config accept <version>     take the offer you just read, by version",
-        "gg allowance                   what the allowance this machine spends from has left",
-        "gg allowances                  what every allowance in the fleet has left",
-        "gg allowances report          tell the fleet what this machine's meter says",
-        "gg allowances floor <name> [--session <pct>] [--week <pct>] | --clear  keep a share back",
-        "gg allowances override <name> --minutes <n> --reason <why>  spend somebody's floor",
+        "gg config offered              show what the control plane offers this machine",
+        "gg config accept <version>     accept an offer, by its version",
+        "gg allowance                   show what is left of the allowance this machine spends from",
+        "gg allowances                  show what is left of every allowance in the fleet",
+        "gg allowances report          report this machine's usage meter to the fleet",
+        "gg allowances floor <name> [--session <pct>] [--week <pct>] | --clear  reserve a share of an allowance",
+        "gg allowances override <name> --minutes <n> --reason <why>  spend from a share another person reserved",
         "gg doctor                      check what gg needs to work",
-        "gg update                      whether this gg is behind, and what would move it",
-        "gg bundle                      a redacted diagnostics bundle to send us",
-        "gg reference --json            every command and console key, as the docs site reads them",
+        "gg update                      check whether a newer gg exists, and how to install it",
+        "gg bundle                      create a redacted diagnostics bundle for the Good Grief team",
+        "gg reference --json            print every command and console key as JSON, for the docs site",
         // One line each rather than "login | logout | whoami". A person looking
         // for a verb greps for it, and the compact form is the one spelling
         // nobody searches with.
         "gg login                       sign in on this machine",
-        "gg logout                      forget the session here",
-        "gg whoami                      who this machine is signed in as",
+        "gg logout                      sign out on this machine",
+        "gg whoami                      show who this machine is signed in as",
         // UNDER WHOAMI, because its argument is a principal id and whoami is
         // the only place a person can read one.
-        "gg admin grant <principal>     make somebody an administrator of this tenant",
-        "gg admin revoke <principal>    take it back",
-        "gg runner up                   take work on this machine",
-        "gg runner maintain <pool>      keep a managed pool warm, reset and attested",
+        "gg admin grant <principal>     make a person an administrator of this organisation",
+        "gg admin revoke <principal>    remove a person's administrator role",
+        "gg runner up                   start a runner so this machine takes work",
+        "gg runner maintain <pool>      keep a managed pool ready: warm, reset and checked",
         // BESIDE RUNNER UP, because it is how that runs without a terminal: the
         // platform's own service, written once, as root.
         "gg service install --control-plane <url> [--enroll] [--user <name>] [--agent-binary <path>]",
-        "                               make this machine's runner a service",
+        "                               install this machine's runner as a system service",
         "gg service uninstall           remove exactly what service install wrote",
-        "gg version                     binary, protocol and fact vocabulary",
+        "gg version                     show the binary, protocol and fact vocabulary versions",
     ];
 
     /// <summary>What a credential asks for when nobody says otherwise.</summary>
@@ -1223,9 +1223,8 @@ public static class CliArgs
         if (!pages && (limit is not null || after is not null))
         {
             return Unknown(
-                "--limit and --after are flags on the verbs that answer a list - gg flights, "
-              + "gg board, gg itineraries and gg watches. On any other verb they would read as an instruction and do "
-              + "nothing.");
+                "--limit and --after work only with gg flights, gg board, gg itineraries and "
+              + "gg watches. Remove them, or use one of those commands.");
         }
 
         int? page = null;
@@ -1243,7 +1242,7 @@ public static class CliArgs
                     return Unknown(
                         $"gg {rest[0]} {named} needs a value. --limit takes a whole number of "
                       + $"rows, at most {Gg.Contracts.Paging.MaxLimit}; --after takes the cursor "
-                      + "a page answered with.");
+                      + "printed at the end of the previous page.");
                 }
             }
 
@@ -1253,8 +1252,8 @@ public static class CliArgs
                         System.Globalization.CultureInfo.InvariantCulture, out var asked))
                 {
                     return Unknown(
-                        $"'{limit}' is not a page size. --limit takes a whole number of rows, "
-                      + $"at most {Gg.Contracts.Paging.MaxLimit}.");
+                        $"--limit was given '{limit}', which is not a number of rows. Give a whole "
+                      + $"number of rows, at most {Gg.Contracts.Paging.MaxLimit}.");
                 }
 
                 if (Gg.Contracts.Paging.Validate(asked) is { } refused)
@@ -1283,8 +1282,8 @@ public static class CliArgs
                 > repositories.Count)
             {
                 return Unknown(
-                    "gg fly --repo needs the name a repository is registered under, e.g. "
-                  + "--repo payments. The console's Repositories tab lists them.");
+                    "gg fly --repo needs the name a repository is registered under, for example "
+                  + "--repo payments. The Repositories tab in the console lists them.");
             }
 
             // NAMED TWICE IS REFUSED. Cloning it twice is the cheap harm; the
@@ -1298,8 +1297,8 @@ public static class CliArgs
             if (twice is not null)
             {
                 return Unknown(
-                    $"gg fly names '{twice.Key}' more than once. Two trees of one repository "
-                  + "give an agent two answers to what a file says and no rule for choosing.");
+                    $"gg fly was given --repo {twice.Key} more than once. Name each repository "
+                  + "once.");
             }
 
             rest = WithoutEvery(rest, "--repo");
@@ -1313,8 +1312,8 @@ public static class CliArgs
         if (attended && rest is not ["fly", ..])
         {
             return Unknown(
-                "--attended is a flag on `gg fly`: it says somebody will be watching the "
-              + "flight. On any other verb it would read as an instruction and do nothing.");
+                "--attended works only with gg fly, where it says a person will watch the "
+              + "flight. Remove it, or use gg fly.");
         }
 
         // --runner IS TWO VERBS NOW, and they mean the same thing by it: which
@@ -1332,9 +1331,8 @@ public static class CliArgs
             && rest is not ["agent", "login", ..])
         {
             return Unknown(
-                "--runner is a flag on `gg fly`, `gg credential send` and `gg agent login`: it "
-              + "says which machine. On any other verb it would read as an instruction and do "
-              + "nothing.");
+                "--runner works only with gg fly, gg credential send and gg agent login, where "
+              + "it names a machine. Remove it, or use one of those commands.");
         }
 
         // THE SAME RULE, AND THE SAME REASON. Stripped globally these would let
@@ -1344,9 +1342,8 @@ public static class CliArgs
             && rest is not ["fly", ..])
         {
             return Unknown(
-                "--work-kind, --environment and --model are flags on `gg fly`: they say which regime "
-              + "governs a flight, where it runs and what model it runs on. Only opening one takes "
-              + "them; on any other verb they would read as an instruction and do nothing.");
+                "--work-kind, --environment and --model work only with gg fly, when opening a "
+              + "flight. Remove them, or use gg fly.");
         }
 
         // A TRAILING ONE IS SOMEBODY WHO MEANT TO NAME ONE, which is the shape
@@ -1358,15 +1355,12 @@ public static class CliArgs
             if (args.Contains(named, StringComparer.Ordinal) && Value(args, named) is null)
             {
                 return Unknown(
-                    $"gg fly {named} needs a name after it. {named} says "
+                    $"gg fly {named} needs a name after it. "
                   + named switch
                     {
-                        "--work-kind" => "which work kind's rules govern the flight - run gg airspace show "
-                                       + "to see the names this tenant has.",
-                        "--environment" => "which charted environment it runs in - run gg environments to see "
-                                         + "what is charted.",
-                        _ => "which model it runs on - one of the names root's models: lists; run "
-                           + "gg airspace show to see them.",
+                        "--work-kind" => "To list the work kinds this organisation has, run gg airspace show.",
+                        "--environment" => "To list the charted environments, run gg environments.",
+                        _ => "To list the models available, run gg airspace show.",
                     });
             }
         }
@@ -1374,8 +1368,8 @@ public static class CliArgs
         if (byHand && rest is not ["fly", ..])
         {
             return Unknown(
-                "--hand says a person is flying the flight themselves, and only gg fly opens "
-              + "one. Nothing was changed.");
+                "--hand works only with gg fly, where it means a person carries out the flight "
+              + "in this terminal. Nothing was changed.");
         }
 
         return rest switch
@@ -1409,8 +1403,8 @@ public static class CliArgs
             // `runner retire` and `runner repin` already have their own
             // sentences for.
             ["runner", "sweep", ..] => Unknown(
-                "gg runner sweep needs one watch name - the watch this machine sweeps. Run "
-              + "gg watches to see which ones are in force."),
+                "gg runner sweep needs the name of one watch for this machine to sweep. To list "
+              + "the watches, run gg watches."),
             ["runner", "labels"] => new CliAction.RunnerLabels(json),
             ["runner", "retire", var retireId] => new CliAction.RunnerRetire(retireId, json),
 
@@ -1427,8 +1421,9 @@ public static class CliArgs
             ["fleet", "tokens"] => new CliAction.FleetTokens(json),
             ["fleet", "revoke", var revokeId] => new CliAction.FleetRevoke(revokeId, json),
             ["fleet", "revoke", ..] => Unknown(
-                "gg fleet revoke needs one token id. Run gg fleet tokens to see this tenant's."),
-            ["fleet", ..] => Unknown("gg fleet takes enroll, tokens or revoke."),
+                "gg fleet revoke needs one token id. To list this organisation's tokens, run "
+              + "gg fleet tokens."),
+            ["fleet", ..] => Unknown("gg fleet needs one of: enroll, tokens or revoke."),
             ["runner", "claim", var claimId] => new CliAction.RunnerClaim(claimId, json),
             ["runner", "unclaim", var unclaimId] => new CliAction.RunnerUnclaim(unclaimId, json),
             ["runner", "reserve", var reserveId] => new CliAction.RunnerReserve(reserveId, json),
@@ -1439,22 +1434,23 @@ public static class CliArgs
             // CLAIMED IS A PERSON'S OWN ACT, never an admin's word about
             // somebody - so it is not a value this verb takes.
             ["runner", "ownership", _, Gg.Contracts.RunnerOwnerships.Claimed] => Unknown(
-                "gg runner ownership sets tenant or open. A runner is claimed by the person it "
-              + "is for, with gg runner claim <id> - never set by an admin."),
+                "gg runner ownership takes tenant or open, not claimed. To claim a runner, the "
+              + "person it is for runs gg runner claim <id>."),
             ["runner", "ownership", ..] => Unknown(
-                "gg runner ownership needs a runner id and tenant or open. Run gg runners to "
-              + "see the fleet."),
+                "gg runner ownership needs a runner id, then tenant or open. To list the "
+              + "runners, run gg runners."),
             ["runner", "claim", ..] => Unknown(
-                "gg runner claim needs one runner, by id or by name - the machine that is yours. Run gg runners "
-              + "to see the fleet."),
+                "gg runner claim needs one runner, by id or by name. To list the runners, run "
+              + "gg runners."),
             ["runner", "unclaim", ..] => Unknown(
-                "gg runner unclaim needs one runner id. Run gg runners to see whose each one is."),
+                "gg runner unclaim needs one runner id. To see who owns each runner, run "
+              + "gg runners."),
             ["runner", "reserve", ..] => Unknown(
-                "gg runner reserve needs one runner id - one of yours. Run gg runners to see "
-              + "whose each one is."),
+                "gg runner reserve needs the id of one runner the signed-in person owns. To "
+              + "see who owns each runner, run gg runners."),
             ["runner", "release", ..] => Unknown(
-                "gg runner release needs one runner id - one of yours. Run gg runners to see "
-              + "whose each one is."),
+                "gg runner release needs the id of one runner the signed-in person owns. To "
+              + "see who owns each runner, run gg runners."),
             // LINES IS BOUNDED BY THE CONTRACT, not here: RunnerAskBounds.MaxLines
             // is what the runner clamps to, and a second bound on this side would
             // be a second answer to how much a person may ask for.
@@ -1465,17 +1461,16 @@ public static class CliArgs
                 new CliAction.RunnerWatch(watchId, asked, json),
             ["runner", "repin", var repinId] => new CliAction.RunnerRepin(repinId, json),
             ["runner", "repin", ..] => Unknown(
-                "gg runner repin needs one runner id - the one whose key changed."),
+                "gg runner repin needs one runner id: the runner whose key changed."),
             ["runner", "retire", ..] => Unknown(
-                "gg runner retire needs one runner, by id or by name. Run gg runners to see the fleet."),
+                "gg runner retire needs one runner, by id or by name. To list the runners, run "
+              + "gg runners."),
             ["tenant", "name", ..] => Unknown(
-                "gg tenant name needs the name, in one argument - gg tenant name \"Acme\". "
-              + "Run gg whoami to see what this tenant is called now."),
-            ["tenant", ..] => Unknown("gg tenant takes name - gg tenant name \"Acme\"."),
+                "gg tenant name needs the new name as one argument, for example "
+              + "gg tenant name \"Acme\". To see the current name, run gg whoami."),
+            ["tenant", ..] => Unknown("gg tenant needs name, for example gg tenant name \"Acme\"."),
             ["runner", "watch"] => Unknown(
-                "gg runner watch needs one runner id. Run gg runners to see the fleet - a "
-              + "runner answers whenever it is beating, so it can be watched while it waits "
-              + "for work."),
+                "gg runner watch needs one runner id. To list the runners, run gg runners."),
 
             // `--intent <provider>#<id>` is positional rather than pulled out
             // by the pre-scan above, and the difference is that it takes a
@@ -1491,8 +1486,9 @@ public static class CliArgs
                 Family(family, json, all, page, after, token),
             ["flights"] => new CliAction.Flights(json, all, null, page, after),
             ["flights", ..] => Unknown(
-                "gg flights takes --all, --json, --limit <rows>, --after <cursor>, "
-              + "--intent <provider>#<id> or a uri, and --kind <work kind>."),
+                "gg flights takes --all, --json, --limit <rows>, --after <cursor>, --intent "
+              + "with <provider>#<id>, a uri or <repo>:<path>, and --kind <work kind>. "
+              + "Run it again with those."),
             ["runners"] => new CliAction.Runners(json),
             // PLURAL, like runners and pools: it lists what is in force and
             // how each one is doing. `gg runner watch <id>` is a different
@@ -1509,9 +1505,8 @@ public static class CliArgs
             ["environment", "chart", var charting] =>
                 new CliAction.EnvironmentChart(charting, null, json),
             ["environment", ..] => Unknown(
-                "gg environment chart <name> [--means <predicate>] charts an environment so an "
-              + "envelope may select it. A name with no meaning is a claim; a meaning is what "
-              + "earns `measured`. Run gg environments to see what is charted already."),
+                "gg environment takes chart and a name: gg environment chart <name> "
+              + "[--means <predicate>]. To see what is charted already, run gg environments."),
             ["pools"] => new CliAction.Pools(json),
             ["strategies"] => new CliAction.Strategies(json),
             // A NAME NARROWS IT TO ONE DOCUMENT. Without one this answers the
@@ -1528,9 +1523,7 @@ public static class CliArgs
             ["airspace", "retire", var retiring] =>
                 new CliAction.AirspaceRetire(retiring, json),
             ["airspace", "retire", ..] => Unknown(
-                "gg airspace retire takes one name - gg airspace retire score-hall. "
-              + "Retiring removes every constraint in a document at once, so it always "
-              + "opens a flight and waits for whoever the document names."),
+                "gg airspace retire needs one name, for example gg airspace retire score-hall."),
 
             // REGISTERING IS WHAT MAKES A REPOSITORY NAMEABLE AT ALL. The
             // ingress refuses an intent naming an unregistered one by pointing
@@ -1538,9 +1531,9 @@ public static class CliArgs
             ["airspace", "repositories", "add", .. var entry] =>
                 RepositoryRegister([.. entry], json),
             ["airspace", "repositories", ..] => Unknown(
-                "gg airspace repositories takes add - gg airspace repositories add --name "
-              + "payments --provider forge --id R_123 --path acme/payments. The registry "
-              + "itself is on the console's Repositories tab."),
+                "gg airspace repositories takes add, for example gg airspace repositories add "
+              + "--name payments --provider forge --id R_123 --path acme/payments. The "
+              + "Repositories tab in the console lists what is registered."),
 
             // THE ASKER'S OWN WATCH. ADR-0024: a watch is the tenant's or one
             // person's, and only a watch has a person - a personal work kind or
@@ -1549,19 +1542,18 @@ public static class CliArgs
                 new CliAction.AirspaceName(
                     Gg.Contracts.Roles.Watch, named, Gg.Contracts.Roles.Root, json, Personal: true),
             ["airspace", "name", _, _, "--personal"] => Unknown(
-                "--personal is for a watch and nothing else - gg airspace name watch my-queue "
-              + "--personal. A watch is the tenant's or one person's; a personal work kind or "
-              + "narrowing would be one person's governance of everybody's work."),
+                "--personal works only for a watch, for example gg airspace name watch my-queue "
+              + "--personal."),
             ["airspace", "name", var role, var named, "--under", var parent] =>
                 new CliAction.AirspaceName(role, named, parent, json),
             ["airspace", "name", var role, var named] =>
                 new CliAction.AirspaceName(role, named, Gg.Contracts.Roles.Root, json),
             ["airspace", "name", ..] => Unknown(
-                "gg airspace name takes a role and a name, in that order - "
+                "gg airspace name needs a role, then a name, for example "
               + "gg airspace name narrowing pci. The role is one of work-kind, narrowing, "
-              + "strategy, watch or fleet-profile, and --under names the parent when it is not root."),
+              + "strategy, watch or fleet-profile; add --under <parent> when the parent is not root."),
             ["airspace", ..] => Unknown(
-                "gg airspace takes show, pull, diff, apply, name, retire or repositories."),
+                "gg airspace needs one of: show, pull, diff, apply, name, retire or repositories."),
             ["plan"] => new CliAction.Plan(null, json),
             ["plan", var flight] => new CliAction.Plan(flight, json),
             // A PLAN CHECKED, under its own noun. `gg plan check` would be read
@@ -1578,11 +1570,12 @@ public static class CliArgs
             // repository:path[@ref].
             ["itineraries", "--intent", var key] => new CliAction.Itineraries(json, page, after, key),
             ["itineraries", ..] => Unknown(
-                "gg itineraries takes --json, --limit <rows>, --after <cursor> and --intent <key>. One plan is "
-              + "gg itinerary show ITN-63."),
+                "gg itineraries takes --json, --limit <rows>, --after <cursor> and --intent <key>. "
+              + "To show one plan, run gg itinerary show ITN-63."),
             ["itinerary", "show", var plan] => new CliAction.ItineraryShow(plan, json),
             ["itinerary", "show", ..] => Unknown(
-                "gg itinerary show needs a plan: gg itinerary show ITN-63. gg itineraries lists them."),
+                "gg itinerary show needs a plan, for example gg itinerary show ITN-63. To list "
+              + "plans, run gg itineraries."),
             ["itinerary", "tools", "--print-registration"] => new CliAction.ItineraryRegistration("draft"),
             ["itinerary", "tools", "--draft", var named, "--print-registration"] =>
                 Gg.Client.ItineraryDrafts.Refused(named) is { } badNamed
@@ -1592,8 +1585,8 @@ public static class CliArgs
                 ? Unknown(badName)
                 : new CliAction.ItineraryTools(draft),
             ["itinerary", ..] => Unknown(
-                "gg itinerary takes check and a plan file - gg itinerary check plan.yaml - or "
-              + "tools, the drafting tool server: gg itinerary tools [--draft <name>]."),
+                "gg itinerary needs one of: check <file>, propose <file>, show <ITN-n> or "
+              + "tools [--draft <name>]."),
             ["invite"] => new CliAction.Invite(json),
             ["allowance"] => new CliAction.Allowance(json),
             ["allowances"] => new CliAction.Allowances(json),
@@ -1616,19 +1609,18 @@ public static class CliArgs
             ["admin", "grant", var promoted] => new CliAction.Admin(promoted, true, json),
             ["admin", "revoke", var demoted] => new CliAction.Admin(demoted, false, json),
             ["admin", ..] => Unknown(
-                "gg admin takes grant or revoke and a principal id - gg admin grant "
-              + "p-7. The id is the one gg whoami prints in brackets, not a display name "
-              + "or an email: two people may share either, and this changes what one "
-              + "person may do."),
+                "gg admin needs grant or revoke and a person's id, for example gg admin grant "
+              + "p-7. Use the id gg whoami prints in brackets, not a display name or an "
+              + "email."),
 
             ["doctor"] => new CliAction.Doctor(json),
             ["update"] => new CliAction.Update(json),
             ["service", "install", .. var installing] => ServiceInstallArguments(installing),
             ["service", "uninstall"] => new CliAction.ServiceUninstall(),
             ["service", ..] => Unknown(
-                "gg service takes install or uninstall: `gg service install --control-plane "
-              + "<url>` makes this machine's runner a service, and `gg service uninstall` "
-              + "removes exactly what that wrote."),
+                "gg service needs install or uninstall. gg service install --control-plane "
+              + "<url> makes this machine's runner a service; gg service uninstall removes "
+              + "what install wrote."),
             ["bundle"] => new CliAction.Bundle(json),
 
             ["decide", var flight, var obligation, var outcome, var reason] =>
@@ -1641,21 +1633,20 @@ public static class CliArgs
             // any obligation, and picking one for somebody is the wrong kind of helpful
             // when the thing being picked is what they are approving.
             ["decide", ..] => new CliAction.Unknown(
-                "gg decide <flight> <obligation> <approved|rejected> [reason]"),
+                "gg decide needs a flight, an obligation and an outcome: gg decide <flight> "
+              + "<obligation> <approved|rejected> [reason]. To list what is waiting, run gg gates."),
             // A FLIGHT MOVED TO ANOTHER MODEL (slice seventy-six), the same two
             // arms in the same order as grounding below it, for the same reason.
             ["model", var reference, var name] => new CliAction.ModelFlight(reference, name, json),
             ["model", ..] => Unknown(
-                "gg model <flight> <model> moves a flight in the air to another model, and the "
-              + "model is not optional: name one of those root's models: lists - run gg airspace "
-              + "show to see them. gg model GG-42 claude-sonnet-5-5."),
+                "gg model needs a flight and a model, for example gg model GG-42 "
+              + "claude-sonnet-5-5. To list the models available, run gg airspace show."),
             // BEFORE THE BARE ARM BELOW IT, because a longer match has to be
             // tried first or `gg ground GG-42 because` parses as a refusal.
             ["ground", var reference, var because] => new CliAction.Ground(reference, because, json),
             ["ground", ..] => Unknown(
-                "gg ground <flight> <why>, and the why is not optional: it is the only thing "
-              + "that survives to tell a later reader why work that could have been done was "
-              + "not. Quote it - gg ground GG-42 \"the fleet cannot serve this yet\"."),
+                "gg ground needs a flight and a reason in quotes, for example gg ground GG-42 "
+              + "\"the fleet cannot serve this yet\". The reason is kept on the flight's record."),
             ["gates"] => new CliAction.Gates(json),
 
             // THE LONGER ARMS FIRST, or `gg board open <id> <why>` parses as a
@@ -1666,27 +1657,25 @@ public static class CliArgs
                     Guid.TryParse(nomination, out _)
                         ? new CliAction.BoardDecide(nomination, outcome, because, json)
                         : Unknown(
-                            $"'{nomination}' is not a nomination id. A nomination has no flight "
-                          + "number - having no flight yet is the whole point of one - so this "
-                          + "takes the id `gg board` prints, not GG-42."),
+                            $"'{nomination}' is not a nomination id. Use the id gg board prints, "
+                          + "not a flight number such as GG-42; a nomination has no flight "
+                          + "number yet."),
 
             // NAMED ARGUMENTS MISSING RATHER THAN GUESSED. A decision with no
             // sentence is refused by the door, and the person who typed it
             // should hear that from the thing they typed it into.
             ["board", var word, ..] when BoardOutcome(word) is not null => Unknown(
-                "gg board open <id> <why> and gg board decline <id> <why>, and the why is not "
-              + "optional: it is the only thing that survives to tell a later reader why a "
-              + "person opened work nobody had asked for, or declined work somebody had. "
-              + "Quote it - gg board open 01a0792a-… \"this one blocks the release\"."),
+                "gg board open and gg board decline need a nomination id and a reason in quotes, "
+              + "for example gg board open 01a0792a-… \"this one blocks the release\"."),
 
             // A WORD A PERSON CANNOT CAUSE IS NOT A VERB HERE. Superseding is
             // the board's, withdrawal is the world's, lapsing is the clock's
             // and refusal is the rules'; a verb that took one of those would
             // let somebody record that the clock did what they did.
             ["board", var word, ..] => Unknown(
-                $"'{word}' is not something a person decides about a nomination. It is open or "
-              + "decline; the other endings belong to the board, the world, the clock and the "
-              + "rules. `gg board` lists what is waiting."),
+                $"gg board does not take '{word}'. A person can open or decline a nomination: "
+              + "gg board open <id> <why> or gg board decline <id> <why>. To see what is "
+              + "waiting, run gg board."),
 
             // `--all` is stripped above with `--json`, so it arrives as a flag
             // rather than as a word to match - which is why there is one arm
@@ -1704,10 +1693,10 @@ public static class CliArgs
                 new CliAction.Take(reference, outcome, null, json),
             ["take", var reference] => new CliAction.Take(reference, null, null, json),
             ["take"] => Unknown(
-                "gg take needs a flight: gg take GG-42, or the id. Add --return <outcome> to hand "
-              + "it back."),
+                "gg take needs a flight, for example gg take GG-42, or its id. To hand it back, "
+              + "add --return <outcome>."),
             ["why"] => Unknown(
-                "gg why needs a flight: gg why GG-42, or gg why GG-42 <obligation>."),
+                "gg why needs a flight, for example gg why GG-42 or gg why GG-42 <obligation>."),
             // A WORK KIND NARROWS IT TO WHAT ACTUALLY GOVERNS ONE. Without a
             // name this is the floor, which is what it always was - and what
             // somebody reads and mistakes for everything.
@@ -1718,14 +1707,13 @@ public static class CliArgs
                 new CliAction.StrategyApply(name, source, json),
             ["strategy", "build", var name] => new CliAction.StrategyBuild(name, json),
             ["strategy", "build"] => Unknown(
-                "gg strategy build needs a strategy: gg strategy build dev. A build is of one "
-              + "strategy's recipe, and the pin it produces moves only that strategy."),
+                "gg strategy build needs a strategy name, for example gg strategy build dev."),
             ["envelope", "apply"] => Unknown(
-                "gg envelope apply needs a file, or - to read the envelope from stdin."),
+                "gg envelope apply needs a file, or - to read the envelope from standard input."),
             ["envelope", "validate", var source] => new CliAction.EnvelopeValidate(source, json),
             ["envelope", "validate"] => Unknown(
-                "gg envelope validate needs a file, or - to read the envelope from stdin."),
-            ["envelope", ..] => Unknown("gg envelope takes show, apply or validate."),
+                "gg envelope validate needs a file, or - to read the envelope from standard input."),
+            ["envelope", ..] => Unknown("gg envelope needs one of: show, apply or validate."),
 
             // THE FIRST FOUR CONTACT NOTHING. What this machine is configured
             // to do is a fact about this machine, so show, init, set and
@@ -1734,10 +1722,10 @@ public static class CliArgs
             ["config", "init"] => new CliAction.ConfigInit(json),
             ["config", "set", var key, var value] => new CliAction.ConfigSet(key, value, json),
             ["config", "set", ..] => Unknown(
-                "gg config set needs a setting and a value, as `gg config set editor hx`."),
+                "gg config set needs a setting and a value, for example gg config set editor hx."),
             ["config", "validate", var source] => new CliAction.ConfigValidate(source, json),
             ["config", "validate"] => Unknown(
-                "gg config validate needs a file, or - to read one from stdin."),
+                "gg config validate needs a file, or - to read one from standard input."),
             // AND THESE TWO DO, because an offer is a fact about somebody
             // else's control plane rather than about this machine.
             ["config", "offered"] => new CliAction.ConfigOffered(json),
@@ -1748,11 +1736,10 @@ public static class CliArgs
             // somebody who does not know the version needs telling what to run
             // rather than that an argument is missing.
             ["config", "accept", ..] => Unknown(
-                "gg config accept needs the version of the offer you read, as `gg config "
-              + "accept offer@7`. Run `gg config offered` to see what is offered and the "
-              + "exact line to run."),
+                "gg config accept needs the version of the offer, for example gg config accept "
+              + "offer@7. gg config offered shows the offer and the exact command to run."),
             ["config", ..] => Unknown(
-                "gg config takes show, init, set, validate, offered or accept."),
+                "gg config needs one of: show, init, set, validate, offered or accept."),
 
             ["show", var reference] => new CliAction.Show(reference, json),
             ["log", var reference] => new CliAction.Log(reference, json),
@@ -1801,27 +1788,28 @@ public static class CliArgs
             // The options are NAMED rather than just refused: what they were
             // asking for is exactly this list.
             ["fly", var option] when Option(option) => Unknown(
-                $"'{option}' is an option, and gg fly does not have it. It takes some text, "
-              + "--uri <uri>, --ticket <provider>#<id>, or --file <repository>:<path>[@ref]."),
+                $"gg fly does not have the option '{option}', so no flight was opened. It takes "
+              + "some text, --uri <uri>, --ticket <provider>#<id> or --file <repository>:<path>[@ref]."),
 
             ["fly", var text] => new CliAction.Fly(text, null, json,
                 Repositories: repositories, ByHand: byHand,
                 Runner: runner, Attended: attended, WorkKind: workKind, Environment: environment,
                 Model: model),
             ["fly"] => Unknown(
-                "gg fly needs something to act on: some text, --uri <uri>, "
-              + "--ticket <provider>#<id>, or --file <repository>:<path>[@ref]."),
+                "gg fly needs something to work on: some text, --uri <uri>, "
+              + "--ticket <provider>#<id> or --file <repository>:<path>[@ref]."),
             ["fly", ..] => Unknown(
-                "gg fly takes one of some text, --uri, --ticket or --file, and this has more than one. "
-              + "An intent that says two things says nothing."),
+                "gg fly takes only one of: some text, --uri, --ticket or --file. More than one "
+              + "was given. Run it again with one."),
 
             ["agent", "login", .. var login] => AgentLogin(login, runner, json),
             ["key", "create"] => new CliAction.KeyCreate(json),
             ["key", "list"] => new CliAction.KeyList(json),
-            ["key", ..] => Unknown("gg key takes create or list."),
+            ["key", ..] => Unknown("gg key needs create or list."),
             ["credential", "list"] => new CliAction.CredentialList(json),
             ["credential", "rm", var credentialId] => new CliAction.CredentialRemove(credentialId, json),
-            ["credential", "rm", ..] => Unknown("gg credential rm needs one credential id. Run gg credential list."),
+            ["credential", "rm", ..] => Unknown(
+                "gg credential rm needs one credential id. To list them, run gg credential list."),
             ["credential", "add", .. var options] => CredentialAdd(options, json),
             // THE RUNNER ARRIVES ALREADY EXTRACTED, because --runner is stripped
             // globally with its value - the same route `gg fly` takes it by. What
@@ -1830,18 +1818,17 @@ public static class CliArgs
             ["credential", "trust-this-machine", var trusted] =>
                 new CliAction.CredentialTrustThisMachine(trusted, json),
             ["credential", "trust-this-machine", ..] => Unknown(
-                "gg credential trust-this-machine needs one locator, as `gg credential list` "
-              + "prints it: gg credential trust-this-machine local:acme/widgets."),
+                "gg credential trust-this-machine needs one locator as gg credential list "
+              + "prints it, for example gg credential trust-this-machine local:acme/widgets."),
             ["credential", ..] => Unknown(
-                "gg credential takes add, send, list, rm or trust-this-machine."),
+                "gg credential needs one of: add, send, list, rm or trust-this-machine."),
 
-            ["show"] => Unknown("gg show needs a flight: gg show GG-42, or the id."),
-            ["log"] => Unknown("gg log needs a flight: gg log GG-42, or the id."),
+            ["show"] => Unknown("gg show needs a flight, for example gg show GG-42, or its id."),
+            ["log"] => Unknown("gg log needs a flight, for example gg log GG-42, or its id."),
             ["facts"] => Unknown(
-                "gg facts needs a flight: gg facts GG-42, or the id."),
+                "gg facts needs a flight, for example gg facts GG-42, or its id."),
 
-            [var verb, ..] => Unknown($"'{verb}' is not a gg command."),
-            _ => Unknown("unrecognised arguments."),
+            _ => Unrecognised(rest),
         };
     }
 
@@ -1932,10 +1919,10 @@ public static class CliArgs
 
                 default:
                     return Unknown(
-                        $"gg service install: '{arguments[at]}' is not one of its options. It takes "
-                      + "--control-plane <url>, --user <name>, --agent-binary <path> and --enroll, "
-                      + "which reads the enrollment token at a prompt or from stdin - never from "
-                      + "the command line, where shell history and ps would keep it.");
+                        $"gg service install does not recognise '{arguments[at]}'. It takes "
+                      + "--control-plane <url>, --user <name>, --agent-binary <path> and --enroll; "
+                      + "--enroll reads the enrollment token at a prompt or from standard input, "
+                      + "never from the command line.");
             }
         }
 
@@ -1966,7 +1953,7 @@ public static class CliArgs
 
             if (at + 1 >= arguments.Length)
             {
-                return Unknown($"gg fleet enroll: '{arguments[at]}' was given no value.");
+                return Unknown($"gg fleet enroll {arguments[at]} needs a value after it.");
             }
 
             switch (arguments[at])
@@ -1975,38 +1962,38 @@ public static class CliArgs
                 case "--uses" when int.TryParse(arguments[at + 1], out var n): uses = n; at++; break;
                 case "--expires" when Duration(arguments[at + 1]) is { } span: expires = span; at++; break;
                 case "--uses":
-                    return Unknown($"gg fleet enroll: --uses is '{arguments[at + 1]}', and it takes a whole number of machines.");
+                    return Unknown($"gg fleet enroll --uses was given '{arguments[at + 1]}'. Give a whole number of machines.");
                 case "--expires":
-                    return Unknown($"gg fleet enroll: --expires is '{arguments[at + 1]}', and it takes a duration like 30m, 24h or 7d.");
+                    return Unknown($"gg fleet enroll --expires was given '{arguments[at + 1]}'. Give a duration such as 30m, 24h or 7d.");
                 default:
                     return Unknown(
-                        $"gg fleet enroll: '{arguments[at]}' is not one of its options. It takes --profile, "
-                      + "--uses, --expires, and one of --tenant or --claim (with --reserve).");
+                        $"gg fleet enroll does not recognise '{arguments[at]}'. It takes --profile, "
+                      + "--uses, --expires, and either --tenant or --claim (optionally with --reserve).");
             }
         }
 
         if (tenant && claim)
         {
             return Unknown(
-                "gg fleet enroll: --tenant and --claim are two answers to whose a machine starts as. "
-              + "Say one - the tenant's, or yours.");
+                "gg fleet enroll takes --tenant or --claim, not both. --tenant makes new machines "
+              + "the organisation's; --claim makes them the enrolling person's.");
         }
 
         if (reserve && !claim)
         {
             return Unknown(
-                "gg fleet enroll: --reserve keeps a machine to its owner's flights, so it comes with "
-              + "--claim - a tenant or open machine has no owner to keep it for.");
+                "gg fleet enroll --reserve works only with --claim, because only a claimed machine "
+              + "has an owner to reserve it for.");
         }
 
         return (profile, uses, expires) switch
         {
             (null or "", _, _) => Unknown(
-                "gg fleet enroll needs --profile: the fleet profile every machine it enrolls runs under."),
+                "gg fleet enroll needs --profile <name>: the fleet profile that enrolled machines run under."),
             (_, null, _) => Unknown(
-                "gg fleet enroll needs --uses: how many machines it may enroll. Nothing enrolls beyond it."),
+                "gg fleet enroll needs --uses <n>: how many machines the token may enroll."),
             (_, _, null) => Unknown(
-                "gg fleet enroll needs --expires, at most 7d: a token with no end is a standing grant."),
+                "gg fleet enroll needs --expires <duration>, at most 7d."),
             _ => new CliAction.FleetEnroll(
                 new Gg.Contracts.EnrollmentTokenRequest
                 {
@@ -2045,7 +2032,7 @@ public static class CliArgs
         {
             if (at + 1 >= arguments.Length)
             {
-                return Unknown($"gg runner read: '{arguments[at]}' was given no value.");
+                return Unknown($"gg runner read {arguments[at]} needs a value after it.");
             }
 
             switch (arguments[at])
@@ -2056,7 +2043,7 @@ public static class CliArgs
                 case "--query": query = arguments[at + 1]; break;
                 default:
                     return Unknown(
-                        $"gg runner read: '{arguments[at]}' is not one of its options. It takes "
+                        $"gg runner read does not recognise '{arguments[at]}'. It takes "
                       + "--provider, --host, an optional --credential and, for a sweep, an "
                       + "optional --query.");
             }
@@ -2065,12 +2052,10 @@ public static class CliArgs
         return (provider, host) switch
         {
             (null or "", _) => Unknown(
-                "gg runner read needs --provider: the key a flight's intent spells its tracker "
-              + "with, which is also the prefix the agent sees on every tool name."),
+                "gg runner read needs --provider: the tracker key from the flight's intent."),
             (_, null or "") => Unknown(
-                "gg runner read needs --host: the tracker root to read from. There is no "
-              + "default, because a reader pointed at the wrong tracker answers confidently "
-              + "with somebody else's work."),
+                "gg runner read needs --host: the address of the tracker to read from. There is "
+              + "no default."),
             _ => new CliAction.RunnerRead(provider, host, credential, query),
         };
     }
@@ -2112,9 +2097,8 @@ public static class CliArgs
             && colon < token.Length - 1)
             ? new CliAction.Flights(json, all, token, page, after)
             : Unknown(
-                $"gg flights --intent takes <provider>#<id>, an absolute uri, or a file as "
-              + $"<repository>:<path>[@<ref>], and '{token}' is none of them. Both halves of a work "
-              + "item are needed: the id alone does not say which tracker it is in.");
+                $"gg flights --intent does not accept '{token}'. Give <provider>#<id> with both "
+              + "halves, an absolute uri, or a file as <repository>:<path>[@<ref>].");
 
     /// <summary>
     /// The two halves of a work item token, or nulls when it is not one.
@@ -2164,8 +2148,8 @@ public static class CliArgs
                 ByHand: byHand, Runner: runner, Attended: attended,
                 WorkKind: workKind, Environment: environment, Model: model)
             : Unknown(
-                $"gg fly --ticket takes <provider>#<id>, and '{token}' is not that shape. "
-              + "Both halves are needed: the id alone does not say which tracker it is in.");
+                $"gg fly --ticket was given '{token}', which is missing the provider or the id. "
+              + "Give both, as <provider>#<id>, so the tracker is known. No flight was opened.");
 
     /// <summary>
     /// <c>--file &lt;repository&gt;:&lt;path&gt;[@ref]</c>, split the one way it is ever split.
@@ -2190,9 +2174,9 @@ public static class CliArgs
         if (repository.Length == 0 || path.Length == 0 || @ref is { Length: 0 })
         {
             return Unknown(
-                $"gg fly --file takes <repository>:<path>[@ref], and '{reference}' is missing a "
-              + "half. The repository is its registered name, the path is inside it, and the "
-              + "ref is optional - without one the repository's default branch is read.");
+                $"gg fly --file was given '{reference}', which is missing the repository or the "
+              + "path. Give <repository>:<path>[@ref]: the repository's registered name, a path "
+              + "inside it and, optionally, a ref (without one, the default branch is read).");
         }
 
         return new CliAction.Fly(
@@ -2216,7 +2200,7 @@ public static class CliArgs
         {
             if (i + 1 >= options.Count)
             {
-                return Unknown($"'{options[i]}' was given nothing to be.");
+                return Unknown($"{options[i]} needs a value after it.");
             }
 
             var value = options[i + 1];
@@ -2251,7 +2235,9 @@ public static class CliArgs
                     break;
 
                 default:
-                    return Unknown($"'{options[i]}' is not something gg credential add takes.");
+                    return Unknown(
+                        $"gg credential add does not recognise '{options[i]}'. It takes --repo, "
+                      + "--agent, --tracker or --analysis, and optionally --scopes and --identity.");
             }
         }
 
@@ -2266,9 +2252,8 @@ public static class CliArgs
         if (claimed > 1)
         {
             return Unknown(
-                "gg credential add takes one of --repo, --agent, --tracker or --analysis. A "
-              + "credential that "
-              + "says two things says nothing about either.");
+                "gg credential add takes only one of --repo, --agent, --tracker or --analysis. "
+              + "Run it again with one.");
         }
 
         return named is { Length: > 0 } && subject is { Length: > 0 }
@@ -2308,7 +2293,7 @@ public static class CliArgs
         {
             if (i + 1 >= options.Count)
             {
-                return Unknown($"'{options[i]}' was given nothing to be.");
+                return Unknown($"{options[i]} needs a value after it.");
             }
 
             var value = options[i + 1];
@@ -2320,17 +2305,16 @@ public static class CliArgs
 
                 default:
                     return Unknown(
-                        $"'{options[i]}' is not something gg agent login takes. It takes --runner "
-                      + "and --agent; the code is read from you after the URL is shown, never "
-                      + "from the command line.");
+                        $"gg agent login does not recognise '{options[i]}'. It takes --runner and "
+                      + "--agent; gg asks for the code after it shows the URL.");
             }
         }
 
         if (runner is not { Length: > 0 })
         {
             return Unknown(
-                "gg agent login needs --runner <id|name>: which machine's agent to log in. "
-              + "`gg runners` lists them, and either the id or the machine's name will do.");
+                "gg agent login needs --runner <id|name>: the machine whose agent to sign in. "
+              + "To list the runners, run gg runners.");
         }
 
         try
@@ -2374,7 +2358,7 @@ public static class CliArgs
         {
             if (i + 1 >= options.Count)
             {
-                return Unknown($"'{options[i]}' was given nothing to be.");
+                return Unknown($"{options[i]} needs a value after it.");
             }
 
             var value = options[i + 1];
@@ -2402,10 +2386,9 @@ public static class CliArgs
 
                 default:
                     return Unknown(
-                        $"'{options[i]}' is not something gg credential send takes. It takes "
-                      + "--runner and one of --repo, --agent, --tracker or --analysis; the secret is never an "
-                      + "argument, because an argument is in shell history and in ps output "
-                      + "before gg has run.");
+                        $"gg credential send does not recognise '{options[i]}'. It takes --runner "
+                      + "and one of --repo, --agent, --tracker or --analysis. gg asks for the "
+                      + "secret; it is never an argument.");
             }
         }
 
@@ -2424,8 +2407,8 @@ public static class CliArgs
         if (credentials > 1)
         {
             return Unknown(
-                "gg credential send takes one of --repo, --agent, --tracker or --analysis: one "
-              + "send puts one credential under one locator.");
+                "gg credential send takes only one of --repo, --agent, --tracker or --analysis. "
+              + "Run it again with one.");
         }
 
         // A TRACKER'S OR AN ANALYSIS SERVICE'S LOCATOR, derived here by the
@@ -2460,8 +2443,9 @@ public static class CliArgs
                     CredentialLocator.ForAgent(named), json),
                 _ => Unknown(
                     "gg credential send needs to know which credential: --repo <slug>, "
-                  + "--agent <name>, --tracker <key> or --analysis <key>. Name a machine with --runner to send to one; leave it out "
-                  + "and gg sends it to every machine your fleet profiles say needs it."),
+                  + "--agent <name>, --tracker <key> or --analysis <key>. Add --runner to send it "
+                  + "to one machine; without it, gg sends it to every machine whose fleet profile "
+                  + "needs it."),
             };
         }
 
@@ -2487,8 +2471,8 @@ public static class CliArgs
             ? new CliAction.CredentialSend(runner, repo, json)
             : Unknown(
                 "gg credential send needs --repo <slug>, --agent <name>, --tracker <key> or "
-              + "--analysis <key>: which credential to send. A slug is the one `gg credential add` registered; an agent's name "
-              + "is the one GG_EXECUTOR_BINARY declares, such as claude.");
+              + "--analysis <key>. A slug is the one gg credential add registered; an agent's "
+              + "name is the one GG_EXECUTOR_BINARY declares, such as claude.");
     }
 
     /// <summary>
@@ -2522,7 +2506,7 @@ public static class CliArgs
         {
             if (i + 1 >= options.Count)
             {
-                return Unknown($"'{options[i]}' was given nothing to be.");
+                return Unknown($"{options[i]} needs a value after it.");
             }
 
             var value = options[i + 1];
@@ -2562,7 +2546,7 @@ public static class CliArgs
                     // repository with whatever else was typed and leave them
                     // sure they had said which host it is on.
                     return Unknown(
-                        $"'{options[i]}' is not something gg airspace repositories add takes. "
+                        $"gg airspace repositories add does not recognise '{options[i]}'. "
                       + "It takes --name, --provider, --id and --path, and optionally --ref, "
                       + "--credential and --narrowings.");
             }
@@ -2570,19 +2554,17 @@ public static class CliArgs
 
         foreach (var (flag, given, says) in ((string, string?, string)[])
         [
-            ("--name", name, "what envelopes and flights call it"),
+            ("--name", name, "the name envelopes and flights use for it"),
             ("--provider", provider,
-                "the key a runner resolves to a host of its own. It is not read off the "
-              + "path, because which host a credential goes to is the registrar's to say"),
-            ("--id", id, "the forge's own identifier, which flight identity resolves through"),
-            ("--path", path, "the display path an intent is matched against"),
+                "the key a runner maps to a host of its own; it is not read from the path"),
+            ("--id", id, "the forge's own identifier for the repository"),
+            ("--path", path, "the path an intent is matched against"),
         ])
         {
             if (given is not { Length: > 0 })
             {
                 return Unknown(
-                    $"gg airspace repositories add needs {flag}: {says}. A registry entry is "
-                  + "four facts and none of them can be derived from another.");
+                    $"gg airspace repositories add needs {flag}: {says}.");
             }
         }
 
@@ -2640,22 +2622,23 @@ public static class CliArgs
                     break;
 
                 default:
-                    return Unknown($"'{rest[i]}' is not something `gg allowances floor` takes.");
+                    return Unknown(
+                        $"gg allowances floor does not recognise '{rest[i]}'. It takes "
+                      + "--session <pct>, --week <pct> or --clear.");
             }
         }
 
         if (clear && (session is not null || week is not null))
         {
             return Unknown(
-                "'--clear' and a share are opposite instructions. Pass one or the other.");
+                "--clear and a share cannot be given together. Give one or the other.");
         }
 
         if (!clear && session is null && week is null)
         {
             return Unknown(
-                "Say what to keep back - '--session 33', '--week 25', or both - or '--clear' "
-              + "to keep nothing. An empty floor and a cleared one are the same state, and "
-              + "guessing which you meant would clear a reserve you were setting.");
+                "gg allowances floor needs a share to keep back, such as --session 33 or "
+              + "--week 25 (or both), or --clear to keep nothing.");
         }
 
         return new CliAction.AllowanceFloor(allowance, session, week, json);
@@ -2687,15 +2670,58 @@ public static class CliArgs
                     break;
 
                 default:
-                    return Unknown($"'{rest[i]}' is not something `gg allowances override` takes.");
+                    return Unknown(
+                        $"gg allowances override does not recognise '{rest[i]}'. It takes "
+                      + "--minutes <n> and --reason <why>.");
             }
         }
 
         return minutes < 1 || string.IsNullOrWhiteSpace(reason)
             ? Unknown(
-                "An override needs '--minutes' and '--reason'. It spends somebody else's "
-              + "allowance, and they read the reason - so there is no default for either.")
+                "gg allowances override needs --minutes and --reason. The person whose share "
+              + "it spends reads the reason.")
             : new CliAction.AllowanceOverride(allowance, minutes, reason, json);
+    }
+
+    /// <summary>A refusal that names the words gg did not recognise.</summary>
+    private static CliAction.Unknown Unrecognised(string[] words)
+    {
+        var known = KnownCommand(words);
+        var command = known == 0 ? "gg" : "gg " + string.Join(' ', words[..known]);
+
+        return Unknown(
+            (known == words.Length
+                ? $"{command} is not a complete command. "
+                : $"{command} does not recognise `{string.Join(' ', words[known..])}`. ")
+          + "The list below shows every command and its options.");
+    }
+
+    /// <summary>How many leading words form a command the usage lists.</summary>
+    private static int KnownCommand(string[] words)
+    {
+        var longest = 0;
+
+        foreach (var line in Verbs.Where(v => v.StartsWith("gg ", StringComparison.Ordinal)))
+        {
+            var at = 0;
+
+            foreach (var token in line[3..].Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (at >= words.Length
+                    || !token.All(c => char.IsAsciiLetterLower(c) || c is '-' or '|')
+                    || token.StartsWith('-')
+                    || !token.Split('|').Contains(words[at], StringComparer.Ordinal))
+                {
+                    break;
+                }
+
+                at++;
+            }
+
+            longest = Math.Max(longest, at);
+        }
+
+        return longest;
     }
 
     private static CliAction.Unknown Unknown(string problem) =>

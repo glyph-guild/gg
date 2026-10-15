@@ -156,6 +156,17 @@ public abstract record DevicePollResult
 /// </remarks>
 public sealed class ControlPlaneClient(HttpClient httpClient)
 {
+    /// <summary>A write the control plane answered without confirming.</summary>
+    private static InvalidOperationException Unconfirmed(string request) =>
+        new($"The control plane did not confirm {request}, so it may not have been recorded. "
+          + "Run the command again; if this keeps happening, run gg bundle and send the result "
+          + "to the Good Grief team.");
+
+    /// <summary>A read the control plane answered with nothing.</summary>
+    private static InvalidOperationException Empty(string what) =>
+        new($"The control plane sent back no {what}. Run the command again; if this keeps "
+          + "happening, run gg bundle and send the result to the Good Grief team.");
+
     private readonly HttpClient _httpClient = httpClient;
 
     /// <summary>Applies the three version headers every request must carry.</summary>
@@ -192,7 +203,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.DeviceAuthorizationStarted, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane returned no authorization.");
+            ?? throw Empty("sign-in code");
     }
 
     /// <summary>
@@ -222,7 +233,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
         var session = await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.SessionIssued, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane returned no session.");
+            ?? throw Empty("sign-in session");
         return new DevicePollResult.Complete(session);
     }
 
@@ -250,7 +261,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.InvitationIssued, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane issued no invitation.");
+            ?? throw Unconfirmed("the invitation");
     }
 
     /// <summary>
@@ -436,7 +447,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.RunnerRegistered, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane registered no runner.");
+            ?? throw Unconfirmed("the runner registration");
     }
 
     /// <summary>
@@ -522,7 +533,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
 
         return await response.Content.ReadFromJsonAsync(ProtocolJsonContext.Default.FlightList, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane returned no flight list.");
+            ?? throw Empty("flight list");
     }
 
     /// <summary>
@@ -572,7 +583,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
                    ProtocolJsonContext.Default.BoardPage, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane returned no board.");
+            ?? throw Empty("board");
     }
 
     /// <summary>
@@ -620,7 +631,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
                    ProtocolJsonContext.Default.BoardPage, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane returned no itineraries.");
+            ?? throw Empty("plan list");
     }
 
     /// <summary>
@@ -717,7 +728,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.EnvelopeState, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane returned no envelope.");
+            ?? throw Empty("envelope");
     }
 
     /// <summary>
@@ -752,7 +763,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.EnvelopeApplied, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+            ?? throw Unconfirmed("the request");
     }
 
     /// <summary>
@@ -878,12 +889,12 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         {
             return (null, await response.Content.ReadFromJsonAsync(
                 ProtocolJsonContext.Default.RegistrationPending, cancellationToken)
-                ?? throw new InvalidOperationException("Control plane acknowledged nothing."));
+                ?? throw Unconfirmed("the request"));
         }
 
         return (await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.TopologyName, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane acknowledged nothing."), null);
+            ?? throw Unconfirmed("the request"), null);
     }
 
     /// <summary>
@@ -930,7 +941,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.EnvelopeApplied, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+            ?? throw Unconfirmed("the request");
     }
 
     public async Task<EnvelopeApplied> ApplyNamedAsync(
@@ -965,7 +976,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.EnvelopeApplied, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+            ?? throw Unconfirmed("the request");
     }
 
     /// <summary>
@@ -996,7 +1007,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.EnvelopeApplied, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+            ?? throw Unconfirmed("the request");
     }
 
     /// <summary>The strategy in force for a name, or null when none is.</summary>
@@ -1039,7 +1050,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.NamedEnvelopeList, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+            ?? throw Unconfirmed("the request");
     }
 
     /// <summary>The whole estate: every document class, in one answer.</summary>
@@ -1082,7 +1093,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.FleetProfileList, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+            ?? throw Unconfirmed("the request");
     }
 
     /// <summary>Every exposure in force for the tenant.</summary>
@@ -1110,7 +1121,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.ExposureList, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+            ?? throw Unconfirmed("the request");
     }
 
     /// <summary>Applies an exposure to its topology name, through the exposures door.</summary>
@@ -1135,7 +1146,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.EnvelopeApplied, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+            ?? throw Unconfirmed("the request");
     }
 
     /// <summary>Applies a fleet profile to its topology name, through the fleet door.</summary>
@@ -1161,7 +1172,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.EnvelopeApplied, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+            ?? throw Unconfirmed("the request");
     }
 
     public async Task<StrategyList> ListStrategiesAsync(
@@ -1175,7 +1186,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.StrategyList, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+            ?? throw Unconfirmed("the request");
     }
 
     /// <summary>
@@ -1209,7 +1220,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.EnvelopeApplied, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+            ?? throw Unconfirmed("the request");
     }
 
     /// <summary>The watch in force for a name, or null when none is.</summary>
@@ -1245,7 +1256,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.WatchList, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+            ?? throw Unconfirmed("the request");
     }
 
     /// <summary>
@@ -1294,7 +1305,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.WatchStandingList, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane acknowledged nothing.");
+            ?? throw Unconfirmed("the request");
     }
 
     /// <summary>
@@ -1330,7 +1341,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.EnvelopeTopology, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane answered with no topology.");
+            ?? throw Empty("list of airspace names");
     }
 
     /// <summary>
@@ -1416,12 +1427,12 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         {
             return (null, await response.Content.ReadFromJsonAsync(
                 ProtocolJsonContext.Default.RegistrationPending, cancellationToken)
-                ?? throw new InvalidOperationException("Control plane acknowledged nothing."));
+                ?? throw Unconfirmed("the request"));
         }
 
         return (await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.RepositoryRegistered, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane acknowledged nothing."), null);
+            ?? throw Unconfirmed("the request"), null);
     }
 
     public async Task<RegisteredRepositories> ListRepositoriesAsync(
@@ -1434,7 +1445,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.RegisteredRepositories, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane answered with no repositories.");
+            ?? throw Empty("repository list");
     }
 
     /// <summary>One flight's checklist, from the envelope version it pinned, or null.</summary>
@@ -1579,7 +1590,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
 
         return await response.Content.ReadFromJsonAsync(ProtocolJsonContext.Default.RunnerList, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane returned no runner list.");
+            ?? throw Empty("runner list");
     }
 
     /// <summary>
@@ -1600,7 +1611,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
 
         return await response.Content.ReadFromJsonAsync(ProtocolJsonContext.Default.AgentDelegation, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane issued no delegation.");
+            ?? throw Unconfirmed("the delegation");
     }
 
     /// <summary>
@@ -1619,7 +1630,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
 
         return await response.Content.ReadFromJsonAsync(ProtocolJsonContext.Default.RunnerFlightList, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane returned no flights.");
+            ?? throw Empty("flight list");
     }
 
     /// <summary>
@@ -1641,7 +1652,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
                    ProtocolJsonContext.Default.EnvironmentChart, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane returned no environment chart.");
+            ?? throw Empty("environment chart");
     }
 
     /// <summary>Every managed pool's latest attestation, per pool and action.</summary>
@@ -1680,7 +1691,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
                    ProtocolJsonContext.Default.PoolAction, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane decided nothing it would name.");
+            ?? throw Unconfirmed("the pool action");
     }
 
     public async Task<PoolLedger> PoolsAsync(
@@ -1693,7 +1704,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
                    ProtocolJsonContext.Default.PoolLedger, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane returned no pool ledger.");
+            ?? throw Empty("pool report");
     }
 
     /// <summary>Makes a principal an administrator of their tenant.</summary>
@@ -1780,7 +1791,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.AllowanceList, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane returned no allowance list.");
+            ?? throw Empty("allowance list");
     }
 
     /// <summary>
@@ -1889,7 +1900,10 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.FlightLaunched, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane opened no flight.");
+            ?? throw new InvalidOperationException(
+                "The control plane did not confirm the new flight, so it may not have been opened. "
+              + "Run gg flights to check before running gg fly again; if this keeps happening, "
+              + "run gg bundle and send the result to the Good Grief team.");
     }
 
     /// <summary>
@@ -1922,7 +1936,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.CredentialRegistered, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane registered no credential.");
+            ?? throw Unconfirmed("the credential");
     }
 
     /// <summary>Every credential reference this tenant has registered.</summary>
@@ -1950,7 +1964,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.PrincipalKeyRegistered, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane returned no registered key.");
+            ?? throw Unconfirmed("the new key");
     }
 
     /// <summary>
@@ -1972,7 +1986,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.PrincipalKeyList, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane returned no key list.");
+            ?? throw Empty("key list");
     }
 
     /// <summary>
@@ -2036,7 +2050,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.ItineraryProposed, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane returned no proposed itinerary.");
+            ?? throw Unconfirmed("the proposed plan");
     }
 
     /// <summary>A problem+json body's `detail`, or the body as it came when it is not one.</summary>
@@ -2091,7 +2105,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         var check = await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.ItineraryCheck, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane returned no itinerary check.");
+            ?? throw Empty("plan check");
 
         return ItineraryCheck.Validate(check) is { } unknown
             ? throw new ItineraryRefusedException(unknown)
@@ -2108,7 +2122,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.CredentialList, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane returned no credential list.");
+            ?? throw Empty("credential list");
     }
 
     /// <summary>Deregisters a credential, or null if the id names none.</summary>
@@ -2183,7 +2197,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.EnrollmentTokenMinted, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane minted nothing.");
+            ?? throw Unconfirmed("the new enrollment token");
     }
 
     /// <summary>This tenant's enrollment tokens, never their secrets.</summary>
@@ -2255,7 +2269,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.RunnerEnrolled, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane enrolled nothing.");
+            ?? throw Unconfirmed("the enrollment");
     }
 
     /// <summary>Claims a runner for the caller. Null when this tenant has no such runner.</summary>
@@ -2404,7 +2418,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         var introduction = await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.RunnerIntroduction, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane introduced nothing.");
+            ?? throw Unconfirmed("the introduction to the runner");
 
         return new Introduced(introduction, IntroductionRefusal.None, "introduced");
     }
@@ -2476,7 +2490,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
 
         var answer = await response.Content.ReadFromJsonAsync(
             ProtocolJsonContext.Default.RunnerSealedAnswer, cancellationToken)
-            ?? throw new InvalidOperationException("Control plane answered with nothing.");
+            ?? throw Empty("answer from the runner");
 
         return new Collected(answer, AnswerState.Arrived);
     }
@@ -2555,7 +2569,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
             // of its own or the two collapse - and the one that collapses quietly
             // is the one that reports success.
             throw new FlightNotFoundException(
-                $"No flight {reference}. Run gg flights to see what is there.");
+                $"No flight {reference} was found. To list flights, run gg flights --all.");
         }
 
         if (response.StatusCode == HttpStatusCode.Conflict)
@@ -2706,7 +2720,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
             throw new FlightNotFoundException(
-                $"No flight {reference}. Run gg flights to see what is there.");
+                $"No flight {reference} was found. To list flights, run gg flights --all.");
         }
 
         if (response.StatusCode == HttpStatusCode.BadRequest)
@@ -2742,7 +2756,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
             throw new FlightNotFoundException(
-                $"No flight {reference}. Run gg flights to see what is there.");
+                $"No flight {reference} was found. To list flights, run gg flights --all.");
         }
 
         // A FLIGHT THAT HAS ALREADY ENDED, said as what it is. The door refuses
@@ -2970,7 +2984,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
             && response.RequestMessage?.Headers.Contains(GgVersions.SessionHeader) == true)
         {
             throw new NotSignedInException(
-                "This session is no longer valid. Run gg login.");
+                "The sign-in on this machine has expired or been revoked. Run gg login, then try again.");
         }
     }
 }

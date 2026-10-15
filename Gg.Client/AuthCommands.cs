@@ -152,7 +152,7 @@ public sealed class AuthCommands(
         {
             if (_clock.UtcNow >= started.ExpiresAt)
             {
-                return new SignInResult { Said = "That code expired before it was approved." };
+                return new SignInResult { Said = "The sign-in code expired before it was approved." };
             }
 
             await _delay(interval, cancellationToken);
@@ -209,7 +209,7 @@ public sealed class AuthCommands(
         var started = await StartAsync(deviceLabel, cancellationToken);
 
         ShowCode(_output, started);
-        _output.WriteLine("Waiting for you to approve...");
+        _output.WriteLine("Waiting for the sign-in to be approved in the browser...");
 
         var result = await AwaitApprovalAsync(started, cancellationToken);
 
@@ -231,7 +231,7 @@ public sealed class AuthCommands(
         var stored = _sessions.Read();
         if (stored is null)
         {
-            _output.WriteLine("Not signed in.");
+            _output.WriteLine("This machine is not signed in, so there is nothing to sign out of.");
             return 0;
         }
 
@@ -239,8 +239,8 @@ public sealed class AuthCommands(
         if (!revoked)
         {
             _output.WriteLine(
-                "Could not revoke the session with the control plane, so the local copy has been kept. " +
-                "Deleting it here would leave a live session you can no longer revoke. Try again when connected.");
+                "Could not end the session with the control plane, so this machine is still signed in. " +
+                "Nothing was changed. Run gg logout again when the control plane can be reached.");
             return 1;
         }
 

@@ -35,10 +35,10 @@ public sealed class IdentityCommands(ControlPlaneClient client, ISessionStore se
     public async Task<VerbResult> ShowAsync(CancellationToken cancellationToken = default)
     {
         var stored = _sessions.Read()
-            ?? throw new NotSignedInException("Not signed in. Run gg login.");
+            ?? throw new NotSignedInException("This machine is not signed in. Run gg login, then try again.");
 
         var who = await _client.WhoAmIAsync(stored.SessionToken, cancellationToken)
-            ?? throw new NotSignedInException("This session is no longer valid. Run gg login.");
+            ?? throw new NotSignedInException("The sign-in on this machine has expired or been revoked. Run gg login, then try again.");
 
         return new VerbResult.Identity(who);
     }

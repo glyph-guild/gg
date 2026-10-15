@@ -650,7 +650,7 @@ static async Task<int> OfferAsync(
     try
     {
         var session = SessionStores.ForThisProcess().Read()?.SessionToken
-            ?? throw new NotSignedInException("Not signed in. Run gg login.");
+            ?? throw new NotSignedInException("This machine is not signed in. Run gg login, then try again.");
 
         var offered = await new ControlPlaneClient(http).OfferedConfigurationAsync(session);
         var result = run(offered);
@@ -680,7 +680,7 @@ static async Task<int> OfferAsync(
     }
     catch (HttpRequestException unreachable)
     {
-        return Fail(unreachable.Message);
+        return Fail(Unreachable(baseAddress, unreachable));
     }
     catch (IOException unwritable)
     {
@@ -852,8 +852,8 @@ static async Task<CliAction> ByName(CliAction action)
         // refused" against a verb that never mentioned the network reads as the
         // verb being broken.
         return new CliAction.Unknown(
-            $"'{named}' is a machine's name, and the fleet could not be read to find out "
-          + $"which machine: {why.Message} Pass the runner's id instead.");
+            $"Could not read the list of runners to find the machine named '{named}'. Nothing "
+          + "was changed. Run the command again with the runner's id instead.");
     }
 
     var found = RunnerNamed.Resolve(named, fleet.Runners);
@@ -1004,8 +1004,7 @@ static async Task<int> EmitAsync(bool json, Func<FlightCommands, Task<VerbResult
     }
     catch (HttpRequestException failure)
     {
-        Console.Error.WriteLine(
-            $"Could not reach the control plane at {baseAddress}: {failure.Message}. Try gg doctor.");
+        Console.Error.WriteLine(Unreachable(baseAddress, failure));
         return ExitCodes.Unavailable;
     }
 }
@@ -1053,8 +1052,7 @@ static async Task<int> TakeAsync(bool json, Func<TakeCommands, Task<VerbResult>>
     }
     catch (HttpRequestException failure)
     {
-        Console.Error.WriteLine(
-            $"Could not reach the control plane at {baseAddress}: {failure.Message}. Try gg doctor.");
+        Console.Error.WriteLine(Unreachable(baseAddress, failure));
         return ExitCodes.Unavailable;
     }
 }
@@ -1187,8 +1185,7 @@ static async Task<int> CredentialAsync(bool json, Func<CredentialCommands, Task<
     }
     catch (HttpRequestException failure)
     {
-        Console.Error.WriteLine(
-            $"Could not reach the control plane at {baseAddress}: {failure.Message}. Try gg doctor.");
+        Console.Error.WriteLine(Unreachable(baseAddress, failure));
         return ExitCodes.Unavailable;
     }
 }
@@ -2527,7 +2524,7 @@ static async Task<int> AuthAsync(Func<AuthCommands, Task<int>> run)
     }
     catch (HttpRequestException failure)
     {
-        Console.Error.WriteLine($"Could not reach the control plane at {baseAddress}: {failure.Message}");
+        Console.Error.WriteLine(Unreachable(baseAddress, failure));
         return ExitCodes.Unavailable;
     }
 }
@@ -3227,7 +3224,7 @@ static async Task<int> HandAsync(CliAction.Fly fly)
         // THE SAME WORDS `gg runner up` USES, because this does the same thing:
         // a hand-flight registers a runner on this machine, and registering a
         // runner is a person's action.
-        return Fail("not signed in — run `gg login` first. Registering a runner is a person's action.");
+        return Fail("This machine is not signed in. Run gg login, then try again.");
     }
 
     var baseAddress = ControlPlaneAddress();
@@ -3466,10 +3463,10 @@ static async Task<int> RunnerUpAsync()
     if (runnerStore.Usable(DateTimeOffset.UtcNow) is null && enrollment is null && session is null)
     {
         return Fail(
-            "not signed in, and this machine holds no runner credential or enrollment token - run "
-          + "`gg login` first, or enroll it: `gg fleet enroll` mints a token and "
-          + "`gg service install --enroll` hands it to the machine. Registering a runner is a "
-          + "person's action, taken at the machine or ahead of time.");
+            "This machine is not signed in and holds no runner credential or enrollment token. "
+          + "Run gg login, then try again. To start a runner with nobody signed in, create a "
+          + "token with gg fleet enroll and give it to this machine with "
+          + "gg service install --enroll.");
     }
 
     // A person registers the runner; the runner then holds only the credential
@@ -3518,8 +3515,9 @@ static async Task<int> RunnerUpAsync()
                     InForce.Forget();
 
                     Console.WriteLine(
-                        $"enrolled as runner {enrolled.RunnerId} under profile '{enrolled.Profile}', "
-                      + $"starting {enrolled.Ownership}; the token is spent.");
+                        $"Enrolled as runner {enrolled.RunnerId} under the fleet profile "
+                      + $"'{enrolled.Profile}', with ownership '{enrolled.Ownership}'. The "
+                      + "enrollment token is now used up.");
 
                     return new StoredRunner
                     {
@@ -3552,8 +3550,8 @@ static async Task<int> RunnerUpAsync()
         // which is the control plane's choice and the right one. The seed stays
         // where it is, so the person who comes to look finds what was tried.
         return Fail(
-            $"{refused.Message} This machine's enrollment token was not taken: mint another with "
-          + "`gg fleet enroll` and run `gg service install --enroll` again.");
+            $"{refused.Message} The enrollment token on this machine was not used. Create "
+          + "another with gg fleet enroll, then run gg service install --enroll again.");
     }
 
     // WHAT THE CONTROL PLANE OFFERS, TAKEN BEFORE ANYTHING IS COMPOSED. Every
@@ -3596,29 +3594,30 @@ static async Task<int> RunnerUpAsync()
         {
             Gg.Local.ConfigurationFile.Write(take);
             Console.Error.WriteLine(
-                $"gg: took offered configuration {beat.Offered!.Version}, written to "
+                $"gg: accepted offered configuration {beat.Offered!.Version} and wrote it to "
               + Gg.Local.ConfigurationFile.DefaultPath());
         }
 
         inForce = decided.InForce;
     }
-    catch (HttpRequestException unreachable)
+    catch (HttpRequestException)
     {
         // AN ENHANCEMENT TO BRING-UP, NOT A DEPENDENCY OF IT. A runner that
         // refused to start because it could not ask what was offered would turn
         // one control-plane outage into a fleet that does not come back, which
         // is far worse than composing from a file one version behind.
         Console.Error.WriteLine(
-            "gg: could not ask what this control plane offers, so this runner starts on "
-          + $"what is already in force: {unreachable.Message}");
+            "gg: could not ask the control plane for offered configuration, so this runner "
+          + "starts with the settings already in use.");
     }
-    catch (IOException unwritable)
+    catch (IOException)
     {
         // The same argument one step along: a disk that will not take the file
         // is a reason to carry on with the old values, not to stay down.
         Console.Error.WriteLine(
-            "gg: could not write offered configuration, so this runner starts on what is "
-          + $"already in force: {unwritable.Message}");
+            "gg: could not write the offered configuration to "
+          + $"{Gg.Local.ConfigurationFile.DefaultPath()}, so this runner starts with the "
+          + "settings already in use.");
     }
 
     var labels = (Settings.Value("GG_RUNNER_LABELS", inForce) ?? "")
@@ -3742,11 +3741,11 @@ static async Task<int> RunnerUpAsync()
             // identity a console will notice rather than one that changed under
             // it. Said and carried on: the runner still takes work.
             Console.Error.WriteLine(
-                $"this runner is registered under a different key than the one at "
-              + $"{RunnerIdentityKey.PathFor(Environment.MachineName)}, so nobody can reach it "
-              + "by hand. Its own private half is gone or this is a second machine using the "
-              + "name. `gg runner retire` then `gg runner up` registers it again, which a "
-              + "console will see as a new key rather than a changed one.");
+                $"This runner is registered under a different key than the one at "
+              + $"{RunnerIdentityKey.PathFor(Environment.MachineName)}, so a person cannot "
+              + "connect to it directly. The private key may be lost, or a second machine may "
+              + "use the same name. To register it again, run gg runner retire, then "
+              + "gg runner up; consoles will see a new key. The runner still takes work.");
             break;
 
         default:
@@ -4755,6 +4754,15 @@ static int Serviced(ServiceOutcome outcome)
 static IServiceHost ServiceHost() =>
     OperatingSystem.IsWindows() ? new NoServiceHost() : new SystemServiceHost();
 
+/// <summary>What a person reads when the control plane did not answer.</summary>
+static string Unreachable(string baseAddress, HttpRequestException failure) =>
+    failure.StatusCode is { } status
+        ? $"The control plane at {baseAddress} answered with an error (HTTP {(int)status}). "
+        + "Run the command again; if this keeps happening, run gg bundle and send the result "
+        + "to the Good Grief team."
+        : $"Could not reach the control plane at {baseAddress}. Run gg doctor to check the "
+        + "connection.";
+
 static int Fail(string message)
 {
     Console.Error.WriteLine(message);
@@ -4852,8 +4860,9 @@ static async Task<int> UpdateReportAsync(bool json)
         {
             Console.WriteLine();
             Console.WriteLine(
-                "  This wants a privilege this process does not have, and there is no terminal "
-              + "here for sudo to ask on. Run it again with sudo, or run this yourself:");
+                "  One step needs root, and there is no terminal here for sudo to ask for a "
+              + "password. Nothing was changed. Run gg update again with sudo, or run this "
+              + "command:");
             Console.WriteLine();
             Console.WriteLine("    " + plan.Pasteable(privileged: false));
 
@@ -4861,7 +4870,7 @@ static async Task<int> UpdateReportAsync(bool json)
         }
 
         Console.WriteLine();
-        Console.WriteLine("  This wants root for one step, so sudo will ask for it there.");
+        Console.WriteLine("  One step needs root, so sudo will ask for a password at that step.");
         steps = [.. plan.Steps.Select(step => step.UnderSudo())];
     }
 
@@ -4898,7 +4907,7 @@ static async Task<int> UpdateReportAsync(bool json)
         if (child.ExitCode != 0)
         {
             Console.WriteLine(
-                $"    exited {child.ExitCode}. Nothing further was run.");
+                $"    The step exited with code {child.ExitCode}. Nothing further was run.");
 
             return ExitCodes.Refused;
         }

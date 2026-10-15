@@ -1872,7 +1872,7 @@ public static class VerbOutput
         // one of them is a bug somebody should be chasing.
         if (list.Flights.Count == 0)
         {
-            return "No flights.";
+            return "No flights found. To open one, run gg fly.";
         }
 
         var text = new StringBuilder();
@@ -1986,14 +1986,14 @@ public static class VerbOutput
     /// </remarks>
     private static string Outcome(string outcome) => outcome switch
     {
-        LoopOutcomes.Completed => $"{outcome} - the loop finished on its own terms",
-        LoopOutcomes.Failed => $"{outcome} - something went wrong and it said what",
+        LoopOutcomes.Completed => $"{outcome} - the loop finished the work it was given",
+        LoopOutcomes.Failed => $"{outcome} - the loop stopped with an error; the reason says what happened",
         LoopOutcomes.Exhausted =>
-            $"{outcome} - it ran out of budget and is waiting on whoever the envelope's "
-          + "on-exhaustion names. Waiting, not broken",
+            $"{outcome} - the loop used its whole budget and is waiting for whoever the "
+          + "envelope's on-exhaustion setting names; it is not broken",
         LoopOutcomes.Blocked =>
-            $"{outcome} - it asked for a decision it is not allowed to make and stopped. "
-          + "Waiting on a person, not broken and not finished",
+            $"{outcome} - the loop needs a decision it is not allowed to make, so it stopped "
+          + "and is waiting for a person; it is not broken or finished",
         _ => throw new InvalidOperationException(
             $"Loop outcome '{outcome}' has no published name. An outcome nothing can render "
           + "must not be shown as one that can - and the plausible guess here is 'failed', "
@@ -2080,7 +2080,7 @@ public static class VerbOutput
         if (story.Outstanding.Count > 0)
         {
             text.AppendLine();
-            text.AppendLine("  waiting on somebody");
+            text.AppendLine("  waiting for a person");
             foreach (var owed in story.Outstanding)
             {
                 text.AppendLine($"    {Clean(FlightStory.Sentence(owed.Kind, owed.Params))}");
@@ -2929,8 +2929,8 @@ public static class VerbOutput
     {
         if (registered.Repositories.Count == 0)
         {
-            return "No repositories are registered. Nothing can be flown against a repository "
-                 + "until one is - see gg airspace register.";
+            return "No repositories are registered yet. To register one, run "
+                 + "gg airspace repositories add.";
         }
 
         var text = new System.Text.StringBuilder();
@@ -3302,7 +3302,9 @@ public static class VerbOutput
             }
             else if (!check.Passed && !check.Fixable)
             {
-                text.AppendLine("      not something this machine can fix.");
+                text.AppendLine(
+                    "      This machine cannot fix this. Run gg bundle and send the result to the "
+                  + "Good Grief team.");
             }
         }
 
@@ -3315,7 +3317,7 @@ public static class VerbOutput
             // NOT A HEADING THAT SOUNDS LIKE A PROBLEM. These are reported every run and
             // will never stop being reported, so the words have to say that is normal.
             text.AppendLine();
-            text.AppendLine("also true, and not a fault:");
+            text.AppendLine("also reported (expected, and not a fault):");
 
             foreach (var disclosure in disclosures)
             {
@@ -3358,23 +3360,23 @@ public static class VerbOutput
     {
         var lines = new List<string>
         {
-            $"  Principal:  {Clean(who.PrincipalDisplay)} ({Clean(who.PrincipalId)})",
+            $"  Person:        {Clean(who.PrincipalDisplay)} ({Clean(who.PrincipalId)})",
             // THE PAIR THE LINE ABOVE HAS ALWAYS PRINTED: the display a person
             // recognises, the id they can take to a support conversation. An
             // older control plane sends no name and the id stands alone -
             // never empty brackets, which read as a tenant called nothing
             // rather than one this side has not been told about.
             who.TenantDisplay is { Length: > 0 } named
-                ? $"  Tenant:     {Clean(named)} ({Clean(who.TenantId)})"
-                : $"  Tenant:     {Clean(who.TenantId)}",
-            $"  Expires:    {who.ExpiresAt:u}",
+                ? $"  Organisation:  {Clean(named)} ({Clean(who.TenantId)})"
+                : $"  Organisation:  {Clean(who.TenantId)}",
+            $"  Expires:       {who.ExpiresAt:u}",
         };
 
         // HOW A DOCUMENT NAMES YOU, and only when the control plane says. A
         // blank line would read as having no subject.
         if (who.Subject is { Length: > 0 } subject)
         {
-            lines.Add($"  Subject:    {Clean(subject)}");
+            lines.Add($"  Subject:       {Clean(subject)}");
         }
 
         // ONLY WHEN TRUE. Most people are not administrators, and a line
@@ -3383,7 +3385,7 @@ public static class VerbOutput
         // is also what the contract member's default means.
         if (who.IsAdmin)
         {
-            lines.Add("  Administers this tenant, so admin-only surfaces are offered.");
+            lines.Add("  Administers this organisation, so administrator commands are available.");
         }
 
         foreach (var notice in who.Notices)
@@ -3482,8 +3484,8 @@ public static class VerbOutput
             text.AppendLine("Nothing has been judged against this flight.");
             text.AppendLine();
             text.AppendLine("Either its envelope declares no obligation, or nothing has been "
-                          + "evaluated yet - a flight that has not reached its first gate "
-                          + "reads this way. `gg show` says which stage it is at.");
+                          + "evaluated yet. To see which stage the flight has reached, run "
+                          + $"gg show {Clean(attribution.FlightNumber)}.");
             }
 
             return text.ToString().TrimEnd();
@@ -3858,8 +3860,8 @@ public static class VerbOutput
             // the platform's too.
             if (gate.Nomination is { } nomination)
             {
-                text.AppendLine("  an agent proposed this flight, in its own words - a record, "
-                              + "not this platform's policy:");
+                text.AppendLine("  an agent proposed this flight; its words follow, and they "
+                              + "are not Good Grief policy:");
 
                 if (nomination.WorkKind is { Length: > 0 } kind)
                 {

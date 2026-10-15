@@ -4315,7 +4315,7 @@ public static class PaneText
     /// out as the sentence a person would use: they are reading this because
     /// something is on the screen and they do not know what it wants.
     /// </remarks>
-    private static string ModeHeading(UiMode mode) => mode switch
+    public static string ModeHeading(UiMode mode) => mode switch
     {
         UiMode.Help => "while this page is open",
         UiMode.FlightActions => "while the actions list is open",

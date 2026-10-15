@@ -63,7 +63,9 @@ public class ALaunchRecordsItsModelTests
         await Assert.That(Description.ProtocolSurface.JsonMembers[typeof(FactEnvelope)]).Contains("model")
             .Because("the envelope's slot is a member of the envelope, and the surface lists "
                    + "the envelope's members too.");
-        await Assert.That(FactVocabulary.Version).IsEqualTo("0.44.0")
+        // MOVED AT LEAST TO WHERE loop.model ARRIVED: a later kind moves it again, and this
+        // test is about this kind, not about being the last one.
+        await Assert.That(Version.Parse(FactVocabulary.Version)).IsGreaterThanOrEqualTo(Version.Parse("0.44.0"))
             .Because("a kind that crosses is a vocabulary that moved.");
     }
 }

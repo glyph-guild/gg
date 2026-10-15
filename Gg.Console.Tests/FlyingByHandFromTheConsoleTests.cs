@@ -169,6 +169,6 @@ public class FlyingByHandFromTheConsoleTests
 
         await Assert.That(after.Principal).IsEqualTo("somebody");
         await Assert.That(after.SelectedRow).IsEqualTo(3);
-        await Assert.That(after.LastHandFlight!).Contains("unreachable");
+        await Assert.That(after.LastHandFlight!).Contains("Could not reach the control plane. Run gg doctor");
     }
 }

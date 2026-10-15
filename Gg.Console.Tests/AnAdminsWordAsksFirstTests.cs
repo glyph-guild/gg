@@ -123,7 +123,7 @@ public class AnAdminsWordAsksFirstTests
             Fleet(RunnerOwnerships.Claimed, "Kevin") with { Mode = UiMode.ConfirmOwnership });
 
         await Assert.That(body).Contains("Kevin's", StringComparison.Ordinal);
-        await Assert.That(body).Contains("takes it from them", StringComparison.Ordinal)
+        await Assert.That(body).Contains("removes the claim and any reservation", StringComparison.Ordinal)
             .Because("a question about a word, rather than about what happens, is one a "
                    + "person answers without knowing what they answered.");
     }
@@ -137,6 +137,6 @@ public class AnAdminsWordAsksFirstTests
         await Assert.That(tenants.First(k => k.Command == Command.AskWhoMayClaim).Description)
             .Contains("open it", StringComparison.Ordinal);
         await Assert.That(open.First(k => k.Command == Command.AskWhoMayClaim).Description)
-            .Contains("hold it back", StringComparison.Ordinal);
+            .Contains("keep it for organisation work", StringComparison.Ordinal);
     }
 }

@@ -79,8 +79,8 @@ public class WhatThisTenantCanFlyAgainstTests
             new AppState(),
             new VerbResult.AirspaceRepositories(new RegisteredRepositories { Repositories = [] }, []));
 
-        await Assert.That(PaneText.Repositories(read)).Contains("nothing registered");
-        await Assert.That(PaneText.Repositories(new AppState())).DoesNotContain("nothing registered")
+        await Assert.That(PaneText.Repositories(read)).Contains("To register a repository, run gg airspace repositories add.");
+        await Assert.That(PaneText.Repositories(new AppState())).DoesNotContain("No repositories are registered")
             .Because("never asked is not the same as asked and told none.");
     }
 

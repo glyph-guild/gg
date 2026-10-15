@@ -82,7 +82,7 @@ public class WhatIsOwedSaysWhatWasAskedTests
         var text = PaneText.Flight(Opened());
         // THE BLOCK ITSELF, up to the blank line that ends it: the history below it also
         // prints what the agent said, and a test reading past the block passes on that.
-        var from = text.IndexOf("waiting on somebody", StringComparison.Ordinal);
+        var from = text.IndexOf("  waiting on" + Environment.NewLine, StringComparison.Ordinal);
         var to = text.IndexOf(Environment.NewLine + Environment.NewLine, from, StringComparison.Ordinal);
         var owed = text[from..(to < 0 ? text.Length : to)];
 

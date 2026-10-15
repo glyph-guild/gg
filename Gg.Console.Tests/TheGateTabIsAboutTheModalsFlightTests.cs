@@ -100,7 +100,7 @@ public class TheGateTabIsAboutTheModalsFlightTests
     public async Task It_says_nothing_is_waiting_on_this_flight_instead()
     {
         await Assert.That(FlightDetails.Gate(AFlightNothingWaitingOn()))
-            .Contains("Nothing is waiting on you for this flight")
+            .Contains("Nothing is waiting on a decision for this flight")
             .Because("that is the true sentence, and it is about the FLIGHT rather than "
                    + "about the console - which is the distinction the wrong one lost. It "
                    + "is said from the ATTRIBUTION now: the flight was asked about and "

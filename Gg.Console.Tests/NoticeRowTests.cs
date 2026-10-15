@@ -46,7 +46,7 @@ public class NoticeRowTests
         // alongside rows would be invisible in exactly the case it exists for.
         var rows = PaneText.QueueRows(new AppState { Notices = [ANotice()] });
 
-        await Assert.That(rows.Any(r => r.Contains("nothing needs you", StringComparison.Ordinal))).IsTrue();
+        await Assert.That(rows.Any(r => r.Contains("nothing needs a decision", StringComparison.Ordinal))).IsTrue();
         await Assert.That(rows.Count).IsEqualTo(2);
     }
 
@@ -58,7 +58,7 @@ public class NoticeRowTests
         var rows = PaneText.QueueRows(new AppState());
 
         await Assert.That(rows)
-            .IsEquivalentTo((string[])["nothing needs you · tab for every recent flight"]);
+            .IsEquivalentTo((string[])["nothing needs a decision · tab for every recent flight"]);
     }
 
     [Test]

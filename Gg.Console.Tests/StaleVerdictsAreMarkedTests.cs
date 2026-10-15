@@ -19,7 +19,7 @@ public class StaleVerdictsAreMarkedTests
         session.Run(PlanSessionFixture.Prefix, PlanSessionFixture.Key('p'),
             PlanSessionFixture.Key('j'), PlanSessionFixture.Key('x'));
 
-        await Assert.That(session.Frames[^1]).Contains("from before your edit");
+        await Assert.That(session.Frames[^1]).Contains("from before the latest edit");
     }
 
     [Test]
@@ -30,6 +30,6 @@ public class StaleVerdictsAreMarkedTests
 
         session.Run(PlanSessionFixture.Prefix, PlanSessionFixture.Key('p'));
 
-        await Assert.That(session.Frames[^1]).DoesNotContain("from before your edit");
+        await Assert.That(session.Frames[^1]).DoesNotContain("from before the latest edit");
     }
 }

@@ -129,7 +129,7 @@ public class AWriteDoesNotWaitForTheDoctorTests
         // a check made a moment ago.
         var text = PaneText.HelpDoctorText(new AppState { Doctor = Held });
 
-        await Assert.That(text).Contains("when this console opened or somebody last signed in");
+        await Assert.That(text).Contains("when this console opened or at the last sign-in");
         await Assert.That(text).Contains("gg doctor");
     }
 
@@ -141,7 +141,7 @@ public class AWriteDoesNotWaitForTheDoctorTests
         var text = PaneText.HelpDoctorText(new AppState());
 
         await Assert.That(text).DoesNotContain("on r;");
-        await Assert.That(text).Contains("when it opens and when somebody signs in");
+        await Assert.That(text).Contains("when it opens and after each sign-in");
     }
 
     private static DoctorReport Report(string detail) => new()

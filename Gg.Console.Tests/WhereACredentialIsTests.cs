@@ -95,10 +95,10 @@ public class WhereACredentialIsTests
             AudienceFor = Sonar,
         });
 
-        await Assert.That(text).Contains("vmlinux002").And.Contains("holds it");
+        await Assert.That(text).Contains("vmlinux002").And.Contains("has it");
         await Assert.That(text).Contains("declared, missing");
         await Assert.That(text).Contains("has not said");
-        await Assert.That(text).Contains("holds it, nothing declares it");
+        await Assert.That(text).Contains("has it, nothing declares it");
         await Assert.That(text).DoesNotContain("vmlinux005")
             .Because("a machine that neither holds it nor is meant to is not part of where it is.");
     }
@@ -116,7 +116,7 @@ public class WhereACredentialIsTests
             AudienceFor = Sonar,
         });
 
-        await Assert.That(text.Trim()).IsEqualTo($"No machine says it holds {Sonar}.");
+        await Assert.That(text.Trim()).IsEqualTo($"No machine says it has {Sonar}.");
     }
 
     [Test]

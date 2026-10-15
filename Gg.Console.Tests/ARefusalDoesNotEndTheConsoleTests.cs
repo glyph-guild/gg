@@ -73,7 +73,7 @@ public class ARefusalDoesNotEndTheConsoleTests
         var body = source[source.IndexOf("private static string Answered(", StringComparison.Ordinal)..];
 
         await Assert.That(body[..body.IndexOf("\n    }", StringComparison.Ordinal)])
-            .Contains("return refusal.Message;", StringComparison.Ordinal)
+            .Contains("return ControlPlaneFailure.Said(refusal);", StringComparison.Ordinal)
             .Because("the doors already answer in words a person can act on, and a console "
                    + "that composed its own would be a second vocabulary for one set of rules.");
     }

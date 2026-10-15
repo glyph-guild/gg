@@ -298,8 +298,8 @@ public class VerbParityTests
             ["RunnerReserve"] = "reachable: `h` in the runner modal, beside the claim and under the "
               + "line that says whose the machine is. A person pressing it can see who owns "
               + "what they are keeping.",
-            ["RunnerRelease"] = "reachable: the other arm of `h`, which reads 'let it take the "
-              + "tenant's work again' over a machine that is reserved.",
+            ["RunnerRelease"] = "reachable: the other arm of `h`, which reads 'let it take "
+              + "organisation work again' over a machine that is reserved.",
             ["TenantName"] = "absent, and DELIBERATELY so, for RunnerOwnershipSet's reason: naming the "
               + "tenant is an administrator's word about the thing everybody in it is "
               + "inside, and it is done about once. The console is a place people arrive "

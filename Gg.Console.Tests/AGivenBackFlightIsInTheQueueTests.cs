@@ -65,7 +65,7 @@ public class AGivenBackFlightIsInTheQueueTests
         await Assert.That(queue.Count).IsEqualTo(1);
         await Assert.That(queue[0].Reason).IsEqualTo(QueueReason.GivenBack);
         await Assert.That(queue[0].Since).IsEqualTo(Released);
-        await Assert.That(PaneText.Reason(QueueReason.GivenBack)).IsEqualTo("given back · needs you");
+        await Assert.That(PaneText.Reason(QueueReason.GivenBack)).IsEqualTo("given back · needs a person");
     }
 
     [Test]

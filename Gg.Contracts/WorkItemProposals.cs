@@ -622,3 +622,28 @@ public static class WorkItemFields
         return true;
     }
 }
+
+/// <summary>
+/// A tracker field write as the tracker recorded it: which item, which fields, and the
+/// revision the write produced (slice eighty-two, ADR-0041 Decision 10).
+/// </summary>
+/// <remarks>
+/// <b>The revision, not the text</b>: a tracker rewrites rich text on save, so a later flight
+/// asks whether any revision after this one touched the field rather than comparing words.
+/// </remarks>
+[FactKind(FactKinds.WorkItemWritten)]
+[PinnedId("852e44c0-a7bc-48c6-8554-9442082294ca")]
+public sealed record WorkItemWritten
+{
+    /// <summary>The destination that admitted the write.</summary>
+    public required string DestinationId { get; init; }
+
+    /// <summary>The work item written, by the tracker's id.</summary>
+    public required string Target { get; init; }
+
+    /// <summary>Every field path the write set.</summary>
+    public required IReadOnlyList<string> Fields { get; init; }
+
+    /// <summary>The item's revision after the write.</summary>
+    public required int Revision { get; init; }
+}

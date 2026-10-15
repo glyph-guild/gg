@@ -227,6 +227,8 @@ public static class Vocabulary
         typeof(EnvelopeExtension),
         typeof(ExtensionRemovals),
         typeof(IceServer),
+        typeof(EarlierFinding),
+        typeof(FindingCommit),
         typeof(WorkKindResolution),
         typeof(LearnedContext),
         typeof(LearnedAgainst),

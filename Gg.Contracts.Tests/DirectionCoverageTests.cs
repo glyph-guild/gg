@@ -250,6 +250,11 @@ public class DirectionCoverageTests
         new("Envelope.Produces", "produces",
             Doc(), Doc() with { Produces = [] }, ReverseAlsoWidens: false),
 
+        // ARRIVING IS THE WIDENING, as learned advice's is (slice seventy-nine): another
+        // family's findings are agents' words reaching every later flight of the kind.
+        new("Envelope.Consults", "consults",
+            Doc(), Doc() with { Consults = ["review"] }, ReverseAlsoWidens: false),
+
         // BOTH DIRECTIONS, which is why ReverseAlsoWidens is true and why this
         // row is worth reading twice. Withdrawing a variable is not a tightening:
         // a hook that was told not to run now runs, on every flight of this kind.

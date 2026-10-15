@@ -90,7 +90,7 @@ public class MachineRoleDoctorTests
         var check = Of(await ReportAsync(stub, MachineRole.None), DoctorChecks.Executor);
 
         await Assert.That(check.Passed).IsFalse();
-        await Assert.That(check.Detail).Contains("never invoke")
+        await Assert.That(check.Detail).Contains("never start an agent")
             .Because("a host with no executor passes every other check, registers, claims "
                    + "flights, and runs nothing.");
         await Assert.That(check.Fixable).IsTrue()

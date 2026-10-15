@@ -49,6 +49,6 @@ public class ATenantCanBeRenamedTests
         var usage = ((CliAction.Unknown)CliArgs.Parse(["nonsense"])).Message;
 
         await Assert.That(usage).Contains("gg tenant name");
-        await Assert.That(usage).Contains("administer");
+        await Assert.That(usage).Contains("rename this organisation; only an");
     }
 }

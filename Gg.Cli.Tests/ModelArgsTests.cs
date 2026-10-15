@@ -33,7 +33,7 @@ public class ModelArgsTests
         await Assert.That(refusal).Contains("gg model <flight> <model>")
             .Because("the wire would refuse a blank with a 400 about a field; this side can say "
                    + "what the name is for and where the permitted ones are listed.");
-        await Assert.That(refusal).Contains("models:");
+        await Assert.That(refusal).Contains("To list the models available, run gg airspace show");
     }
 
     [Test]

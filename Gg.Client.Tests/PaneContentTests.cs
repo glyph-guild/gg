@@ -142,7 +142,7 @@ public class PaneContentTests
         await Assert.That(text).Contains("No repositories are registered")
             .Because("a tenant with nothing registered and a tenant whose read failed look "
                    + "identical as a blank answer, and only one of them is a next action.");
-        await Assert.That(text).Contains("gg airspace register")
+        await Assert.That(text).Contains("gg airspace repositories add")
             .Because("saying what is missing without saying how to supply it is half an answer.");
     }
 

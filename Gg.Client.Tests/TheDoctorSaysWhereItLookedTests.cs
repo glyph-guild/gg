@@ -64,7 +64,7 @@ public class TheDoctorSaysWhereItLookedTests
         var check = Doctor.RunnerCheck(stored: null, honoured: null);
 
         await Assert.That(check.Outcome).IsEqualTo(DoctorOutcome.Fail);
-        await Assert.That(check.Fix).IsEqualTo("gg login");
+        await Assert.That(check.Fix).IsEqualTo("Run gg login.");
     }
 
     [Test]

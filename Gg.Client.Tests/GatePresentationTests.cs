@@ -169,7 +169,7 @@ public class GatePresentationTests
         // person answering must not read it as the platform's policy.
         var text = VerbOutput.ToText(new VerbResult.Gates(AGateOnANominatedFlight(AProposal())));
 
-        await Assert.That(text).Contains("an agent proposed this flight, in its own words")
+        await Assert.That(text).Contains("an agent proposed this flight; its words follow")
             .Because("attribution at a glance, in the block's own heading - a person who "
                    + "has to work out whose words these are will assume the platform's.");
 

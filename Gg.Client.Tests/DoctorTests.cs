@@ -90,7 +90,7 @@ public class DoctorTests
         await Assert.That(check.Fixable).IsFalse()
             .Because("nothing here fixes it, and a remedy would send somebody looking for a "
                    + "setting that does not exist.");
-        await Assert.That(check.Detail).Contains("not enforced");
+        await Assert.That(check.Detail).Contains("only partly enforced");
     }
 
     [Test]

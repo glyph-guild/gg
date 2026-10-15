@@ -32,10 +32,10 @@ public class TheReferenceIsTheHelpTests
         var fly = Reference.Build().Commands.Single(c => c.Usage.StartsWith("gg fly ", StringComparison.Ordinal));
 
         await Assert.That(fly.Usage).IsEqualTo("gg fly <text>|--uri <uri>|--ticket <provider>#<id>");
-        await Assert.That(fly.Summary).IsEqualTo("open a flight");
+        await Assert.That(fly.Summary).IsEqualTo("open a flight (a piece of work an agent carries out)");
         await Assert.That(fly.Options.Select(o => o.Usage)).Contains("--repo <name>");
         await Assert.That(fly.Options.Single(o => o.Usage == "--repo <name>").Summary)
-            .IsEqualTo("which repository it is about, by its registered name");
+            .IsEqualTo("the repository it is about, by its registered name");
     }
 
     [Test]
@@ -44,7 +44,7 @@ public class TheReferenceIsTheHelpTests
         var tenant = Reference.Build().Commands.Single(c => c.Usage == "gg tenant name <name>");
 
         await Assert.That(tenant.Summary)
-            .IsEqualTo("what this tenant is called; only somebody who administers it may say");
+            .IsEqualTo("rename this organisation; only an administrator can do this");
     }
 
     [Test]
@@ -54,7 +54,7 @@ public class TheReferenceIsTheHelpTests
             c.Usage.StartsWith("gg airspace repositories add", StringComparison.Ordinal));
 
         await Assert.That(add.Usage).Contains("[--narrowings <dir>]");
-        await Assert.That(add.Summary).IsEqualTo("make a repository nameable - a new one rides a gate");
+        await Assert.That(add.Summary).IsEqualTo("register a repository so flights can name it; a new one needs a gate answered");
     }
 
     [Test]

@@ -44,7 +44,7 @@ public class ATenantHasANameTests
     public async Task Whoami_says_what_the_tenant_is_called()
     {
         await Assert.That(Text(Who("JDXpert")))
-            .Contains("Tenant:     JDXpert (01a062f3-42a5-73a4-8bf5-29a4bbb36533)")
+            .Contains("Organisation:  JDXpert (01a062f3-42a5-73a4-8bf5-29a4bbb36533)")
             .Because("the display is what a person recognises and the id is what they can "
                    + "take to a support conversation - the pair the principal line above it "
                    + "has always printed.");
@@ -55,7 +55,7 @@ public class ATenantHasANameTests
     {
         var text = Text(Who(tenantDisplay: null));
 
-        await Assert.That(text).Contains("Tenant:     01a062f3-42a5-73a4-8bf5-29a4bbb36533");
+        await Assert.That(text).Contains("Organisation:  01a062f3-42a5-73a4-8bf5-29a4bbb36533");
         await Assert.That(text).DoesNotContain("()")
             .Because("an older control plane sends no name, and empty brackets would read as "
                    + "a tenant called nothing rather than one nobody has been told about.");

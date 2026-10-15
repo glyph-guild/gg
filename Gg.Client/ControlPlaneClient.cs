@@ -468,7 +468,8 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         CancellationToken cancellationToken = default,
         string? intent = null,
         int? limit = null,
-        string? after = null)
+        string? after = null,
+        string? kind = null)
     {
         // BUILT AS QUERY PARAMETERS, and the work item token is re-joined with
         // its separator escaped: `#` unescaped in a uri starts a fragment,

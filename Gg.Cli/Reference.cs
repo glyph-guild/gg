@@ -16,7 +16,82 @@ namespace Gg.Cli;
 /// </remarks>
 public static class Reference
 {
-    public static ReferenceDocument Build() => throw new NotImplementedException();
+    public static ReferenceDocument Build() =>
+        new(GgVersions.Binary, Commands(CliArgs.Usage), Keys());
+
+    /// <summary>
+    /// The usage lines, read back into commands.
+    /// </summary>
+    /// <remarks>
+    /// A line that starts with <c>gg</c> is a command. An indented line is one
+    /// of three things: an option (a usage and a summary, separated by a run of
+    /// spaces), more of the command's usage (it starts with <c>[</c> or
+    /// <c>-</c> and the command has no summary yet), or more of the summary.
+    /// </remarks>
+    internal static IReadOnlyList<ReferenceCommand> Commands(IEnumerable<string> lines)
+    {
+        var commands = new List<(string Usage, string Summary, List<ReferenceOption> Options)>();
+
+        foreach (var line in lines)
+        {
+            if (line.StartsWith("gg", StringComparison.Ordinal))
+            {
+                var (usage, summary) = Split(line);
+                commands.Add((usage, summary, []));
+                continue;
+            }
+
+            if (commands.Count == 0)
+            {
+                continue;
+            }
+
+            var current = commands[^1];
+            var trimmed = line.Trim();
+            var (part, rest) = Split(trimmed);
+
+            if (rest.Length > 0)
+            {
+                current.Options.Add(new ReferenceOption(part, rest));
+            }
+            else if (current.Summary.Length == 0 && trimmed is ['[' or '-', ..])
+            {
+                commands[^1] = current with { Usage = current.Usage + " " + trimmed };
+            }
+            else if (current.Summary.Length == 0 || current.Options.Count == 0)
+            {
+                commands[^1] = current with { Summary = Join(current.Summary, trimmed) };
+            }
+            else
+            {
+                var last = current.Options[^1];
+                current.Options[^1] = last with { Summary = Join(last.Summary, trimmed) };
+            }
+        }
+
+        return [.. commands.Select(c => new ReferenceCommand(c.Usage, c.Summary, c.Options))];
+    }
+
+    private static IReadOnlyList<ReferenceKey> Keys() =>
+        [.. Keymap.Catalogue()
+            .Where(entry => !entry.Binding.Untaught)
+            .Select(entry => new ReferenceKey(
+                entry.Mode.ToString(),
+                entry.Mode == UiMode.Normal ? "" : PaneText.ModeHeading(entry.Mode),
+                entry.Binding.Key.Name,
+                entry.Binding.Description,
+                entry.Binding.When is { Length: > 0 } when ? when : null))];
+
+    /// <summary>A usage and its summary, split at the first run of two or more spaces.</summary>
+    private static (string Usage, string Summary) Split(string line)
+    {
+        var at = line.IndexOf("  ", StringComparison.Ordinal);
+
+        return at < 0 ? (line.Trim(), "") : (line[..at].Trim(), line[at..].Trim());
+    }
+
+    private static string Join(string first, string second) =>
+        first.Length == 0 ? second : first + " " + second;
 
     public static string ToJson(ReferenceDocument document) =>
         JsonSerializer.Serialize(document, ReferenceJsonContext.Default.ReferenceDocument);

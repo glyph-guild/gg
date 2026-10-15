@@ -110,8 +110,8 @@ public class ADoctorThatOutlivesItsDiagnosisTests
         var session = report.Checks.Single(c => c.Name == DoctorChecks.Session);
 
         await Assert.That(session.Passed).IsFalse();
-        await Assert.That(session.Detail).Contains("no longer honours");
-        await Assert.That(session.Fix).IsEqualTo("gg login");
+        await Assert.That(session.Detail).Contains("expired or been revoked");
+        await Assert.That(session.Fix).IsEqualTo("Run gg login.");
     }
 
     [Test]
@@ -125,8 +125,8 @@ public class ADoctorThatOutlivesItsDiagnosisTests
             .Single(c => c.Name == DoctorChecks.Runner);
 
         await Assert.That(runner.Passed).IsFalse();
-        await Assert.That(runner.Detail).DoesNotContain("can register one");
-        await Assert.That(runner.Fix).IsEqualTo("gg login")
+        await Assert.That(runner.Detail).DoesNotContain("can register a runner");
+        await Assert.That(runner.Fix).IsEqualTo("Run gg login.")
             .Because("the thing standing between this machine and a runner is the sign-in, "
                    + "and naming the runner verb sends somebody to debug the wrong half.");
     }

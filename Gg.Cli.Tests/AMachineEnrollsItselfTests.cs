@@ -60,7 +60,7 @@ public class AMachineEnrollsItselfTests
     [Arguments(new[] { "--uses", "1", "--expires", "1h" }, "--profile")]
     [Arguments(new[] { "--profile", "p", "--expires", "1h" }, "--uses")]
     [Arguments(new[] { "--profile", "p", "--uses", "1" }, "--expires")]
-    [Arguments(new[] { "--profile", "p", "--uses", "1", "--expires", "1h", "--tenant", "--claim" }, "Say one")]
+    [Arguments(new[] { "--profile", "p", "--uses", "1", "--expires", "1h", "--tenant", "--claim" }, "not both")]
     [Arguments(new[] { "--profile", "p", "--uses", "1", "--expires", "1h", "--reserve" }, "--claim")]
     [Arguments(new[] { "--profile", "p", "--uses", "1", "--expires", "soon" }, "30m, 24h or 7d")]
     public async Task A_token_with_no_bound_or_two_owners_is_refused_before_anything_is_asked(

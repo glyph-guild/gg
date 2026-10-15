@@ -77,7 +77,7 @@ public class AnExpiredSessionIsNotSignedInTests
         }
         catch (NotSignedInException refused)
         {
-            await Assert.That(refused.Message).Contains("no longer valid")
+            await Assert.That(refused.Message).Contains("expired or been revoked")
                 .Because("`not signed in' and `signed in with something the control plane "
                        + "will not take' are different facts, and the second is the one a "
                        + "person whose twelve hours ran out is looking at.");

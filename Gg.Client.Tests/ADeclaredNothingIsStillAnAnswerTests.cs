@@ -80,7 +80,7 @@ public class ADeclaredNothingIsStillAnAnswerTests
         // THE SENTENCE IS KEPT. What was wrong was the absence of a remedy
         // beside it, not the explanation - a warn that only said "no tracker"
         // would make every runner host look broken.
-        await Assert.That(Trackers(MachineRole.None).Detail).Contains("ordinary");
+        await Assert.That(Trackers(MachineRole.None).Detail).Contains("this is expected");
     }
 
     [Test]

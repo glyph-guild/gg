@@ -97,7 +97,7 @@ public class DoctorDisclosureTests
 
         await Assert.That(moves.Fixable).IsFalse();
         await Assert.That(moves.Blocking).IsFalse();
-        await Assert.That(moves.Detail).Contains("not enforced")
+        await Assert.That(moves.Detail).Contains("only partly enforced")
             .Because("it states the property rather than requesting an action.");
     }
 
@@ -143,7 +143,7 @@ public class DoctorDisclosureTests
         var rendered = VerbOutput.ToText(new VerbResult.Diagnosis(await RunAsync()));
 
         var lines = rendered.Split('\n').ToList();
-        var checksEnd = lines.FindIndex(l => l.StartsWith("also true", StringComparison.Ordinal));
+        var checksEnd = lines.FindIndex(l => l.StartsWith("also reported", StringComparison.Ordinal));
 
         await Assert.That(checksEnd).IsGreaterThan(0)
             .Because("there is a section boundary at all.");
@@ -193,7 +193,7 @@ public class DoctorDisclosureTests
         // anything.
         var moves = (await RunAsync()).Checks.Single(c => c.Name == DoctorChecks.Moves);
 
-        await Assert.That(moves.Detail).Contains("record of intent")
+        await Assert.That(moves.Detail).Contains("records what was intended")
             .Because("what it means for the person reading the envelope, not only what is "
                    + "true of the executor.");
     }

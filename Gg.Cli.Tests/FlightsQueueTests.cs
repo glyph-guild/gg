@@ -126,6 +126,6 @@ public class FlightsQueueTests
         var rendered = VerbOutput.ToText(
             new VerbResult.Flights(new FlightList { Flights = [] }));
 
-        await Assert.That(rendered).Contains("No flights.");
+        await Assert.That(rendered).Contains("No flights found.");
     }
 }

@@ -242,7 +242,7 @@ public class AuthCommandTests
         var exit = await commands.WhoAmIAsync();
 
         await Assert.That(exit).IsEqualTo(1);
-        await Assert.That(output.All).Contains("no longer valid");
+        await Assert.That(output.All).Contains("expired or been revoked");
     }
 
     [Test]
@@ -260,7 +260,7 @@ public class AuthCommandTests
         await Assert.That(exit).IsEqualTo(1);
         await Assert.That(sessions.ClearCount).IsEqualTo(0)
             .Because("deleting locally after a failed revoke leaves a live session nobody can revoke.");
-        await Assert.That(output.All).Contains("kept");
+        await Assert.That(output.All).Contains("still signed in");
     }
 
     [Test]

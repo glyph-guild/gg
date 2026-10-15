@@ -111,7 +111,7 @@ public class AHeldLegSaysWhatItWaitsOnTests
         };
 
         var text = VerbOutput.ToText(new VerbResult.Story(story));
-        var owed = text[text.IndexOf("waiting on somebody", StringComparison.Ordinal)..];
+        var owed = text[text.IndexOf("waiting for a person", StringComparison.Ordinal)..];
         owed = owed[..owed.IndexOf(Environment.NewLine + Environment.NewLine, StringComparison.Ordinal)];
 
         await Assert.That(owed).Contains("Was the repository supposed to be materialized?");

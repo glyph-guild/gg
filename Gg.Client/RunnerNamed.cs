@@ -89,13 +89,14 @@ public static class RunnerNamed
         {
             return new RunnerResolved(
                 null,
-                $"'{given}' does not name a machine, because this tenant has no machines. "
-              + "Enroll one with `gg fleet token` and run `gg runner up` on it.");
+                $"'{given}' does not name a machine, because this organisation has no machines. "
+              + "Create an enrollment token with gg fleet enroll, or run gg runner up on a "
+              + "machine that should take work.");
         }
 
         return new RunnerResolved(
             null,
-            $"'{given}' does not name a machine in this tenant. It has: "
+            $"'{given}' does not name a machine in this organisation. Use one of: "
           + string.Join(", ", fleet.Select(runner => runner.Label).Order(StringComparer.Ordinal))
           + ".");
     }

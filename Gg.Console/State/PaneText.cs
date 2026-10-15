@@ -194,7 +194,7 @@ public static class PaneText
 
         return listed.Repositories.Count > 0
             ? ""
-            : "No repositories are registered for this tenant, so there is nothing to name. "
+            : "No repositories are registered for this organisation, so there is nothing to name. "
             + "The envelope resolves what a flight runs against.";
     }
 
@@ -338,7 +338,7 @@ public static class PaneText
                 // that sends them to it.
                 state.Diagnosis is { Length: > 0 }
                     ? "(could not load)"
-                    : "nothing needs you · tab for every recent flight",
+                    : "nothing needs a decision · tab for every recent flight",
             ];
         }
 
@@ -402,7 +402,7 @@ public static class PaneText
         // THE RUNNER GAVE IT BACK AND IS WAITING ON A PERSON. "outstanding" is the
         // runner's word and reads as a balance; this says what happened and whose
         // move it is.
-        QueueReason.GivenBack => "given back · needs you",
+        QueueReason.GivenBack => "given back · needs a person",
         // THE WORD A PERSON SEARCHES FOR. "unresolved" alone would be true and
         // would not say what to go and do; the cell is narrow, so it spends its
         // width on the noun rather than on the verb.
@@ -541,8 +541,8 @@ public static class PaneText
         // with the tenant's hidden, would otherwise read as a board where
         // nothing has happened.
         return state.Board.Nominations.Count > 0 && !state.BoardShowsEverybody
-            ? "  nothing of yours or the tenant's has been nominated - `*` shows everybody's rows."
-            : "  nothing has been nominated. What a watch finds stands here until somebody "
+            ? "  nothing has been nominated for this person or this organisation - `*` shows every row."
+            : "  nothing has been nominated. What a watch finds is listed here until a person "
             + "answers it.";
     }
 
@@ -773,7 +773,7 @@ public static class PaneText
             if (story.HeldBy is { } holder)
             {
                 var until = story.HeldUntil is { } expiry ? $" until {expiry:u}" : "";
-                text.AppendLine($"  held by       {Clean(holder.Name)}{until}");
+                text.AppendLine($"  taken over by {Clean(holder.Name)}{until}");
             }
         }
 
@@ -809,7 +809,7 @@ public static class PaneText
         if (story is { Outstanding.Count: > 0 })
         {
             text.AppendLine();
-            text.AppendLine("  waiting on somebody");
+            text.AppendLine("  waiting on");
             foreach (var owed in story.Outstanding)
             {
                 text.AppendLine($"    {Clean(Gg.Contracts.FlightStory.Sentence(owed.Kind, owed.Params))}");
@@ -1139,10 +1139,10 @@ public static class PaneText
             said.Add(NotCompared(state));
 
             said.Add("");
-            said.Add("Until then the rows show what git knows: which documents you have "
+            said.Add("Until then the rows show what git knows: which documents have been "
                    + "edited since the pull that wrote them. Which way a change moves - and "
                    + "so whether applying it lands or waits at a gate - is the control "
-                   + "plane's answer and needs a session.");
+                   + "plane's answer and needs a sign-in.");
 
             return Fitted(said, columns);
         }
@@ -1259,7 +1259,7 @@ public static class PaneText
 
         if (retiring.Count == 0)
         {
-            return "Nothing to retire: every name this airspace holds still has a document "
+            return "Nothing to retire: every name in this airspace still has a document "
                  + "in the tree.";
         }
 
@@ -1498,13 +1498,13 @@ public static class PaneText
                     [
                         $"Nothing has been applied to '{Clean(pointed.Name)}' yet.",
                         "",
-                        "The file is here and the airspace holds no document for it. Apply "
+                        "The file is here and the airspace has no document for it. Apply "
                       + "it with s, or read what is on disk in the tab beside this one.",
                     ]
                     :
                     [
                         .. Clean(
-                            AirspaceViews.Rendered(applied) ?? "This name holds no body.",
+                            AirspaceViews.Rendered(applied) ?? "This name has no body.",
                             lines: true).Split('\n'),
                     ],
             },
@@ -1715,7 +1715,7 @@ public static class PaneText
         // holding this flight" while it waited on GG-968 (slice sixty-seven).
         var why = attribution.Halt
             ?? attribution.Held?.Sentence()
-            ?? "nothing is holding this flight";
+            ?? "this flight is not waiting on anything";
         text.AppendLine($"  why           {Clean(why)}");
 
         foreach (var obligation in attribution.Obligations)
@@ -1968,8 +1968,8 @@ public static class PaneText
         var text = new StringBuilder();
 
         text.AppendLine(attached.Count == 1
-            ? "One obligation is holding this flight:"
-            : $"{attached.Count} obligations are holding this flight:");
+            ? "This flight is waiting on one obligation:"
+            : $"This flight is waiting on {attached.Count} obligations:");
         text.AppendLine();
 
         foreach (var obligation in attached)
@@ -2304,9 +2304,9 @@ public static class PaneText
         if (rows.Count == 0)
         {
             text.AppendLine(
-                "This tenant has no runners at all. The control plane answered, and the "
-              + "answer was an empty fleet - so every flight opened here waits for somebody "
-              + "to bring a runner up.");
+                "No runners are registered for this organisation yet, so a flight opened now "
+              + "waits until one starts. To start one, run gg runner up on a machine that "
+              + "should take work.");
 
             return text.ToString().TrimEnd();
         }
@@ -2419,7 +2419,7 @@ public static class PaneText
 
         text.AppendLine(
             $"Keep a share of {Clean(allowance)} back, so fleet work stops before it is "
-          + "gone and your own is still there.");
+          + "all spent and some is left for the owner's own work.");
         text.AppendLine();
         text.AppendLine("A share of each window, against the ceiling the machines were");
         text.AppendLine("configured with. `gg allowances floor` takes any percentage, and");
@@ -2455,14 +2455,14 @@ public static class PaneText
         if (state.Allowances is not { } listed)
         {
             return "Nothing has been read yet. This pane asks the control plane what every "
-                 + "allowance in this tenant has left.";
+                 + "allowance in this organisation has left.";
         }
 
         if (listed.Allowances.Count is 0)
         {
-            return "No machine in this tenant reports an allowance. A machine reports one "
-                 + "when its own configuration names one, and naming one is how somebody "
-                 + "says they are lending it.";
+            return "No machine in this organisation reports an allowance. A machine reports one "
+                 + "when its own configuration names one, which is how its owner lends it "
+                 + "to the fleet.";
         }
 
         var text = new StringBuilder();
@@ -2474,7 +2474,7 @@ public static class PaneText
         {
             var lenders = held.Owners.Count > 0
                 ? string.Join(", ", held.Owners.Select(o => Clean(o)))
-                : "nobody the control plane could name";
+                : "a person the control plane did not name";
 
             text.AppendLine(
                 $"{Clean(held.Name)}  lent by {lenders}  "
@@ -2558,7 +2558,7 @@ public static class PaneText
         if (state.Credentials is null && state.Repositories is null)
         {
             return "Nothing has been read yet. This pane asks the control plane which "
-                 + "credentials this tenant has registered, and this machine how each one "
+                 + "credentials this organisation has registered, and this machine how each one "
                  + "rests here.";
         }
 
@@ -2567,9 +2567,9 @@ public static class PaneText
 
         if (credentials == 0 && repositories == 0)
         {
-            return "This tenant has registered no credentials and nothing to fly against. "
-                 + "Run `gg credential add --repo <slug>` once there is a repository to "
-                 + "register one for.";
+            return "This organisation has no credentials and no repositories registered. "
+                 + "To register a repository, run gg airspace repositories add; then run "
+                 + "`gg credential add --repo <slug>` for it.";
         }
 
         if (credentials == 0)
@@ -2580,7 +2580,7 @@ public static class PaneText
         }
 
         return $"{credentials} registered. The `here` column is this machine's answer and "
-             + "nobody else's; `who can open it` is read from each envelope's own holders.";
+             + "no other machine's; `who can open it` is read from each envelope.";
     }
 
     public static string Repositories(AppState state)
@@ -2589,15 +2589,15 @@ public static class PaneText
 
         if (state.Repositories is not { } listed)
         {
-            return "Nothing has been read yet. This pane asks the control plane what this "
-                 + "tenant can fly against.";
+            return "Nothing has been read yet. This pane asks the control plane which "
+                 + "repositories this organisation can fly against.";
         }
 
         if (listed.Repositories.Count == 0)
         {
-            return "This tenant has nothing registered to fly against. The control plane "
-                 + "answered, and the answer was nothing registered - so a flight here "
-                 + "resolves its repository from the envelope or from nothing at all.";
+            return "No repositories are registered for this organisation yet. A flight can still "
+                 + "run without one. To register a repository, run gg airspace repositories "
+                 + "add.";
         }
 
         var text = new StringBuilder();
@@ -2742,7 +2742,7 @@ public static class PaneText
                 BrowseFilters.Said(state), listing.FilterSaid, StringComparison.Ordinal))
         {
             text.AppendLine(
-                "The filter you have picked has not been listed yet — press b in the filter "
+                "The chosen filter has not been listed yet — press b in the filter "
               + "to list the work again.");
         }
 
@@ -2772,7 +2772,7 @@ public static class PaneText
             text.AppendLine();
             text.AppendLine(
                 "Some flights were opened from a pasted url and name no work item, so this "
-              + "list cannot tell you about them.");
+              + "list cannot show them.");
         }
 
         if (listing.NextCursor is { Length: > 0 })
@@ -2823,7 +2823,7 @@ public static class PaneText
     {
         if (state.Tokens is not { } tokens)
         {
-            return "Reading the tenant's enrollment tokens.";
+            return "Reading this organisation's enrollment tokens.";
         }
 
         var said = Clean(
@@ -2832,8 +2832,8 @@ public static class PaneText
 
         return tokens.Tokens.Count == 0
             ? said
-            : $"{said}\n\nMinting one is `gg fleet enroll`, at a terminal: a token is shown "
-            + "once, and a console repaints.";
+            : $"{said}\n\nTo create one, run `gg fleet enroll` in a terminal: a token is shown "
+            + "only once, and the console would draw over it.";
     }
 
     /// <summary>What revoking this token costs.</summary>
@@ -2844,10 +2844,10 @@ public static class PaneText
             return "No token is selected.";
         }
 
-        return $"Token {token.TokenId} was minted for '{token.Profile}' and has "
+        return $"Token {token.TokenId} was created for '{token.Profile}' and has "
              + $"{token.UsesLeft} use(s) left until {token.ExpiresAt:u}.\n\n"
-             + "Revoking it cannot be undone - another is minted instead - and whoever was "
-             + "about to use this one is left holding a secret that no longer works. Machines "
+             + "Revoking it cannot be undone; create another with gg fleet enroll if one is "
+             + "needed. A machine that has not used this token yet will be refused. Machines "
              + "that already enrolled with it are untouched.";
     }
 
@@ -2861,17 +2861,17 @@ public static class PaneText
         var name = row.Label is { Length: > 0 } label ? label : row.Id;
 
         return row.Ownership == RunnerOwnerships.Tenant
-            ? $"{name} is held back for the tenant: nobody may claim it.\n\n"
-            + "Opening it lets anybody here claim it for themselves, and a person who does "
-            + "may then keep it to their own flights."
+            ? $"{name} is kept for organisation work: nobody may claim it.\n\n"
+            + "Opening it lets any person in this organisation claim it, and that person "
+            + "may then keep it for their own flights."
             : row.Ownership == RunnerOwnerships.Claimed
                 ? $"{name} is {(row.Owner is { Length: > 0 } who ? who + "'s" : "claimed")}"
                 + (row.Reserved ? ", and reserved to their flights" : "") + ".\n\n"
-                + "Holding it back for the tenant takes it from them: the claim goes, the "
-                + "reservation with it, and nobody may claim it again until an admin opens it."
-                : $"{name} is open for anybody here to claim.\n\n"
-                + "Holding it back for the tenant means nobody may claim it, and it takes "
-                + "the tenant's work only.";
+                + "Keeping it for organisation work removes the claim and any reservation, and "
+                + "nobody may claim it again until an admin opens it."
+                : $"{name} is open for any person in this organisation to claim.\n\n"
+                + "Keeping it for organisation work means nobody may claim it, and it takes "
+                + "organisation work only.";
     }
 
     private static string ConfirmGround(AppState state) =>
@@ -2879,8 +2879,8 @@ public static class PaneText
             ? ""
             : $"Ground {flight.FlightNumber}, {flight.Name}?\n\n"
             + "It stops the attempt rather than withdrawing the question, so the flight is "
-            + "still a record of having been tried. You will be asked to write why, and a "
-            + "flight is not grounded until you do.";
+            + "still a record of having been tried. A reason is asked for next, and the "
+            + "flight is not grounded until one is written.";
 
     /// <summary>
     /// Root's models with the cursor drawn in the text (slice seventy-six), or
@@ -2901,10 +2901,10 @@ public static class PaneText
         var rows = ModelChoices.Rows(state);
         if (rows.Count == 0)
         {
-            return $"{flight.FlightNumber}, {flight.Name}, cannot be moved from here: root lists no "
-                 + "models: - or this console has not read the envelope yet, which the Envelope "
-                 + "tab does. A tenant enables moving a flight by listing, at root, the models a "
-                 + "person may choose.";
+            return $"{flight.FlightNumber}, {flight.Name}, cannot be moved from here: the root document lists no "
+                 + "models, or this console has not read the envelope yet (the Envelope tab "
+                 + "reads it). To allow moving a flight, list the models a person may choose "
+                 + "under models: in the root document.";
         }
 
         var text = new StringBuilder();
@@ -2933,9 +2933,9 @@ public static class PaneText
         Detailed(state) is not { } flight
             ? ""
             : $"Open a new flight on {flight.FlightNumber}'s intent?\n\n"
-            + "The editor opens on what it said, so you can change it first. Nothing is "
-            + "opened until you save and quit, and a flight opened by accident is a record "
-            + "somebody has to explain and a number that is now taken.";
+            + "The editor opens on what it said, so it can be changed first. Nothing is "
+            + "opened until the file is saved and the editor closed. A flight opened by "
+            + "mistake stays on record and uses up a number.";
 
     private static string ConfirmFlight(AppState state) =>
         state.PendingFlight is not { } pending
@@ -3026,7 +3026,7 @@ public static class PaneText
         // written on is the one that has stopped.
         if (state.Frozen)
         {
-            return "frozen — select and copy with your terminal · ctrl+f to carry on";
+            return "frozen — select and copy with the terminal · ctrl+f to carry on";
         }
 
         return (said, chosen) switch
@@ -3177,12 +3177,12 @@ public static class PaneText
     /// </para>
     /// </remarks>
     private static string ComposeChoice() =>
-        "Write it yourself and your editor opens on a blank page.\n"
-      + "Whatever you save is what this flight will do.\n"
+        "Write it directly: the editor opens on a blank page,\n"
+      + "and whatever is saved is what this flight will do.\n"
       + "\n"
       + "Or work it out with an agent. It reads what it needs,\n"
-      + "talks it through with you, and hands the finished thing\n"
-      + "back when you are both happy with it.\n"
+      + "talks it through, and hands the finished text back\n"
+      + "once both sides agree on it.\n"
       + "\n"
       + "While an agent is running, gg keeps a row at the top of\n"
       + "the screen. Press ctrl-g there to see the rules it is\n"
@@ -3217,7 +3217,7 @@ public static class PaneText
             // box for it is indistinguishable from the defect this arm exists
             // because of.
             return "There is no decision waiting on this row any more.\n"
-                 + "Somebody may have answered it already.";
+                 + "It may have been answered already.";
         }
 
         // ON A BRING-UP ASK, WHAT IS MISSING AND WHERE IT IS ANSWERED - the
@@ -3286,7 +3286,7 @@ public static class PaneText
         // says which sentence this is the whole of.
         UiMode.ReadingSaid => "the whole message",
         UiMode.ConfirmFlyAgain => "fly this again?",
-        UiMode.GateDecision => "waiting on you",
+        UiMode.GateDecision => "waiting on a decision",
 
         // WHAT IT IS, not what it wants. The gate's title can say "waiting on
         // you" because a gate is by definition addressed to the person reading
@@ -3296,7 +3296,7 @@ public static class PaneText
         UiMode.ItineraryDetail => "this plan",
         UiMode.SignIn => "nobody is signed in",
         UiMode.FloorChoice => "how much to keep back",
-        UiMode.ComposeChoice => "how do you want to write this flight?",
+        UiMode.ComposeChoice => "how should this flight be written?",
         UiMode.WorkKindChoice => "what is this flight for?",
         UiMode.CredentialRepositoryChoice => "which credential should this machine get?",
         UiMode.CredentialWizard => "add a credential",
@@ -3759,9 +3759,8 @@ public static class PaneText
     /// </remarks>
     private static string WorkKindChoice(AppState state) =>
         WorkKinds.Declared(state).Count == 0
-            ? "This tenant has declared no work kinds, so there is nothing here to choose "
-            + "between. A flight opened now inherits the floor, which is what every flight "
-            + "before kinds existed did."
+            ? "This organisation has declared no work kinds, so there is nothing here to "
+            + "choose between. A flight opened now follows the floor alone."
             : "A work kind says what this flight is FOR. It can only narrow the floor, so "
             + "choosing one grants nothing the floor withheld.";
 
@@ -3842,9 +3841,9 @@ public static class PaneText
             return text.ToString().TrimEnd();
         }
 
-        text.AppendLine("You are not signed in, so there is nothing to show.");
+        text.AppendLine("Nobody is signed in on this machine, so there is nothing to show.");
         text.AppendLine();
-        text.AppendLine("Signing in gives you a code to type into a browser.");
+        text.AppendLine("Signing in shows a code to type into a browser.");
 
         // WHAT THE LAST TRY CAME TO, and only when there was one. Expired,
         // declined and pressed-a-moment-early all land back on this screen, and
@@ -4019,7 +4018,7 @@ public static class PaneText
         var what = showing.Kind switch
         {
             NotificationKind.FlightOpened => "flight opened",
-            NotificationKind.GateWaiting => "a gate is waiting on you",
+            NotificationKind.GateWaiting => "a gate is waiting for a decision",
             NotificationKind.NotListedYet => "not listed yet",
 
             // MOVING, AND THE TITLE SAYS SO IN MOTION: the spinner is the
@@ -4061,7 +4060,7 @@ public static class PaneText
             // would send somebody to a modal to find out which one this is.
             { Kind: NotificationKind.GateWaiting } gate =>
             [
-                $"{gate.FlightNumber ?? "a flight"} is waiting on you",
+                $"{gate.FlightNumber ?? "a flight"} is waiting for a decision",
                 Clean(gate.Obligation ?? ""),
             ],
             { Kind: NotificationKind.NotListedYet } unlisted =>
@@ -4144,7 +4143,7 @@ public static class PaneText
             // re-run anything here. What actually asks is the boot and a
             // sign-in, so that is what the page says.
             text.AppendLine("  This console has not read a health report. It asks");
-            text.AppendLine("  when it opens and when somebody signs in; gg doctor answers");
+            text.AppendLine("  when it opens and after each sign-in; gg doctor answers");
             text.AppendLine("  the same question from a terminal, which is where a remedy");
             text.AppendLine("  would be typed.");
             return text.ToString().TrimEnd();
@@ -4153,7 +4152,7 @@ public static class PaneText
         // WHEN IT WAS TAKEN, because it is no longer re-taken on every write. A
         // page that does not say so reads as a check made a moment ago, and the
         // one fact that would send somebody to gg doctor is that it was not.
-        text.AppendLine("  Taken when this console opened or somebody last signed in;");
+        text.AppendLine("  Taken when this console opened or at the last sign-in;");
         text.AppendLine("  gg doctor asks again from a terminal.");
         text.AppendLine();
 
@@ -4326,7 +4325,7 @@ public static class PaneText
         UiMode.ConfirmGround => "when asked whether to ground a flight",
         UiMode.ModelChoice => "when asked which model to move a flight to",
         UiMode.ConfirmOwnership => "when asked who may claim a machine",
-        UiMode.FleetTokens => "while reading the tenant's enrollment tokens",
+        UiMode.FleetTokens => "while reading enrollment tokens",
         UiMode.ConfirmRevoke => "when asked whether to revoke one",
         UiMode.ConfirmFlyAgain => "when asked whether to fly one again",
         UiMode.GateDecision => "while answering a gate",
@@ -4370,9 +4369,9 @@ public static class PaneText
         $"  {Clean(CredentialsPane(state))}\n\n"
       + "  c  register a credential - names the account, then reads the secret\n"
       + "  x  forget one - asks which repository, and checks the list again first\n"
-      + "  m  mint your key - nobody can seal a credential to you until you have one\n"
-      + "  b  send one where it is needed - lists the machines first, then asks for your\n"
-      + "     passphrase; nothing moves until you have read the list\n";
+      + "  m  create a personal key - no credential can be sealed to a person without one\n"
+      + "  b  send one where it is needed - lists the machines first, then asks for the\n"
+      + "     passphrase; nothing is sent until the list has been shown\n";
 
     /// <summary>
     /// The broadcast review: who is about to receive the credential, and what `enter` does
@@ -4414,14 +4413,14 @@ public static class PaneText
         var rows = state.Audience
             .Select(row => (row.Label, Said: Standing(row)))
             .Where(row => row.Said is not null)
-            .OrderBy(row => row.Said is { } said && said.StartsWith("holds it", StringComparison.Ordinal) ? 0 : 1)
+            .OrderBy(row => row.Said is { } said && said.StartsWith("has it", StringComparison.Ordinal) ? 0 : 1)
             .ThenBy(row => row.Label, StringComparer.Ordinal)
             .Select(row => $"  {Clean(row.Label),-16} {Clean(row.Said ?? "")}")
             .ToList();
 
         if (rows.Count == 0)
         {
-            return $"  No machine says it holds {about}.\n";
+            return $"  No machine says it has {about}.\n";
         }
 
         return $"  {about}:\n\n{string.Join('\n', rows)}\n\n"
@@ -4434,17 +4433,17 @@ public static class PaneText
 
         return (row.HoldsIt, wanted) switch
         {
-            (true, true) => "holds it",
-            (true, false) => "holds it, nothing declares it",
+            (true, true) => "has it",
+            (true, false) => "has it, nothing declares it",
             (false, _) when row.Reported => "reported missing",
             (false, true) => "declared, missing",
-            (null, true) => "declared, and it has not said what it holds (an older gg)",
+            (null, true) => "declared, and it has not said whether it has it (an older gg)",
 
             // NEVER SAID IS NOT NOWHERE. A gg from before 0.88.25 sends no holds, so a
             // credential pushed to one undeclared is somewhere this modal cannot see -
             // and dropping the row made it say "no machine", a claim about machines that
             // never answered.
-            (null, false) => "has not said what it holds (an older gg)",
+            (null, false) => "has not said whether it has it (an older gg)",
             _ => null,
         };
     }
@@ -4468,7 +4467,7 @@ public static class PaneText
             // NOBODY IS A FACT WORTH A SENTENCE. Silence here is indistinguishable from a
             // broadcast that worked, and the usual cause - no fleet profile declares it -
             // is a thing a person can go and fix.
-            return $"  No machine is online to send {about} to, and nothing in this tenant\n"
+            return $"  No machine is online to send {about} to, and nothing in this organisation\n"
                  + "  declares it needs one. There is nobody to send it to.\n\n"
                  + "  Fleet profiles are what declare a need; `gg airspace pull` writes them\n"
                  + "  out, and the airspace tab applies them.\n";
@@ -4489,7 +4488,7 @@ public static class PaneText
                 : "  None of them can be reached, so there is nothing to send. Each row says why.")
 
             : state.AudienceAsked
-                ? $"  Your passphrase unlocks the key that moves it - once, for all "
+                ? $"  The passphrase unlocks the key that moves it - once, for all "
                 + $"{recipients}.\n  enter to send, esc to stop."
                 : $"  {recipients} machine(s) will receive it. space or a click picks or leaves one "
                 + "out, and the arrows move between them. enter to go on, esc to stop.";
@@ -4528,8 +4527,8 @@ public static class PaneText
             // is the copy that goes stale. What stays is what the buttons
             // cannot say: why one of them is missing.
             + "  Taking this flight over is not offered here. It needs the flight's\n"
-            + "  working tree, and this console never holds one — the branch is what\n"
-            + "  is authoritative. It can be done on the machine that ran the flight.";
+            + "  working tree, which this console does not have. Run\n"
+            + $"  gg take {Clean(row.FlightNumber)} on the machine that ran the flight.";
 
     /// <summary>
     /// Last line of defence before a terminal.

@@ -188,8 +188,8 @@ public static class UpdatePlans
         {
             return Cannot(
                 shape, installed, target,
-                "gg couldn't check which version is the latest, so it has changed nothing. "
-              + "You may already have the newest version.");
+                "gg could not check which version is the latest, so nothing was changed. "
+              + "This machine may already have the newest version. Run gg update again later.");
         }
 
         // A VERSION, PROVEN, BEFORE IT REACHES AN ARGUMENT LIST. This string
@@ -203,7 +203,7 @@ public static class UpdatePlans
             return Cannot(
                 shape, installed, target,
                 $"'{target}' is not a version number, so gg has changed nothing. A version "
-              + "number looks like 0.88.20: digits and dots. gg will not act on anything else.");
+              + "number looks like 0.88.20: digits and dots.");
         }
 
         if (installed is { Length: > 0 } here)
@@ -218,7 +218,7 @@ public static class UpdatePlans
                 return Nothing(
                     shape, installed, target,
                     $"This gg is {here}, which is ahead of {target}, the latest version gg "
-                  + "knows about. gg has left it alone.");
+                  + "knows about. Nothing was changed.");
             }
         }
 
@@ -230,16 +230,14 @@ public static class UpdatePlans
 
             InstallKind.Container => Cannot(
                 shape, installed, target,
-                $"This gg runs in a container, and a container can't update its own gg. To get "
-              + $"{target}, rebuild the container image at that release and point the pool at "
-              + "the new image. Allowing it would let a container replace the program its host "
-              + "starts, so gg has changed nothing."),
+                $"This gg runs in a container, and a container cannot update its own gg, so "
+              + $"nothing was changed. To get {target}, rebuild the container image at that "
+              + "release and point the pool at the new image."),
 
             _ => Cannot(
                 shape, installed, target,
-                "gg can't tell how it was installed, so it won't update itself. Guessing could "
-              + "overwrite files it doesn't understand. To update, reinstall gg with the install "
-              + "command from the releases page."),
+                "gg cannot tell how it was installed, so nothing was changed. To update, "
+              + "reinstall gg with the install command from the releases page."),
         };
     }
 
@@ -272,13 +270,12 @@ public static class UpdatePlans
                 new UpdateStep(
                     "dotnet",
                     ["nuget", "locals", "http-cache", "--clear"],
-                    "a stale index reports a published version as missing, and the two read "
-                  + "the same",
+                    "clears the package cache, which can hide a newly published version",
                     Elevated: !writable),
                 new UpdateStep(
                     "dotnet",
                     ["tool", "update", UpdateAdvice.PackageId, "--version", target, .. where],
-                    "dotnet owns this directory and writes the new bytes beside the old",
+                    "installs the new version with dotnet, which manages this directory",
                     Elevated: !writable),
             ],
             Refusal: null,
@@ -315,10 +312,10 @@ public static class UpdatePlans
         {
             return Cannot(
                 shape, installed, target,
-                "This gg is a single file, and this machine has no installer set up, so gg doesn't "
-              + "know where to download the new version from. Set the installer location for this "
-              + "machine and run this again, or reinstall gg with the install command from the "
-              + "releases page.");
+                "This gg is a single file, and this machine has no installer set, so gg does not "
+              + "know where to download the new version from. Nothing was changed. Run "
+              + "gg config set installer <url>, then gg update again, or reinstall gg with the "
+              + "install command from the releases page.");
         }
 
         // A PATH IS RUN; ANYTHING ELSE IS FETCHED FIRST, AS ITS OWN STEP. A
@@ -334,8 +331,8 @@ public static class UpdatePlans
                 new UpdateStep(
                     from,
                     ["--version", target],
-                    "the installer verifies the bytes against an attestation before writing "
-                  + "any, installs beside what is there, and swaps the link by rename",
+                    "runs the installer, which checks that the download is genuine before "
+                  + "installing and switches over in one step",
                     Elevated: true),
             ]
             :
@@ -343,13 +340,13 @@ public static class UpdatePlans
                 new UpdateStep(
                     "curl",
                     ["-fsSL", "-o", scratch, from],
-                    "the installer comes from where this machine's own configuration says, "
-                  + "which is the same choice its operator made installing it"),
+                    "downloads the installer from the address in this machine's "
+                  + "configuration"),
                 new UpdateStep(
                     "sh",
                     [scratch, "--version", target],
-                    "the installer verifies the bytes against an attestation before writing "
-                  + "any, installs beside what is there, and swaps the link by rename",
+                    "runs the installer, which checks that the download is genuine before "
+                  + "installing and switches over in one step",
                     Elevated: true),
             ];
 

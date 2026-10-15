@@ -559,7 +559,7 @@ public static class Rows
 
         return row.Ownership switch
         {
-            RunnerOwnerships.Tenant => "the tenant's",
+            RunnerOwnerships.Tenant => "organisation's",
             RunnerOwnerships.Open => "open",
             RunnerOwnerships.Claimed when row.Owner is { Length: > 0 } owner =>
                 $"{owner}'s{(row.Reserved ? ", reserved" : "")}",

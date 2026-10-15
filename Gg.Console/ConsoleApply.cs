@@ -131,8 +131,7 @@ public static class ConsoleApply
                 if (stopped.NotTried.Count > 0)
                 {
                     said.Add("");
-                    said.Add("Not tried, because a changeset is something somebody meant as "
-                           + "a whole: " + string.Join(", ", stopped.NotTried));
+                    said.Add("Not tried, because a changeset is applied as a whole: " + string.Join(", ", stopped.NotTried));
                 }
             }
 

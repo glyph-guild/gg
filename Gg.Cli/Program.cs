@@ -435,7 +435,7 @@ static string TakeOffered(ControlPlaneClient client, ISessionStore sessions, str
 {
     if (sessions.Read()?.SessionToken is not { Length: > 0 } token)
     {
-        return "Not signed in, so nothing was taken.";
+        return "This machine is not signed in, so the offer was not accepted. Run gg login, then try again.";
     }
 
     try
@@ -2591,7 +2591,7 @@ static string SendFromTheConsole(string runnerId, string? chosen)
     var session = SessionStores.ForThisProcess().Read();
     if (session is null)
     {
-        return "Not signed in, so nothing was sent. `gg login` first.";
+        return "This machine is not signed in, so nothing was sent. Run gg login, then try again.";
     }
 
     // ASKED ON THE SCREEN, WHEN THE SCREEN COULD ANSWER IT. The console holds
@@ -2670,7 +2670,7 @@ static string LoginFromTheConsole(string runnerId, string provider)
     var session = SessionStores.ForThisProcess().Read();
     if (session is null)
     {
-        return "Not signed in, so no login was started. `gg login` first.";
+        return "This machine is not signed in, so no agent login was started. Run gg login, then try again.";
     }
 
     var baseAddress = ControlPlaneAddress();
@@ -3239,7 +3239,9 @@ static async Task<int> HandAsync(CliAction.Fly fly)
         fly,
         plan: async token => await client.GetPlanAsync(session.SessionToken, token)
             ?? throw new InvalidOperationException(
-                "the control plane served no plan, so what this flight would need is unknown"),
+                "The control plane sent back no plan, so what this flight needs is unknown and no "
+              + "flight was opened. Run the command again; if this keeps happening, run gg bundle "
+              + "and send the result to the Good Grief team."),
         // WHAT THIS MACHINE ADVERTISES. The plan prices against the fleet, and a
         // label some other runner has is useless to a person at this keyboard.
         advertised: labels,
@@ -3301,9 +3303,10 @@ static async Task<int> HoldAsync(
             Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable) is not { } declared)
     {
         return Fail(
-            "this machine declares no agent — run `gg config set executor-binary <path>` "
-          + $"(or set {Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable}) to the binary "
-          + "you want handed the flight.");
+            "This machine names no agent to run the flight, so nothing was run. Run "
+          + "gg config set executor-binary <path> (or set "
+          + $"{Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable}) to name the agent's "
+          + "program, then try again.");
     }
 
     var binary = declared.Binary;
@@ -4051,9 +4054,9 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
             {
                 var issued = await new ControlPlaneClient(http).RedeemMemberAsync(nonce)
                     ?? throw new InvalidOperationException(
-                        "this member's nonce buys nothing: it was never minted, it has expired, "
-                      + "or it has already been redeemed. A nonce is spent exactly once, and a "
-                      + "member cannot mint itself another - the pool has to warm a new one.");
+                        "This pool machine cannot sign in: its one-time code has expired or has "
+                      + "already been used, and a machine cannot request another. Start a new "
+                      + "machine from the pool.");
 
                 // OPTED IN AT FIRST START, ON THE NONCE'S AUTHORITY, and
                 // this is the one branch that runs exactly once per member -
@@ -4756,12 +4759,7 @@ static IServiceHost ServiceHost() =>
 
 /// <summary>What a person reads when the control plane did not answer.</summary>
 static string Unreachable(string baseAddress, HttpRequestException failure) =>
-    failure.StatusCode is { } status
-        ? $"The control plane at {baseAddress} answered with an error (HTTP {(int)status}). "
-        + "Run the command again; if this keeps happening, run gg bundle and send the result "
-        + "to the Good Grief team."
-        : $"Could not reach the control plane at {baseAddress}. Run gg doctor to check the "
-        + "connection.";
+    Gg.Client.ControlPlaneFailure.Sentence(baseAddress, failure);
 
 static int Fail(string message)
 {

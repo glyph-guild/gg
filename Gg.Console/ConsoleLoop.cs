@@ -359,7 +359,11 @@ public sealed class ConsoleLoop(
             // delegate: this is the loop's own answer to one that throws.
             return state with
             {
-                Diagnosis = "Refresh failed, so this is what was last known: " + failure.Message,
+                Diagnosis = failure is Gg.Client.NotSignedInException
+                    ? "Refresh failed, so this is what was last known. This machine is not "
+                    + "signed in. Run gg login, then try again."
+                    : "Refresh failed, so this is what was last known. Run gg doctor to "
+                    + "check the connection.",
             };
         }
     }
@@ -616,7 +620,7 @@ public sealed class ConsoleLoop(
                         state with
                         {
                             LastCredential = actions is null
-                                ? "This console is not configured to mint a key."
+                                ? "This console is not configured to create a personal key."
                                 : actions.MintPersonKey(),
                         },
                         reload,
@@ -1814,7 +1818,8 @@ public sealed class ConsoleLoop(
                 return state with
                 {
                     LastDecision = $"{gate.FlightNumber}: nothing was sent. Rejecting needs a "
-                                 + "reason - the loop runs again with it.",
+                                 + "reason, because the flight runs again with it. Write one "
+                                 + "and reject again.",
                 };
             }
         }
@@ -1897,9 +1902,8 @@ public sealed class ConsoleLoop(
         {
             return state with
             {
-                LastNomination = "Nothing was sent. A decision must say why - it is the only "
-                               + "thing that survives to tell a later reader why a person "
-                               + "declined work somebody had nominated.",
+                LastNomination = "Nothing was sent. A decision needs a reason: write one and "
+                               + "answer again. The reason is kept with the decision.",
             };
         }
 
@@ -1952,10 +1956,8 @@ public sealed class ConsoleLoop(
         {
             return state with
             {
-                LastNomination = "Nothing was sent. A decision must say why - it is the only "
-                               + "thing that survives to tell a later reader why a person "
-                               + "opened work nobody had asked for, or declined work somebody "
-                               + "had.",
+                LastNomination = "Nothing was sent. A decision needs a reason: write one and "
+                               + "answer again. The reason is kept with the decision.",
             };
         }
 
@@ -2114,8 +2116,8 @@ public sealed class ConsoleLoop(
                 // going to be here.
                 LastTakeover = take is null
                     ? "This console is not configured to take flights over."
-                    : "Taking over needs the flight's working tree, and this console never "
-                    + "holds one — the branch is what is authoritative. It can be done on the "
+                    : "Taking over needs the flight's working tree, which this console does not "
+                    + $"have. Run gg take {state.Selected?.FlightNumber ?? "<flight>"} on the "
                     + "machine that ran the flight.",
             };
         }
@@ -2242,7 +2244,7 @@ public sealed class ConsoleLoop(
         {
             return state with
             {
-                LastFlightOpened = "Nothing was flown: this console has not read the tenant's "
+                LastFlightOpened = "Nothing was flown: this console has not read this organisation's "
                                  + "work kinds yet, so it cannot ask which one this is for. They "
                                  + "are being read - press f again in a moment.",
             };

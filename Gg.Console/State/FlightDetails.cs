@@ -107,7 +107,7 @@ public static class FlightDetails
             else if (PaneText.AttachedAndOpen(state) is not > 0)
             {
                 parts.Add(state.Gates is not null || PaneText.AttachedAndOpen(state) is 0
-                    ? "Nothing is waiting on you for this flight."
+                    ? "Nothing is waiting on a decision for this flight."
                     : "Whether anything is waiting on this flight has not been read yet.");
             }
         }

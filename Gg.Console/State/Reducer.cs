@@ -2529,9 +2529,8 @@ public static class Reducer
                 BrowseOutcome.Silent why => Absent(providerKey, why.Why),
 
                 _ => Absent(providerKey,
-                    $"The reader for '{providerKey}' answered in a way this console does not "
-                  + $"have a sentence for ({outcome.GetType().Name}). That is a gap here, not "
-                  + "a problem with the tracker."),
+                    $"The reader for '{providerKey}' answered in a way this console cannot "
+                  + "show. Run gg bundle and send the result to the Good Grief team."),
             },
         };
     }

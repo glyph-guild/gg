@@ -161,7 +161,7 @@ public sealed class PtyEditorSession : IEditorSession
                 // there is indistinguishable from a feature nobody built, and a
                 // missing file is something a person can actually go and get.
                 _say("gg could not open its own terminal view: libporta_pty is not "
-                   + "installed beside gg. Your editor opens as normal, without the gg bar.");
+                   + "installed beside gg. The editor opens as normal, without the gg bar.");
 
                 return _unhosted.Edit(initialText);
             }

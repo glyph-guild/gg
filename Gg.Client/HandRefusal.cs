@@ -60,21 +60,24 @@ public sealed record HandRefusal
     public string Remedy => Satisfier switch
     {
         ChecklistSatisfiers.DeclinedByBound =>
-            $"The fleet can serve '{Requirement}' and a strategy is declining it, so bringing a "
-          + "machine up here changes nothing. Widen the bound, or fly it on the fleet.",
+            $"The fleet can serve '{Requirement}', but a strategy in the airspace declines it, "
+          + "so a runner on this machine would not help. Change that strategy, or fly it on "
+          + "the fleet.",
 
         ChecklistSatisfiers.Withheld =>
-            $"'{Requirement}' is withheld by declaration, so nothing this machine advertises "
-          + "would make it eligible. Change the declaration, or fly it on the fleet.",
+            $"'{Requirement}' is withheld by a declaration in the airspace, so no label "
+          + "on this machine can satisfy it. Change that declaration, or fly it on the fleet.",
 
         ChecklistSatisfiers.Nobody =>
-            $"Nothing in this fleet advertises '{Requirement}'. Bring that environment up here "
-          + "and register this machine with the label, or fly it on the fleet once something can.",
+            $"No machine in this fleet advertises '{Requirement}'. Set up "
+          + "that environment on this machine and add the label with gg config set "
+          + "runner-labels, or fly it on the fleet once a machine can.",
 
         // A LABEL THE FLEET HAS AND THIS MACHINE DOES NOT, which is the ordinary
         // hand-flight refusal and the one the fleet answers with silence.
-        _ => $"This machine does not advertise '{Requirement}'. Bring that environment up here, "
-           + "or fly it on the fleet, which has a runner that can.",
+        _ => $"This machine does not advertise '{Requirement}'. Set up "
+           + "that environment on this machine and add the label with gg config set "
+           + "runner-labels, or fly it on the fleet, which has a runner that can.",
     };
 
     /// <summary>
@@ -205,7 +208,7 @@ public sealed class ConsoleGateAnswer : IGateAnswer
                 return (DecisionOutcomes.Rejected, reason);
             }
 
-            System.Console.WriteLine("A rejection needs a reason - the loop runs again with it.");
+            System.Console.WriteLine("A rejection needs a reason, because the flight runs again with it. The question is asked again.");
         }
     }
 }

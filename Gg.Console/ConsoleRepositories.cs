@@ -61,7 +61,7 @@ public static class ConsoleRepositories
         {
             return state with
             {
-                Diagnosis = "Could not read what this tenant can fly against: " + failure.Message,
+                Diagnosis = "Could not read which repositories this organisation can fly against. " + ControlPlaneFailure.Said(failure),
             };
         }
     }

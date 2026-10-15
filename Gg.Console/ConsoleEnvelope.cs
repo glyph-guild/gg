@@ -30,8 +30,8 @@ public static class ConsoleEnvelope
             // hide.
             return state with
             {
-                Diagnosis = "No envelope has been applied, so nothing governs this tenant's "
-                          + "flights. gg envelope apply is where the rules come from.",
+                Diagnosis = "No envelope has been applied, so nothing governs this organisation's "
+                          + "flights. To apply the rules, run gg envelope apply.",
             };
         }
         catch (Exception failure) when (failure is NotSignedInException

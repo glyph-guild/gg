@@ -96,6 +96,17 @@ public class TheHistoryTierCarriesEarlierFindingsTests
     }
 
     [Test]
+    public async Task A_finding_names_the_kind_it_flew_as_without_an_article_it_cannot_choose()
+    {
+        // GG-1140'S PROMPT SAID "a investigate flight": a kind's name decides its article, and
+        // the sentence should not depend on which kind it is.
+        var prompt = Prompt(Finding("GG-1134", Head, "x") with { Kind = "investigate" });
+
+        await Assert.That(prompt).Contains("GG-1134, flown as investigate");
+        await Assert.That(prompt).DoesNotContain("a investigate");
+    }
+
+    [Test]
     public async Task No_finding_adds_nothing()
     {
         await Assert.That(Prompt()).DoesNotContain("Earlier flights on this");

@@ -403,6 +403,25 @@ public sealed record ExecutorRequest
     public string? Learned { get; init; }
 
     /// <summary>
+    /// What earlier flights on this flight's intent found, as the control plane chose them
+    /// (slice seventy-nine), or empty.
+    /// </summary>
+    /// <remarks>
+    /// Carried from the lease untouched; the prompt shows each behind the History fence and
+    /// says how this flight's tree compares with the commit it was found at, from
+    /// <see cref="TreeHeads"/>.
+    /// </remarks>
+    public IReadOnlyList<Gg.Contracts.EarlierFinding> Findings { get; init; } = [];
+
+    /// <summary>
+    /// The commit each repository this flight fetched is at, by its slug: what an earlier
+    /// finding's commit is compared with. Measured here, because the tree never reaches the
+    /// control plane.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> TreeHeads { get; init; } =
+        new Dictionary<string, string>(StringComparer.Ordinal);
+
+    /// <summary>
     /// What this flight may nominate, when it may nominate anything.
     /// </summary>
     /// <remarks>

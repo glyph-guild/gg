@@ -42,6 +42,7 @@ public class EnvelopeModelRoundTripTests
         Models = ["claude-opus-5-5", "claude-sonnet-5-5"],
         Accepts = [SubjectKinds.Repository],
         Produces = [FactKinds.ChangeManifest],
+        Consults = ["investigate"],
         Targeting = AllowanceTargeting.LeastSpent,
         Hosts = ["ui"],
         Offers =
@@ -335,7 +336,7 @@ public class EnvelopeModelRoundTripTests
             // rendered, so no fixture can round-trip them. A test asserting they
             // do not appear in the text form is in TheBoundIsASetTests.
             nameof(Envelope.Environment), nameof(Envelope.Repository),
-            nameof(Envelope.Accepts), nameof(Envelope.Produces),
+            nameof(Envelope.Accepts), nameof(Envelope.Produces), nameof(Envelope.Consults),
         nameof(Envelope.Variables),
             nameof(Envelope.Targeting), nameof(Envelope.Hosts), nameof(Envelope.Offers),
             nameof(OfferedSetting.Key), nameof(OfferedSetting.Value),

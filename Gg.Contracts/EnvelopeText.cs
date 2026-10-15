@@ -152,6 +152,11 @@ public static class EnvelopeText
             Sequence(text, "produces", produces, depth: 0);
         }
 
+        if (envelope.Consults is { } consults)
+        {
+            Sequence(text, "consults", consults, depth: 0);
+        }
+
         // LEARNED CONTEXT, RENDERED ONLY WHEN DECLARED, for the reason variables
         // are: a document that has been taught nothing must not gain a section by
         // being written out, or a pull reports a change nobody made.
@@ -540,6 +545,11 @@ public static class EnvelopeText
         if (extension.Produces is { } produces)
         {
             Sequence(text, "produces", produces, depth: 0);
+        }
+
+        if (extension.Consults is { } consults)
+        {
+            Sequence(text, "consults", consults, depth: 0);
         }
 
         if (extension.Targeting is { } targeting)

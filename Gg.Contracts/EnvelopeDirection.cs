@@ -224,6 +224,21 @@ public static class EnvelopeDirection
             return learned;
         }
 
+        // A FAMILY CONSULTED WIDENS BY ARRIVING, as advice does and for its reason
+        // (slice seventy-nine): another family's findings are a machine's words reaching
+        // every later flight of this kind. Giving one up is influence surrendered.
+        if ((proposed.Consults ?? [])
+                .Except(applied.Consults ?? [], StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+                .ToList() is { Count: > 0 } consulted)
+        {
+            return Widen("consults",
+                $"'consults:' gains {string.Join(", ", consulted)}, whose earlier findings on the "
+              + "same intent now reach the agent of every later flight of this kind. They were "
+              + "written by agents, so a person reading this change is what stands between them "
+              + "and every prompt that follows.");
+        }
+
         // AN MCP SERVER WIDENS BY ARRIVING OR CHANGING, AND NOT BY LEAVING
         // (ADR-0040 Decision 5). gg cannot tell whether a changed definition
         // reaches more or less, so any change to one is a widening. A server

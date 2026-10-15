@@ -215,7 +215,8 @@ public abstract record CliAction
     /// here: this side hands it back untouched.
     /// </param>
     public sealed record Flights(
-        bool Json, bool All, string? Intent = null, int? Limit = null, string? After = null)
+        bool Json, bool All, string? Intent = null, int? Limit = null, string? After = null,
+        string? Kind = null)
         : CliAction, IEmitsResult;
 
     public sealed record Show(string Reference, bool Json) : CliAction, IEmitsResult;

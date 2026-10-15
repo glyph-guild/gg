@@ -54,6 +54,9 @@ public sealed record EnvelopeExtension
     /// <summary>The families it consults, replacing its parent's, or null to inherit them.</summary>
     public IReadOnlyList<string>? Consults { get; init; }
 
+    /// <summary>The field its instructions come from, replacing its parent's, or null to inherit it.</summary>
+    public string? InstructionsFrom { get; init; }
+
     /// <summary>Appended after the parent's instructions.</summary>
     public IReadOnlyList<EnvelopeInstruction> Instructions
     {

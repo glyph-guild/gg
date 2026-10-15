@@ -2122,6 +2122,17 @@ public sealed record Envelope
     public IReadOnlyList<string>? Consults { get; init; }
 
     /// <summary>
+    /// The tracker field a flight of this kind takes its instructions from, on a work-item
+    /// intent (slice eighty-two, ADR-0041 Decision 10), or null.
+    /// </summary>
+    /// <remarks>
+    /// The runner reads the field before the agent starts and quotes it as the item's own
+    /// words. One exact path: a prefix would make which field governs depend on the item.
+    /// </remarks>
+    [Composes(MergeOperators.WorkKindOnly)]
+    public string? InstructionsFrom { get; init; }
+
+    /// <summary>
     /// What earlier flights of this kind found out about the environment, or null
     /// when nothing has been learned.
     /// </summary>

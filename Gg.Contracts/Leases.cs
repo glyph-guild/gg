@@ -753,6 +753,15 @@ public sealed record LeaseLoop
         get => field ?? [];
         init;
     } = [];
+
+    /// <summary>
+    /// The tracker field this flight's instructions come from (slice eighty-two), or null.
+    /// </summary>
+    /// <remarks>
+    /// Carried, not read: the runner reads the field with the tracker access its intent host
+    /// already has, and its text never reaches the control plane.
+    /// </remarks>
+    public string? InstructionsFrom { get; init; }
 }
 
 /// <summary>

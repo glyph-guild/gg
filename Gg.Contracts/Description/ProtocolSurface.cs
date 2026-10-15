@@ -2185,7 +2185,8 @@ public static class ProtocolSurface
             // WHAT AN EARLIER FLIGHT ON THE SAME INTENT FOUND (slice seventy-nine), with
             // what it rests on: the control plane's record, never the agent's account.
             [typeof(EarlierFinding)] =
-                ["flightNumber", "kind", "chain", "foundAt", "text", "models", "commits"],
+                ["flightNumber", "kind", "chain", "foundAt", "text", "models", "commits",
+                 "target", "field", "revision"],
             [typeof(FindingCommit)] = ["repository", "commit"],
             [typeof(LoopOutcome)] =
                 ["loopId", "outcome", "reason", "executor", "attempts", "durationMs", "movesUsed",
@@ -2215,6 +2216,8 @@ public static class ProtocolSurface
             [typeof(ArtifactReference)] = ["locator", "sha256", "bytes", "mediaType", "scope"],
             [typeof(LoopSession)] = ["artifact"],
             [typeof(LoopModel)] = ["loopId", "model", "relaunched"],
+            // A TRACKER FIELD WRITE AND THE REVISION IT PRODUCED (slice eighty-two).
+            [typeof(WorkItemWritten)] = ["destinationId", "target", "fields", "revision"],
             [typeof(EnvironmentReclaimed)] = ["instance", "containers", "networks", "volumes"],
             [typeof(StackPerformed)] = ["script", "verb", "outcome", "exit", "seconds"],
             [typeof(DocumentProposal)] = ["role", "name", "document"],
@@ -2577,7 +2580,7 @@ public static class ProtocolSurface
                 ["idempotencyKey", "kind", "digest", "observedAt", "environment", "source", "intentRead", "change",
                  "loop", "transcript", "session", "document", "landed", "pushed", "loopDigest", "human",
                  "nomination", "question", "attended", "proposal", "landing", "preview",
-                 "reclaimed", "performed", "model"],
+                 "reclaimed", "performed", "model", "written"],
             [typeof(FactBatch)] = ["generation", "facts"],
             [typeof(FactRejection)] = ["idempotencyKey", "reason"],
             // Refusals only: accepted and duplicates are answers the write has,

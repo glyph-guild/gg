@@ -141,6 +141,7 @@ public sealed record FilteredFacts(IReadOnlyList<FactEnvelope> Items);
 [JsonSerializable(typeof(ArtifactReference))]
 [JsonSerializable(typeof(LoopSession))]
 [JsonSerializable(typeof(LoopModel))]
+[JsonSerializable(typeof(WorkItemWritten))]
 [JsonSerializable(typeof(EnvironmentReclaimed))]
 [JsonSerializable(typeof(StackPerformed))]
 [JsonSerializable(typeof(Gg.Contracts.IntentRead))]
@@ -339,6 +340,15 @@ public static class FactPipeline
                     Model = model.Value,
                 },
 
+                FactPayload.Written written => new FactEnvelope
+                {
+                    IdempotencyKey = Key(flightId, kind, digest),
+                    Kind = kind,
+                    Digest = digest,
+                    ObservedAt = observedAt,
+                    Written = written.Value,
+                },
+
                 FactPayload.Reclaimed reclaimed => new FactEnvelope
                 {
                     IdempotencyKey = Key(flightId, kind, digest),
@@ -494,6 +504,9 @@ public static class FactPipeline
         FactPayload.Model model => (
             FactKinds.LoopModel,
             JsonSerializer.Serialize(model.Value, FactJsonContext.Default.LoopModel)),
+        FactPayload.Written written => (
+            FactKinds.WorkItemWritten,
+            JsonSerializer.Serialize(written.Value, FactJsonContext.Default.WorkItemWritten)),
         FactPayload.Reclaimed reclaimed => (
             FactKinds.EnvironmentReclaimed,
             JsonSerializer.Serialize(

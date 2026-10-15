@@ -108,7 +108,12 @@ public class SliceThreeGuardTests
     /// every leg. It belongs to a flight on this guard's own terms: it is what one flight was
     /// given to read, and it carries names and ids, never the text.
     /// </para>
-    private const int KindsThatCross = 21;
+    /// <para>
+    /// <b>Twenty-two since slice eighty-two</b>: <c>work-item.written</c>, the revision a
+    /// tracker field write produced, which only the runner that wrote it heard. It carries an
+    /// item id, field paths and a number, never the field's text.
+    /// </para>
+    private const int KindsThatCross = 22;
 
     [Test]
     public async Task A_moved_vocabulary_version_has_a_ledger_entry()
@@ -260,6 +265,7 @@ public class SliceThreeGuardTests
                 FactKinds.LoopTranscript,
                 FactKinds.LoopSession,
                 FactKinds.LoopModel,
+                FactKinds.WorkItemWritten,
                 FactKinds.DocumentProposal,
                 FactKinds.SourceProvenance,
                 FactKinds.IntentRead,

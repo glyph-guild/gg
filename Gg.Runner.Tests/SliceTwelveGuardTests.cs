@@ -210,7 +210,10 @@ public class SliceTwelveGuardTests
     // pinned before it meets a move it has never heard of and halts, which is the
     // property the fact fingerprint buys; the row is the price. NO KIND MOVED and
     // KindsThatCross is unchanged, which is this guard's actual criterion.
-    private const string VocabularyAtSliceStart = "0.44.0";
+    //
+    // 0.45.0 since slice eighty-two, and a kind DID move: work-item.written, the revision a
+    // tracker field write produced. KindsThatCross moved with it, to twenty-two.
+    private const string VocabularyAtSliceStart = "0.45.0";
 
     /// <summary>
     /// How many fact kinds cross. Ten since slice twenty-seven, and the number
@@ -382,7 +385,15 @@ public class SliceTwelveGuardTests
     /// and so could not say a run began on one model and ended on another. It belongs to a
     /// flight on this guard's own terms: it is about one lease's launches and outlives nothing.
     /// </para>
-    private const int KindsThatCross = 21;
+    /// <para>
+    /// <b>Twenty-two, and the argument for the twenty-second.</b> <c>work-item.written</c>
+    /// crosses because slice eighty-two asks whether a person changed a tracker field after a
+    /// flight wrote it, and only the runner that wrote it heard the revision the tracker gave
+    /// the write; the control plane never talks to the tracker. A fact rather than text,
+    /// because a tracker rewrites rich text on save. It belongs to a flight on this guard's own
+    /// terms: it is what one flight's landing did, as <c>destination.landed</c> is.
+    /// </para>
+    private const int KindsThatCross = 22;
 
     [Test]
     public async Task Attestations_are_not_facts_and_the_count_moves_only_with_an_argument()

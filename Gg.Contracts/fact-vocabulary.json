@@ -239,5 +239,10 @@
     "version": "0.44.0",
     "surface": "5e94a72d2acfba1820b0b6609db53c891fe4d4c1d577c5390e2216ac7004ac20",
     "kinds": "change.manifest, destination.landed, destination.pushed, document.proposal, environment.identity, environment.reclaimed, flight.nomination, handoff.account, intent.read, landing.proposal, loop.attended, loop.digest, loop.model, loop.outcome, loop.question, loop.session, loop.transcript, preview.url, source.provenance, stack.performed, work-item.proposal"
+  },
+  {
+    "version": "0.45.0",
+    "surface": "341c970864b3807e8884abe6640202d6cd525e39be2cbe984294bc740f8ec678",
+    "kinds": "change.manifest, destination.landed, destination.pushed, document.proposal, environment.identity, environment.reclaimed, flight.nomination, handoff.account, intent.read, landing.proposal, loop.attended, loop.digest, loop.model, loop.outcome, loop.question, loop.session, loop.transcript, preview.url, source.provenance, stack.performed, work-item.proposal, work-item.written"
   }
 ]

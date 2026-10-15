@@ -3422,6 +3422,7 @@ public sealed class RunnerLoop(
     /// </para>
     /// </remarks>
     private async Task<string?> WriteToTrackerAsync(
+        LeaseGranted lease,
         LandingDecision? accepted,
         IReadOnlyDictionary<string, Gg.Contracts.WorkItemProposal> proposed,
         CancellationToken cancellationToken)
@@ -3459,6 +3460,29 @@ public sealed class RunnerLoop(
         }
 
         var written = await sink.PerformAsync(performing, admitted.DestinationId, cancellationToken);
+
+        // EVERY FIELD WRITE AND THE REVISION IT PRODUCED, as a fact (slice eighty-two): what lets
+        // a later flight on the item ask whether a person changed the field since. Shipped
+        // after the write, as a landing's fact is after its push.
+        var fieldWrites = written
+            .Where(w => w.Fields.Count > 0 && w.Revision is not null && !w.AlreadyDone)
+            .Select(w => (FactPayload)new FactPayload.Written(new WorkItemWritten
+            {
+                DestinationId = admitted.DestinationId,
+                Target = w.Target,
+                Fields = w.Fields,
+                Revision = w.Revision!.Value,
+            }))
+            .ToList();
+        if (fieldWrites.Count > 0)
+        {
+            await _protocol.ShipFactsAsync(
+                lease.LeaseId, lease.Generation,
+                FactPipeline.Filter(
+                    FactPipeline.Digest(FactHygiene.Clean(new GatheredFacts(fieldWrites)), lease.FlightId, _clock.UtcNow),
+                    lease.ClassificationCeiling),
+                cancellationToken);
+        }
 
         _observer.Landed("wrote",
             $"{written.Count} change(s) on '{admitted.DestinationId}': "
@@ -3514,7 +3538,7 @@ public sealed class RunnerLoop(
         // tracker write that was refused does not cancel a push that was
         // cleared; it is carried down so that a flight refused at both is
         // reported as refused at both.
-        var tracker = await WriteToTrackerAsync(accepted, proposed, cancellationToken);
+        var tracker = await WriteToTrackerAsync(lease, accepted, proposed, cancellationToken);
 
         // TWO GATES, READ INDEPENDENTLY. The push is granted when no machine
         // obligation is violated; the proposal when every requirement is satisfied.

@@ -232,6 +232,9 @@ public static class RunnerHost
         // THE READER FOR A FILE INTENT (slice sixty-two). Null leaves this runner refusing such
         // a flight out loud, which is what a runner wired before it existed should do.
         RepositoryFileReader? fileReader = null,
+        // THE READER OF AN ITEM'S INSTRUCTIONS FIELD (slice eighty-two), by tracker key. Null
+        // leaves such a field unreadable, said in the prompt, and the flight runs on the item.
+        Func<string, Intent.IItemFieldHistory?>? itemFields = null,
 
         /// <summary>What this machine has spent, or null when it names no allowance.</summary>
         /// <remarks>
@@ -590,6 +593,7 @@ public static class RunnerHost
         {
             HoldFor = holdFor,
             FileReader = fileReader,
+            ItemFields = itemFields,
         };
         started = loop;
 

@@ -41,6 +41,11 @@ public abstract record CliAction
 
     public sealed record PrintVersion : CliAction;
 
+    /// <summary>
+    /// Every command and console key as JSON, for docs.goodgrief.dev.
+    /// </summary>
+    public sealed record PrintReference : CliAction;
+
     public sealed record Login : CliAction;
 
     public sealed record Logout : CliAction;
@@ -905,6 +910,9 @@ public static class CliArgs
     /// way to pass a credential value on the command line, and the flag
     /// scanner in the CLI tests fails the build if one appears.
     /// </remarks>
+    /// <summary>The usage lines, exactly as help prints them.</summary>
+    public static IReadOnlyList<string> Usage => Verbs;
+
     private static readonly string[] Verbs =
     [
         "gg                             the console",
@@ -1024,6 +1032,7 @@ public static class CliArgs
         "gg doctor                      check what gg needs to work",
         "gg update                      whether this gg is behind, and what would move it",
         "gg bundle                      a redacted diagnostics bundle to send us",
+        "gg reference --json            every command and console key, as the docs site reads them",
         // One line each rather than "login | logout | whoami". A person looking
         // for a verb greps for it, and the compact form is the one spelling
         // nobody searches with.
@@ -1373,6 +1382,7 @@ public static class CliArgs
         {
             [] => new CliAction.LaunchConsole(),
             ["--version"] or ["-v"] or ["version"] => new CliAction.PrintVersion(),
+            ["reference", "--json"] => new CliAction.PrintReference(),
             ["login"] => new CliAction.Login(),
             ["logout"] => new CliAction.Logout(),
             ["whoami"] => new CliAction.WhoAmI(),

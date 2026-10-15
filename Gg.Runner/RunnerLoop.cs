@@ -2626,6 +2626,49 @@ public sealed class RunnerLoop(
     /// loop arriving early.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Reads the field a flight's kind takes its instructions from, or null when it names none or
+    /// the flight is not about a work item.
+    /// </summary>
+    private async Task<Intent.ItemInstructionsRead?> ItemInstructionsAsync(
+        LeaseGranted lease, LeaseLoop loop, CancellationToken cancellationToken)
+    {
+        if (loop.InstructionsFrom is not { Length: > 0 } field
+            || lease.IntentProvider is not { Length: > 0 } provider
+            || lease.IntentId is not { Length: > 0 } id)
+        {
+            return null;
+        }
+
+        var served = Gg.Local.IntentConfiguration.ServedTrackers()
+            .FirstOrDefault(t => string.Equals(t.Key, provider, StringComparison.Ordinal));
+        if (served.Host is not { Length: > 0 } host)
+        {
+            return new Intent.ItemInstructionsRead
+            {
+                Field = field,
+                Standing = Intent.InstructionStandings.Unreadable,
+                Diagnosis = $"this machine serves no tracker named '{provider}'",
+            };
+        }
+
+        string? secret = null;
+        if (served.Locator is { Length: > 0 } locator
+            && await _credentials.ResolveAsync(
+                new CredentialReference
+                {
+                    Kind = "local", Locator = locator, Identity = provider, Scopes = ["read"],
+                },
+                cancellationToken) is CredentialResolution.Resolved resolved)
+        {
+            secret = resolved.Secret;
+        }
+
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        return await Intent.ItemInstructions.ReadAsync(
+            new Intent.WiqlWorkItemSource(host, secret, http), id, field, loop.Findings, cancellationToken);
+    }
+
     private async Task<Invocation> InvokeAsync(
         LeaseGranted lease, WorkspaceResult workspace, Execution.RequestedIntentFile? intentFile,
         Execution.ModelMoves moved, CancellationToken cancellationToken)
@@ -2657,8 +2700,13 @@ public sealed class RunnerLoop(
         var scratch = Path.Combine(workspace.Root, ScratchName);
         Directory.CreateDirectory(scratch);
 
+        // THE ITEM'S OWN INSTRUCTIONS, read here before the agent starts (slice eighty-two), with
+        // the read access this machine's intent host already has. Its text stays on this machine.
+        var itemInstructions = await ItemInstructionsAsync(lease, loop, cancellationToken);
+
         var request = new ExecutorRequest
         {
+            ItemInstructions = itemInstructions,
             // ALWAYS, because this side cannot know whether anybody is
             // watching: the console is a different process with no channel
             // to here but the filesystem. The field's own remark carries the

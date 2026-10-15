@@ -320,9 +320,61 @@ public sealed class WiqlWorkItemSource : IWorkItemSource, IItemFieldHistory
     }
 
     /// <inheritdoc />
-    public Task<(string? Value, IReadOnlyList<int> Touched)> FieldAsync(
-        string id, string field, CancellationToken cancellationToken = default) =>
-        Task.FromResult<(string?, IReadOnlyList<int>)>((null, []));
+    /// <remarks>
+    /// Two reads: the item for the field's value as stored, and its updates for every revision
+    /// that set the field. A revision that changed only other fields is not one of them.
+    /// </remarks>
+    public async Task<(string? Value, IReadOnlyList<int> Touched)> FieldAsync(
+        string id, string field, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        ArgumentException.ThrowIfNullOrWhiteSpace(field);
+
+        using var item = await _client.GetAsync(
+            $"{_host}/_apis/wit/workitems/{Uri.EscapeDataString(id)}"
+          + $"?fields={Uri.EscapeDataString(field)}&api-version={ApiVersion}",
+            cancellationToken);
+        item.EnsureSuccessStatusCode();
+
+        string? value = null;
+        using (var body = Answered(await item.Content.ReadAsStringAsync(cancellationToken)))
+        {
+            if (body.RootElement.TryGetProperty("fields", out var fields)
+                && fields.TryGetProperty(field, out var held)
+                && held.ValueKind == JsonValueKind.String)
+            {
+                value = held.GetString();
+            }
+        }
+
+        using var updates = await _client.GetAsync(
+            $"{_host}/_apis/wit/workitems/{Uri.EscapeDataString(id)}/updates"
+          + $"?api-version={ApiVersion}",
+            cancellationToken);
+        updates.EnsureSuccessStatusCode();
+
+        var touched = new List<int>();
+        using (var body = Answered(await updates.Content.ReadAsStringAsync(cancellationToken)))
+        {
+            if (body.RootElement.TryGetProperty("value", out var revisions)
+                && revisions.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var revision in revisions.EnumerateArray())
+                {
+                    if (revision.TryGetProperty("rev", out var rev)
+                        && rev.TryGetInt32(out var number)
+                        && revision.TryGetProperty("fields", out var changed)
+                        && changed.ValueKind == JsonValueKind.Object
+                        && changed.TryGetProperty(field, out _))
+                    {
+                        touched.Add(number);
+                    }
+                }
+            }
+        }
+
+        return (value, touched);
+    }
 
     public async Task<IReadOnlyList<WorkItemChange>> HistoryAsync(
         string id, CancellationToken cancellationToken = default)

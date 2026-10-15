@@ -52,14 +52,74 @@ public interface IItemFieldHistory
 public static class ItemInstructions
 {
     /// <summary>How a field stands, from its value, the revisions that touched it and the findings.</summary>
+    /// <remarks>
+    /// <b>By revision, never by text</b> (owner, 2026-10-15): a tracker rewrites rich text on save.
+    /// The newest finding that wrote this field on this item says which revision its write
+    /// produced; any later revision that touched the field is a person's edit.
+    /// </remarks>
     public static ItemInstructionsRead Decide(
         string id, string field, string? value, IReadOnlyList<int> touched,
-        IReadOnlyList<EarlierFinding> findings) =>
-        new() { Field = field, Standing = InstructionStandings.Unrecorded };
+        IReadOnlyList<EarlierFinding> findings)
+    {
+        ArgumentNullException.ThrowIfNull(touched);
+        ArgumentNullException.ThrowIfNull(findings);
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return new() { Field = field, Standing = InstructionStandings.Empty };
+        }
+
+        var wrote = findings
+            .Where(f => string.Equals(f.Target, id, StringComparison.Ordinal)
+                && string.Equals(f.Field, field, StringComparison.Ordinal))
+            .MaxBy(f => f.FoundAt);
+
+        if (wrote is null)
+        {
+            return new() { Field = field, Text = value, Standing = InstructionStandings.Unrecorded };
+        }
+
+        // WRITTEN, BUT NO REVISION RECORDED: a flight from before the write was a fact. Who wrote
+        // it is known; whether a person changed it since is not, and that is said.
+        if (wrote.Revision is not { } revision)
+        {
+            return new()
+            {
+                Field = field, Text = value, Standing = InstructionStandings.Unrecorded,
+                WrittenBy = wrote.FlightNumber,
+            };
+        }
+
+        return new()
+        {
+            Field = field,
+            Text = value,
+            Standing = touched.Any(r => r > revision)
+                ? InstructionStandings.EditedSince
+                : InstructionStandings.AsWritten,
+            WrittenBy = wrote.FlightNumber,
+        };
+    }
 
     /// <summary>Reads the field and decides; a read that fails is said, never thrown.</summary>
-    public static Task<ItemInstructionsRead> ReadAsync(
+    public static async Task<ItemInstructionsRead> ReadAsync(
         IItemFieldHistory tracker, string id, string field, IReadOnlyList<EarlierFinding> findings,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(new ItemInstructionsRead { Field = field, Standing = InstructionStandings.Unreadable });
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(tracker);
+
+        try
+        {
+            var (value, touched) = await tracker.FieldAsync(id, field, cancellationToken);
+            return Decide(id, field, value, touched, findings);
+        }
+        catch (Exception failed) when (failed is HttpRequestException or System.Text.Json.JsonException
+            or InvalidOperationException or TaskCanceledException)
+        {
+            return new()
+            {
+                Field = field, Standing = InstructionStandings.Unreadable, Diagnosis = failed.Message,
+            };
+        }
+    }
 }

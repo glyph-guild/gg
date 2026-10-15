@@ -138,6 +138,8 @@ the job name stable).
   code and commit separately. Two commits minimum. The ordering is the
   practice and it is invisible in the final diff.
 - No `Task.Delay` or sleeps in tests. Inject time.
+- Every word a person reads — help, errors, console text, problem details —
+  follows `.claude/rules/voice.md`.
 - Some constraints here have reasons not stated in this repository. If one
   looks arbitrary or wrong, stop and ask. Do not infer the reason, and do not
   work around it.

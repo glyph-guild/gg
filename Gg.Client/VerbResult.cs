@@ -3839,6 +3839,17 @@ public static class VerbOutput
             text.AppendLine($"  because:  {Prose(gate.Because, 12)}");
             text.AppendLine($"  since:    {gate.AwaitingSince:u}");
 
+            // EVERY LEAF IT REACHES (slice eighty-one): approving a widened base approves it for
+            // every kind that extends it, and the person deciding should see which.
+            if (gate.Widening.Count > 0)
+            {
+                text.AppendLine("  it widens these leaves - every kind a flight would fly as:");
+                foreach (var leaf in gate.Widening)
+                {
+                    text.AppendLine($"    {Clean(leaf.Leaf)}: {Clean(leaf.Field)} - {Prose(leaf.Because, 6 + leaf.Leaf.Length + leaf.Field.Length)}");
+                }
+            }
+
             // WHAT WILL BE CARRIED, BEFORE IT IS CARRIED. A nomination's note
             // reaches the next agent's prompt, and the person answering this
             // gate is the only review it gets. Under its own heading rather

@@ -764,7 +764,7 @@ public static class EnvelopeYaml
     {
         var root = RequireMap(document, "");
         Closed(root, BasedOnKey, ExtendsKey, "abstract", "description", "brief", "targeting",
-               "hosts", "accepts", "produces", "instructions", "remove", "obligations", "loops",
+               "hosts", "accepts", "produces", "consults", "instructions", "remove", "obligations", "loops",
                "destinations");
 
         ExtensionRemovals? removals = null;
@@ -798,6 +798,9 @@ public static class EnvelopeYaml
                 : null,
             Produces = root.Entries.TryGetValue("produces", out var produces)
                 ? Strings(produces, "produces")
+                : null,
+            Consults = root.Entries.TryGetValue("consults", out var consults)
+                ? Strings(consults, "consults")
                 : null,
             Instructions = root.Entries.TryGetValue("instructions", out var instructions)
                 ? [.. Strings(instructions, "instructions")
@@ -1465,7 +1468,7 @@ public static class EnvelopeYaml
     {
         var root = RequireMap(document, "");
         Closed(root, BasedOnKey, "abstract", "description", "brief", "context", "environment", "environments",
-               "repository", "repositories", "models", "accepts", "produces", "learned", "variables", "mcp-servers", "targeting", "hosts", "instructions",
+               "repository", "repositories", "models", "accepts", "produces", "consults", "learned", "variables", "mcp-servers", "targeting", "hosts", "instructions",
                "obligations", "loops", "destinations", "offers");
 
         var context = RequireMap(Require(root, "context"), "context");
@@ -1543,6 +1546,9 @@ public static class EnvelopeYaml
                 : null,
             Produces = root.Entries.TryGetValue("produces", out var produces)
                 ? Strings(produces, "produces")
+                : null,
+            Consults = root.Entries.TryGetValue("consults", out var consults)
+                ? Strings(consults, "consults")
                 : null,
             // A MAP IN THE YAML, A LIST OF NAMED RECORDS HERE - obligations'
             // shape. Absent is null and an empty map is an empty list, and the

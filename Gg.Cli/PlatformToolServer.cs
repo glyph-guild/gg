@@ -2275,6 +2275,11 @@ public static class PlatformToolServer
             $"  produces:           what it hands back. Any of: "
           + $"{string.Join(", ", Gg.Contracts.FactKinds.All)}.");
         said.AppendLine(
+            "  consults:           for a work kind, the other work kinds whose earlier findings "
+          + "on the same work item its flights are handed, newest of each, in the prompt's "
+          + "history. Its own kind is consulted whether or not it is named. Adding one is a "
+          + "widening.");
+        said.AppendLine(
             "  instructions:       sentences handed to the agent on every flight this "
           + "governs. This is how a tenant tells agents how to behave without changing "
           + "any code.");

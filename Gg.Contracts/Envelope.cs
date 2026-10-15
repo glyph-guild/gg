@@ -2427,6 +2427,24 @@ public sealed record Envelope
 
         var isWorkKind = string.Equals(role, Roles.WorkKind, StringComparison.Ordinal);
 
+        // WHICH EARLIER AGENTS' WORDS REACH A FLIGHT is a property of the kind of work
+        // (slice seventy-nine), as what it produces is: the floor governs every kind at
+        // once and has no family to consult, and a narrowing chooses no kind.
+        if (envelope.Consults is { } consults)
+        {
+            if (!isWorkKind)
+            {
+                return $"A '{role}' declares 'consults:', and only a '{Roles.WorkKind}' may. Whose "
+                     + "earlier findings a flight is handed is a property of the kind of work.";
+            }
+
+            if (consults.FirstOrDefault(name => AirspaceNames.Invalid(name) is not null) is { } invalid)
+            {
+                return $"'consults:' names '{invalid}', which is not a work kind's name: "
+                     + AirspaceNames.Invalid(invalid);
+            }
+        }
+
         // ONE FILE SAYS WHERE EVERY CREDENTIAL MAY GO (ADR-0040 Amendment 1).
         // Airspace is trusted to direct a credential because it is reviewed, and
         // a definition in any document but the floor would scatter what the

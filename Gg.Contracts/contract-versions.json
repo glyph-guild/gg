@@ -1569,5 +1569,11 @@
     "surface": "0ea4e3f25bb3a1abb5557cb532b514cbcc3bd9a671fdc4db868c6b3af3fcc3e0",
     "endpoints": "77ba4b72cdd1eb618490a9d45b87e04c3f532af195dd344a3370051965b22226",
     "note": "A landing proposal's description has room for a finding (slice seventy-nine, ADR-0041 Decision 8): LandingProposal.MaxDescription rises from 4,000 characters to WorkItemProposalLimits.MaxDetail, 16 KiB, the bound a work-item field value took in 0.295.0. GG-1086 and GG-1088 were refused at 4,000 and cut their analysis to fit. THE WIRE SURFACE DOES NOT MOVE, so this entry repeats 0.301.0's fingerprints, on 0.295.0's precedent: it costs a package version because the control plane admits a fact by this bound."
+  },
+  {
+    "version": "0.303.0",
+    "surface": "b235141da643c43ba39be45b5b8c25bc4ad0854c871be8383862e8cab7dd1e4a",
+    "endpoints": "77ba4b72cdd1eb618490a9d45b87e04c3f532af195dd344a3370051965b22226",
+    "note": "An investigation's finding reaches the next flight on its intent (slice seventy-nine, ADR-0041 Decision 9). Envelope and EnvelopeExtension gain Consults, work-kind only: the families whose earlier findings a flight of the kind is handed; its own family is consulted whether or not it is named, a child inherits its parent's list unless it names its own, a name is an airspace name, and a family added is a widening as learned advice is. LeaseLoop gains Findings, a list of EarlierFinding (flight number, kind, chain with each layer's version, found-at, text, models, and FindingCommit per repository read), empty when absent so a control plane that predates it sends nothing. No route moves."
   }
 ]

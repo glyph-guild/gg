@@ -414,12 +414,6 @@ public sealed record ExecutorRequest
     public IReadOnlyList<Gg.Contracts.EarlierFinding> Findings { get; init; } = [];
 
     /// <summary>
-    /// What the item's instructions field said and how it stands (slice eighty-two), or null when
-    /// the kind takes its instructions from no field.
-    /// </summary>
-    public Gg.Runner.Intent.ItemInstructionsRead? ItemInstructions { get; init; }
-
-    /// <summary>
     /// The commit each repository this flight fetched is at, by its slug: what an earlier
     /// finding's commit is compared with. Measured here, because the tree never reaches the
     /// control plane.

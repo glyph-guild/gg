@@ -600,6 +600,12 @@ public sealed class RunnerLoop(
     public RepositoryFileReader? FileReader { get; init; }
 
     /// <summary>
+    /// A reader of a work item's fields and their revisions, by the tracker's key, or null when
+    /// this machine serves none (slice eighty-two).
+    /// </summary>
+    public Func<string, Intent.IItemFieldHistory?>? ItemFields { get; init; }
+
+    /// <summary>
     /// How long a machine serving a preview stays out of service, at most.
     /// </summary>
     /// <remarks>
@@ -2640,9 +2646,9 @@ public sealed class RunnerLoop(
             return null;
         }
 
-        var served = Gg.Local.IntentConfiguration.ServedTrackers()
-            .FirstOrDefault(t => string.Equals(t.Key, provider, StringComparison.Ordinal));
-        if (served.Host is not { Length: > 0 } host)
+        // HANDED IN, like the file reader: this loop holds no client and composes no credential;
+        // the process that started it built a reader per tracker this machine serves.
+        if (ItemFields?.Invoke(provider) is not { } tracker)
         {
             return new Intent.ItemInstructionsRead
             {
@@ -2652,21 +2658,7 @@ public sealed class RunnerLoop(
             };
         }
 
-        string? secret = null;
-        if (served.Locator is { Length: > 0 } locator
-            && await _credentials.ResolveAsync(
-                new CredentialReference
-                {
-                    Kind = "local", Locator = locator, Identity = provider, Scopes = ["read"],
-                },
-                cancellationToken) is CredentialResolution.Resolved resolved)
-        {
-            secret = resolved.Secret;
-        }
-
-        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        return await Intent.ItemInstructions.ReadAsync(
-            new Intent.WiqlWorkItemSource(host, secret, http), id, field, loop.Findings, cancellationToken);
+        return await Intent.ItemInstructions.ReadAsync(tracker, id, field, loop.Findings, cancellationToken);
     }
 
     private async Task<Invocation> InvokeAsync(

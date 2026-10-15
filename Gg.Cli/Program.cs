@@ -3424,7 +3424,8 @@ static async Task<int> HoldAsync(
         secretFor: locator => MachineCredentialStore.SecretFor(locator),
         // WHAT THIS MACHINE'S STORE HOLDS, said on every beat (slice seventy-three).
         holdings: () => MachineCredentialStore.ThisMachine().Held(),
-        fileReader: IntentFileReader());
+        fileReader: IntentFileReader(),
+        itemFields: ItemFieldReader);
 }
 
 static async Task<int> RunnerUpAsync()
@@ -3941,7 +3942,8 @@ static async Task<int> RunnerUpAsync()
             secretFor: locator => MachineCredentialStore.SecretFor(locator),
             // WHAT THIS MACHINE'S STORE HOLDS, said on every beat (slice seventy-three).
             holdings: () => MachineCredentialStore.ThisMachine().Held(),
-            fileReader: IntentFileReader());
+            fileReader: IntentFileReader(),
+        itemFields: ItemFieldReader);
     }
     finally
     {
@@ -4292,7 +4294,8 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
         secretFor: locator => MachineCredentialStore.SecretFor(locator),
         // WHAT THIS MACHINE'S STORE HOLDS, said on every beat (slice seventy-three).
         holdings: () => MachineCredentialStore.ThisMachine().Held(),
-        fileReader: IntentFileReader());
+        fileReader: IntentFileReader(),
+        itemFields: ItemFieldReader);
 }
 
 /// <summary>
@@ -4707,6 +4710,28 @@ static Gg.Runner.Sweeps.SweepLoop SweepLoopFor(
 /// commit-keyed cache a sweep's skills share, and no credential of its own - the lease's
 /// resolved credentials are what read a flight's file. Slice sixty-two.
 /// </summary>
+/// <summary>
+/// A reader of a work item's fields and their revisions in the tracker this machine serves under
+/// the given key, or null when it serves none (slice eighty-two).
+/// </summary>
+/// <remarks>
+/// The same served trackers and the same machine store the agent's reader resolves from, so the
+/// runner reads an item's instructions field with the access the flight already has.
+/// </remarks>
+static Gg.Runner.Intent.IItemFieldHistory? ItemFieldReader(string provider)
+{
+    var served = Gg.Local.IntentConfiguration.ServedTrackers(
+            Settings.Value(Gg.Local.IntentConfiguration.ServedVariable, InForce.Configuration))
+        .FirstOrDefault(t => string.Equals(t.Key, provider, StringComparison.Ordinal));
+
+    return served.Host is { Length: > 0 } host
+        ? new Gg.Runner.Intent.WiqlWorkItemSource(
+            host,
+            served.Locator is { Length: > 0 } locator ? MachineCredentialStore.SecretFor(locator) : null,
+            new HttpClient { Timeout = TimeSpan.FromSeconds(30) })
+        : null;
+}
+
 static Gg.Runner.RepositoryFileReader IntentFileReader() => new(
     Gg.Runner.Vcs.VcsConfiguration.FromEnvironment(
         Settings.Value(Gg.Runner.Vcs.VcsConfiguration.HostsVariable, InForce.Configuration)),

@@ -1516,7 +1516,7 @@ public sealed class ClaudeCodeExecutor(
             var chain = finding.Chain.Count > 0 ? $" ({string.Join(", ", finding.Chain)})" : string.Empty;
             var models = finding.Models.Count > 0 ? $" on {string.Join(", then ", finding.Models)}" : string.Empty;
             text.Append(System.Globalization.CultureInfo.InvariantCulture,
-                $"\n---\n{finding.FlightNumber}, a {finding.Kind} flight{chain}, found "
+                $"\n---\n{finding.FlightNumber}, flown as {finding.Kind}{chain}, found "
               + $"{finding.FoundAt.UtcDateTime:yyyy-MM-dd HH:mm} UTC{models}.\n");
 
             foreach (var read in finding.Commits)

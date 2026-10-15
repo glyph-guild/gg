@@ -158,6 +158,36 @@ public sealed record PendingGate
     /// </para>
     /// </remarks>
     public GateMaintenance? Maintenance { get; init; }
+
+    /// <summary>
+    /// Every leaf an envelope widening reaches, each with its effective change (slice
+    /// eighty-one, ADR-0041 Decision 6), or empty.
+    /// </summary>
+    /// <remarks>
+    /// <b>On the gate a person decides</b>, on <see cref="Nomination"/>'s argument: the person
+    /// approving a widened base is approving every leaf it reaches, and could not see which.
+    /// Empty rather than null through the accessor, because a control plane that predates it
+    /// omits the key.
+    /// </remarks>
+    public IReadOnlyList<WideningLeaf> Widening
+    {
+        get => field ?? [];
+        init;
+    } = [];
+}
+
+/// <summary>One leaf a widening reaches, and how its effective document widens.</summary>
+[PinnedId("b5e5bfff-f543-44bf-990a-edd70a567884")]
+public sealed record WideningLeaf
+{
+    /// <summary>The work kind a flight would fly as.</summary>
+    public required string Leaf { get; init; }
+
+    /// <summary>The field of its effective document that widens.</summary>
+    public required string Field { get; init; }
+
+    /// <summary>Why, as the direction table says it.</summary>
+    public required string Because { get; init; }
 }
 
 /// <summary>The kinds of maintenance a gate can ask a person for.</summary>

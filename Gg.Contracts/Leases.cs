@@ -811,6 +811,15 @@ public sealed record EarlierFinding
         get => field ?? [];
         init;
     } = [];
+
+    /// <summary>The work item it wrote, when its finding is a field value (slice eighty-two).</summary>
+    public string? Target { get; init; }
+
+    /// <summary>The field it wrote, when its finding is a field value.</summary>
+    public string? Field { get; init; }
+
+    /// <summary>The item's revision after that write, when the tracker said.</summary>
+    public int? Revision { get; init; }
 }
 
 /// <summary>One repository an earlier flight read, and the commit it read it at.</summary>

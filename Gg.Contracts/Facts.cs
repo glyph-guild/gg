@@ -113,6 +113,12 @@ public static class FactKinds
     public const string LoopModel = "loop.model";
 
     /// <summary>
+    /// A tracker field write and the revision it produced (slice eighty-two): what lets a later
+    /// flight ask whether a person changed the field since.
+    /// </summary>
+    public const string WorkItemWritten = "work-item.written";
+
+    /// <summary>
     /// What a reclaim removed from the environment instance this flight was
     /// granted, before it stood its stack up.
     /// </summary>
@@ -1218,6 +1224,9 @@ public sealed record FactEnvelope
 
     /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.LoopModel"/>.</summary>
     public LoopModel? Model { get; init; }
+
+    /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.WorkItemWritten"/>.</summary>
+    public WorkItemWritten? Written { get; init; }
 
     /// <summary>Populated when <see cref="Kind"/> is <see cref="FactKinds.DocumentProposal"/>.</summary>
     /// <remarks>

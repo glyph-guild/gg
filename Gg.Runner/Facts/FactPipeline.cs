@@ -25,6 +25,9 @@ public abstract record FactPayload
     public sealed record Session(LoopSession Value) : FactPayload;
     public sealed record Model(LoopModel Value) : FactPayload;
 
+    /// <summary>A tracker field write and the revision it produced (slice eighty-two).</summary>
+    public sealed record Written(WorkItemWritten Value) : FactPayload;
+
     /// <summary>What a reclaim took out of the instance this flight was granted.</summary>
     public sealed record Reclaimed(EnvironmentReclaimed Value) : FactPayload;
 

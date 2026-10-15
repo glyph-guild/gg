@@ -29,7 +29,14 @@ public sealed record WorkItemWrite(
     string Operation,
     string Target,
     string? Url,
-    bool AlreadyDone);
+    bool AlreadyDone)
+{
+    /// <summary>The item's revision after the write, when the tracker said (slice eighty-two).</summary>
+    public int? Revision { get; init; }
+
+    /// <summary>Every field path the write set.</summary>
+    public IReadOnlyList<string> Fields { get; init; } = [];
+}
 
 /// <summary>
 /// Where admitted changes to work items are performed.

@@ -42,7 +42,7 @@ public class TheHistoryTierCarriesEarlierFindingsTests
             WorkingDirectory = "/work/flight",
             LoopId = "investigate",
             Moves = [LoopMoves.Read],
-            IntentUri = "https://dev.azure.com/HRTMS/JDX/_workitems/edit/18492",
+            IntentUri = "https://tracker.example/items/18492",
             WallClock = TimeSpan.FromMinutes(20),
             TranscriptPath = "/work/flight/transcript.ndjson",
             Learned = "npm install takes two minutes.",

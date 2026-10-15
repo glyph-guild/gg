@@ -2187,12 +2187,12 @@ public sealed class FlightCommands(
         FlightRef.TryParse(reference, out var parsed)
             ? parsed.ToString()
             : throw new FlightReferenceException(
-                $"'{reference}' is not a flight. Use the number, like {FlightRef.Format(42)}, or the id.");
+                $"'{reference}' is not a flight number or id. Use a number such as {FlightRef.Format(42)}, or the flight's id.");
 
     private string Session() =>
         _sessions.Read()?.SessionToken
-        ?? throw new NotSignedInException("Not signed in. Run gg login.");
+        ?? throw new NotSignedInException("This machine is not signed in. Run gg login, then try again.");
 
     private static FlightNotFoundException NoSuchFlight(string reference) =>
-        new($"No flight {reference}. Run gg flights to see what is there.");
+        new($"No flight {reference} was found. To list flights, run gg flights --all.");
 }

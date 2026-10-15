@@ -493,7 +493,9 @@ public sealed class Doctor(
                 // the old sentence sent two people to look at a healthy
                 // control plane.
                 Detail = _addressConfigured
-                    ? $"could not connect to {_controlPlane}: {failure.Message}"
+                    ? failure.StatusCode is { } status
+                        ? $"{_controlPlane} answered with an error (HTTP {(int)status})"
+                        : $"could not connect to {_controlPlane}"
                     : $"could not connect to {_controlPlane}, which is the built-in default "
                     + "because GG_CONTROL_PLANE is not set",
                 Blocking = true,
@@ -538,7 +540,7 @@ public sealed class Doctor(
                 // the obvious guess - `dotnet tool update -g` - is wrong on a
                 // pool host in a way that reports success and changes nothing.
                 // `gg update` knows which shape this is.
-                Fix = "gg update - it names the command for this install",
+                Fix = "Run gg update; it shows the command for this install.",
             }
             : new DoctorCheck
             {
@@ -553,7 +555,7 @@ public sealed class Doctor(
                 // network problem - advice that is worse than silence, because
                 // following it costs them time and changes nothing.
                 Fixable = reachable,
-                Fix = reachable ? "install a newer gg" : null,
+                Fix = reachable ? "Run gg update." : null,
             });
 
         checks.Add(await Surviving(
@@ -634,8 +636,8 @@ public sealed class Doctor(
                 // THE CONSEQUENCE, not the variable. "GG_EXECUTOR_BINARY is not
                 // set" is true and means nothing to somebody who does not
                 // already know what it does.
-                Detail = "no agent binary is configured, so this machine will claim flights and "
-                       + "never invoke an agent",
+                Detail = "no agent binary is configured, so this machine will take flights and "
+                       + "never start an agent",
                 Blocking = false,
                 Fixable = true,
 
@@ -643,8 +645,8 @@ public sealed class Doctor(
                 // Without it a person is told to go and find a path this check
                 // has already located.
                 Fix = role.ExecutorOnPath is { Length: > 0 } here
-                    ? $"Run `gg config set executor-binary {here}` - that one is on this "
-                    + "machine's PATH already. GG_EXECUTOR_BINARY overrides it if set."
+                    ? $"Run `gg config set executor-binary {here}`; that binary is already on "
+                    + "this machine's PATH. GG_EXECUTOR_BINARY overrides it if set."
                     : "Run `gg config set executor-binary <path>`, or set "
                     + "GG_EXECUTOR_BINARY for this shell only.",
             }
@@ -656,11 +658,11 @@ public sealed class Doctor(
 
                 // The path it looked for IS the diagnosis: without it, a typo
                 // in a unit file reads identically to a missing install.
-                Detail = $"the configured agent binary is not there: {role.ExecutorBinary}",
+                Detail = $"the configured agent binary does not exist: {role.ExecutorBinary}",
                 Blocking = false,
                 Fixable = true,
-                Fix = "Install the agent, or correct it with `gg config set "
-                    + "executor-binary <path>` - GG_EXECUTOR_BINARY overrides that if it "
+                Fix = "Install the agent, or correct the path with `gg config set "
+                    + "executor-binary <path>`. GG_EXECUTOR_BINARY overrides that if it "
                     + "is set.",
             }
             : new DoctorCheck
@@ -694,14 +696,11 @@ public sealed class Doctor(
                 Name = DoctorChecks.Airspace,
                 Passed = false,
                 Detail = "no working copy is configured, so gg airspace pull, diff and apply "
-                       + "act on whatever directory you happen to be in",
+                       + "act on the current directory",
                 Blocking = false,
                 Fixable = true,
                 Fix = "Run `gg config set airspace <path>` for the directory the airspace "
-                    + "renders into, or set GG_AIRSPACE for this shell only. There is no "
-                    + "default because no path is right for every machine, and one here "
-                    + "would be a directory gg wrote an airspace into because nobody said "
-                    + "otherwise.",
+                    + "is written to, or set GG_AIRSPACE for this shell only.",
             };
         }
 
@@ -710,8 +709,8 @@ public sealed class Doctor(
             {
                 Name = DoctorChecks.Airspace,
                 Passed = true,
-                Detail = $"{path}, a git working tree - so pull can refuse to overwrite an "
-                       + "edit nobody committed",
+                Detail = $"{path}, a git working tree, so pull will not overwrite an "
+                       + "uncommitted edit",
                 Blocking = false,
                 Fixable = false,
             }
@@ -719,16 +718,13 @@ public sealed class Doctor(
             {
                 Name = DoctorChecks.Airspace,
                 Passed = false,
-                Detail = $"{path} is configured and is not a git working tree, so pull cannot "
-                       + "refuse to overwrite an uncommitted edit - git is the only thing "
-                       + "that tells one apart from a formatting change, and without it pull "
-                       + "just writes",
+                Detail = $"{path} is configured but is not a git working tree, so pull may "
+                       + "overwrite an uncommitted edit without warning",
                 Blocking = false,
                 Fixable = true,
-                Fix = $"Run `git init` in {path} and commit what pull renders, or point "
-                    + "`gg config set airspace <path>` at the clone you keep. ADR-0016 "
-                    + "leaves the repository optional on purpose - the stream is the record "
-                    + "- so this is a warning rather than a refusal.",
+                Fix = $"Run `git init` in {path} and commit what pull writes, or point "
+                    + "`gg config set airspace <path>` at an existing clone. This is a warning; "
+                    + "gg works without it.",
             };
     }
 
@@ -803,7 +799,7 @@ public sealed class Doctor(
             if (misspelled.Count > 0)
             {
                 wrong.Add(
-                    "declared here naming something that could not be a credential: "
+                    "declared here with a credential reference that is not valid: "
                   + string.Join(", ", misspelled));
             }
 
@@ -817,7 +813,7 @@ public sealed class Doctor(
             if (unopened.Count > 0)
             {
                 wrong.Add(
-                    "declared here with a credential this machine holds and cannot open: "
+                    "declared here with a credential this machine stores but cannot open: "
                   + string.Join(", ", unopened.Select(t => $"{t.Key} ({t.Locator})")));
             }
 
@@ -840,8 +836,8 @@ public sealed class Doctor(
                     ? string.Join(
                         " ",
                         lacking.Select(LackingFix).Concat(unopened.Select(UnopenedFix)))
-                    : "Correct the entry the sentence names, with `gg config set intent-hosts` "
-                    + "or `gg config set tracker-apis` - and if a profile wrote it, the "
+                    : "Correct the entry named above with `gg config set intent-hosts` or "
+                    + "`gg config set tracker-apis`. If a fleet profile wrote it, correct the "
                     + "document it came from as well.",
             };
         }
@@ -859,9 +855,9 @@ public sealed class Doctor(
                 // over this exact fact while the doctor they ran to find out
                 // why told them everything was fine.
                 Passed = false,
-                Detail = "no tracker is declared, so a flight about a work item reaches an "
-                       + "agent with nothing to read it with, and the browse tab has nothing "
-                       + "to show - ordinary on a machine whose flights name none",
+                Detail = "no tracker is declared, so an agent cannot read the work item a "
+                       + "flight is about, and the browse tab is empty; this is expected when "
+                       + "no flight here names a work item",
 
                 // NOT BLOCKING, and that is the half the old comment was
                 // defending: a machine may simply not be one that reads work
@@ -876,10 +872,10 @@ public sealed class Doctor(
                 // being obeyed. A diagnosis that hands over a wrong command is worse
                 // than one that says nothing, because it is trusted.
                 Fix = "Run `gg config set intent-hosts <key=host|reference>` for the tracker "
-                    + "this machine should read - e.g. "
-                    + $"`my-tracker=https://tracker.example/acme|local:{CredentialLocator.TrackerSegment}/board` "
-                    + "- and `gg credential add --tracker <key>` for the reference it names, "
-                    + "where the key is the last segment of the locator.",
+                    + "this machine should read, for example "
+                    + $"`my-tracker=https://tracker.example/acme|local:{CredentialLocator.TrackerSegment}/board`. "
+                    + "Then run `gg credential add --tracker <key>` for the reference it names; "
+                    + "the key is the last segment of the locator.",
             };
         }
 
@@ -911,8 +907,8 @@ public sealed class Doctor(
         var filed = TrackerLocatorOrNull(tracker.Key);
 
         return filed is null || string.Equals(filed, tracker.Locator, StringComparison.Ordinal)
-            ? $"{add}, on this machine."
-            : $"{add}, which files it at {filed}, then change '|{tracker.Locator}' to "
+            ? $"Run {add} on this machine."
+            : $"Run {add}, which stores it at {filed}, then change '|{tracker.Locator}' to "
             + $"'|{filed}' in `gg config set intent-hosts`.";
     }
 
@@ -931,8 +927,8 @@ public sealed class Doctor(
 
     /// <summary>The command that lets this machine open what it holds.</summary>
     private static string UnopenedFix(DeclaredTracker tracker) =>
-        $"`gg credential trust-this-machine {tracker.Locator}` if it is sealed to you; "
-      + "otherwise ask whoever holds it to send it here with `gg credential send`.";
+        $"If it is sealed to the signed-in person, run `gg credential trust-this-machine {tracker.Locator}`; "
+      + "otherwise ask the person who holds it to send it here with `gg credential send`.";
 
     /// <summary>The two sides, said apart, and only the ones there are.</summary>
     private static IEnumerable<string> Sides(IReadOnlyList<DeclaredTracker> trackers)
@@ -982,7 +978,7 @@ public sealed class Doctor(
                 // stdout is what a customer pastes into a ticket.
                 Detail = role.DestinationApis is { Length: > 0 }
                     ? $"{hosts}, and a destination api is configured"
-                    : $"{hosts}, and no destination api is configured, so nothing will be proposed",
+                    : $"{hosts}, and no destination api is configured, so no change will be proposed",
                 Blocking = false,
                 Fixable = false,
             }
@@ -1027,7 +1023,7 @@ public sealed class Doctor(
                        + "environment of its own, which this check cannot read",
                 Blocking = false,
                 Fixable = false,
-                Fix = $"`systemctl cat {units[0]}` shows what the unit is given.",
+                Fix = $"Run `systemctl cat {units[0]}` to see the unit's settings.",
             }
             : new DoctorCheck
             {
@@ -1225,7 +1221,7 @@ public sealed class Doctor(
                 // at the runner where nobody is looking.
                 Blocking = true,
                 Fixable = true,
-                Fix = "gg credential add --repo <slug>, on this machine, for each one listed",
+                Fix = "Run gg credential add --repo <slug> on this machine for each one listed.",
             };
     }
 
@@ -1258,10 +1254,10 @@ public sealed class Doctor(
             {
                 Name = DoctorChecks.Session,
                 Passed = false,
-                Detail = "not signed in",
+                Detail = "this machine is not signed in",
                 Blocking = true,
                 Fixable = true,
-                Fix = "gg login",
+                Fix = "Run gg login.",
             };
         }
 
@@ -1291,10 +1287,10 @@ public sealed class Doctor(
             {
                 Name = DoctorChecks.Session,
                 Passed = false,
-                Detail = "the control plane no longer honours this session",
+                Detail = "the sign-in on this machine has expired or been revoked",
                 Blocking = true,
                 Fixable = true,
-                Fix = "gg login",
+                Fix = "Run gg login.",
             }
             : new DoctorCheck
             {
@@ -1303,7 +1299,7 @@ public sealed class Doctor(
                 Detail = $"{who.PrincipalDisplay}, valid until {who.ExpiresAt:u}",
                 Blocking = true,
                 Fixable = true,
-                Fix = "gg login",
+                Fix = "Run gg login.",
             };
     }
 
@@ -1365,7 +1361,12 @@ public sealed class Doctor(
     {
         Name = name,
         Passed = false,
-        Detail = $"not checked: {problem.Message}",
+        Detail = problem switch
+        {
+            NotSignedInException or ProtocolTooOldException => $"not checked: {problem.Message}",
+            HttpRequestException => "not checked: the control plane could not be reached",
+            _ => "not checked: the check could not run",
+        },
         Blocking = false,
 
         // NOTHING HERE ESTABLISHED THAT THIS MACHINE IS THE PROBLEM, so there
@@ -1507,12 +1508,10 @@ public sealed class Doctor(
                 Blocking = false,
                 Fixable = false,
                 Detail = opened
-                    ? "a data channel opens on this binary, so the SCTP association completes. "
-                    + "That is what a person watching a runner from elsewhere depends on."
-                    : "a data channel did NOT open on this binary. The association stalls, which "
-                    + "is what happens when the SCTP state cookie has been trimmed away - the "
-                    + "exact failure the pinned SIPSorcery fork exists to fix. Watching a runner "
-                    + "from elsewhere will not work; everything else will.",
+                    ? "a data channel opens on this binary, so a person can watch a runner "
+                    + "from another machine"
+                    : "a data channel did not open on this binary, so watching a runner from "
+                    + "another machine will not work; everything else will",
             };
         }
         catch (Exception failure) when (failure is not OperationCanceledException)
@@ -1526,7 +1525,8 @@ public sealed class Doctor(
                 Passed = false,
                 Blocking = false,
                 Fixable = false,
-                Detail = $"a data channel could not be attempted on this binary: {failure.Message}",
+                Detail = "a data channel could not be tried on this binary, so watching a runner "
+                       + "from another machine may not work",
             };
         }
     }
@@ -1560,15 +1560,12 @@ public sealed class Doctor(
                 Blocking = false,
                 Fixable = true,
                 Detail =
-                    "this machine has no STUN server configured, so it can only offer its own "
-                  + "address on its own network. Somebody watching a runner from anywhere else "
-                  + "gets \"no route between them\" - which reads as a firewall and is this.",
+                    "this machine has no STUN server configured, so it can only offer its "
+                  + "address on its own network. A person watching a runner from another "
+                  + "network sees \"no route between them\".",
                 Fix =
                     "Run `gg config set stun-servers <stun:host:port,...>`, or set "
-                  + "GG_STUN_SERVERS to the same. There is no built-in default because a "
-                  + "well-known server belongs to somebody, and which one to depend on is not "
-                  + "this binary's decision to make - and a machine stood up from a shell "
-                  + "profile starts the next one from nothing, which is what the file is for.",
+                  + "GG_STUN_SERVERS to the same. gg has no built-in default.",
             };
         }
 
@@ -1581,13 +1578,12 @@ public sealed class Doctor(
                 Blocking = false,
                 Fixable = true,
                 Detail =
-                    $"this machine asked {string.Join(", ", stunServers)} what it looks like "
-                  + "from outside and got no answer, so it can still only offer its own local "
-                  + "address. The variable is set; what it names did not reply.",
+                    $"this machine asked {string.Join(", ", stunServers)} for its outside "
+                  + "address and got no answer, so it can still only offer its local address",
                 Fix =
-                    "Check the server is reachable from here - STUN is UDP, and a network that "
-                  + "allows HTTPS may still drop it. Naming a second server is the cheapest "
-                  + "way to tell an outage from a blocked protocol.",
+                    "Check that the server is reachable from here. STUN uses UDP, which some "
+                  + "networks block even when HTTPS works. Adding a second server shows whether "
+                  + "one server is down or the network blocks STUN.",
             };
         }
 
@@ -1598,9 +1594,8 @@ public sealed class Doctor(
             Blocking = false,
             Fixable = false,
             Detail =
-                $"this machine looks like {string.Join(", ", reflexive)} from outside, so "
-              + "somebody watching a runner here has an address to reach. Whether they get "
-              + "through is still the network between the two of you.",
+                $"this machine appears as {string.Join(", ", reflexive)} from outside, so a "
+              + "person watching a runner here has an address to reach",
         };
     }
 
@@ -1736,13 +1731,12 @@ public sealed class Doctor(
             // SAYS WHAT IT MEANS, not only what is true. A statement about the executor
             // leaves the reader to work out the consequence, and the consequence is the
             // reason this is printed at all.
-            Detail = "declared moves are PARTLY enforced, and not enforced as a whole. Measured "
-                   + "one tool at a time: a flight declaring 'read' is refused an edit and is NOT "
-                   + "stopped from running shell commands, which can edit anyway. So an envelope's "
-                   + "moves list is a partial boundary and a full record of intent - what a flight "
-                   + "actually did is measured and reported, and what it was allowed to do bounds "
-                   + "some of it. The runner proves the bound before it takes any work and "
-                   + "refuses to run if it does not hold.",
+            Detail = "declared moves are only partly enforced. Each tool is checked on its "
+                   + "own: a flight that declares 'read' cannot edit a file directly, but it can "
+                   + "still run shell commands, which can edit files. An envelope's moves list "
+                   + "limits some actions and records what was intended; what a flight actually "
+                   + "did is measured and reported. The runner checks this limit before it takes "
+                   + "any work, and does not run if the limit does not hold.",
             Blocking = false,
 
             // Nothing on this machine fixes it, and offering a remedy would send
@@ -1788,12 +1782,11 @@ public sealed class Doctor(
                 VersionStandingKind.Behind =>
                     $"{standing.Installed}, and {standing.Current} is current",
                 VersionStandingKind.Unrecognised =>
-                    $"{standing.Installed}, which gg has no record of publishing. The latest it "
-                    + $"knows of is {standing.Current}, so it's worth asking where this copy came from",
+                    $"{standing.Installed}, which was never published as a release; the latest "
+                    + $"release is {standing.Current}. Check where this copy came from",
                 _ => reachable
-                    ? $"{standing.Installed}. gg couldn't check for a newer version, so it can't "
-                    + "say whether this is the latest"
-                    : $"{standing.Installed}. Not checked: gg couldn't reach the server that publishes versions",
+                    ? $"{standing.Installed}; gg could not check whether a newer version exists"
+                    : $"{standing.Installed}; not checked, because gg could not reach the server that publishes versions",
             },
 
             // RULE 6, AS A FIELD. Nothing about a version may stop a person.
@@ -1805,7 +1798,7 @@ public sealed class Doctor(
             // and changes nothing.
             Fixable = standing.Kind == VersionStandingKind.Behind,
             Fix = standing.Kind == VersionStandingKind.Behind
-                ? "gg update - it names the command for this install"
+                ? "Run gg update; it shows the command for this install."
                 : null,
         };
     }
@@ -1825,13 +1818,13 @@ public sealed class Doctor(
                 Passed = false,
                 Discloses = true,
                 Detail = $"this shell, not the unit: {string.Join(", ", units)} is installed "
-                       + "here and runs on its own runner identity, which this check does not "
-                       + "read - it found "
-                       + (stored is null ? "no session in this shell" : "this shell's session not honoured"),
+                       + "here and runs with its own runner identity, which this check does not "
+                       + "read; in this shell it found "
+                       + (stored is null ? "no sign-in" : "a sign-in that has expired or been revoked"),
                 Blocking = false,
                 Fixable = false,
-                Fix = $"`systemctl status {units[0]}` (or `launchctl print`) describes the unit; "
-                    + "`gg login` here only if this shell should register a runner of its own.",
+                Fix = $"Run `systemctl status {units[0]}` (or `launchctl print`) to see the unit. "
+                    + "Run gg login here only if this shell should register a runner of its own.",
             }
             : new DoctorCheck
         {
@@ -1844,17 +1837,17 @@ public sealed class Doctor(
             // a claim from the wrong fact, and one nobody saw until the run
             // stopped dying before it got here.
             Detail = honoured is not null
-                ? "a session is held, so gg runner up can register one"
+                ? "this machine is signed in, so gg runner up can register a runner"
                 : stored is not null
-                    ? "the session this machine holds is not honoured, so registering a runner "
-                    + "would be refused"
-                    : "no session, so no runner can be registered from here",
+                    ? "the sign-in on this machine has expired or been revoked, so a runner "
+                    + "cannot be registered from here"
+                    : "this machine is not signed in, so a runner cannot be registered from here",
             Blocking = false,
             Fixable = true,
 
             // AND THE ADVICE FOLLOWS THE FACT. `gg runner up` with no usable
             // session fails at the first request it makes, which sends somebody
             // to debug a runner over a sign-in they have not done.
-            Fix = honoured is not null ? "gg runner up" : "gg login",
+            Fix = honoured is not null ? "Run gg runner up." : "Run gg login.",
         };
 }

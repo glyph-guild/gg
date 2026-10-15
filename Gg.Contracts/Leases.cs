@@ -731,6 +731,88 @@ public sealed record LeaseLoop
     /// </remarks>
     public IReadOnlyList<EnvelopeVariable>? Variables { get; init; }
 
+    /// <summary>
+    /// What earlier flights on this flight's intent found, newest of each kind in each
+    /// family its kind consults (slice seventy-nine, ADR-0041 Decision 9), or empty.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Handed over rather than fetched</b>, on <see cref="ResumesFrom"/>'s terms: which
+    /// findings a flight is owed is a question about the tenant's record that the
+    /// control plane can answer and a runner cannot.
+    /// </para>
+    /// <para>
+    /// <b>Structured rather than rendered</b>, unlike <see cref="Learned"/>: the runner
+    /// compares each finding's commits against the tree it fetched, and the tree never
+    /// reaches the control plane. Empty rather than null through the accessor, because
+    /// a control plane that predates the member omits the key.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<EarlierFinding> Findings
+    {
+        get => field ?? [];
+        init;
+    } = [];
+}
+
+/// <summary>
+/// What an earlier flight on the same intent left for a person to read, with what it
+/// rests on (slice seventy-nine, ADR-0041 Decisions 8 and 9).
+/// </summary>
+/// <remarks>
+/// <b>Provenance is the control plane's record, never the agent's account of itself</b>:
+/// the chain and its versions from the layers the flight recorded, the models from its
+/// launches, the commits from the trees its runner fetched.
+/// </remarks>
+[PinnedId("2e3b8783-a10c-40f6-b2aa-0a0c8409feaa")]
+public sealed record EarlierFinding
+{
+    /// <summary>The flight that found it, as a person names it: GG-1134.</summary>
+    public required string FlightNumber { get; init; }
+
+    /// <summary>The work kind it flew as, the leaf of its chain.</summary>
+    public required string Kind { get; init; }
+
+    /// <summary>
+    /// Every work-kind layer of its chain, base first, each with the version in force:
+    /// <c>investigate@v7</c>, <c>investigate-instructions@v2</c>.
+    /// </summary>
+    public IReadOnlyList<string> Chain
+    {
+        get => field ?? [];
+        init;
+    } = [];
+
+    /// <summary>When it was found: when the flight ended.</summary>
+    public required DateTimeOffset FoundAt { get; init; }
+
+    /// <summary>What it found: its landing proposal's description, or the field value it wrote.</summary>
+    public required string Text { get; init; }
+
+    /// <summary>The model each launch ran on, in order.</summary>
+    public IReadOnlyList<string> Models
+    {
+        get => field ?? [];
+        init;
+    } = [];
+
+    /// <summary>The commit of each repository it read.</summary>
+    public IReadOnlyList<FindingCommit> Commits
+    {
+        get => field ?? [];
+        init;
+    } = [];
+}
+
+/// <summary>One repository an earlier flight read, and the commit it read it at.</summary>
+[PinnedId("c0463640-2dd5-49e1-ad50-0091d304caa8")]
+public sealed record FindingCommit
+{
+    /// <summary>The repository, as its lease named it.</summary>
+    public required string Repository { get; init; }
+
+    /// <summary>The commit its tree was at.</summary>
+    public required string Commit { get; init; }
 }
 
 /// <summary>

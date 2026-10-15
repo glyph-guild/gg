@@ -33,7 +33,7 @@ namespace Gg.Runner.Intent;
 /// kind of wrong to debug from a runner.
 /// </para>
 /// </remarks>
-public sealed class WiqlWorkItemSource : IWorkItemSource
+public sealed class WiqlWorkItemSource : IWorkItemSource, IItemFieldHistory
 {
     /// <summary>
     /// The body as a document, or a refusal naming the likeliest cause.
@@ -318,6 +318,11 @@ public sealed class WiqlWorkItemSource : IWorkItemSource
             ? Everything(fields)
             : [];
     }
+
+    /// <inheritdoc />
+    public Task<(string? Value, IReadOnlyList<int> Touched)> FieldAsync(
+        string id, string field, CancellationToken cancellationToken = default) =>
+        Task.FromResult<(string?, IReadOnlyList<int>)>((null, []));
 
     public async Task<IReadOnlyList<WorkItemChange>> HistoryAsync(
         string id, CancellationToken cancellationToken = default)

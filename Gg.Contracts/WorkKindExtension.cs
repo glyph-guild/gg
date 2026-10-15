@@ -51,6 +51,9 @@ public sealed record EnvelopeExtension
     /// <summary>Replaces the parent's produces, whole, when present.</summary>
     public IReadOnlyList<string>? Produces { get; init; }
 
+    /// <summary>The families it consults, replacing its parent's, or null to inherit them.</summary>
+    public IReadOnlyList<string>? Consults { get; init; }
+
     /// <summary>Appended after the parent's instructions.</summary>
     public IReadOnlyList<EnvelopeInstruction> Instructions
     {

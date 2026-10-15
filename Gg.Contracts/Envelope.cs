@@ -2110,6 +2110,18 @@ public sealed record Envelope
     public IReadOnlyList<string>? Produces { get; init; }
 
     /// <summary>
+    /// The families of work kinds whose earlier findings on the same intent a flight of
+    /// this kind is handed (slice seventy-nine, ADR-0041 Decision 9), or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>Its own family is consulted whether or not it is named</b> (ADR-0041's call), so
+    /// a second investigation of an item starts from the first. Null and empty both mean
+    /// only that.
+    /// </remarks>
+    [Composes(MergeOperators.WorkKindOnly)]
+    public IReadOnlyList<string>? Consults { get; init; }
+
+    /// <summary>
     /// What earlier flights of this kind found out about the environment, or null
     /// when nothing has been learned.
     /// </summary>

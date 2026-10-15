@@ -70,7 +70,11 @@ public class AnEarlierFindingCrossesOnTheLeaseTests
     {
         await Assert.That(ProtocolSurface.JsonMembers[typeof(LeaseLoop)]).Contains("findings");
         await Assert.That(ProtocolSurface.JsonMembers[typeof(EarlierFinding)])
-            .IsEquivalentTo(new[] { "flightNumber", "kind", "chain", "foundAt", "text", "models", "commits" });
+            .IsEquivalentTo(new[]
+            {
+                "flightNumber", "kind", "chain", "foundAt", "text", "models", "commits",
+                "target", "field", "revision",
+            });
         await Assert.That(ProtocolSurface.JsonMembers[typeof(FindingCommit)])
             .IsEquivalentTo(new[] { "repository", "commit" });
         await Assert.That(Vocabulary.Types).Contains(typeof(EarlierFinding));

@@ -157,6 +157,11 @@ public static class EnvelopeText
             Sequence(text, "consults", consults, depth: 0);
         }
 
+        if (envelope.InstructionsFrom is { } field)
+        {
+            text.Append($"instructions-from: {Scalar(field)}\n");
+        }
+
         // LEARNED CONTEXT, RENDERED ONLY WHEN DECLARED, for the reason variables
         // are: a document that has been taught nothing must not gain a section by
         // being written out, or a pull reports a change nobody made.
@@ -550,6 +555,11 @@ public static class EnvelopeText
         if (extension.Consults is { } consults)
         {
             Sequence(text, "consults", consults, depth: 0);
+        }
+
+        if (extension.InstructionsFrom is { } field)
+        {
+            text.Append($"instructions-from: {Scalar(field)}\n");
         }
 
         if (extension.Targeting is { } targeting)

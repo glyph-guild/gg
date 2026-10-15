@@ -224,6 +224,16 @@ public static class EnvelopeDirection
             return learned;
         }
 
+        // A FIELD'S TEXT AS INSTRUCTIONS WIDENS BY ARRIVING OR CHANGING (slice eighty-two): it
+        // reaches every flight of the kind. Giving it up is influence surrendered.
+        if (proposed.InstructionsFrom is { } from
+            && !string.Equals(from, applied.InstructionsFrom, StringComparison.Ordinal))
+        {
+            return Widen("instructions-from",
+                $"'instructions-from:' is now '{from}', whose text reaches the agent of every later "
+              + "flight of this kind as its instructions.");
+        }
+
         // A FAMILY CONSULTED WIDENS BY ARRIVING, as advice does and for its reason
         // (slice seventy-nine): another family's findings are a machine's words reaching
         // every later flight of this kind. Giving one up is influence surrendered.

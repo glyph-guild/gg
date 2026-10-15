@@ -2180,7 +2180,8 @@ public static class ProtocolSurface
             [typeof(LeaseLoop)] =
                 ["loopId", "instance", "executor", "moves", "wallClockSeconds", "onExhaustion",
                  "resumesFrom", "instructions", "brief", "landing", "variables", "produces",
-                 "learned", "instanceHold", "hooks", "mcpServers", "mcp", "model", "findings"],
+                 "learned", "instanceHold", "hooks", "mcpServers", "mcp", "model", "findings",
+                 "instructionsFrom"],
             // WHAT AN EARLIER FLIGHT ON THE SAME INTENT FOUND (slice seventy-nine), with
             // what it rests on: the control plane's record, never the agent's account.
             [typeof(EarlierFinding)] =
@@ -2232,7 +2233,7 @@ public static class ProtocolSurface
             [typeof(Envelope)] =
                 ["description", "abstract", "brief", "context", "obligations", "instructions", "loops",
                  "destinations", "environments", "repositories", "environment", "repository",
-                 "accepts", "produces", "consults", "learned", "targeting", "hosts", "variables",
+                 "accepts", "produces", "consults", "instructionsFrom", "learned", "targeting", "hosts", "variables",
                  "offers", "mcpServers", "models"],
             [typeof(EnvelopeInstruction)] = ["text", "provenance"],
             [typeof(EnvelopeState)] = ["version", "envelope", "updatedAt", "updatedBy"],
@@ -2481,7 +2482,7 @@ public static class ProtocolSurface
             [typeof(NamedEnvelopeApply)] = ["envelope", "narrowing", "extension"],
             [typeof(EnvelopeExtension)] =
                 ["extends", "abstract", "description", "brief", "targeting", "hosts", "accepts",
-                 "produces", "consults", "instructions", "obligations", "loops", "destinations", "remove"],
+                 "produces", "consults", "instructionsFrom", "instructions", "obligations", "loops", "destinations", "remove"],
             [typeof(ExtensionRemovals)] = ["loops", "destinations", "obligations", "instructions"],
             [typeof(StrategyList)] = ["strategies"],
             [typeof(FleetProfile)] =

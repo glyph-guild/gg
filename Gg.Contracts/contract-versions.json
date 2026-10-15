@@ -1581,5 +1581,11 @@
     "surface": "8264ca33df027a18a23bb397ad1a027f3403d111b2ea02789461f0b80852b5f1",
     "endpoints": "77ba4b72cdd1eb618490a9d45b87e04c3f532af195dd344a3370051965b22226",
     "note": "A widening gate names every leaf it reaches (slice eighty-one, ADR-0041 Decision 6). PendingGate gains Widening, a list of WideningLeaf (leaf, field, because): each work kind a flight would fly as whose effective document the change widens, with the direction table's reason. Empty when absent, so a control plane that predates it sends none and the gate renders as it always did. No route moves."
+  },
+  {
+    "version": "0.305.0",
+    "surface": "902ad5cc460022fe0e9967101ef73ce362ac11fd1256d66b745dedcff448fcbc",
+    "endpoints": "77ba4b72cdd1eb618490a9d45b87e04c3f532af195dd344a3370051965b22226",
+    "note": "A work kind may take its instructions from a tracker field (slice eighty-two, ADR-0041 Decision 10). Envelope and EnvelopeExtension gain InstructionsFrom, work-kind only: one exact field path (no whitespace, no wildcard), inherited down a chain unless a child names its own, and declaring or changing it is a widening. LeaseLoop gains InstructionsFrom, carried from the governing envelope for the runner to read. No route moves."
   }
 ]

@@ -2280,6 +2280,10 @@ public static class PlatformToolServer
           + "history. Its own kind is consulted whether or not it is named. Adding one is a "
           + "widening.");
         said.AppendLine(
+            "  instructions-from:  for a work kind, the one tracker field its flights take their "
+          + "instructions from, read before the agent starts on a work item, for example "
+          + "Custom.ClaudeCodePlan. Declaring or changing it is a widening.");
+        said.AppendLine(
             "  instructions:       sentences handed to the agent on every flight this "
           + "governs. This is how a tenant tells agents how to behave without changing "
           + "any code.");

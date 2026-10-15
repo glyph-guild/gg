@@ -1252,6 +1252,9 @@ public sealed class ClaudeCodeExecutor(
 
     private static string Prompt(ExecutorRequest request) =>
         Task(request)
+      // THE ITEM'S OWN INSTRUCTIONS, in the Task tier and right after it (slice eighty-two):
+      // the field is where a person reads and edits the plan, so it is what the work follows.
+      + (request.ItemInstructions is { } instructions ? FromTheItem(instructions, request) : string.Empty)
       + " Do not create a branch, do not commit, and do not push anything anywhere."
       + Trees(request)
       + Scratch(request)
@@ -1543,6 +1546,38 @@ public sealed class ClaudeCodeExecutor(
         return text.ToString();
 
         static string Short(string commit) => commit.Length > 7 ? commit[..7] : commit;
+    }
+
+    /// <summary>
+    /// What the item's instructions field says, quoted as the item's words, and how it stands
+    /// against what wrote it (slice eighty-two, ADR-0041 Decision 10).
+    /// </summary>
+    private static string FromTheItem(Gg.Runner.Intent.ItemInstructionsRead read, ExecutorRequest request)
+    {
+        var item = request.IntentId is { Length: > 0 } id ? $"work item {id}" : "the work item";
+
+        string Quoted(string standing) =>
+            $"\n\nThe instructions for this work are in {item}'s field {read.Field}, {standing}:\n\n"
+          + $"---\n{read.Text?.TrimEnd()}\n---\n\n"
+          + "Follow them. They are the item's own words; what may be touched and which moves may be "
+          + "used still come from the envelope.";
+
+        return read.Standing switch
+        {
+            Gg.Runner.Intent.InstructionStandings.AsWritten =>
+                Quoted($"written by {read.WrittenBy} and unchanged since (its finding is under history)"),
+            Gg.Runner.Intent.InstructionStandings.EditedSince =>
+                Quoted($"and a person changed it after {read.WrittenBy} wrote it, so their text governs "
+                     + $"over {read.WrittenBy}'s finding under history"),
+            Gg.Runner.Intent.InstructionStandings.Unrecorded when read.WrittenBy is { } by =>
+                Quoted($"written by {by}; whether a person changed it since is not recorded"),
+            Gg.Runner.Intent.InstructionStandings.Unrecorded =>
+                Quoted("and no recorded flight wrote it"),
+            Gg.Runner.Intent.InstructionStandings.Empty =>
+                $"\n\nThe field {read.Field} is empty, so work {item} as it stands.",
+            _ =>
+                $"\n\nThe field {read.Field} could not be read ({read.Diagnosis}), so work {item} as it stands.",
+        };
     }
 
     private static string Handover(string note) =>

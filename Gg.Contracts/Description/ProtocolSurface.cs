@@ -2122,7 +2122,10 @@ public static class ProtocolSurface
                 ["flightNumber", "obligationId", "outcome", "decidedBy", "decidedAt", "admission"],
             [typeof(PendingGate)] =
                 ["flightNumber", "obligationId", "approver", "branch", "commit", "manifestHash",
-                 "condition", "because", "awaitingSince", "attempt", "nomination", "maintenance"],
+                 "condition", "because", "awaitingSince", "attempt", "nomination", "maintenance",
+                 "widening"],
+            // EVERY LEAF A WIDENING REACHES (slice eighty-one), each with its effective change.
+            [typeof(WideningLeaf)] = ["leaf", "field", "because"],
             [typeof(GateNomination)] =
                 ["reason", "workKind", "note", "environment", "repository"],
             [typeof(GateMaintenance)] =

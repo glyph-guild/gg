@@ -228,6 +228,7 @@ public static class Vocabulary
         typeof(ExtensionRemovals),
         typeof(IceServer),
         typeof(EarlierFinding),
+        typeof(WideningLeaf),
         typeof(FindingCommit),
         typeof(WorkKindResolution),
         typeof(LearnedContext),

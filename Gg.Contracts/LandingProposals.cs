@@ -53,13 +53,21 @@ public sealed record LandingProposal
 
     /// <summary>The most a description may be.</summary>
     /// <remarks>
+    /// <para>
     /// Generous, because this one really is prose and a reviewer asked for it.
     /// Still bounded: one that ran to the length of a transcript would make
     /// the fact that carries it the most expensive thing in the record to read,
     /// which is the argument <c>ExecutorPort.MaxReasonLength</c> makes about the
     /// row beneath it.
+    /// </para>
+    /// <para>
+    /// <b>A field value's bound since slice seventy-nine</b> (ADR-0041 Decision 8): an
+    /// investigation's description is its finding, and at 4,000 characters GG-1086 and
+    /// GG-1088 were refused and cut about 40% of what they found to fit. One bound for an
+    /// analysis, whether it lands as a proposal or as a work-item field.
+    /// </para>
     /// </remarks>
-    public const int MaxDescription = 4000;
+    public const int MaxDescription = WorkItemProposalLimits.MaxDetail;
 
     /// <summary>What the proposal should be called.</summary>
     public required string Title { get; init; }

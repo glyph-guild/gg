@@ -994,7 +994,10 @@ public static class PlatformToolServer
         writer.WriteStartObject(LandingProposalTool.DescriptionArgument);
         writer.WriteString("type", "string");
         writer.WriteString("description",
-            "What the proposal should say beyond its title, or leave it out. The branch "
+            "What the proposal should say beyond its title, or leave it out - at most "
+          + Gg.Contracts.LandingProposal.MaxDescription.ToString(
+                System.Globalization.CultureInfo.InvariantCulture)
+          + " characters, refused rather than cut. The branch "
           + "and the work item are already written there, so repeating them is noise - "
           + "and a description you were not asked for and have nothing to put in is "
           + "padding under your name.");

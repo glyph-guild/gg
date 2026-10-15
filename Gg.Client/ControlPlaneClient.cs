@@ -506,6 +506,13 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
             query.Add("intent=" + Uri.EscapeDataString(intent));
         }
 
+        // A KIND'S FAMILY (slice eighty): the flights of that kind and of every kind that
+        // extends it. A control plane that predates it ignores the parameter.
+        if (kind is { Length: > 0 })
+        {
+            query.Add("kind=" + Uri.EscapeDataString(kind));
+        }
+
         using var request = Request(
             HttpMethod.Get,
             query.Count == 0 ? "/v1/flights" : "/v1/flights?" + string.Join('&', query),

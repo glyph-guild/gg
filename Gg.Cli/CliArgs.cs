@@ -916,7 +916,7 @@ public static class CliArgs
         "  --model <name>               which model it runs on, from root's models:",
         "  --attended                   and watch it from wherever you are",
         "  --file <repo>:<path>[@ref]   about a file in a registered repository, read by the runner",
-        "gg flights [--all] [--intent <provider>#<id>|<uri>|<repo>:<path>]  flights in the air, or every one",
+        "gg flights [--all] [--intent <provider>#<id>|<uri>|<repo>:<path>] [--kind <work kind>]  flights in the air, or every one",
         "  --limit <rows> --after <cursor>  one page of them, and where to carry on",
         "gg show <flight>               one flight, by GG-42 or by id",
         "gg log <flight>                a flight's log",
@@ -1470,10 +1470,17 @@ public static class CliArgs
             // VALUE: a value-taking flag stripped position-independently is
             // how the value gets mistaken for a verb.
             ["flights", "--intent", var token] => Correlate(token, json, all, page, after),
+            // A KIND'S FAMILY (slice eighty, ADR-0041 Decision 7): positional for --intent's
+            // reason, and either order beside it, because a person types them either way.
+            ["flights", "--kind", var family] => Family(family, json, all, page, after),
+            ["flights", "--intent", var token, "--kind", var family] =>
+                Family(family, json, all, page, after, token),
+            ["flights", "--kind", var family, "--intent", var token] =>
+                Family(family, json, all, page, after, token),
             ["flights"] => new CliAction.Flights(json, all, null, page, after),
             ["flights", ..] => Unknown(
-                "gg flights takes --all, --json, --limit <rows>, --after <cursor>, and "
-              + "--intent <provider>#<id> or a uri."),
+                "gg flights takes --all, --json, --limit <rows>, --after <cursor>, "
+              + "--intent <provider>#<id> or a uri, and --kind <work kind>."),
             ["runners"] => new CliAction.Runners(json),
             // PLURAL, like runners and pools: it lists what is in force and
             // how each one is doing. `gg runner watch <id>` is a different
@@ -2054,6 +2061,27 @@ public static class CliArgs
               + "with somebody else's work."),
             _ => new CliAction.RunnerRead(provider, host, credential, query),
         };
+    }
+
+    /// <summary>A kind's family, alone or beside an intent, refused here when it cannot be a name.</summary>
+    /// <remarks>
+    /// <b>Refused before anything is asked</b>, on <see cref="Correlate"/>'s terms: a name
+    /// nobody could declare matches nothing, and an empty list would read as a family with
+    /// no flights.
+    /// </remarks>
+    private static CliAction Family(
+        string kind, bool json, bool all, int? page, string? after, string? intent = null)
+    {
+        if (Gg.Contracts.AirspaceNames.Invalid(kind) is { } unnamed)
+        {
+            return Unknown($"gg flights --kind takes a work kind's name, and '{kind}' is not one: {unnamed}");
+        }
+
+        return intent is null
+            ? new CliAction.Flights(json, all, null, page, after, kind)
+            : Correlate(intent, json, all, page, after) is CliAction.Flights correlated
+                ? correlated with { Kind = kind }
+                : Correlate(intent, json, all, page, after);
     }
 
     private static CliAction Correlate(

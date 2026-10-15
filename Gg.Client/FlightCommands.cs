@@ -102,11 +102,12 @@ public sealed class FlightCommands(
         CancellationToken cancellationToken = default,
         string? intent = null,
         int? limit = null,
-        string? after = null) =>
+        string? after = null,
+        string? kind = null) =>
         new VerbResult.Flights(
             await _client.ListFlightsAsync(
                 Session(), all, cancellationToken, intent,
-                limit ?? Gg.Contracts.Paging.DefaultLimit, after));
+                limit ?? Gg.Contracts.Paging.DefaultLimit, after, kind));
 
     /// <summary>
     /// One flight's story, by uuid or by the number a person typed.

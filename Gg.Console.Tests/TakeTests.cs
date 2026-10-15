@@ -211,7 +211,7 @@ public class TakeTests
             new NoEditor(),
             new RecordingTake("/does/not/matter")).Run(before);
 
-        await Assert.That(after.LastTakeover!).Contains("this console never holds one");
+        await Assert.That(after.LastTakeover!).Contains("which this console does not have. Run gg take GG-42");
         await Assert.That(after.LastTakeover!).DoesNotContain("this flight")
             .Because("nothing about this flight was examined.");
     }

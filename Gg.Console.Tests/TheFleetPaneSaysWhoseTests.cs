@@ -57,7 +57,7 @@ public class TheFleetPaneSaysWhoseTests
         var reserved = Rows.Runners(
             Fleet(A("vmlinux002", RunnerOwnerships.Claimed, "Kevin", reserved: true)))[0];
 
-        await Assert.That(Rows.Whose(tenant)).IsEqualTo("the tenant's");
+        await Assert.That(Rows.Whose(tenant)).IsEqualTo("organisation's");
         await Assert.That(Rows.Whose(open)).IsEqualTo("open");
         await Assert.That(Rows.Whose(claimed)).IsEqualTo("Kevin's");
         await Assert.That(Rows.Whose(reserved)).IsEqualTo("Kevin's, reserved")
@@ -109,7 +109,7 @@ public class TheFleetPaneSaysWhoseTests
                    + "heading.");
 
         var whose = cells[Rows.RunnerColumns.ToList().IndexOf("whose")];
-        await Assert.That(whose).IsEqualTo("the tenant's · resident");
+        await Assert.That(whose).IsEqualTo("organisation's · resident");
         await Assert.That(cells[Rows.RunnerColumns.ToList().IndexOf("profile")])
             .IsEqualTo("dev-worker");
     }

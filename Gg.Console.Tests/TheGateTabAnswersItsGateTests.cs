@@ -127,7 +127,7 @@ public class TheGateTabAnswersItsGateTests
     {
         var state = OnGg1WhileTheQueueIsOnGg2(new GateList { Gates = [AGate(2, "widen-root")] });
 
-        await Assert.That(FlightDetails.Gate(state)).Contains("Nothing is waiting on you");
+        await Assert.That(FlightDetails.Gate(state)).Contains("Nothing is waiting on a decision");
         await Assert.That(Keymap.Resolve(KeyStroke.Char('a'), KeymapContext.For(state))).IsNull()
             .Because("an approve key over a flight with nothing to approve is a dead key.");
     }

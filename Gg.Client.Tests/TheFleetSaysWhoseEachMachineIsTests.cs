@@ -60,7 +60,7 @@ public class TheFleetSaysWhoseEachMachineIsTests
 
         var rows = text.Split('\n');
 
-        await Assert.That(rows.Single(r => r.Contains("vmlinux001"))).Contains("the tenant's");
+        await Assert.That(rows.Single(r => r.Contains("vmlinux001"))).Contains("organisation's");
         await Assert.That(rows.Single(r => r.Contains("vmlinux001"))).Contains("resident");
         await Assert.That(rows.Single(r => r.Contains("vmlinux001"))).Contains("profile dev-worker");
         await Assert.That(rows.Single(r => r.Contains("vmlinux002"))).Contains("open");
@@ -250,7 +250,7 @@ public class TheFleetSaysWhoseEachMachineIsTests
         }));
 
         await Assert.That(text).Contains("Kevin");
-        await Assert.That(text).Contains("still takes the tenant's work");
+        await Assert.That(text).Contains("still takes organisation work");
         await Assert.That(text).Contains($"gg runner reserve {Runner}");
     }
 
@@ -268,7 +268,7 @@ public class TheFleetSaysWhoseEachMachineIsTests
 
         await Assert.That(open).Contains("open");
         await Assert.That(open).Contains("claim");
-        await Assert.That(tenant).Contains("the tenant's");
+        await Assert.That(tenant).Contains("kept for organisation work");
         await Assert.That(tenant).Contains("nobody may claim it");
     }
 
@@ -285,7 +285,7 @@ public class TheFleetSaysWhoseEachMachineIsTests
         }));
 
         await Assert.That(reserved).Contains("only Kevin's flights");
-        await Assert.That(released).Contains("the tenant's work");
+        await Assert.That(released).Contains("it takes organisation work");
     }
 
     [Test]

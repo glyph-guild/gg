@@ -611,12 +611,13 @@ public class ConsoleDataTests
     }
 
     [Test]
-    public async Task The_sort_strategy_is_named_and_says_it_is_a_placeholder()
+    public async Task The_sort_strategy_is_named_plainly()
     {
-        // The risk is shipping recency, calling it a queue, and letting it
-        // calcify. A name that admits what it is makes replacing it an obvious
-        // task rather than an archaeology.
-        await Assert.That(QueueSort.Default.Name).Contains("placeholder");
+        // The name is printed on the help page, so it says what the order is
+        // and carries no note to developers. That it is a placeholder lives in
+        // QueueSort's own remarks, where the people who would replace it read.
+        await Assert.That(QueueSort.Default.Name).IsEqualTo("oldest first");
+        await Assert.That(QueueSort.Default.Name).DoesNotContain("placeholder");
         await Assert.That(string.IsNullOrWhiteSpace(QueueSort.Default.Name)).IsFalse();
     }
 
@@ -729,6 +730,6 @@ public class ConsoleStartTests
         // empty queue is where a person is told nothing needs them, and it is
         // the one place worth saying where to look instead.
         await Assert.That(PaneText.QueueRows(new AppState()).Single())
-            .IsEqualTo("nothing needs you · tab for every recent flight");
+            .IsEqualTo("nothing needs a decision · tab for every recent flight");
     }
 }

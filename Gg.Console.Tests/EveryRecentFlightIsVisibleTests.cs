@@ -89,7 +89,7 @@ public class EveryRecentFlightIsVisibleTests
         // nothing needs you; the console was wrong to leave it at that.
         var state = Booted();
 
-        await Assert.That(string.Join("\n", PaneText.QueueRows(state))).Contains("nothing needs you")
+        await Assert.That(string.Join("\n", PaneText.QueueRows(state))).Contains("nothing needs a decision")
             .Because("no gate, no expired lease, no stranded runner - the queue is honest.");
 
         await Assert.That(PaneText.Flights(state)).Contains("GG-52", StringComparison.Ordinal)

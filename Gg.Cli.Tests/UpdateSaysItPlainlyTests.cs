@@ -34,7 +34,7 @@ public class UpdateSaysItPlainlyTests
             .Because("'could not be established' is the phrase a person stops reading at.");
         await Assert.That(said).DoesNotContain("This may already be the newest.")
             .Because("the sentence with the answer should say so in its own words.");
-        await Assert.That(said).Contains("You may already have the newest version")
+        await Assert.That(said).Contains("This machine may already have the newest version")
             .Because("the one thing a person wants to know is whether they need to do anything.");
     }
 

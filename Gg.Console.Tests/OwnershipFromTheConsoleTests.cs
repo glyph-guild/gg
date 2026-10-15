@@ -96,9 +96,9 @@ public class OwnershipFromTheConsoleTests
         await Assert.That(yours.First(k => k.Command == Command.ClaimRunner).Description)
             .Contains("give it up", StringComparison.Ordinal);
         await Assert.That(yours.First(k => k.Command == Command.ReserveRunner).Description)
-            .Contains("hold it", StringComparison.Ordinal);
+            .Contains("reserve it", StringComparison.Ordinal);
         await Assert.That(kept.First(k => k.Command == Command.ReserveRunner).Description)
-            .Contains("tenant's work again", StringComparison.Ordinal);
+            .Contains("organisation work again", StringComparison.Ordinal);
     }
 
     [Test]

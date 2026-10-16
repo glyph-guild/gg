@@ -1,0 +1,76 @@
+{
+  "signedOut": {
+    "steps": [
+      ["wait", 10],
+      ["shot", "sign-in"],
+      ["resize", 30, 100, 3],
+      ["shot", "resized"],
+      ["key", "\u001b", 2],
+      ["shot", "carried-on"],
+      ["key", "q", 3],
+      ["shot", "after-q"]
+    ]
+  },
+  "signedIn": {
+    "signedIn": true,
+    "steps": [
+      ["wait", 10],
+      ["shot", "queue"],
+      ["key", "j", 0.5],
+      ["key", "\u001b[B", 1],
+      ["key", "o", 3],
+      ["shot", "flight-detail"],
+      ["key", "\u001b", 1],
+      ["key", "d", 3],
+      ["shot", "gate-decision"],
+      ["key", "\u001b", 1],
+      ["key", ".", 3],
+      ["shot", "flights"],
+      ["key", ";", 4],
+      ["shot", "board"],
+      ["key", "u", 4],
+      ["shot", "runners"],
+      ["key", "\u001b[<0;20;3M\u001b[<0;20;3m", 2],
+      ["shot", "after-click"],
+      ["key", "?", 2],
+      ["shot", "help"],
+      ["key", "\u001b", 1],
+      ["key", "q", 3],
+      ["shot", "after-q"]
+    ]
+  },
+  "editor": {
+    "signedIn": true,
+    "env": {
+      "EDITOR": "{here}\\fake-editor.cmd",
+      "PYTHONUTF8": "1"
+    },
+    "steps": [
+      ["wait", 10],
+      ["key", "n", 2],
+      ["shot", "compose"],
+      ["key", "\r", 6],
+      ["shot", "after-editor"]
+    ]
+  },
+  "agents": {
+    "signedIn": true,
+    "env": {
+      "GG_TAKE_COMMAND": "{here}\\fake-claude.cmd",
+      "GG_SCREENSHOT_GG": "{gg}",
+      "GG_SCREENSHOT_COUNT": "{root}\\agents",
+      "PYTHONUTF8": "1"
+    },
+    "steps": [
+      ["wait", 10],
+      ["key", "\u0007", 1],
+      ["key", "+", 2],
+      ["shot", "mux-new-agent"],
+      ["key", "\r", 6],
+      ["shot", "mux-agent"],
+      ["key", "\u0007", 1],
+      ["key", "0", 2],
+      ["shot", "mux-column"]
+    ]
+  }
+}

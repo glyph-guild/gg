@@ -1,0 +1,51 @@
+name: Windows console probe
+
+# WHAT THE CONSOLE DOES ON WINDOWS, recorded rather than asserted. The release
+# builds win-x64 and checks only that it prints its version; nobody has opened
+# the console there. This job opens it inside a ConPTY against a fake control
+# plane, presses the keys a person would, and keeps every screen it draws.
+#
+# A PROBE, NOT A GATE. It is not part of the CI check, and a console that
+# crashes is a finding written to the job summary, not a failed job. The job
+# fails only when the probe itself could not look.
+on:
+  workflow_dispatch:
+  push:
+    branches: [windows-console-probe]
+    paths:
+      - .github/workflows/windows-console-probe.yml
+      - scripts/windows-console-probe/**
+      - Gg.Console/**
+      - Gg.Cli/**
+
+jobs:
+  probe:
+    name: probe the console
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      # IN BASH, as in publish-cli.yml: pwsh hands a .sh to Git for Windows
+      # detached, and the step passes having fetched nothing.
+      - name: The pinned SIPSorcery fork
+        shell: bash
+        run: ./scripts/fetch-sipsorcery.sh
+      # THE SAME BUILD A PERSON DOWNLOADS: native AOT for win-x64, as the
+      # release job makes it.
+      - name: AOT-publish gg
+        run: dotnet publish Gg.Cli -c Release -r win-x64 -o out
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the probe's terminal
+        run: python -m pip install pyte==0.8.2 pywinpty==2.0.15
+      - name: Open the console and record it
+        run: python scripts/windows-console-probe/probe.py out/gg.exe probe-out
+      - name: Keep every screen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-console-probe
+          path: probe-out

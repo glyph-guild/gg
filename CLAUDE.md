@@ -203,9 +203,9 @@ merge that does not move it publishes nothing.
 **The bump alone fails CI**, and that is the ratchet working.
 `TheHostRunbooksNameWhatExistsTests` enumerates every runbook pinned to the
 version, because a runbook pinned to another version installs something the
-fleet no longer runs. At 0.56.0 that was **seven places in three files**:
+fleet no longer runs. Only the fleet artifacts pin a version; the README installs
+the newest release, and a test holds it to that. The pinned places are:
 
-- `README.md` — four install lines
 - `deploy/pool-host/cloud-init.yaml` — the `dotnet tool install --version`, the
   `releases/download/v<ver>/gg-pool-host.tar.gz` fetch, and the final message
   telling an operator which gg the host runs

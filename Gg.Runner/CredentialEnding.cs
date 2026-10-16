@@ -67,7 +67,7 @@ public sealed record CredentialEnding(string Said, int Exit)
             { } ends => new CredentialEnding(
                 "The control plane refused this runner's credential, which does not expire "
               + $"until {ends:yyyy-MM-dd HH:mm}Z, so someone revoked it or retired this runner, "
-              + "and this runner stopped. Run gg runners to see whether it was retired.", Refused),
+              + "and this runner stopped. Run gg runners to check this machine's status.", Refused),
 
             // NOT GUESSED. Said as what it is - a 401 this runner cannot
             // explain - so a reader is told the platform does not know rather
@@ -75,7 +75,7 @@ public sealed record CredentialEnding(string Said, int Exit)
             null => new CredentialEnding(
                 "The control plane refused this runner's credential, and this runner has no "
               + "record of when it expires, so it cannot tell whether the credential ended or "
-              + "was revoked. This runner stopped. Run gg runners to see whether it was retired.", Refused),
+              + "was revoked. This runner stopped. Run gg runners to check this machine's status.", Refused),
         };
     }
 }

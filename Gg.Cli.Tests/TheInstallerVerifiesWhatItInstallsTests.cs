@@ -566,6 +566,24 @@ public class TheInstallerVerifiesWhatItInstallsTests
     }
 
     [Test]
+    public async Task Neither_the_windows_installer_nor_the_readme_says_the_console_is_missing()
+    {
+        // THE CONSOLE OPENS ON WINDOWS (0.88.45), and the agent column and the hosted editor
+        // work there. The Windows installer told every person who ran it otherwise, at the end
+        // of the install, and the README's install section said the same.
+        var installer = await File.ReadAllTextAsync(Path.Combine(RepoRoot(), "deploy", "install.ps1"));
+        var readme = await File.ReadAllTextAsync(Path.Combine(RepoRoot(), "README.md"));
+
+        foreach (var (name, text) in new[] { ("install.ps1", installer), ("README.md", readme) })
+        {
+            await Assert.That(text).DoesNotContain("is the command line")
+                .Because($"{name} would tell a person on Windows that gg has no console, which is no longer true.");
+            await Assert.That(text).DoesNotContain("not written yet")
+                .Because($"{name} would tell a person on Windows that the console is still to come.");
+        }
+    }
+
+    [Test]
     public async Task The_windows_installer_makes_no_runner_and_verifies_what_it_unpacks()
     {
         // ASSERTED OVER ITS SOURCE, because a PowerShell script cannot be run

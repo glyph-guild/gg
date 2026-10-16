@@ -98,6 +98,6 @@ public class NarrowingParseTests
 
         await Assert.That(parsed.Narrowing).IsNull();
         await Assert.That(parsed.Diagnosis).Contains("provenance");
-        await Assert.That(parsed.Diagnosis).Contains("not yours to set");
+        await Assert.That(parsed.Diagnosis).Contains("cannot be set in a document");
     }
 }

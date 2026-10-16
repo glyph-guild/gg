@@ -38,7 +38,7 @@ public class WaitingKindRenderTests
     private static Reason Waiting() =>
         Reason.For(ReasonKinds.NoRunnerAdvertises, ["environment=aspire-payments"]);
 
-    private const string Sentence = "waiting: no runner advertises environment=aspire-payments";
+    private const string Sentence = "No runner advertises environment=aspire-payments, so this is waiting.";
 
     [Test]
     public async Task The_listing_derives_the_waiting_sentence_from_the_kind()

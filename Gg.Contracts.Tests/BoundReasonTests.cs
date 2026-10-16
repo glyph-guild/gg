@@ -50,9 +50,9 @@ public class BoundReasonTests
         var sentence = Reason.Sentence(
             ReasonKinds.BlockedByBound, ["pool-maximum", BoundClearings.Capacity]);
 
-        await Assert.That(sentence).Contains("declined by your own bound");
+        await Assert.That(sentence).Contains("this organisation's own bound");
         await Assert.That(sentence).Contains("pool-maximum");
-        await Assert.That(sentence).Contains("peer flight releases")
+        await Assert.That(sentence).Contains("another flight under that bound releases")
             .Because("the remedy is the sentence's other half: a capacity bound clears "
                    + "itself, and a person who reads this buys no hardware.");
     }

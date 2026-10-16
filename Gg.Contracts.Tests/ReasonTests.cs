@@ -43,18 +43,19 @@ public class ReasonTests
     }
 
     [Test]
-    public async Task The_waiting_sentence_is_derived_and_byte_compatible()
+    public async Task The_waiting_sentence_is_derived_and_says_what_to_do()
     {
         var sentence = Reason.Sentence(
             ReasonKinds.NoRunnerAdvertises, ["environment=aspire-payments"]);
 
         await Assert.That(sentence)
-            .IsEqualTo("waiting: no runner advertises environment=aspire-payments")
-            .Because("the wording every surface and script already asserts - the kind "
-                   + "arrives under the sentence, not instead of it.");
+            .IsEqualTo("No runner advertises environment=aspire-payments, so this is waiting. "
+                     + "Start a runner that advertises it.")
+            .Because("a full sentence: what is missing, that it waits, and what to start.");
 
         await Assert.That(Reason.Sentence(ReasonKinds.NoRunnerAdvertises, ["a=1", "b=2"]))
-            .IsEqualTo("waiting: no runner advertises a=1, b=2");
+            .IsEqualTo("No runner advertises a=1, b=2, so this is waiting. "
+                     + "Start a runner that advertises them.");
     }
 
     [Test]
@@ -69,7 +70,7 @@ public class ReasonTests
 
         var floor = Reason.Sentence(ReasonKinds.RegistrationIsAWidening, ["airspace.repositories"]);
         await Assert.That(floor).Contains("airspace.repositories");
-        await Assert.That(floor).Contains("/v1/envelope")
+        await Assert.That(floor).Contains("gg envelope apply")
             .Because("the refusal points at the door that fixes it: the floor first.");
 
         var uncharted = Reason.Sentence(ReasonKinds.Uncharted, ["never-charted"]);

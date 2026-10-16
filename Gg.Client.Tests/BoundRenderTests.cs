@@ -43,7 +43,7 @@ public class BoundRenderTests
                 ReasonKinds.BlockedByBound, ["pool-maximum", BoundClearings.Capacity]))],
         }));
 
-        await Assert.That(text).Contains("declined by your own bound");
+        await Assert.That(text).Contains("this organisation's own bound");
         await Assert.That(text).Contains("pool-maximum");
         await Assert.That(text).DoesNotContain("no runner advertises")
             .Because("the two are the same silence with opposite remedies, and this one's "
@@ -94,7 +94,7 @@ public class BoundRenderTests
             ],
         }));
 
-        await Assert.That(text).Contains("declined by your own bound");
+        await Assert.That(text).Contains("this organisation's own bound");
         await Assert.That(text).DoesNotContain("capability gap")
             .Because("the satisfier word is the checklist's own decline marker, not the "
                    + "gap's clothes.");

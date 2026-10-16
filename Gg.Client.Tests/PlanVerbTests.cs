@@ -60,7 +60,7 @@ public class PlanVerbTests
         await Assert.That(text).Contains("nobody: declared capability gap")
             .Because("a gap is a fact about the fleet, and 'nobody' is the honest satisfier.");
         await Assert.That(text).Contains("environment=aspire-payments");
-        await Assert.That(text).Contains("waiting: no runner advertises environment=aurora");
+        await Assert.That(text).Contains("No runner advertises environment=aurora, so this is waiting.");
     }
 
     [Test]

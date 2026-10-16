@@ -635,7 +635,7 @@ public sealed partial class Mux
 
             if (machines.Count == 0)
             {
-                lines.Add("No reachable machine is beating. `gg runners` lists the fleet.");
+                lines.Add("No reachable machine is online. Run gg runners to list the fleet.");
             }
 
             lines.AddRange(machines.Select((m, at) => (at == cursor ? "▸ " : "  ") + m.Name));

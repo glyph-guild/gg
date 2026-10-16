@@ -872,16 +872,16 @@ public static class Keymap
             ?
             [
                 new(KeyStroke.Char('m'), Command.ClaimRunner,
-                    context.RunnerIsClaimedByYou ? "give it up" : "claim it for yourself")
+                    context.RunnerIsClaimedByYou ? "give it up" : "claim it for the person signed in")
                 {
-                    When = "over a machine whose control plane says whose it is",
+                    When = "when the control plane says who owns the machine",
                 },
                 new(KeyStroke.Char('o'), Command.AskWhoMayClaim,
                     context.RunnerIsTheTenants
-                        ? "open it for anybody here to claim"
+                        ? "open it for anyone here to claim"
                         : "keep it for organisation work")
                 {
-                    When = "over a machine whose control plane says whose it is",
+                    When = "when the control plane says who owns the machine",
                 },
                 new(KeyStroke.Char('h'), Command.ReserveRunner,
                     context.RunnerIsReserved
@@ -953,7 +953,7 @@ public static class Keymap
             [
                 new(KeyStroke.Char('w'), Command.WatchRunner, "watch this runner")
                 {
-                    When = "while it is beating",
+                    When = "while it is online",
                 },
 
                 // BESIDE `w` AND ON `w`'s TERMS, because it is the same
@@ -975,7 +975,7 @@ public static class Keymap
                 new(KeyStroke.Char('c'), Command.ChooseCredentialRepository,
                     "give it a credential")
                 {
-                    When = "while it is beating",
+                    When = "while it is online",
                 },
             ]
             : [];
@@ -1001,11 +1001,11 @@ public static class Keymap
     private static IReadOnlyList<KeyBinding> Waking { get; } =
     [
         new(KeyStroke.Esc, Command.WakeScreen, "back to the console (so does any key)")
-            { When = "while the mark is up" },
+            { When = "while the screensaver is showing" },
         new(KeyStroke.Char(' '), Command.WakeScreen, "back to the console (so does any key)")
-            { When = "while the mark is up" },
+            { When = "while the screensaver is showing" },
         new(KeyStroke.EnterKey, Command.WakeScreen, "back to the console (so does any key)")
-            { When = "while the mark is up" },
+            { When = "while the screensaver is showing" },
 
         // AND EVERY OTHER KEY, OFF THE LINE (owner, 2026-10-10: "fix j too"). These three
         // were the only ones that woke it and the rest were swallowed, so a person pressing
@@ -1014,7 +1014,7 @@ public static class Keymap
         // would act on a screen nobody was looking at. ctrl-c stays the interrupt.
         .. AnyOtherKey().Select(key => new KeyBinding(key, Command.WakeScreen, "back to the console")
         {
-            When = "while the mark is up",
+            When = "while the screensaver is showing",
             OffTheHintLine = true,
             Untaught = true,
         }),
@@ -1047,7 +1047,7 @@ public static class Keymap
         // LOWER CASE HERE: the console's keys arrive as letters without their shift. Beside an
         // agent the mux takes H or h.
         new(KeyStroke.Char('h'), Command.ShowHistory, "history") { When = "after ctrl-g" },
-        new(KeyStroke.Control('g'), Command.ShowScreensaver, "show the mark") { When = "after ctrl-g" },
+        new(KeyStroke.Control('g'), Command.ShowScreensaver, "show the screensaver") { When = "after ctrl-g" },
         new(KeyStroke.Esc, Command.ShowGg, "stay in gg") { When = "after ctrl-g" },
     ];
 
@@ -1161,7 +1161,7 @@ public static class Keymap
                 ]
                 : [],
 
-            new(KeyStroke.TabKey, Command.FocusNextPane, "keys / environment")
+            new(KeyStroke.TabKey, Command.FocusNextPane, "next page")
             {
                 // NOT "Keys" OR "Environment", EITHER OF WHICH IS WRONG HALF
                 // THE TIME. The page draws its own strip - `[ Keys ]
@@ -1195,7 +1195,7 @@ public static class Keymap
                         // never meet this key on a gate, and the help page is
                         // where they find out it exists before the day they
                         // need it.
-                        When = "when this gate is a runner's agent-login ask",
+                        When = "when the gate asks for an agent login",
                     }]
                 : [],
             // AND NEITHER ANSWER ON A BRING-UP ASK, which is the one gate where
@@ -1289,7 +1289,7 @@ public static class Keymap
                 ? (KeyBinding[])
                 [
                     new(KeyStroke.Char('t'), Command.OpenTheTicket, "open the ticket")
-                        { When = "on a plan about a ticket a reader here can read" },
+                        { When = "on a plan about a ticket this machine can read" },
                 ]
                 : [],
 
@@ -1402,7 +1402,7 @@ public static class Keymap
                     new(KeyStroke.Char('s'), Command.LogAgentIn, "log the agent in")
                     {
                         Label = "Log in",
-                        When = "when this flight's gate is a runner's agent-login ask",
+                        When = "when the gate asks for an agent login",
                     },
                 ]
                 : [],
@@ -1493,7 +1493,7 @@ public static class Keymap
                 // view's business - so j and k, the label's stand-ins, are gone.
                 new(KeyStroke.Char(' '), Command.ToggleAudienceMachine, "pick this machine, or leave it out")
                     { When = "while the list is being read" },
-                new(KeyStroke.EnterKey, Command.ConfirmAudience, "go on")
+                new(KeyStroke.EnterKey, Command.ConfirmAudience, "continue")
                     { When = "while the list is being read" },
                 new(KeyStroke.Esc, Command.CloseModal, "close"),
             ],
@@ -1575,7 +1575,7 @@ public static class Keymap
             new(KeyStroke.Char('>'), Command.GoToNotification, "go to it") { Label = "Go to it" },
             new(KeyStroke.Char('x'), Command.DismissNotification, "dismiss it")
                 { Label = "Dismiss" },
-            new(KeyStroke.Esc, Command.CloseModal, "put them down"),
+            new(KeyStroke.Esc, Command.CloseModal, "close"),
         ],
 
         // THE TWO THINGS THAT CAN BE DONE TO A RUNNER, and the way out. `r' and
@@ -1663,7 +1663,7 @@ public static class Keymap
 
         UiMode.ConfirmOwnership =>
         [
-            new(KeyStroke.Char('y'), Command.SetOwnership, "say so"),
+            new(KeyStroke.Char('y'), Command.SetOwnership, "confirm"),
             new(KeyStroke.Esc, Command.CloseModal, "leave it as it is"),
         ],
 
@@ -1830,7 +1830,7 @@ public static class Keymap
                 ? (KeyBinding[])
                 [
                     new(KeyStroke.Char('s'), Command.LogAgentIn, "log the agent in")
-                        { When = "when this flight's gate is a runner's agent-login ask" },
+                        { When = "when the gate asks for an agent login" },
                 ]
                 : [],
             .. context.AGateWaits && !context.GateIsABringUpAsk
@@ -1868,7 +1868,7 @@ public static class Keymap
             // reader here would open a modal that could only say so.
             .. context.OverAReadableTicket
                 ? (KeyBinding[])[new(KeyStroke.Char('t'), Command.OpenTheTicket, "the ticket")
-                    { When = "when the flight names a ticket a reader here can read" }]
+                    { When = "when the flight names a ticket this machine can read" }]
                 : [],
 
             // AND THE SAME KEY WHERE THERE IS ONLY A LINK. A sweep nominates a
@@ -1879,7 +1879,7 @@ public static class Keymap
             // neither is advertised where the other would happen.
             .. context.OverALink && !context.OverAReadableTicket
                 ? (KeyBinding[])[new(KeyStroke.Char('t'), Command.OpenTheLink, "the link")
-                    { When = "when the flight names a link and no ticket a reader here can read" }]
+                    { When = "when the flight names a link and no ticket this machine can read" }]
                 : [],
 
             // THE COMMAND, THE CLIPBOARD AND THE WIRING ALL EXISTED, and three
@@ -1949,7 +1949,7 @@ public static class Keymap
             new(KeyStroke.Char('0'), Command.KeepNothing, "keep nothing back")
                 { Label = "None" },
 
-            new(KeyStroke.Esc, Command.CloseModal, "leave the floor as it is"),
+            new(KeyStroke.Esc, Command.CloseModal, "leave it as it is"),
         ],
 
         UiMode.ComposeChoice =>
@@ -2227,7 +2227,7 @@ public static class Keymap
                 // signed in to. One answer, and it is the reason they are
                 // looking at it.
                 new(KeyStroke.Char('y'), Command.SignIn, "sign in") { Label = "Sign in" },
-                new(KeyStroke.Esc, Command.CloseModal, "carry on signed out"),
+                new(KeyStroke.Esc, Command.CloseModal, "continue signed out"),
             ],
 
         _ =>
@@ -2467,14 +2467,14 @@ public static class Keymap
             // looks for the key they half remember.
             // AND NOW THE MUX'S PREFIX FIRST (slice sixty-nine): ctrl-g then 0, 1-9, + or H
             // switches, as beside an agent, and ctrl-g twice is the mark.
-            new(KeyStroke.Control('g'), Command.ArmSwitch, "switch: then 0 gg, 1-9 an agent, + new, H history")
+            new(KeyStroke.Control('g'), Command.ArmSwitch, "switch: then 0 gg, 1-9 an agent, + new, h history")
                 { OffTheHintLine = true },
             new(KeyStroke.Char('r'), Command.ToggleCredentials,
-                Closes(context, TabId.Credentials, "repositories")) { OffTheHintLine = true },
+                Closes(context, TabId.Credentials, "credentials")) { OffTheHintLine = true },
             // `p` for plan, which is the verb it calls.
             // `e` for envelope, which is the noun and the verb it calls.
             new(KeyStroke.Char('e'), Command.ToggleEnvelope,
-                Closes(context, TabId.Envelope, "envelope")) { OffTheHintLine = true },
+                Closes(context, TabId.Envelope, "airspace")) { OffTheHintLine = true },
             // ONE KEY, TWO MEANINGS, AND THE TAB DECIDES WHICH. This was two
             // booleans with an explicit precedence between them, because live
             // and browse shared a region: both flags on was a state the console
@@ -2573,7 +2573,7 @@ public static class Keymap
                     // tab over. Every letter is a tab key or is spoken for by
                     // the compose modal, and `p` may never be a tab key; `*` is
                     // bound in no mode and reads as "all" in a list.
-                    new(KeyStroke.Char('*'), Command.ShowEverybodysRows, "everybody's rows")
+                    new(KeyStroke.Char('*'), Command.ShowEverybodysRows, "everyone's rows")
                         { When = "while the board is showing" },
 
                     // THE OTHER TABLE, the intents tab's `v' one tab over: a
@@ -2657,7 +2657,7 @@ public static class Keymap
                             : "the fleet's allowances")
                     {
                         OffTheHintLine = true,
-                        When = "for an administrator whose file asked for the pane",
+                        When = "for an administrator, when the configuration sets fleet-allowances",
                     },
                 ]
                 : (KeyBinding[])[],

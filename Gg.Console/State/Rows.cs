@@ -338,7 +338,7 @@ public static class Rows
     /// </para>
     /// </remarks>
     public static IReadOnlyList<string> FactColumns { get; } =
-        ["at", "kind", "kept as", "what it says"];
+        ["at", "kind", "stored as", "what it says"];
 
     /// <summary>
     /// What the flight recorded, one row per fact, with the result first.
@@ -462,7 +462,7 @@ public static class Rows
     /// same word down every row would be width spent on nothing.
     /// </remarks>
     public static IReadOnlyList<string> NominationColumns { get; } =
-        ["subject", "for", "state", "kind", "since"];
+        ["subject", "person", "state", "kind", "age"];
 
     /// <summary>What a person reads down each column of the board's sweeps.</summary>
     /// <remarks>
@@ -472,7 +472,7 @@ public static class Rows
     /// have.
     /// </remarks>
     public static IReadOnlyList<string> SweepColumns { get; } =
-        ["watch", "state", "executor", "since", "next", "cost"];
+        ["watch", "state", "run by", "last heard", "next sweep", "opened"];
 
     /// <summary>What the plans pane shows, left to right.</summary>
     /// <remarks>
@@ -510,8 +510,8 @@ public static class Rows
         ["kind", "what it is", "state", "flight", "since"];
 
     public static IReadOnlyList<string> RunnerColumns { get; } =
-        ["", "runner", "whose", "profile", "state", "working on", "cpu", "memory",
-         "lacks", "advertises", "last heard"];
+        ["", "runner", "owner", "profile", "state", "working on", "cpu", "memory",
+         "missing", "offers", "last heard"];
 
     /// <summary>
     /// What a machine lacks, as one cell says it, or empty.
@@ -560,7 +560,7 @@ public static class Rows
         return row.Ownership switch
         {
             RunnerOwnerships.Tenant => "organisation's",
-            RunnerOwnerships.Open => "open",
+            RunnerOwnerships.Open => "unclaimed",
             RunnerOwnerships.Claimed when row.Owner is { Length: > 0 } owner =>
                 $"{owner}'s{(row.Reserved ? ", reserved" : "")}",
             RunnerOwnerships.Claimed => $"claimed{(row.Reserved ? ", reserved" : "")}",
@@ -629,7 +629,7 @@ public static class Rows
     /// </para>
     /// </remarks>
     public static IReadOnlyList<string> CredentialColumns { get; } =
-        ["credential", "grants", "here", "who can open it"];
+        ["credential", "grants", "on this machine", "who can open it"];
 
     /// <summary>
     /// One filter tab's columns: the mark, and the value.
@@ -1578,7 +1578,7 @@ public static class Rows
                 // knows they are choosing a machine rather than answering one.
                 _ => row.Through is { Length: > 0 }
                     ? "declared by its host"
-                    : "not declared - online, and yours to pick",
+                    : "not declared, online, and free to pick",
             }
             : row.Through is { Length: > 0 } host
                 ? $"not reached: a member of {host}, which has no profile of its own. "
@@ -1687,7 +1687,7 @@ public static class Rows
         return unnamed == 0
             ? string.Join(", ", named)
             : named.Count == 0
-                ? $"{unnamed} nobody here can name"
+                ? $"{unnamed} unnamed"
                 : string.Join(", ", named) + $", and {unnamed} more";
     }
 

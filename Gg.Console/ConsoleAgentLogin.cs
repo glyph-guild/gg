@@ -87,9 +87,8 @@ public static class ConsoleAgentLogin
             return state with
             {
                 LastCredential =
-                    $"{runner.Label} is not beating, so the ceremony cannot be started on it. "
-                  + "The login runs on that machine and an introduction is picked up on a "
-                  + "heartbeat. Start it and try again.",
+                    $"{runner.Label} is offline, so the agent login cannot be started on it. "
+                  + "Start it and try again.",
             };
         }
 

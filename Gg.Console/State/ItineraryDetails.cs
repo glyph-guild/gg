@@ -262,7 +262,7 @@ public static class ItineraryDetails
 
         if (Under(state) is not { } plan)
         {
-            return "no plan is open.";
+            return "No plan is open.";
         }
 
         var text = new StringBuilder();

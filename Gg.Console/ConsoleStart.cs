@@ -572,7 +572,7 @@ public static class ConsoleStart
             return start with
             {
                 Diagnosis = signedOut
-                    ? "Nobody is signed in here, so nothing could be read."
+                    ? "No one is signed in here, so nothing could be read."
                     : failure.Message,
                 Mode = signedOut ? UiMode.SignIn : start.Mode,
             };

@@ -94,8 +94,8 @@ public static class ConsoleSendCredential
             return state with
             {
                 LastCredential =
-                    $"{row.Label} is not beating, so nothing can be handed to it. An "
-                  + "introduction is picked up on a heartbeat. Start it and try again.",
+                    $"{row.Label} is offline, so nothing can be handed to it. Start it and "
+                  + "try again.",
             };
         }
 

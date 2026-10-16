@@ -2049,7 +2049,7 @@ public static class PaneText
                 EvidenceDispositions.Reference =>
                     $"  {item.Reference!.Path} @ {Short(item.Reference.Commit)} "
                   + $"({item.Reference.ByteSize} bytes, {item.Reference.MediaType}) "
-                  + "- not fetched; open it yourself",
+                  + "- not fetched; open it from its repository",
 
                 _ => throw new InvalidOperationException(
                     $"Evidence disposition '{item.Disposition}' has no rendering. An item "
@@ -2339,7 +2339,7 @@ public static class PaneText
             // sends somebody to the right place, where "1 item" sends them
             // into a modal to find out.
             var lacks = Rows.Lacking(row) is { Count: > 0 } missing
-                ? $"  lacks {string.Join(", ", missing)}"
+                ? $"  missing {string.Join(", ", missing)}"
                 : "";
 
             text.AppendLine(
@@ -2861,16 +2861,16 @@ public static class PaneText
         var name = row.Label is { Length: > 0 } label ? label : row.Id;
 
         return row.Ownership == RunnerOwnerships.Tenant
-            ? $"{name} is kept for organisation work: nobody may claim it.\n\n"
+            ? $"{name} is kept for organisation work: no one may claim it.\n\n"
             + "Opening it lets any person in this organisation claim it, and that person "
             + "may then keep it for their own flights."
             : row.Ownership == RunnerOwnerships.Claimed
                 ? $"{name} is {(row.Owner is { Length: > 0 } who ? who + "'s" : "claimed")}"
                 + (row.Reserved ? ", and reserved to their flights" : "") + ".\n\n"
                 + "Keeping it for organisation work removes the claim and any reservation, and "
-                + "nobody may claim it again until an admin opens it."
+                + "no one may claim it again until an admin opens it."
                 : $"{name} is open for any person in this organisation to claim.\n\n"
-                + "Keeping it for organisation work means nobody may claim it, and it takes "
+                + "Keeping it for organisation work means no one may claim it, and it takes "
                 + "organisation work only.";
     }
 
@@ -3294,7 +3294,7 @@ public static class PaneText
         // whether it is worth a flight.
         UiMode.BoardDetail => "this row",
         UiMode.ItineraryDetail => "this plan",
-        UiMode.SignIn => "nobody is signed in",
+        UiMode.SignIn => "no one is signed in",
         UiMode.FloorChoice => "how much to keep back",
         UiMode.ComposeChoice => "how should this flight be written?",
         UiMode.WorkKindChoice => "what is this flight for?",
@@ -3841,7 +3841,7 @@ public static class PaneText
             return text.ToString().TrimEnd();
         }
 
-        text.AppendLine("Nobody is signed in on this machine, so there is nothing to show.");
+        text.AppendLine("No one is signed in on this machine, so there is nothing to show.");
         text.AppendLine();
         text.AppendLine("Signing in shows a code to type into a browser.");
 
@@ -4084,7 +4084,7 @@ public static class PaneText
             ],
             { Kind: NotificationKind.NotOpened } refused =>
             [
-                Clean(refused.Said ?? "the door did not say why"),
+                Clean(refused.Said ?? "the control plane did not say why"),
             ],
             { } other => throw new ArgumentOutOfRangeException(
                 nameof(state), other.Kind, "unknown notification"),
@@ -4316,21 +4316,47 @@ public static class PaneText
     /// </remarks>
     public static string ModeHeading(UiMode mode) => mode switch
     {
+        // EVERY MODE HAS ONE. The help page's folds are titled from here, and a
+        // mode missing from this switch was titled with its enum name, lower
+        // cased - "while flightactions is open".
+        UiMode.Normal => "always",
         UiMode.Help => "while this page is open",
         UiMode.FlightActions => "while the actions list is open",
-        UiMode.AirspaceActions => "while the airspace actions are open",
-        UiMode.CredentialActions => "while the credential actions are open",
-        UiMode.CredentialAudience => "while a broadcast is being reviewed",
+        UiMode.FlightDetail => "while a flight is open",
+        UiMode.Runner => "while a runner is open",
+        UiMode.HandFlight => "after flying by hand",
         UiMode.ConfirmFlight => "when asked whether to open a second flight",
         UiMode.ConfirmGround => "when asked whether to ground a flight",
-        UiMode.ModelChoice => "when asked which model to move a flight to",
-        UiMode.ConfirmOwnership => "when asked who may claim a machine",
+        UiMode.ConfirmApply => "when asked whether to apply the airspace",
+        UiMode.BrowseFind => "while going to or finding a work item",
+        UiMode.AirspacePath => "when asked where the airspace is",
+        UiMode.ReadingEnvelope => "while reading the rules in force",
+        UiMode.ReadingChangeset => "while reading what would change",
+        UiMode.ReadingOutcome => "while reading what the apply came to",
+        UiMode.ReadingSaid => "while reading the whole message",
+        UiMode.AirspaceActions => "while the airspace actions are open",
+        UiMode.CredentialActions => "while the credential actions are open",
+        UiMode.CredentialAudience => "while choosing which machines get a credential",
+        UiMode.CredentialWhereabouts => "while reading where a credential is",
+        UiMode.ConfirmRetire => "when asked whether to retire names",
         UiMode.FleetTokens => "while reading enrollment tokens",
-        UiMode.ConfirmRevoke => "when asked whether to revoke one",
-        UiMode.ConfirmFlyAgain => "when asked whether to fly one again",
+        UiMode.ConfirmRevoke => "when asked whether to revoke a token",
+        UiMode.ConfirmOwnership => "when asked who may claim a machine",
+        UiMode.ConfirmFlyAgain => "when asked whether to fly a flight again",
         UiMode.GateDecision => "while answering a gate",
         UiMode.BoardDetail => "while a board row is open",
+        UiMode.SignIn => "while signing in",
+        UiMode.ComposeChoice => "when asked how to write a flight",
+        UiMode.WorkKindChoice => "when asked what a flight is for",
+        UiMode.CredentialRepositoryChoice => "when asked which credential to send",
+        UiMode.ModelChoice => "when asked which model to move a flight to",
+        UiMode.BrowseFilter => "while narrowing the work list",
+        UiMode.WorkItemDetail => "while a work item is open",
+        UiMode.FloorChoice => "when asked how much to keep back",
+        UiMode.Notifications => "while reading notifications",
+        UiMode.Watching => "while watching",
         UiMode.ItineraryDetail => "while a plan is open",
+        UiMode.CredentialWizard => "while adding a credential",
         _ => "",
     };
 
@@ -4468,7 +4494,7 @@ public static class PaneText
             // broadcast that worked, and the usual cause - no fleet profile declares it -
             // is a thing a person can go and fix.
             return $"  No machine is online to send {about} to, and nothing in this organisation\n"
-                 + "  declares it needs one. There is nobody to send it to.\n\n"
+                 + "  declares it needs one. There is no one to send it to.\n\n"
                  + "  Fleet profiles are what declare a need; `gg airspace pull` writes them\n"
                  + "  out, and the airspace tab applies them.\n";
         }

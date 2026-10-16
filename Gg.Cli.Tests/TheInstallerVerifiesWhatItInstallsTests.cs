@@ -281,21 +281,150 @@ public class TheInstallerVerifiesWhatItInstallsTests
     }
 
     [Test]
-    public async Task A_version_is_always_named_and_a_first_install_names_its_control_plane()
+    public async Task What_can_be_refused_without_a_download_is_refused_before_one()
     {
+        // A VERSION WAS ONCE REQUIRED, and this test held the refusal. The owner
+        // reversed that (2026-10-15): without --version the script installs the
+        // newest release. What stays is the order - a refusal the script could
+        // make on its own is made before anything is fetched, the lookup of the
+        // newest release included.
         using var box = new Sandbox();
         box.Attest(box.Release("0.38.0"));
+        box.Latest("0.38.0");
 
-        var unnamed = await box.RunAsync("--control-plane", ControlPlane);
-        await Assert.That(unnamed.Exit).IsNotEqualTo(0);
-        await Assert.That(unnamed.Output).Contains("--version");
+        var refused = await box.RunAsync("--keep", "some", "--control-plane", ControlPlane);
+        await Assert.That(refused.Exit).IsNotEqualTo(0);
+        await Assert.That(refused.Output).Contains("--keep");
 
-        // AND A FIRST INSTALL NO LONGER REFUSES WITHOUT ONE, because a laptop
-        // is a first install too and has no control plane to name at install
-        // time. What --control-plane decides now is whether this machine
+        // AND A FIRST INSTALL DOES NOT REFUSE WITHOUT A CONTROL PLANE, because a
+        // laptop is a first install too and has no control plane to name at
+        // install time. What --control-plane decides is whether this machine
         // becomes a RUNNER; the test below holds that half.
         await Assert.That(box.Downloads()).IsEmpty()
             .Because("a refusal the script could make before downloading is made before downloading.");
+    }
+
+    [Test]
+    public async Task Without_a_version_it_installs_the_newest_release_and_says_which()
+    {
+        // OWNER, 2026-10-15: the one-line install takes no version. The newest
+        // release is read from where the forge redirects `releases/latest`, which
+        // is always a gg release because the contracts workflow publishes with
+        // --latest=false (ContractsAreNeverLatestTests). The attestation check
+        // that follows is the same one a named version gets.
+        using var box = new Sandbox();
+        box.Attest(box.Release("9.9.9"));
+        box.Latest("9.9.9");
+
+        var installed = await box.RunAsync();
+
+        await Assert.That(installed.Exit).IsEqualTo(0).Because(installed.Output);
+        await Assert.That(installed.Output).Contains("installing the newest release, v9.9.9")
+            .Because("a person who named no version is told which one they got.");
+        await Assert.That(File.Exists(Path.Combine(box.Lib("9.9.9"), "gg"))).IsTrue();
+        await Assert.That(box.Link()).IsEqualTo("/usr/local/lib/gg/9.9.9/gg");
+        await Assert.That(box.Downloads())
+            .Contains(url => url.EndsWith("/releases/latest", StringComparison.Ordinal));
+        await Assert.That(box.Downloads())
+            .Contains(url => url.EndsWith("/download/v9.9.9/gg-linux-x64.tar.gz", StringComparison.Ordinal));
+        await Assert.That(box.Downloads())
+            .Contains(url => url.Contains("/attestations/sha256:", StringComparison.Ordinal))
+            .Because("the newest release is checked against its attestation like any other.");
+    }
+
+    [Test]
+    [Arguments("")]
+    [Arguments("releases")]
+    [Arguments("releases/tag/v1.0;rm")]
+    public async Task When_the_newest_release_cannot_be_found_nothing_is_installed(string answer)
+    {
+        // "" is a lookup that fails outright; the others are pages that name no
+        // version. Each is refused before anything is written, and the refusal
+        // names the flag that gets past it.
+        using var box = new Sandbox();
+        box.Attest(box.Release("9.9.9"));
+
+        if (answer.Length > 0)
+        {
+            box.LatestAnswers(answer);
+        }
+
+        var refused = await box.RunAsync("--control-plane", ControlPlane);
+
+        await Assert.That(refused.Exit).IsNotEqualTo(0).Because(refused.Output);
+        await Assert.That(refused.Output).Contains("--version");
+        await Assert.That(refused.Output).Contains("Nothing was installed");
+        await Assert.That(box.RootEntries()).IsEmpty()
+            .Because("a lookup that failed changes nothing on the machine.");
+        await Assert.That(box.GgArguments()).IsEmpty();
+        await Assert.That(box.Downloads())
+            .DoesNotContain(url => url.Contains("/download/", StringComparison.Ordinal));
+    }
+
+    [Test]
+    [Arguments(0.5)]
+    [Arguments(0.75)]
+    [Arguments(0.9)]
+    [Arguments(0.98)]
+    public async Task A_script_cut_off_in_transit_runs_nothing(double fraction)
+    {
+        // `curl | sudo sh` HANDS THE SHELL WHATEVER ARRIVED. A shell runs a
+        // script's top-level commands as it reads them, so a download cut off
+        // part way ran the first part as root - here, the half that installs and
+        // links a release without the half that sets up its service. The whole
+        // body is a function called on the last line, so a cut anywhere leaves
+        // either a syntax error or definitions that nothing calls.
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.42.0"));
+
+        var cut = await box.RunPipedAsync(fraction, "--version", "0.42.0", "--control-plane", ControlPlane);
+
+        await Assert.That(box.RootEntries()).IsEmpty().Because(cut.Output);
+        await Assert.That(box.Downloads()).IsEmpty().Because(cut.Output);
+        await Assert.That(box.Probes()).IsEmpty()
+            .Because("not even the platform check runs from a script that did not fully arrive.");
+        await Assert.That(box.GgArguments()).IsEmpty();
+    }
+
+    [Test]
+    public async Task The_whole_script_piped_into_a_shell_installs()
+    {
+        // THE CONTROL for the test above: the same pipe, with the whole file,
+        // does install - so an empty machine there is the cut, not the harness.
+        using var box = new Sandbox();
+        box.Attest(box.Release("0.42.0"));
+
+        var whole = await box.RunPipedAsync(1.0, "--version", "0.42.0", "--control-plane", ControlPlane);
+
+        await Assert.That(whole.Exit).IsEqualTo(0).Because(whole.Output);
+        await Assert.That(box.Link()).IsEqualTo("/usr/local/lib/gg/0.42.0/gg");
+        await Assert.That(box.GgArguments())
+            .IsEquivalentTo((string[])[$"service install --control-plane {ControlPlane}"]);
+
+        var last = (await File.ReadAllLinesAsync(Script())).Last(l => l.Trim().Length > 0);
+        await Assert.That(last).IsEqualTo("main \"$@\"")
+            .Because("the call that runs the script is the last thing to arrive.");
+    }
+
+    [Test]
+    public async Task The_windows_installer_takes_the_newest_release_and_runs_only_when_complete()
+    {
+        // OVER ITS SOURCE, for the reason the test above it gives: this suite
+        // cannot run PowerShell on a Windows machine. `irm | iex` hands the
+        // whole text to iex, which parses before it runs, but the scriptblock
+        // form and a saved copy are run the same way, so the body is a function
+        // called on the last line here too.
+        var script = await File.ReadAllTextAsync(
+            Path.Combine(RepoRoot(), "deploy", "install.ps1"));
+
+        await Assert.That(script).DoesNotContain("Mandatory = $true")
+            .Because("-Version is optional; without it the newest release is installed.");
+        await Assert.That(script).Contains("/releases/latest");
+        await Assert.That(script).Contains("Nothing was installed");
+
+        var last = script.Split('\n').Last(l => l.Trim().Length > 0).Trim();
+        await Assert.That(last).IsEqualTo("Install-Gg @PSBoundParameters")
+            .Because("the call that runs the script is the last thing to arrive.");
     }
 
     [Test]
@@ -328,7 +457,9 @@ public class TheInstallerVerifiesWhatItInstallsTests
         await Assert.That(System.Text.RegularExpressions.Regex.IsMatch(text, @"(^|[\s;|&])cp\s"))
             .IsFalse().Because("bytes copied over a binary macOS has already validated get the next "
                              + "run killed with no output; a rename gives it a new inode.");
-        await Assert.That(text).DoesNotContain("latest");
+        // IT USED TO ASSERT THE WORD "latest" WAS ABSENT. Since 2026-10-15 the
+        // script resolves the newest release when no --version is given; the
+        // behaviour is held by the tests that run it without one.
         await Assert.That(text).Contains(ServiceInstaller.Manifest);
     }
 
@@ -908,12 +1039,16 @@ public class TheInstallerVerifiesWhatItInstallsTests
                 while [ $# -gt 0 ]; do
                   case "$1" in
                     -o) out="$2"; shift 2 ;;
+                    -w) shift 2 ;;
                     -*) shift ;;
                     *) url="$1"; shift ;;
                   esac
                 done
                 printf '%s\n' "$url" >> "$STUB_DIR/log/curl"
                 case "$url" in
+                  */releases/latest)
+                    [ -f "$STUB_DIR/latest" ] || exit 22
+                    printf '%s/%s' "${url%/latest}" "$(cat "$STUB_DIR/latest")" ;;
                   */attestations/*)
                     f="$STUB_DIR/attestations/${url##*/attestations/}"
                     [ -f "$f" ] || exit 22
@@ -932,6 +1067,7 @@ public class TheInstallerVerifiesWhatItInstallsTests
             // would be refused before anything under test ran.
             Stub("uname", """
                 #!/bin/sh
+                printf '%s\n' "$*" >> "$STUB_DIR/log/uname"
                 case "$1" in
                   -s) echo Linux ;;
                   -m) echo x86_64 ;;
@@ -1015,6 +1151,7 @@ public class TheInstallerVerifiesWhatItInstallsTests
         public void Uname(string kernel, string machine) =>
             Stub("uname", $$"""
                 #!/bin/sh
+                printf '%s\n' "$*" >> "$STUB_DIR/log/uname"
                 case "$1" in
                   -s) echo {{kernel}} ;;
                   -m) echo {{machine}} ;;
@@ -1032,6 +1169,20 @@ public class TheInstallerVerifiesWhatItInstallsTests
                 esac
                 exit 2
                 """);
+
+        /// <summary>What the forge's redirect for the newest release lands on: that version's tag page.</summary>
+        public void Latest(string version) => LatestAnswers($"tag/v{version}");
+
+        /// <summary>The newest-release lookup lands on this path under the releases page.</summary>
+        public void LatestAnswers(string path) =>
+            System.IO.File.WriteAllText(Path.Combine(_dir, "latest"), path);
+
+        /// <summary>Everything the run wrote under the root it was given.</summary>
+        public IReadOnlyList<string> RootEntries() =>
+            [.. Directory.EnumerateFileSystemEntries(Root, "*", SearchOption.AllDirectories)];
+
+        /// <summary>Every time the script asked what platform it is on.</summary>
+        public IReadOnlyList<string> Probes() => Lines("uname");
 
         public IReadOnlyList<string> Downloads() => Lines("curl");
 
@@ -1093,6 +1244,59 @@ public class TheInstallerVerifiesWhatItInstallsTests
 
             var output = process.StandardOutput.ReadToEndAsync();
             var error = process.StandardError.ReadToEndAsync();
+
+            using var patience = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+            await process.WaitForExitAsync(patience.Token);
+
+            return (process.ExitCode, await output + await error);
+        }
+
+        /// <summary>
+        /// The first <paramref name="fraction"/> of the script's lines on a shell's
+        /// stdin, as `curl | sudo sh -s --` hands it over when the download stops there.
+        /// </summary>
+        public async Task<(int Exit, string Output)> RunPipedAsync(double fraction, params string[] arguments)
+        {
+            var lines = await System.IO.File.ReadAllLinesAsync(Script());
+            var kept = fraction >= 1.0 ? lines.Length : (int)(lines.Length * fraction);
+            var text = string.Join("\n", lines.Take(kept)) + "\n";
+
+            var start = new ProcessStartInfo("/bin/sh")
+            {
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            };
+
+            start.ArgumentList.Add("-s");
+            start.ArgumentList.Add("--");
+            start.ArgumentList.Add("--root");
+            start.ArgumentList.Add(Root);
+
+            foreach (var argument in arguments)
+            {
+                start.ArgumentList.Add(argument);
+            }
+
+            start.Environment.Clear();
+            start.Environment["PATH"] = Stubs;
+            start.Environment["HOME"] = _dir;
+            start.Environment["STUB_DIR"] = _dir;
+
+            using var process = Process.Start(start)!;
+            var output = process.StandardOutput.ReadToEndAsync();
+            var error = process.StandardError.ReadToEndAsync();
+
+            try
+            {
+                await process.StandardInput.WriteAsync(text);
+                process.StandardInput.Close();
+            }
+            catch (IOException)
+            {
+                // The shell stopped reading - a syntax error at the cut does that.
+            }
 
             using var patience = new CancellationTokenSource(TimeSpan.FromSeconds(60));
             await process.WaitForExitAsync(patience.Token);

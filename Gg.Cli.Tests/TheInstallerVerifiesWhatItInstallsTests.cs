@@ -243,7 +243,7 @@ public class TheInstallerVerifiesWhatItInstallsTests
             .Because("ordered by number, not as text.");
         await Assert.That(Directory.Exists(box.Lib("0.11.0"))).IsTrue();
         await Assert.That(Directory.Exists(box.Lib("0.12.0"))).IsTrue();
-        await Assert.That(last.Output).Contains("removed older releases 0.9.0");
+        await Assert.That(last.Output).Contains("Removed older releases 0.9.0");
 
         await Assert.That(System.IO.File.Exists(Path.Combine(lib, "gg"))).IsTrue()
             .Because("the dotnet tool shape lives here too, and only a directory named as a "
@@ -274,7 +274,7 @@ public class TheInstallerVerifiesWhatItInstallsTests
         await Assert.That(Directory.Exists(box.Lib("0.10.0"))).IsTrue()
             .Because("the release the link pointed at before is the way back, however old.");
         await Assert.That(Directory.Exists(box.Lib("0.12.0"))).IsTrue();
-        await Assert.That(down.Output).DoesNotContain("removed older releases");
+        await Assert.That(down.Output).DoesNotContain("Removed older releases");
 
         var refused = await box.RunAsync("--version", "0.9.0", "--keep", "some");
         await Assert.That(refused.Exit).IsNotEqualTo(0);
@@ -319,7 +319,7 @@ public class TheInstallerVerifiesWhatItInstallsTests
         var installed = await box.RunAsync();
 
         await Assert.That(installed.Exit).IsEqualTo(0).Because(installed.Output);
-        await Assert.That(installed.Output).Contains("installing the newest release, v9.9.9")
+        await Assert.That(installed.Output).Contains("Installing the newest release, v9.9.9")
             .Because("a person who named no version is told which one they got.");
         await Assert.That(File.Exists(Path.Combine(box.Lib("9.9.9"), "gg"))).IsTrue();
         await Assert.That(box.Link()).IsEqualTo("/usr/local/lib/gg/9.9.9/gg");
@@ -959,9 +959,9 @@ public class TheInstallerVerifiesWhatItInstallsTests
             .Contains(a => a.Contains("--progress-bar", StringComparison.Ordinal)
                         && a.Contains("/download/v0.38.0/gg-linux-x64.tar.gz", StringComparison.Ordinal))
             .Because("curl draws its own bar on the terminal it was given.");
-        await Assert.That(run.Output).Contains("downloading gg-linux-x64.tar.gz", StringComparison.Ordinal);
-        await Assert.That(run.Output).Contains("checking it against", StringComparison.Ordinal);
-        await Assert.That(run.Output).Contains("installing v0.38.0", StringComparison.Ordinal);
+        await Assert.That(run.Output).Contains("Downloading gg-linux-x64.tar.gz", StringComparison.Ordinal);
+        await Assert.That(run.Output).Contains("Checking it against", StringComparison.Ordinal);
+        await Assert.That(run.Output).Contains("Installing v0.38.0", StringComparison.Ordinal);
     }
 
     [Test]
@@ -977,7 +977,7 @@ public class TheInstallerVerifiesWhatItInstallsTests
         await Assert.That(run.Exit).IsEqualTo(0).Because(run.Output);
         await Assert.That(box.DownloadArguments())
             .DoesNotContain(a => a.Contains("--progress-bar", StringComparison.Ordinal));
-        await Assert.That(run.Output).DoesNotContain("downloading", StringComparison.Ordinal);
+        await Assert.That(run.Output).DoesNotContain("Downloading", StringComparison.Ordinal);
     }
 
     private sealed class Sandbox : IDisposable

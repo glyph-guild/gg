@@ -194,7 +194,7 @@ public class TheMaintainerSaysWhyItStoppedTests
 
         var said = string.Join(" ", ran.Said);
 
-        await Assert.That(said).Contains("not known")
+        await Assert.That(said).Contains("cannot tell whether the credential ended or was revoked")
             .Because("inferring 'expired' would tell somebody nothing is wrong when a "
                    + "credential may have been taken away.");
         await Assert.That(ran.Exit).IsNotEqualTo(0);

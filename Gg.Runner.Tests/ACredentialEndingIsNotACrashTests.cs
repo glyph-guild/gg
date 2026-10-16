@@ -122,7 +122,7 @@ public class ACredentialEndingIsNotACrashTests
         var (exit, observer) = await RefusedAsync(credentialExpires: null);
 
         await Assert.That(exit).IsNotEqualTo(0);
-        await Assert.That(string.Join(" ", observer.Events)).Contains("401");
+        await Assert.That(string.Join(" ", observer.Events)).Contains("cannot tell whether the credential ended or was revoked");
     }
 
     [Test]

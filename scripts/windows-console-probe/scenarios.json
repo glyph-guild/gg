@@ -99,7 +99,9 @@
       ["key", "0", 2],
       ["shot", "mux-column"],
       ["key", "q", 3],
-      ["shot", "after-q"]
+      ["shot", "after-q"],
+      ["key", "q", 3],
+      ["shot", "after-second-q"]
     ]
   }
 }

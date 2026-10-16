@@ -43,8 +43,8 @@ public sealed class EnvelopeCommands(ControlPlaneClient client, ISessionStore se
     {
         var state = await _client.GetEnvelopeAsync(Session(), cancellationToken)
             ?? throw new NoEnvelopeException(
-                "This tenant has no envelope. Nothing governs its flights yet - write one and run "
-              + "gg envelope apply <file>.");
+                "This organisation has no envelope, so nothing governs its flights yet. Write "
+              + "one and run gg envelope apply <file>.");
 
         return new VerbResult.EnvelopeShown(state);
     }

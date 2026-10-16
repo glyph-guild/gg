@@ -49,7 +49,7 @@ internal sealed class SystemServiceHost : IServiceHost
 
         return code == 0
             ? output.Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries)
-            : throw new ServiceHostException($"could not read the groups of '{user}': {error.Trim()}");
+            : throw new ServiceHostException($"Could not read the groups of '{user}': {error.Trim()}");
     }
 
     public void CreateUser(string user, string home)
@@ -113,11 +113,11 @@ internal sealed class SystemServiceHost : IServiceHost
         }
         catch (IOException failed)
         {
-            throw new ServiceHostException($"could not remove {path}: {failed.Message}");
+            throw new ServiceHostException($"Could not remove {path}: {failed.Message}");
         }
         catch (UnauthorizedAccessException failed)
         {
-            throw new ServiceHostException($"could not remove {path}: {failed.Message}");
+            throw new ServiceHostException($"Could not remove {path}: {failed.Message}");
         }
     }
 
@@ -178,7 +178,7 @@ internal sealed class SystemServiceHost : IServiceHost
 
         if (id == 0)
         {
-            throw new ServiceHostException("no user id between 300 and 499 is free for the service user.");
+            throw new ServiceHostException("No user id between 300 and 499 is free for the service user. Name an existing user with --user instead.");
         }
 
         var number = id.ToString(System.Globalization.CultureInfo.InvariantCulture);

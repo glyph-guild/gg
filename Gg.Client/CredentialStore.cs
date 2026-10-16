@@ -320,7 +320,7 @@ public sealed class FileCredentialStore : ICredentialStore
 
             if (elsewhere > 0)
             {
-                said += $"{elsewhere} sealed to somebody else - this machine cannot open them at "
+                said += $"{elsewhere} sealed to someone else - this machine cannot open them at "
                       + "all, with or without its own key. `gg credential list` names who can, and "
                       + "`gg credential trust-this-machine <locator>` is how a holder adds this "
                       + "machine. ";
@@ -796,7 +796,7 @@ public sealed class FileCredentialStore : ICredentialStore
             throw new CredentialUnavailableException(
                 $"The credential at '{locator}' is on this machine and will not open here. "
               + refused.Message
-              + $" If it is sealed to you rather than to this machine, "
+              + $" If it is sealed to the signed-in person rather than to this machine, "
               + $"`gg credential trust-this-machine {locator}` makes this machine a holder too.");
         }
     }

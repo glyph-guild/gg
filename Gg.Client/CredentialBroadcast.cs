@@ -48,8 +48,8 @@ public static class CredentialBroadcast
         if (audience.Count == 0)
         {
             saying(
-                $"nothing in this tenant declares it needs {locator}, and no machine has reported "
-              + "it cannot resolve one, so there is nobody to send it to. "
+                $"Nothing in this organisation declares it needs {locator}, and no machine has "
+              + "reported it cannot resolve one, so there is no machine to send it to. "
               + "`gg airspace pull` shows what the fleet profiles declare; `--to <machine>` sends "
               + "it to one machine regardless.");
             return;

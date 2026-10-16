@@ -83,6 +83,6 @@ public static class Changeset
         _ => throw new InvalidOperationException(
             $"'{change.Direction}' is not a direction this build can order. A change it "
           + "cannot place cannot be applied safely, and guessing would put it in an "
-          + "interval nobody authored."),
+          + "interval no one authored. Run gg update to get a gg that knows it."),
     };
 }

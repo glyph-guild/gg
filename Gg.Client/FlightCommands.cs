@@ -431,7 +431,7 @@ public sealed class FlightCommands(
         await ItineraryAsync(reference, cancellationToken) is { } plan
             ? new VerbResult.Itineraries(plan)
             : throw new ItineraryRefusedException(
-                $"There is no plan {reference} here. gg itineraries lists the plans this tenant has.");
+                $"There is no plan {reference} here. Run gg itineraries to list this organisation's plans.");
 
     /// <summary>
     /// Answers a nomination, then reads the board to see what came of it.
@@ -478,9 +478,9 @@ public sealed class FlightCommands(
         if (string.IsNullOrEmpty(clean))
         {
             throw new DecisionRefusedException(
-                "A decision must say why. It is the only thing that survives to tell a later "
-              + "reader why a person opened work nobody had asked for, or declined work "
-              + "somebody had.");
+                "A decision must say why, and none was given, so nothing was recorded. Run it "
+              + "again with the reason last, for example gg board open <id> \"the fix is "
+              + "needed\".");
         }
 
         var token = Session();
@@ -681,7 +681,7 @@ public sealed class FlightCommands(
             ?? throw new NotSignedInException(
                 "The grant landed, and this session expired before it could be confirmed. "
               + "Run gg login and then gg whoami. Do not grant again: the first grant in a "
-              + "tenant is the only open one, and a second is refused."));
+              + "organisation is the only open one, and a second is refused."));
     }
 
     /// <summary>
@@ -1370,7 +1370,7 @@ public sealed class FlightCommands(
             // prunes at the end, so a check inside it would leave a tree half
             // rendered - the one state nobody can reason about afterwards.
             throw new EnvelopeRefusedException(
-                "The working copy holds changes nobody has applied, and pulling would "
+                "The working copy holds changes no one has applied, and pulling would "
               + "render over them:\n"
               + string.Join('\n', unapplied.Select(p => $"  {p}"))
               + "\n\nApply them with gg airspace apply, or discard them with git and pull "
@@ -1419,7 +1419,7 @@ public sealed class FlightCommands(
             throw new EnvelopeRefusedException(
                 "The working copy holds files that sit where a document goes and do not read "
               + "as one. Nothing was applied, because applying the rest would land part of a "
-              + "changeset somebody meant as a whole:\n"
+              + "changeset meant as a whole:\n"
               + string.Join(
                   '\n', tree.Unreadable.Select(u => $"  {u.Path}: {u.Diagnosis}")));
         }
@@ -1463,7 +1463,7 @@ public sealed class FlightCommands(
         {
             throw new EnvelopeRefusedException(
                 "These documents name things this airspace has not declared, so nothing was "
-              + "applied - a changeset is something somebody meant as a whole:\n"
+              + "applied, because a changeset is applied as a whole:\n"
               + string.Join('\n', missing.Select(
                   d => $"  {d.Path}: gg airspace name {d.Role} {d.Name} --under {d.Extension?.Extends ?? "root"}"))
               + "\n\nRun apply with --declare-names to declare them first - under root, or "
@@ -1900,7 +1900,7 @@ public sealed class FlightCommands(
         new VerbResult.EnrollmentRevoked(
             await _client.RevokeEnrollmentTokenAsync(Session(), tokenId, cancellationToken)
             ?? throw new EnrollmentRefusedException(
-                $"No enrollment token {tokenId} here. Run gg fleet tokens to see this tenant's."));
+                $"No enrollment token {tokenId} here. Run gg fleet tokens to list this organisation's."));
 
     /// <summary>Claims a runner for the person signed in here.</summary>
     /// <remarks>
@@ -1944,14 +1944,14 @@ public sealed class FlightCommands(
             ?? throw NoSuchRunner(runnerId));
 
     private static RunnerNotFoundException NoSuchRunner(string runnerId) =>
-        new($"No runner {runnerId} here. Run gg runners to see this tenant's fleet.");
+        new($"No runner {runnerId} here. Run gg runners to list this organisation's fleet.");
 
     public async Task<VerbResult> RetireRunnerAsync(
         string runnerId, CancellationToken cancellationToken = default)
     {
         var retired = await _client.RetireRunnerAsync(Session(), runnerId, cancellationToken)
             ?? throw new RunnerNotFoundException(
-                $"No runner {runnerId} here. Run gg runners to see this tenant's fleet.");
+                $"No runner {runnerId} here. Run gg runners to list this organisation's fleet.");
 
         return new VerbResult.RunnerRetired(retired);
     }

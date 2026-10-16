@@ -96,7 +96,7 @@ public sealed class WatchARunner(ControlPlaneClient control, ConsoleChannel chan
 
         var say = saying ?? (_ => { });
 
-        say("asking the control plane which runners you can see");
+        say("asking the control plane which runners are visible here");
 
         var fleet = await control.ListRunnersAsync(sessionToken, cancellationToken);
 
@@ -106,7 +106,7 @@ public sealed class WatchARunner(ControlPlaneClient control, ConsoleChannel chan
         {
             return Nothing(
                 WatchOutcome.NoSuchRunner,
-                $"There is no runner {runnerId} here. `gg runners` lists the ones you can see.");
+                $"There is no runner {runnerId} here. Run gg runners to see which runners are visible here.");
         }
 
         // ASKED BEFORE ANYTHING IS MINTED. Each of these would otherwise become
@@ -136,7 +136,7 @@ public sealed class WatchARunner(ControlPlaneClient control, ConsoleChannel chan
         // THE CONTROL PLANE'S WHOLE PART IN THIS: it says which runner, that you
         // may reach it, and for how long. Nothing that passes afterwards is
         // readable by it, which is worth a person seeing named as its own step.
-        say($"asking the control plane to introduce you to {runner.Label}");
+        say($"asking the control plane to introduce this person to {runner.Label}");
 
         var introduced = await control.IntroduceRunnerAsync(
             sessionToken,
@@ -172,7 +172,7 @@ public sealed class WatchARunner(ControlPlaneClient control, ConsoleChannel chan
             var why = reached.Failure is ReachFailure.RunnerNeverAnswered
                 ? reached.Said
                 + $" {runner.Label} is flying {runner.CurrentFlightNumber}, so it is not away. "
-                + "Any flight on a runner you registered can be watched, so this is the "
+                + "Any flight on a runner this person registered can be watched, so this is the "
                 + "machine rather than the flight: either it is running a gg too old to "
                 + "answer, or it was started without a key and cannot be reached by hand at "
                 + "all - `gg runners` says when it was last heard from."

@@ -364,11 +364,11 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
             return null;
         }
 
-        say($"{locator} is sealed to you rather than to this machine, so moving it needs your key");
+        say($"{locator} is sealed to the signed-in person rather than to this machine, so moving it needs the personal key");
 
         return PersonKey.Unlock(
             personKeyPath,
-            prompt.ReadSecret("Passphrase for your key, to move this credential (not echoed): "));
+            prompt.ReadSecret("Passphrase for the personal key, to move this credential (not echoed): "));
     }
 
     /// <summary>Introduces, reaches, and hands the credential over.</summary>
@@ -387,7 +387,7 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
 
         var say = saying ?? (_ => { });
 
-        say("asking the control plane which runners you can see");
+        say("asking the control plane which runners are visible here");
 
         var fleet = await control.ListRunnersAsync(sessionToken, cancellationToken);
 
@@ -397,7 +397,7 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
         {
             return new Sent(
                 SendOutcome.NoSuchRunner,
-                $"There is no runner {runnerId} here. `gg runners` lists the ones you can see.");
+                $"There is no runner {runnerId} here. Run gg runners to see which runners are visible here.");
         }
 
         // ASKED BEFORE ANYTHING IS MINTED, for WatchARunner's reason: this would
@@ -419,7 +419,7 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
 
         using var ephemeral = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
 
-        say($"asking the control plane to introduce you to {runner.Label}");
+        say($"asking the control plane to introduce this person to {runner.Label}");
 
         var introduced = await control.IntroduceRunnerAsync(
             sessionToken,
@@ -513,7 +513,7 @@ public sealed class SendACredential(ControlPlaneClient control, ConsoleChannel c
                     $"{runner.Label} heard and did not keep it. The likeliest reason is that "
                   + "its own configuration does not say `accept-configured`, which is a "
                   + "decision made on that machine — a laptop opts in by editing its file, "
-                  + "and a pool member is opted in by the tenant that created it.");
+                  + "and a pool member is opted in by the organisation that created it.");
         }
     }
 }

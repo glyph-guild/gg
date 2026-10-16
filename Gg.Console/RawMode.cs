@@ -128,6 +128,13 @@ public static class RawMode
     /// </remarks>
     public static TerminalSettings? Enter(int fd)
     {
+        // ON WINDOWS THE DESCRIPTOR IS THE CONSOLE'S INPUT HANDLE (WindowsTerminal), and raw
+        // mode is a pair of console modes rather than termios.
+        if (OperatingSystem.IsWindows())
+        {
+            return WindowsRawMode.Enter(fd);
+        }
+
         var saved = new byte[TermiosBytes];
 
         if (!IsTerminal(fd) || tcgetattr(fd, saved) != 0)
@@ -197,6 +204,12 @@ public static class RawMode
     /// </remarks>
     public static void Restore(int fd, TerminalSettings? saved)
     {
+        if (OperatingSystem.IsWindows())
+        {
+            WindowsRawMode.Restore(fd, saved);
+            return;
+        }
+
         if (saved is not null && IsTerminal(fd))
         {
             tcsetattr(fd, TcsaNow, saved.Raw);
@@ -206,6 +219,11 @@ public static class RawMode
     /// <summary>What the terminal is set to now.</summary>
     public static TerminalState Describe(int fd)
     {
+        if (OperatingSystem.IsWindows())
+        {
+            return WindowsRawMode.Describe(fd);
+        }
+
         var current = new byte[TermiosBytes];
 
         if (!IsTerminal(fd) || tcgetattr(fd, current) != 0)
@@ -231,4 +249,75 @@ public static class RawMode
         LocalFlagsWidth == 8
             ? BitConverter.ToUInt64(termios, LocalFlagsOffset)
             : BitConverter.ToUInt32(termios, LocalFlagsOffset);
+}
+
+/// <summary>Raw mode on a Windows console: the input and output modes, saved and set together.</summary>
+/// <remarks>
+/// <b>Both handles, because both change.</b> The input stops editing lines and echoing, and
+/// delivers escape sequences; the output interprets the escape sequences gg paints. Terminal.Gui
+/// sets modes of its own and restores them when it is torn down, which is before a host takes
+/// the screen, so the modes saved here are the console's own.
+/// </remarks>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
+internal static class WindowsRawMode
+{
+    public static TerminalSettings? Enter(int fd)
+    {
+        var input = (nint)fd;
+        var output = WindowsConsoleNative.Open("CONOUT$");
+        try
+        {
+            if (!WindowsConsoleNative.GetConsoleMode(input, out var inputMode)
+                || !WindowsConsoleNative.GetConsoleMode(output, out var outputMode))
+            {
+                return null;
+            }
+
+            if (!WindowsConsoleNative.SetConsoleMode(input, ConsoleModes.RawInput(inputMode))
+                || !WindowsConsoleNative.SetConsoleMode(output, ConsoleModes.PaintingOutput(outputMode)))
+            {
+                WindowsConsoleNative.SetConsoleMode(input, inputMode);
+                WindowsConsoleNative.SetConsoleMode(output, outputMode);
+                return null;
+            }
+
+            return new TerminalSettings([.. BitConverter.GetBytes(inputMode), .. BitConverter.GetBytes(outputMode)]);
+        }
+        finally
+        {
+            Close(output);
+        }
+    }
+
+    public static void Restore(int fd, TerminalSettings? saved)
+    {
+        if (saved is null || saved.Raw.Length != 8)
+        {
+            return;
+        }
+
+        var output = WindowsConsoleNative.Open("CONOUT$");
+        try
+        {
+            WindowsConsoleNative.SetConsoleMode((nint)fd, BitConverter.ToUInt32(saved.Raw, 0));
+            WindowsConsoleNative.SetConsoleMode(output, BitConverter.ToUInt32(saved.Raw, 4));
+        }
+        finally
+        {
+            Close(output);
+        }
+    }
+
+    public static TerminalState Describe(int fd) =>
+        WindowsConsoleNative.GetConsoleMode((nint)fd, out var mode)
+            ? ConsoleModes.Describe(mode)
+            : new TerminalState(IsTerminal: false, Canonical: false, Echo: false, MinimumBytes: 0);
+
+    private static void Close(nint handle)
+    {
+        if (handle != WindowsConsoleNative.InvalidHandle)
+        {
+            WindowsConsoleNative.CloseHandle(handle);
+        }
+    }
 }

@@ -15,6 +15,9 @@ public static class KeyTranslator
     /// <summary>What a terminal without CSI-u sends for <c>ctrl+/</c>.</summary>
     private const int UnitSeparator = 0x1F;
 
+    /// <summary>What a terminal without a whole key event sends for <c>ctrl+g</c>.</summary>
+    private const int Bell = 0x07;
+
     public static KeyStroke Translate(Key key)
     {
         ArgumentNullException.ThrowIfNull(key);
@@ -51,7 +54,7 @@ public static class KeyTranslator
             return KeyStroke.RightKey;
         }
 
-        // THE ONE C0 BYTE THIS CONSOLE GIVES A MEANING, and it is the byte a
+        // THE FIRST C0 BYTE THIS CONSOLE GIVES A MEANING, and it is the byte a
         // terminal sends FOR ctrl+/. A terminal that speaks the kitty keyboard
         // protocol sends ESC [ 47;5u instead, which arrives below as slash with
         // ctrl and needs nothing; everywhere else this arrives as 0x1F, which
@@ -63,6 +66,15 @@ public static class KeyTranslator
         if (key.AsRune.Value == UnitSeparator)
         {
             return KeyStroke.Control('/');
+        }
+
+        // AND THE BYTE FOR CTRL+G, for the same reason. On Windows a terminal
+        // that sends 0x07 through ConPTY, rather than a whole key event, hands
+        // it over as the bare rune, and ctrl+g is the only way to the agent
+        // column. Elsewhere it already arrives as G with ctrl.
+        if (key.AsRune.Value == Bell)
+        {
+            return KeyStroke.Control('g');
         }
 
         var bare = key.NoCtrl.NoAlt.NoShift;

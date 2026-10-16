@@ -85,6 +85,10 @@ public class WithholdingReasonTests
 
         await Assert.That(sentence).Contains("environment=dev");
         await Assert.That(sentence).Contains("no longer");
+        await Assert.That(sentence).Contains("gg runner unclaim")
+            .Because("only a reservation's owner can release it, so for an owner who has left, the "
+                   + "remedy is an administrator unclaiming the machine.");
+        await Assert.That(sentence).DoesNotContain("gg runner release");
         await Assert.That(sentence).DoesNotContain("(unnamed)")
             .Because("a placeholder where a person's name goes reads as a rendering bug, and the "
                    + "reader learns nothing about why the runner takes nothing.");

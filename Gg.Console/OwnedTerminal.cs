@@ -14,12 +14,9 @@ namespace Gg.Console;
 /// </para>
 /// <para>
 /// <b>Null when there is not one, and that is an answer.</b> gg runs in CI,
-/// behind a pipe, as a service, and on Windows — where there is no
-/// <c>/dev/tty</c> to open at all. The Windows story is ConPTY and
-/// <c>SetConsoleMode</c>, which slot into the same shape and are not written
-/// yet; until they are, gg on Windows takes the unhosted path and keeps the
-/// editor it has always had. Saying so out loud is better than a host that
-/// throws on a platform nobody tested it on.
+/// behind a pipe, and as a service. On Windows there is no <c>/dev/tty</c>;
+/// <see cref="Open"/> answers with <see cref="WindowsTerminal"/>, the console's
+/// own handles in the same shape.
 /// </para>
 /// </remarks>
 public sealed class OwnedTerminal : IHostTerminal, IDisposable
@@ -52,8 +49,18 @@ public sealed class OwnedTerminal : IHostTerminal, IDisposable
     public event Action? Resized;
 
     /// <summary>The terminal, or null if this process has none.</summary>
-    public static OwnedTerminal? Open()
+    /// <remarks>
+    /// <b>On Windows, the console.</b> <see cref="WindowsTerminal"/> answers the same five
+    /// questions with the console's own handles, so everything that hosts a child is the same
+    /// code on every platform.
+    /// </remarks>
+    public static IHostTerminal? Open()
     {
+        if (OperatingSystem.IsWindows())
+        {
+            return WindowsTerminal.Open();
+        }
+
         if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux())
         {
             return null;

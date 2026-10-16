@@ -94,7 +94,7 @@ public static class RunnerDetails
         // which would invite a key that cannot succeed.
         if (Rows.Whose(row) is { Length: > 0 } whose)
         {
-            fields.Add(new FlightField("whose", whose));
+            fields.Add(new FlightField("owner", whose));
         }
 
         if (row.Profile is { Length: > 0 } profile)
@@ -107,7 +107,7 @@ public static class RunnerDetails
 
         if (row.Resident)
         {
-            fields.Add(new FlightField("resident", "mints this pool's members"));
+            fields.Add(new FlightField("resident", "creates this pool's members"));
         }
 
         if (row.Work is { Length: > 0 } work)
@@ -136,7 +136,7 @@ public static class RunnerDetails
 
         if (row.Labels is { Length: > 0 } labels)
         {
-            fields.Add(new FlightField("advertises", labels));
+            fields.Add(new FlightField("offers", labels));
         }
 
         fields.Add(new FlightField("last heard", row.Heard));
@@ -149,7 +149,7 @@ public static class RunnerDetails
         {
             fields.Add(new FlightField(
                 "measured", Rows.Lacking(row) is { Count: > 0 } missing
-                    ? $"{measured} - lacks {string.Join(", ", missing)}"
+                    ? $"{measured} - missing {string.Join(", ", missing)}"
                     : $"{measured} - meets its profile"));
         }
 

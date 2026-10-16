@@ -82,9 +82,8 @@ public static class ConsoleWatchRunner
             return state with
             {
                 LastRunner =
-                    $"{row.Label} is not beating, so there is nothing to reach: an "
-                  + "introduction is picked up on a heartbeat, and a machine that is not "
-                  + "sending them never sees one.",
+                    $"{row.Label} is offline, so there is nothing to reach. Start it and try "
+                  + "again.",
             };
         }
 

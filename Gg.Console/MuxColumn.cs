@@ -142,7 +142,7 @@ public static class MuxColumn
         }
 
         lines.Add(Line(
-            agents.Count >= Most ? " + new agent · nine is the most" : " + new agent",
+            agents.Count >= Most ? " + new agent · nine at most" : " + new agent",
             MuxTab.New,
             shown));
 

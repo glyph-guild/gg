@@ -70,7 +70,7 @@ public sealed record MemberRow(
 public static class EnvironmentRows
 {
     public static IReadOnlyList<string> EnvironmentColumns { get; } =
-        ["environment", "strategy", "pool", "wants", "attested", "measured"];
+        ["environment", "strategy", "pool", "kept ready", "reported", "reported at"];
 
     public static IReadOnlyList<string> MemberColumns { get; } =
         ["", "environment", "member", "state", "working on", "last heard"];

@@ -73,7 +73,7 @@ public static class WorkItemDetails
     /// </remarks>
     public static string Title(AppState state) =>
         Item(state) is not { } item
-            ? "The work item"
+            ? "the work item"
 
             // THE DASH NEEDS SOMETHING ON BOTH SIDES OF IT. An item opened from
             // a flight was never listed, so this console has its id and no

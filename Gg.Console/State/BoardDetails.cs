@@ -234,7 +234,7 @@ public static class BoardDetails
         if (WatchUnder(state) is { } watch)
         {
             fields.Add(new BoardField("watch", ControlText.Strip(watch.Name)));
-            fields.Add(new BoardField("executor", ControlText.Strip(watch.Executor ?? "none yet")));
+            fields.Add(new BoardField("run by", ControlText.Strip(watch.Executor ?? "none yet")));
 
             fields.Add(new BoardField(
                 "last heard",
@@ -253,7 +253,7 @@ public static class BoardDetails
                         ? ControlText.Strip(said)
                         : "not said"));
 
-            fields.Add(new BoardField("cost", Rows.CostOf(watch)));
+            fields.Add(new BoardField("opened", Rows.CostOf(watch)));
 
             if (watch.Account is { Length: > 0 } account)
             {

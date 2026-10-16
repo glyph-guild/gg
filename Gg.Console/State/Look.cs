@@ -423,7 +423,7 @@ public static class Looks
                                  + "one apart from the panes behind it.",
         LookSetting.TabLine => "The line the tab strip is drawn with.",
         LookSetting.TabMark => "How the current tab is marked out. The first four "
-                             + "change its text; Accent changes its colour.",
+                             + "change its text; accent changes its colour.",
         LookSetting.TabSide => "Which side of the pane the tab strip sits on.",
         LookSetting.TabDepth => "How tall a tab is, in rows.",
         LookSetting.TabSpacing => "Room between tabs. -1 overlaps their borders "
@@ -434,8 +434,8 @@ public static class Looks
         LookSetting.RowSelect => "What the cursor marks: one cell, or the whole "
                                + "selected row.",
         LookSetting.HeaderTint => "Whether the header row is coloured apart from the body.",
-        LookSetting.UnselectedTabs => "How far back the other tabs sit. Faint is "
-                                    + "the terminal's own dim and some ignore it; Grey "
+        LookSetting.UnselectedTabs => "How far back the other tabs sit. faint is "
+                                    + "the terminal's own dim and some terminals ignore it; grey "
                                     + "always works.",
         LookSetting.StatusText => "How far back the activity line and the key hints sit.",
         _ => "",
@@ -448,20 +448,20 @@ public static class Looks
 
         return setting switch
         {
-            LookSetting.Palette => look.Palette.ToString(),
-            LookSetting.AppBorder => look.AppBorder.ToString(),
-            LookSetting.PaneBorder => look.PaneBorder.ToString(),
-            LookSetting.InnerBorder => look.InnerBorder.ToString(),
-            LookSetting.ModalBorder => look.ModalBorder.ToString(),
-            LookSetting.TabLine => look.TabLine.ToString(),
-            LookSetting.TabMark => look.TabMark.ToString(),
-            LookSetting.TabSide => look.TabSide.ToString(),
-            LookSetting.TableLines => look.TableLines.ToString(),
-            LookSetting.TableHeaders => look.TableHeaders.ToString(),
-            LookSetting.RowSelect => look.RowSelect.ToString(),
-            LookSetting.HeaderTint => look.HeaderTint.ToString(),
-            LookSetting.UnselectedTabs => look.UnselectedTabs.ToString(),
-            LookSetting.StatusText => look.StatusText.ToString(),
+            LookSetting.Palette => Spoken(look.Palette),
+            LookSetting.AppBorder => Spoken(look.AppBorder),
+            LookSetting.PaneBorder => Spoken(look.PaneBorder),
+            LookSetting.InnerBorder => Spoken(look.InnerBorder),
+            LookSetting.ModalBorder => Spoken(look.ModalBorder),
+            LookSetting.TabLine => Spoken(look.TabLine),
+            LookSetting.TabMark => Spoken(look.TabMark),
+            LookSetting.TabSide => Spoken(look.TabSide),
+            LookSetting.TableLines => Spoken(look.TableLines),
+            LookSetting.TableHeaders => Spoken(look.TableHeaders),
+            LookSetting.RowSelect => Spoken(look.RowSelect),
+            LookSetting.HeaderTint => Spoken(look.HeaderTint),
+            LookSetting.UnselectedTabs => Spoken(look.UnselectedTabs),
+            LookSetting.StatusText => Spoken(look.StatusText),
             LookSetting.TabDepth => look.TabDepth.ToString(
                 System.Globalization.CultureInfo.InvariantCulture),
             LookSetting.TabSpacing => look.TabSpacing.ToString(
@@ -469,6 +469,12 @@ public static class Looks
             _ => "",
         };
     }
+
+    /// <summary>A value's name as a person reads it: "RoundedDotted" is "rounded dotted".</summary>
+    private static string Spoken<T>(T value) where T : struct, Enum =>
+        System.Text.RegularExpressions.Regex
+            .Replace(value.ToString(), "(?<=[a-z0-9])(?=[A-Z])", " ")
+            .ToLowerInvariant();
 
     /// <summary>The setting the cursor is on.</summary>
     public static LookSetting Under(Look look)
@@ -601,7 +607,7 @@ public static class Looks
         if (changed.Count == 0)
         {
             return "The console is drawn as it ships. Nothing has been changed on the "
-                 + "Look page, so there is nothing to make permanent.";
+                 + "look page, so there is nothing to make permanent.";
         }
 
         return string.Join('\n', (string[])
@@ -612,8 +618,7 @@ public static class Looks
                 $"  {Title(setting)}: {Value(look, setting)}"
               + $"   (ships as {Value(new Look(), setting)})"),
             "",
-            "They were chosen on the Look page of gg's help modal, which is a spike -"
-          + " the values live on AppState.Look and are applied in Views/LookStyles.cs.",
+            "They were chosen on the look page of the console's help.",
         ]);
     }
 }

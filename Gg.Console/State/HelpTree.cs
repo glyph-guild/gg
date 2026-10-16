@@ -157,10 +157,9 @@ public static class HelpTree
     }
 
     /// <summary>What a fold is called, which is the only thing a person picks it by.</summary>
-    private static string Heading(UiMode mode) => mode switch
-    {
-        UiMode.Normal => "Always",
-        UiMode.Help => "While this page is open",
-        _ => $"While {mode.ToString().ToLowerInvariant()} is open",
-    };
+    /// <remarks>
+    /// The help page's own words for each mode, so the folds and the copied page
+    /// agree, and no fold is titled with a mode's name in the code.
+    /// </remarks>
+    private static string Heading(UiMode mode) => PaneText.ModeHeading(mode);
 }

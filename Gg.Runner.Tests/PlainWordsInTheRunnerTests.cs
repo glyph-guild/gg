@@ -96,9 +96,9 @@ public class PlainWordsInTheRunnerTests
         var now = new DateTimeOffset(2026, 10, 16, 12, 0, 0, TimeSpan.Zero);
 
         await Assert.That(CredentialEnding.For(now.AddDays(20), now, Unauthorized()).Said)
-            .Contains("Run gg runners to see whether it was retired.");
+            .Contains("Run gg runners to check this machine's status.");
         await Assert.That(CredentialEnding.For(null, now, Unauthorized()).Said)
-            .Contains("Run gg runners to see whether it was retired.");
+            .Contains("Run gg runners to check this machine's status.");
     }
 
     [Test]

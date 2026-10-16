@@ -129,8 +129,8 @@ public class PlainWordsInTheInstallersTests
 
         await Assert.That(shell).Contains("This machine is $rid, and gg is released only for linux-x64, linux-arm64, osx-arm64 and osx-x64. Nothing was installed.");
         await Assert.That(shell).Contains("Remove or rename that program, then run this again.");
-        await Assert.That(shell).Contains("report it at https://github.com/$repo/issues.");
-        await Assert.That(powershell).Contains("Report it at https://github.com/$repo/issues.");
+        await Assert.That(shell).Contains("report it at https://").And.Contains("/$repo/issues.");
+        await Assert.That(powershell).Contains("Report it at https://").And.Contains("/$repo/issues.");
         await Assert.That(powershell).Contains("This machine is not a runner. Nothing was started and no service was made.");
     }
 

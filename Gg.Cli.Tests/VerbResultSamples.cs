@@ -370,7 +370,7 @@ internal static class VerbResultSamples
                         new RepositoryRegistered
                         {
                             Name = "widgets",
-                            Provider = "github",
+                            Provider = "example-forge",
                             Id = "1234",
                             Path = "acme/widgets",
                             Credential = "required",
@@ -416,8 +416,8 @@ internal static class VerbResultSamples
         ],
         [typeof(VerbResult.RepositoryAdded)] =
         [
-            new VerbResult.RepositoryAdded(new Gg.Client.RepositoryAdded { Name = "widgets", Provider = "github", Id = "1234", Path = "acme/widgets", RegisteredBy = "acme:alice" }),
-            new VerbResult.RepositoryAdded(new Gg.Client.RepositoryAdded { Name = "widgets", Provider = "github", Id = "1234", Path = "acme/widgets", Flight = "GG-46", Awaiting = "acme:alice", Widens = "airspace.repositories" }),
+            new VerbResult.RepositoryAdded(new Gg.Client.RepositoryAdded { Name = "widgets", Provider = "example-forge", Id = "1234", Path = "acme/widgets", RegisteredBy = "acme:alice" }),
+            new VerbResult.RepositoryAdded(new Gg.Client.RepositoryAdded { Name = "widgets", Provider = "example-forge", Id = "1234", Path = "acme/widgets", Flight = "GG-46", Awaiting = "acme:alice", Widens = "airspace.repositories" }),
         ],
         [typeof(VerbResult.AirspaceDocuments)] =
         [

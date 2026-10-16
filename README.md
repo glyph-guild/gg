@@ -54,8 +54,8 @@ line discipline, echo, auto-wrap and alternate screen — whether the child exit
 cleanly, exits non-zero, or is killed.
 
 **On a machine that cannot host**, gg opens `$EDITOR` the way it always did and
-says so. That covers CI, anything behind a pipe, and Windows, where
-`SetConsoleMode` and ConPTY are not written yet.
+says so. That covers CI and anything behind a pipe. On Windows gg hosts the
+editor on the console itself, through ConPTY.
 
 ## Install
 
@@ -126,9 +126,8 @@ curl -fsSL .../install.sh | sudo sh -s -- --version <version> \
 That is the fleet path — a machine somebody enrolled, which nobody signs in
 on — rather than something that happens to you for leaving a flag off.
 
-**On Windows gg is the command line.** The console's terminal UI wants
-`SetConsoleMode` and ConPTY, which are not written, so gg there opens `$EDITOR`
-and says so.
+**On Windows the console runs in Windows Terminal or the Windows console**,
+with the agent column and the editor hosted beside it, as on macOS and Linux.
 
 **By hand, if you would rather see every step** — and the second `install` line
 is not optional:

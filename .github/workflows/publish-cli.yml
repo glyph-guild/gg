@@ -119,9 +119,9 @@ jobs:
           # asking for it queues for ever rather than failing, which is the
           # worse of the two ways to be wrong.
           - { os: macos-15-intel, rid: osx-x64 }
-          # AND WINDOWS, where gg is the command line rather than the console:
-          # the terminal UI wants SetConsoleMode and ConPTY, which are not
-          # written, and gg says so and opens $EDITOR instead.
+          # AND WINDOWS, where the console runs on the Windows console and
+          # hosts its children through ConPTY. scripts/windows-console-probe
+          # is how that is checked: this job only proves the binary starts.
           - { os: windows-latest, rid: win-x64 }
     runs-on: ${{ matrix.os }}
     steps:

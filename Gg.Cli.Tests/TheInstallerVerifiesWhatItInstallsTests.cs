@@ -588,15 +588,14 @@ public class TheInstallerVerifiesWhatItInstallsTests
     {
         // ASSERTED OVER ITS SOURCE, because a PowerShell script cannot be run
         // from this suite: the two claims that matter are that it does not make
-        // a service - gg on Windows is the command line, and a Windows runner
-        // is another slice's - and that it checks the bytes before extracting
-        // them, which is the sh script's rule and the same reason.
+        // a service - a Windows runner is another slice's - and that it checks
+        // the bytes before extracting them, which is the sh script's rule and
+        // the same reason.
         var script = await File.ReadAllTextAsync(
             Path.Combine(RepoRoot(), "deploy", "install.ps1"));
 
         await Assert.That(script).DoesNotContain("service install")
-            .Because("nothing on a laptop is a service, and the console UI Windows would need "
-                   + "is not written - gg there opens an editor and says so.");
+            .Because("nothing on a laptop is a service, and a Windows runner is another slice's.");
         await Assert.That(script).Contains("attestation verify")
             .Because("whoever can replace an asset on a release page can replace a checksum "
                    + "beside it, so the proof is the build's attestation.");

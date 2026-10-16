@@ -335,7 +335,7 @@ public class AConsoleReachesARunnerTests
             cancellationToken: CancellationToken.None);
 
         await Assert.That(reached.Failure).IsEqualTo(ReachFailure.IntroductionExpired);
-        await Assert.That(reached.Said).Contains("not a network")
+        await Assert.That(reached.Said).Contains("not held up by the network")
             .Because("the runner is the wrong place to send somebody for this, and a sentence "
                    + "about a machine is what sends them there.");
 

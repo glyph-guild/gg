@@ -370,7 +370,7 @@ public class TakeTests
             await Assert.That(after.TakeSeed!.PriorHuman).IsNull();
             await Assert.That(TakeSeedComposer.Render(after.TakeSeed!))
                 .DoesNotContain("A PERSON WORKED ON THIS");
-            await Assert.That(after.LastHandBack!).Contains("no account from you");
+            await Assert.That(after.LastHandBack!).Contains("no account from this person");
 
             await Assert.That(after.HandConfirmations.Single().Choice).IsEqualTo("walked-away")
                 .Because("counted anyway. A rate that only counted the answers would be a rate of "

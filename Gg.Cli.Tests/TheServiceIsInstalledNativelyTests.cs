@@ -391,7 +391,7 @@ public class TheServiceIsInstalledNativelyTests
 
         var said = string.Join(" ", outcome.Said);
         await Assert.That(said).DoesNotContain("does not redeem it yet");
-        await Assert.That(said).Contains("nobody signs in on this machine");
+        await Assert.That(said).Contains("no one signs in on this machine");
     }
 
     [Test]

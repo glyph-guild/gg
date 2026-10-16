@@ -48,9 +48,15 @@
     "steps": [
       ["wait", 10],
       ["key", "n", 2],
-      ["shot", "compose"],
-      ["key", "\r", 6],
-      ["shot", "after-editor"]
+      ["shot", "kind"],
+      ["key", "\r", 3],
+      ["shot", "how-written"],
+      ["key", "\r", 8],
+      ["shot", "after-editor"],
+      ["key", "\u001b", 2],
+      ["shot", "after-esc"],
+      ["key", "q", 3],
+      ["shot", "after-q"]
     ]
   },
   "agents": {

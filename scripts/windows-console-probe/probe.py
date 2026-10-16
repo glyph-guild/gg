@@ -11,12 +11,13 @@ gg runs against fakeplane.py, a fake control plane serving invented example
 data, with a throwaway home directory per scenario, so nothing here reads or
 writes a real organisation's data.
 
-Needs Python 3, pyte==0.8.2 and pywinpty.
+Needs Python 3 and pyte==0.8.2. The pseudo console is conpty.py, over the Windows API.
 """
-import json, os, queue, re, shutil, socket, subprocess, sys, tempfile, threading, time, traceback
+import codecs, json, os, queue, re, shutil, socket, subprocess, sys, tempfile, threading, time, traceback
 
 import pyte
-from winpty import PtyProcess
+
+from conpty import PseudoConsole
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROWS, COLS = 34, 140
@@ -69,27 +70,31 @@ class Console:
     def __init__(self, gg, env, cwd, raw_path):
         self.screen = pyte.Screen(COLS, ROWS)
         self.stream = pyte.Stream(self.screen)
-        self.raw = open(raw_path, "w", encoding="utf-8", newline="")
+        self.raw = open(raw_path, "wb")
+        # INCREMENTAL, so a character split across two reads is joined rather
+        # than replaced. Replacement characters that still appear came from gg.
+        self.decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+        self.replaced = 0
         self.chunks = queue.Queue()
         self.ended = threading.Event()
         full_env = dict(os.environ)
         full_env.update(env)
         full_env["TERM"] = "xterm-256color"
         full_env["COLORTERM"] = "truecolor"
-        self.proc = PtyProcess.spawn([gg], cwd=cwd, env=full_env, dimensions=(ROWS, COLS))
-        threading.Thread(target=self._read, daemon=True).start()
+        self.proc = PseudoConsole([gg], cwd, full_env, ROWS, COLS)
+        self.reader = threading.Thread(target=self._read, daemon=True)
+        self.reader.start()
 
     def _read(self):
-        # READ ON ITS OWN THREAD, because pywinpty's read blocks until there is
-        # output, and a console that has drawn its screen and is waiting for a
-        # key has no more output to give.
+        # READ ON ITS OWN THREAD, because a read blocks until there is output,
+        # and a console waiting for a key has none to give. ConPTY also stops
+        # drawing when nobody drains its pipe.
         try:
             while True:
-                data = self.proc.read(65536)
-                if data:
-                    self.chunks.put(data)
-        except (EOFError, OSError):
-            pass
+                data = self.proc.read()
+                if not data:
+                    break
+                self.chunks.put(data)
         finally:
             self.ended.set()
 
@@ -103,10 +108,12 @@ class Console:
                     return False
                 continue
             self.raw.write(data)
+            text = self.decoder.decode(data)
+            self.replaced += text.count("\ufffd")
             for pattern, answer in QUERIES:
-                for _ in pattern.finditer(data):
+                for _ in pattern.finditer(text):
                     self.proc.write(answer(*self.size()))
-            self.stream.feed(data)
+            self.stream.feed(text)
         return True
 
     def size(self):
@@ -116,25 +123,31 @@ class Console:
         self.proc.write(text)
 
     def resize(self, rows, cols):
-        self.proc.setwinsize(rows, cols)
+        self.proc.resize(rows, cols)
         self.screen.resize(rows, cols)
 
     def text(self):
         return "\n".join(line.rstrip() for line in self.screen.display)
 
     def alive(self):
-        return self.proc.isalive()
+        return self.proc.alive()
+
+    def exit_code(self):
+        return self.proc.exit_code()
 
     def close(self):
         try:
-            if self.proc.isalive():
+            if self.proc.alive():
                 self.proc.write("\x03")
                 self.pump(1)
-            if self.proc.isalive():
-                self.proc.terminate(force=True)
-        except Exception:  # noqa: BLE001 - closing a console that may already be gone
+            if self.proc.alive():
+                self.proc.terminate()
+        except OSError:
             pass
-        self.pump(0.5)
+        closer = threading.Thread(target=self.proc.close, daemon=True)
+        closer.start()
+        while closer.is_alive():
+            self.pump(0.2)
         self.raw.close()
 
 
@@ -144,7 +157,7 @@ def run(name, scenario, gg, port, out, work, log):
     env.update({k: v.replace("{here}", HERE).replace("{gg}", gg).replace("{root}", root)
                 for k, v in scenario.get("env", {}).items()})
     cwd = os.path.join(root, "profile")
-    console = Console(gg, env, cwd, os.path.join(out, f"{name}.raw.txt"))
+    console = Console(gg, env, cwd, os.path.join(out, f"{name}.raw.bin"))
     record = {"scenario": name, "screens": [], "exited": None}
     try:
         for step in scenario["steps"]:
@@ -170,10 +183,11 @@ def run(name, scenario, gg, port, out, work, log):
         if not console.alive():
             # WHAT IT SAID AS IT DIED. An unhandled exception prints after the
             # console leaves the alternate screen, so the last screen holds it.
-            record["exited"] = console.proc.exitstatus
+            record["exited"] = console.exit_code()
             record["screens"].append({"name": "after-exit", "text": console.text()})
-            log(f"{name}: gg exited with {console.proc.exitstatus}")
+            log(f"{name}: gg exited with {record['exited']}")
         console.close()
+        record["replaced"] = console.replaced
     return record
 
 
@@ -182,6 +196,7 @@ def summary(records, path):
     for r in records:
         state = "still running at the end" if r["exited"] is None else f"exited with {r['exited']}"
         lines.append(f"## {r['scenario']} ({state})")
+        lines += ["", f"Replacement characters in gg's output: {r.get('replaced', 0)}"]
         if r.get("error"):
             lines += ["", "Probe error:", "", "```", r["error"], "```"]
         for s in r["screens"]:

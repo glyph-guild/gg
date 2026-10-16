@@ -35,6 +35,24 @@ QUERIES = [
     (re.compile(r"\x1b\[\?u"), lambda r, c: "\x1b[?0u"),
 ]
 
+# KEYS AS WINDOWS TERMINAL SENDS THEM. ConPTY asks for win32-input-mode
+# (ESC [ ? 9001 h) and Windows Terminal answers by sending every key as a
+# whole Windows key event - ESC [ Vk ; Sc ; Uc ; Kd ; Cs ; Rc _ - so the
+# program sees the G key with ctrl held rather than a bare control byte.
+LEFT_CTRL = 0x0008
+WIN32_KEYS = {
+    # name: [(virtual key, scan code, character, control state), ...] pressed in order
+    "ctrl-g": [(0x11, 0x1D, 0, LEFT_CTRL), (0x47, 0x22, 7, LEFT_CTRL)],
+}
+
+
+def win32_sequence(name):
+    keys = WIN32_KEYS[name]
+    down = [f"\x1b[{vk};{sc};{ch};1;{cs};1_" for vk, sc, ch, cs in keys]
+    up = [f"\x1b[{vk};{sc};{ch};0;{cs if i else 0};1_" for i, (vk, sc, ch, cs) in enumerate(keys)]
+    return "".join(down + list(reversed(up)))
+
+
 SESSION = {
     "SessionToken": "example",
     "ExpiresAt": "2099-01-01T00:00:00+00:00",
@@ -167,6 +185,10 @@ def run(name, scenario, gg, port, out, work, log):
                     break
             elif kind == "key":
                 console.key(arg)
+                if not console.pump(float(step[2]) if len(step) > 2 else 1.0):
+                    break
+            elif kind == "win32":
+                console.key(win32_sequence(arg))
                 if not console.pump(float(step[2]) if len(step) > 2 else 1.0):
                     break
             elif kind == "resize":

@@ -78,5 +78,28 @@
       ["key", "0", 2],
       ["shot", "mux-column"]
     ]
+  },
+  "agentsWin32": {
+    "signedIn": true,
+    "env": {
+      "GG_TAKE_COMMAND": "{here}\\fake-claude.cmd",
+      "GG_SCREENSHOT_GG": "{gg}",
+      "GG_SCREENSHOT_COUNT": "{root}\\agents",
+      "PYTHONUTF8": "1"
+    },
+    "steps": [
+      ["wait", 10],
+      ["win32", "ctrl-g", 1],
+      ["shot", "after-ctrl-g"],
+      ["key", "+", 2],
+      ["shot", "mux-new-agent"],
+      ["key", "\r", 8],
+      ["shot", "mux-agent"],
+      ["win32", "ctrl-g", 1],
+      ["key", "0", 2],
+      ["shot", "mux-column"],
+      ["key", "q", 3],
+      ["shot", "after-q"]
+    ]
   }
 }

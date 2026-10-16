@@ -2066,8 +2066,8 @@ static async Task<int> LaunchConsoleAsync()
         // they are writing for.
         //
         // It decides for itself whether there is a terminal to host on and takes
-        // the old unhosted path when there is not: CI, a pipe, and Windows,
-        // where there is no /dev/tty to open. That decision lives inside the one
+        // the old unhosted path when there is not: CI and a pipe. On Windows
+        // the terminal is the console itself (WindowsTerminal). That decision lives inside the one
         // type on purpose - a second construction site here would be a second
         // place to answer it, and the two would eventually disagree.
         new PtyEditorSession(

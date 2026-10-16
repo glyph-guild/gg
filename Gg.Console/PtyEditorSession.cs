@@ -12,8 +12,8 @@ namespace Gg.Console;
 /// editor has the screen.
 /// </para>
 /// <para>
-/// <b>It falls back rather than throwing.</b> gg runs in CI, behind a pipe, and
-/// on Windows, where there is no <c>/dev/tty</c> to open. Refusing to edit in
+/// <b>It falls back rather than throwing.</b> gg runs in CI and behind a pipe,
+/// where there is no terminal to open. Refusing to edit in
 /// those places would take away an editor that works today in exchange for a bar
 /// that cannot be drawn on a terminal that is not there. The decision is made
 /// once, here, because two places that decide it will eventually disagree.

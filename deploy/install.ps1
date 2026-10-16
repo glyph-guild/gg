@@ -20,10 +20,8 @@
   part way defines at most a function that nothing calls and runs nothing.
 
   WHAT THIS DOES NOT DO: make this machine a runner. Nothing is started, no
-  user is made and no Windows service is registered - the terminal UI wants
-  SetConsoleMode and ConPTY, which are not written, so gg on Windows is the
-  command line and it says so when it opens $EDITOR instead of a console.
-  A Windows runner is slice forty-five's, not this script's.
+  user is made and no Windows service is registered. The console runs on
+  Windows; a Windows runner is slice forty-five's, not this script's.
 
   (The phrase a test greps this file for is deliberately absent: the guarantee
   is worth checking literally, and a comment is source too.)
@@ -218,7 +216,7 @@ function Install-Gg {
             Write-Host "  $Alias config set control-plane <url>   # the organisation's control plane"
         }
         Write-Host "  $Alias login                            # then sign in"
-        Write-Host 'gg on Windows is the command line: the console UI is not written for it yet, so it opens the editor in EDITOR and says so.'
+        Write-Host "  $Alias                                  # then open the console"
     }
     finally {
         Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue

@@ -37,9 +37,10 @@ dotnet publish Gg.Cli -c Release -r osx-arm64 -o artifacts/aot
     — and it is **not** permission to render a child inside a `View`. The host
     holds no state between calls and writes nothing to disk; tests assert both,
     because gg is now in the middle of what a person types.
-  - On a machine with no terminal to host on — CI, a pipe, Windows — the
-    unhosted spawn is still the path, and `PtyEditorSession` is the one place
-    that decides which.
+  - On a machine with no terminal to host on — CI, a pipe — the unhosted
+    spawn is still the path, and `PtyEditorSession` is the one place that
+    decides which. On Windows the terminal is `WindowsTerminal`, the console's
+    own handles behind the same `IHostTerminal`.
 - **A UI session may not START anything, resolve a credential, or block.** It
   may fold in an answer that arrives from somewhere owned outside it. That is
   the rule as it now stands, and it is narrower than the one it replaces — *"a

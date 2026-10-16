@@ -390,16 +390,9 @@ public sealed partial class Mux
             given = [.. given, "--settings", MuxActivity.Settings(_self)];
         }
 
-        var options = new PtyOptions
-        {
-            Name = "gg",
-            Cols = columns,
-            Rows = rows,
-            Cwd = workingDirectory,
-            App = command,
-            CommandLine = [.. given],
-            Environment = environment,
-        };
+        var options = ChildPty.Options(
+            columns, rows, workingDirectory, command, given, OperatingSystem.IsWindows());
+        options.Environment = environment;
 
         var pty = PtyProvider.SpawnAsync(options, CancellationToken.None).GetAwaiter().GetResult();
         var agent = new MuxAgent(

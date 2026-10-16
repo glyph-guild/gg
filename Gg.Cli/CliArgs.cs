@@ -992,7 +992,7 @@ public static class CliArgs
         "gg credential rm <id>          delete a credential from this machine and the control plane",
         "gg credential trust-this-machine <locator>",
         "                                 let this machine open a credential sealed to the signed-in",
-        "                                 person, so flights here can use it with nobody present",
+        "                                 person, so flights here can use it with no one present",
         "gg agent login --runner <id|name> [--agent <name>]",
         "                                 sign a runner's agent in from this machine: gg starts the",
         "                                 sign-in, then a person opens the URL and enters the code here",
@@ -1041,8 +1041,8 @@ public static class CliArgs
         "gg whoami                      show who this machine is signed in as",
         // UNDER WHOAMI, because its argument is a principal id and whoami is
         // the only place a person can read one.
-        "gg admin grant <principal>     make a person an administrator of this organisation",
-        "gg admin revoke <principal>    remove a person's administrator role",
+        "gg admin grant <person>        make a person an administrator of this organisation",
+        "gg admin revoke <person>       remove a person's administrator role",
         "gg runner up                   start a runner so this machine takes work",
         "gg runner maintain <pool>      keep a managed pool ready: warm, reset and checked",
         // BESIDE RUNNER UP, because it is how that runs without a terminal: the
@@ -1434,10 +1434,10 @@ public static class CliArgs
             // CLAIMED IS A PERSON'S OWN ACT, never an admin's word about
             // somebody - so it is not a value this verb takes.
             ["runner", "ownership", _, Gg.Contracts.RunnerOwnerships.Claimed] => Unknown(
-                "gg runner ownership takes tenant or open, not claimed. To claim a runner, the "
+                "gg runner ownership takes `tenant` or `open`, not `claimed`. To claim a runner, the "
               + "person it is for runs gg runner claim <id>."),
             ["runner", "ownership", ..] => Unknown(
-                "gg runner ownership needs a runner id, then tenant or open. To list the "
+                "gg runner ownership needs a runner id, then `tenant` or `open`. To list the "
               + "runners, run gg runners."),
             ["runner", "claim", ..] => Unknown(
                 "gg runner claim needs one runner, by id or by name. To list the runners, run "

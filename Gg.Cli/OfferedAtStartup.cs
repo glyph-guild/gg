@@ -179,10 +179,10 @@ public static class OfferedAtStartup
                 InForce = file,
                 Note = taken.Waiting
                     ? file?.AcceptOffered is true
-                        ? $"offer {offered.Version} repoints something, so this machine will "
-                        + "not take it with nobody watching. Somebody runs "
+                        ? $"Offer {offered.Version} repoints something, so this machine does "
+                        + "not take it on its own. To take it, run "
                         + $"`gg config accept {offered.Version}`."
-                        : $"offer {offered.Version} is waiting and this machine accepts nothing "
+                        : $"Offer {offered.Version} is waiting and this machine accepts nothing "
                         + $"offered. Set 'accept-offered' to true in {path} - it has no "
                         + "environment variable and cannot itself be offered, so opening the "
                         + "file is the only way."

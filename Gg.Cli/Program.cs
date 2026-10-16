@@ -286,7 +286,7 @@ return await ByName(CliArgs.Parse(args)) switch
         await CredentialAsync(remove.Json, c => c.RemoveCredentialAsync(remove.CredentialId)),
 
     CliAction.Unknown unknown => Fail(unknown.Message),
-    _ => Fail("unhandled action"),
+    _ => Fail("gg could not run this command. Run gg bundle and send the result to the Good Grief team."),
 };
 
 /// <summary>
@@ -455,7 +455,7 @@ static string TakeOffered(ControlPlaneClient client, ISessionStore sessions, str
                                             or HttpRequestException
                                             or IOException)
     {
-        return "Nothing was taken: " + unreachable.Message;
+        return "Nothing was taken: " + ControlPlaneFailure.Said(unreachable);
     }
 }
 
@@ -2046,7 +2046,7 @@ static async Task<int> LaunchConsoleAsync()
                     // story and found none.
                     _ => throw new InvalidOperationException(
                         $"'{asked}' is in ShellCommands.Reads and this reader has no arm "
-                      + "for it, so a keypress would fetch somebody else's answer. Add "
+                      + "for it, so a keypress would fetch someone else's answer. Add "
                       + "one, or take the command out of Reads."),
                 })),
             // AND THE BOOT, WHICH THE CONSOLE NO LONGER WAITS FOR. Asked on a
@@ -2742,7 +2742,7 @@ static string RegisterFromTheConsole(AppState state, HeldSecret held)
         refused is CredentialUnavailableException or CredentialRefusedException
             or InvalidOperationException or HttpRequestException)
     {
-        return refused.Message;
+        return ControlPlaneFailure.Said(refused);
     }
     finally
     {
@@ -2807,7 +2807,7 @@ static string BroadcastFromTheConsole(AppState state, HeldSecret held)
     var session = SessionStores.ForThisProcess().Read();
     if (session is null)
     {
-        return "Nobody is signed in on this machine.";
+        return "This machine is not signed in, so nothing was sent. Run gg login, then try again.";
     }
 
     try
@@ -2863,7 +2863,7 @@ static string BroadcastFromTheConsole(AppState state, HeldSecret held)
         refused is CredentialUnavailableException or CredentialRefusedException
             or InvalidOperationException or HttpRequestException)
     {
-        return refused.Message;
+        return ControlPlaneFailure.Said(refused);
     }
     finally
     {
@@ -2878,7 +2878,7 @@ static async Task<int> SendWhereNeededAsync(CliAction.CredentialSendWhereNeeded 
     var session = SessionStores.ForThisProcess().Read();
     if (session is null)
     {
-        return Fail("Nobody is signed in on this machine. Run `gg login` first.");
+        return Fail("This machine is not signed in, so nothing was sent. Run gg login, then try again.");
     }
 
     using var http = new HttpClient { BaseAddress = new Uri(ControlPlaneAddress()) };
@@ -2996,8 +2996,7 @@ static async Task<int> AgentLoginAsync(CliAction.AgentLogin login)
     if (session is null)
     {
         return Fail(
-            "not signed in — run `gg login` first. Logging a runner's agent in is a person's "
-          + "action.");
+            "This machine is not signed in, so nothing was started. Run gg login, then try again.");
     }
 
     var baseAddress = ControlPlaneAddress();
@@ -3041,8 +3040,7 @@ static async Task<int> SendUnderLocatorAsync(string runnerId, string locator, st
     if (session is null)
     {
         return Fail(
-            "not signed in — run `gg login` first. Putting a credential on a machine is a "
-          + "person's action.");
+            "This machine is not signed in, so nothing was sent. Run gg login, then try again.");
     }
 
     // BEFORE ANYTHING IS MINTED OR ANYBODY IS ASKED FOR A TOKEN. An
@@ -3062,8 +3060,8 @@ static async Task<int> SendUnderLocatorAsync(string runnerId, string locator, st
     if (envelope is null)
     {
         return Fail(
-            $"no secret for {locator}, so nothing was sent. An empty credential written to a "
-          + "runner fails at the forge later, with nothing pointing back at this moment.");
+            $"There is no secret for {locator}, so nothing was sent. Run the command again "
+          + "and give the secret when asked.");
     }
 
     var baseAddress = ControlPlaneAddress();
@@ -3112,7 +3110,7 @@ static async Task<int> WatchAsync(CliAction.RunnerWatch watch)
     var session = SessionStores.ForThisProcess().Read();
     if (session is null)
     {
-        return Fail("not signed in — run `gg login` first. Watching a runner is a person's action.");
+        return Fail("This machine is not signed in, so nothing is being watched. Run gg login, then try again.");
     }
 
     var baseAddress = ControlPlaneAddress();
@@ -3468,7 +3466,7 @@ static async Task<int> RunnerUpAsync()
     {
         return Fail(
             "This machine is not signed in and holds no runner credential or enrollment token. "
-          + "Run gg login, then try again. To start a runner with nobody signed in, create a "
+          + "Run gg login, then try again. To start a runner with no one signed in, create a "
           + "token with gg fleet enroll and give it to this machine with "
           + "gg service install --enroll.");
     }
@@ -4206,8 +4204,8 @@ static async Task<int> MemberUpAsync(HttpClient http, string baseAddress, string
             // it cannot open is unreachable and still perfectly able to fly;
             // the pool warms a new one rather than this one healing itself.
             Console.Error.WriteLine(
-                "this member is registered under a different key than the one on its own "
-              + "disk, so nobody can reach it by hand. It will still take work.");
+                "This member is registered under a different key than the one on its own "
+              + "disk, so no one can reach it by hand. It will still take work.");
             break;
 
         default:
@@ -4316,9 +4314,9 @@ static VerbResult AllowanceNow()
     var reporter = Allowance()
         ?? throw new Gg.Client.ConfigurationRefused(
             "This machine names no allowance, so there is nothing to measure. Set "
-          + "`allowance` to whatever you call the subscription it spends from - it is a "
-          + "name you choose, never an account - and `allowance-limits` to that plan's "
-          + "ceilings, like session=88000,week=2400000.");
+          + "`allowance` to a name for the subscription it spends from (a name, never an "
+          + "account), and `allowance-limits` to that plan's ceilings, like "
+          + "session=88000,week=2400000.");
 
     return new VerbResult.Allowance(
         reporter.ReadAsync(DateTimeOffset.UtcNow).GetAwaiter().GetResult()
@@ -4405,11 +4403,10 @@ static async Task<int> RunnerMaintainAsync(string pool)
                 // authorized by the credential being renewed, so nothing can
                 // be minted from nothing.
                 throw new InvalidOperationException(
-                    "no usable runner credential, and not signed in. A pool host runs on its own "
-                  + "runner token; a running one renews itself, but a credential that ran out "
-                  + "while this host was down cannot be renewed by anybody - so a person signs "
-                  + "in once to mint a new one: run `gg login`, then start this again. "
-                  + "Registering a runner is a person's action.");
+                    "This pool host has no usable runner credential and is not signed in. A "
+                  + "credential that ran out while the host was down cannot be renewed, so a "
+                  + "person signs in once to get a new one: run `gg login`, then start this "
+                  + "again.");
             }
 
             var fresh = await new ControlPlaneClient(http)
@@ -4562,9 +4559,8 @@ static async Task<int> RunnerSweepAsync(string watch)
     if (store.Usable(DateTimeOffset.UtcNow) is not { } identity)
     {
         return Fail(
-            "this machine holds no usable runner credential, so there is nothing to sweep "
-          + "with. Registering a runner is a person's action: run `gg runner up` once on this "
-          + "host - it reads or registers - and start this again.");
+            "This machine holds no usable runner credential, so there is nothing to sweep "
+          + "with. Run `gg runner up` once on this host to register it, then start this again.");
     }
 
     // WHICH AGENT THIS MACHINE HAS, and none is a refusal rather than a loop
@@ -4577,7 +4573,7 @@ static async Task<int> RunnerSweepAsync(string watch)
     if (agent is null)
     {
         return Fail(
-            "this machine declares no executor, and a sweep is an agent reading a backlog. Set "
+            "This machine declares no agent to run sweeps with, so nothing was swept. Set "
           + $"{Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable} on this host.");
     }
 

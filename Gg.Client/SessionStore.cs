@@ -165,7 +165,7 @@ public sealed class DelegatedSessionStore(string token) : ISessionStore
     public void Write(StoredSession session) =>
         throw new InvalidOperationException(
             $"This gg acts through a session a person delegated to it ({SessionStores.TokenVariable}), "
-          + "and stores no other. Sign in on your own machine.");
+          + "and stores no other. Run gg login on a personal machine instead.");
 
     public void Clear()
     {

@@ -79,7 +79,7 @@ public static class HandConfirmation
             case HandChoice.Accept when proposal is { Present: true }:
                 return Recorded(by, proposal.Proposal, AccountConfirmations.Accepted, at,
                     wasProposed: true,
-                    "recorded as your account, as proposed");
+                    "recorded as this person's account, as proposed");
 
             case HandChoice.Accept:
                 // There was nothing to accept. Answering "accepted" here would
@@ -88,18 +88,18 @@ public static class HandConfirmation
                 {
                     Choice = AccountConfirmations.Accepted,
                     Detail = "There was no proposal to accept, so nothing was recorded. The flight "
-                           + "has no account from you.",
+                           + "has no account from this person.",
                 };
 
             case HandChoice.Edit(var edited) when edited.Trim().Length > 0:
                 return Recorded(by, edited, AccountConfirmations.Edited, at,
                     wasProposed: proposal is { Present: true },
-                    "recorded as your account, edited");
+                    "recorded as this person's account, edited");
 
             case HandChoice.Replace(var written) when written.Trim().Length > 0:
                 return Recorded(by, written, AccountConfirmations.Replaced, at,
                     wasProposed: proposal is { Present: true },
-                    "recorded as your account, written from scratch");
+                    "recorded as this person's account, written from scratch");
 
             case HandChoice.Edit:
             case HandChoice.Replace:
@@ -153,7 +153,7 @@ public static class HandConfirmation
         {
             Choice = "walked-away",
             Detail = "Nothing was recorded. An account is a person's own statement, so it is not "
-                   + "written for them - the flight has no account from you.",
+                   + "written for them, and the flight has no account from this person.",
         };
 }
 

@@ -192,7 +192,7 @@ public static partial class ServiceInstaller
             if (request.ControlPlane is not null || request.Enroll || request.User is not null)
             {
                 return Refused(
-                    $"this machine's service is already installed ({Manifest}), and a second "
+                    $"This machine's service is already installed ({Manifest}), and a second "
                   + "install only restarts it onto the gg now installed - it would not use "
                   + "--control-plane, --enroll or --user, so it will not take them. To install it "
                   + "afresh, run `gg service uninstall` first.");
@@ -247,7 +247,7 @@ public static partial class ServiceInstaller
         if (agentBinary is not null && !host.Exists(agentBinary))
         {
             return Refused(
-                $"nothing is at '{agentBinary}', so declaring it would make this machine hold "
+                $"Nothing is at '{agentBinary}', so declaring it would make this machine hold "
               + "for a login on a binary that will never run. Install the agent first, then "
               + "install the service. Nothing was written.");
         }
@@ -264,7 +264,7 @@ public static partial class ServiceInstaller
         if (!host.Exists(Binary))
         {
             return Refused(
-                $"the service runs {Binary}, and nothing is there. gg service install never "
+                $"The service runs {Binary}, and nothing is there. gg service install never "
               + "writes a byte of gg: install.sh puts it there, by rename, and links it. "
               + "Nothing was written.");
         }
@@ -272,10 +272,10 @@ public static partial class ServiceInstaller
         if (host.Exists(definition))
         {
             return Refused(
-                $"{definition} is already there, and gg service install did not write it - a "
-              + "runner set up by hand from the runbook, most likely. Two runners on one "
-              + "machine is not something this makes: remove that one first, or leave this "
-              + "machine as it is. Nothing was written.");
+                $"{definition} is already there, and gg service install did not write it, so "
+              + "this machine may already have a runner set up by hand. gg service install "
+              + "does not add a second runner. Nothing was written. Remove that one first, or "
+              + "leave this machine as it is.");
         }
 
         var home = host.HomeOf(user);
@@ -288,9 +288,9 @@ public static partial class ServiceInstaller
         if (!creating && host.GroupsOf(user).Contains("docker", StringComparer.Ordinal))
         {
             return Refused(
-                $"the user '{user}' is in the docker group, which is root on this machine by "
-              + "another name. A runner never runs with it: name another --user, or take "
-              + $"'{user}' out of the group. Nothing was written.");
+                $"The user '{user}' is in the docker group, which has root access to this "
+              + "machine, and a runner never runs with it. Nothing was written. Name another "
+              + $"--user, or take '{user}' out of the group.");
         }
 
         home ??= DefaultHome(platform, user);
@@ -304,8 +304,8 @@ public static partial class ServiceInstaller
         {
             return Refused(
                 $"'{user}' already has {seed}: that is a machine's own configuration, and a "
-              + "first install writes a fresh one. It will not overwrite yours. Nothing was "
-              + "written.");
+              + "first install writes a fresh one, and does not overwrite an existing one. "
+              + "Nothing was written. Name another --user, or remove that file first.");
         }
 
         string? token = null;
@@ -410,7 +410,7 @@ public static partial class ServiceInstaller
                 host.WriteFile(enrollment, token + "\n", user, OwnerOnly);
                 said.Add(
                     $"wrote {enrollment} ({user}, 0600): the enrollment token. The runner "
-                  + "redeems it on its first start and registers itself; nobody signs in on "
+                  + "uses it on its first start to register itself; no one signs in on "
                   + "this machine.");
             }
             else

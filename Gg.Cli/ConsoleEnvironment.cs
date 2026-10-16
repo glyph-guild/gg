@@ -62,7 +62,7 @@ public static class ConsoleEnvironment
          + "and the console reports no intent rather than a broken key."),
 
         Of("GG_TAKE_COMMAND", file, environment,
-           "what `t` starts to hand you a flight's tree."),
+           "what `t` starts to hand a person a flight's tree."),
 
         Of("GG_CONTROL_PLANE", file, environment,
            "the control plane this console reads and writes."),
@@ -72,7 +72,7 @@ public static class ConsoleEnvironment
          + "provider=host|locator. What the browse pane offers."),
 
         Of(IntentConfiguration.ReadersVariable, file, environment,
-           "trackers read by a tool server somebody installed, for a tracker this "
+           "trackers read by a tool server someone installed, for a tracker this "
          + "binary has no shape for. A key may appear in only one of the two."),
 
         Of(VcsConfiguration.HostsVariable, file, environment,
@@ -139,13 +139,11 @@ public static class ConsoleEnvironment
 
         Of("GG_AIRSPACE", file, environment,
            "where the airspace's working copy is. Unset means gg airspace pull, diff and "
-         + "apply act on whatever directory you are in, which is why the doctor says "
-         + "so."),
+         + "apply act on the current directory, and gg doctor says so."),
 
         Of("GG_ALLOWANCE", file, environment,
            "which allowance this machine spends from - a name its owner chose, never an "
-         + "account. Unset means this machine reports none, because an allowance nobody "
-         + "named is one nobody agreed to lend."),
+         + "account. Unset means this machine reports none."),
 
         Of("GG_ALLOWANCE_LIMITS", file, environment,
            "the ceilings that allowance is measured against, like "
@@ -170,7 +168,7 @@ public static class ConsoleEnvironment
         Of("GG_TIMING", file, environment,
            "a file this console appends a line to for every phase it spends time in - "
          + "what it was, how long it took, and how many calls it made. Written as it "
-         + "goes rather than on exit, so a console somebody had to kill still says "
+         + "goes rather than on exit, so a console someone had to kill still says "
          + "where it was. It carries no flight data: phase names, durations and counts."),
     ];
 

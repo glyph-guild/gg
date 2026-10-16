@@ -1000,6 +1000,9 @@ public static class VerbOutput
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.StrategyList),
         VerbResult.Watches r =>
             JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.WatchStandingList),
+        VerbResult.EnvironmentCharted r =>
+            JsonSerializer.Serialize(r.Value, VerbJsonContext.Default.EnvironmentChartEntry),
+        VerbResult.TenantNamed r => JsonSerializer.Serialize(r.Name, VerbJsonContext.Default.String),
         _ => throw Unknown(result?.Kind),
     };
 
@@ -1141,7 +1144,7 @@ public static class VerbOutput
         VerbResult.CredentialRemoved r => CredentialRemoved(r.Value),
         VerbResult.RunnerRetired r => RunnerRetiredText(r.Value),
         VerbResult.TenantNamed named =>
-            $"  This tenant is called {Clean(named.Name)} now. Everybody in it reads that "
+            $"This organisation is called {Clean(named.Name)} now. Everyone in it sees the new "
           + "name; nothing else about it changed.",
         VerbResult.RunnerOwned r => RunnerOwnedText(r.Value),
         VerbResult.EnrollmentMinted r => EnrollmentMintedText(r.Value),
@@ -1190,6 +1193,7 @@ public static class VerbOutput
         VerbResult.StrategyBuild r => StrategyBuildText(r.Value),
         VerbResult.Strategies r => StrategiesText(r.Value),
         VerbResult.Watches r => WatchesText(r.Value),
+        VerbResult.EnvironmentCharted r => ChartedText(r.Value),
         _ => throw Unknown(result?.Kind),
     };
 
@@ -1307,8 +1311,7 @@ public static class VerbOutput
         if (listed.Allowances.Count is 0)
         {
             return "No machine in this fleet has reported an allowance. A machine reports "
-                 + "one when its configuration names one - `allowance` - and naming one is "
-                 + "how somebody says they are lending it.";
+                 + "one when its configuration sets `allowance`.";
         }
 
         var text = new StringBuilder();
@@ -1431,7 +1434,7 @@ public static class VerbOutput
         // the same question answered, rather than two unrelated sentences.
         text.Append(view.AcceptsOffered
             ? "offers  this machine accepts what its control plane offers, once "
-            + "somebody runs `gg config accept`\n"
+            + "someone runs `gg config accept`\n"
             : "offers  no configuration offered by a control plane is accepted here\n");
 
         // AND WHO MAY PUT A SECRET ON IT, which is the same question about a
@@ -1707,8 +1710,8 @@ public static class VerbOutput
     {
         if (list.Keys.Count == 0)
         {
-            return "No keys registered. Run gg key create to mint one, so a credential can be "
-                 + "sealed to you.";
+            return "No keys registered. Run gg key create to make one, so a credential can be "
+                 + "sealed to it.";
         }
 
         var text = new StringBuilder();
@@ -1736,7 +1739,7 @@ public static class VerbOutput
     /// they can hand it to somebody whose control plane cannot be reached.
     /// </remarks>
     private static string KeyCreated(VerbResult.KeyMinted minted) =>
-        $"Your key is at {Clean(minted.At)}."
+        $"The key is at {Clean(minted.At)}."
       + Environment.NewLine
       + "Its public half, which is what a credential is sealed to:"
       + Environment.NewLine
@@ -1763,7 +1766,7 @@ public static class VerbOutput
         if (audience.Machines.Count == 0)
         {
             return $"Nothing declares it needs {Clean(audience.For)}, and no machine has "
-                 + "reported it cannot resolve one. There is nobody to send it to.";
+                 + "reported it cannot resolve one, so there is no machine to send it to.";
         }
 
         var rows = string.Join('\n', audience.Machines.Select(m => "  " + Clean(m.Label)));
@@ -1776,10 +1779,10 @@ public static class VerbOutput
         trusted.AlreadyWas
             ? $"This machine was already a holder of {Clean(trusted.Locator)}. Nothing changed."
             : $"This machine can now open {Clean(trusted.Locator)}, so a flight here resolves it "
-            + "with nobody present. "
+            + "with no one present. "
             + $"It has {trusted.Holders} holders; `gg credential list` names them. "
-            + "You are still one of them - trusting a machine adds a holder rather than handing "
-            + "the credential over.";
+            + "The person who ran this is still one of them: trusting a machine adds a holder "
+            + "and removes none.";
 
     private static string CredentialRemoved(Gg.Contracts.CredentialRemoved removed) =>
         $"Removed {Clean(removed.CredentialId)}. "
@@ -1823,12 +1826,22 @@ public static class VerbOutput
             var state = token.RevokedAt is { } revoked ? $"  revoked {revoked:u}" : "";
             text.AppendLine(
                 $"{Clean(token.TokenId),-38}{Clean(token.Profile),-20}{token.UsesLeft,3} left  "
-              + $"until {token.ExpiresAt:u}  {Clean(token.Ownership)}{(token.Reserved ? ", reserved" : "")}"
+              + $"until {token.ExpiresAt:u}  {OwnershipWord(token.Ownership)}{(token.Reserved ? ", reserved" : "")}"
               + $"  by {Clean(token.MintedBy)}{state}");
         }
 
         return text.ToString().TrimEnd();
     }
+
+    /// <summary>An ownership value as a person reads it.</summary>
+    /// <remarks>
+    /// The wire value <c>tenant</c> stays as it is spelled on the wire and in what
+    /// a person types; shown in a list, it is the organisation's.
+    /// </remarks>
+    private static string OwnershipWord(string ownership) =>
+        string.Equals(ownership, Gg.Contracts.RunnerOwnerships.Tenant, StringComparison.Ordinal)
+            ? "organisation's"
+            : Clean(ownership);
 
     /// <summary>Whose the runner is now, and what that lets a person do next.</summary>
     private static string RunnerOwnedText(Gg.Contracts.RunnerOwnership owned)
@@ -1845,7 +1858,7 @@ public static class VerbOutput
                 $"{id} is {Clean(owned.Owner)}'s. It still takes organisation work; "
               + $"gg runner reserve {id} keeps it to {Clean(owned.Owner)}'s flights.",
             Gg.Contracts.RunnerOwnerships.Tenant =>
-                $"{id} is kept for organisation work: nobody may claim it. An admin can open it with "
+                $"{id} is kept for organisation work: no one may claim it. An administrator can open it with "
               + $"gg runner ownership {id} open.",
             Gg.Contracts.RunnerOwnerships.Open =>
                 $"{id} is open: any person in this organisation may claim it with gg runner claim {id}.",
@@ -1934,7 +1947,7 @@ public static class VerbOutput
             : throw new InvalidOperationException(
                 $"Flight state '{state}' has no published name. A state nothing can render "
               + "must not be shown as one that can - and the plausible guess here is "
-              + "'open', which would show a finished flight as one somebody is still "
+              + "'open', which would show a finished flight as one someone is still "
               + "working on.");
 
     /// <summary>
@@ -1997,7 +2010,7 @@ public static class VerbOutput
         _ => throw new InvalidOperationException(
             $"Loop outcome '{outcome}' has no published name. An outcome nothing can render "
           + "must not be shown as one that can - and the plausible guess here is 'failed', "
-          + "which would page somebody about a loop that is merely waiting. Expected one of: "
+          + "which would page someone about a loop that is only waiting. Expected one of: "
           + string.Join(", ", LoopOutcomes.All) + "."),
     };
 
@@ -2265,7 +2278,7 @@ public static class VerbOutput
                 if (change.PathsWithheld > 0)
                 {
                     text.AppendLine(
-                        $"      ({change.PathsWithheld} path(s) withheld: above this tenant's "
+                        $"      ({change.PathsWithheld} path(s) withheld: above this organisation's "
                       + "classification ceiling)");
                 }
 
@@ -2563,12 +2576,33 @@ public static class VerbOutput
     /// timestamp they have to subtract.
     /// </para>
     /// </remarks>
+    /// <summary>What charting one environment came to: charted now, or waiting on a gate.</summary>
+    private static string ChartedText(EnvironmentChartEntry charted)
+    {
+        var name = Clean(charted.Name);
+
+        if (charted.Flight is { Length: > 0 } flight)
+        {
+            return $"The environment {name} is not charted yet. Charting it widens "
+                 + $"{Clean(charted.Widens ?? "what every envelope may select")}, so it waits on flight "
+                 + $"{Clean(flight)} for {Clean(charted.Awaiting ?? "its approver")} to approve it "
+                 + "(a gate). An envelope naming it is refused until then.";
+        }
+
+        var meaning = charted.Meaning is { Length: > 0 } predicate
+            ? $", meaning {Clean(predicate)}"
+            : ", with no registered meaning, so a runner that advertises it is taken at its word";
+        var by = charted.ChartedBy is { Length: > 0 } who ? $" by {Clean(who)}" : "";
+
+        return $"Charted {name}{meaning}{by}. An envelope may now select it.";
+    }
+
     private static string WatchesText(WatchStandingList standings)
     {
         if (standings.Standings.Count == 0)
         {
-            return "no watch is in force for this tenant. That is a tenant watching nothing - "
-                 + "`gg airspace show` lists the names that have been declared.";
+            return "No watch is in force for this organisation. Run gg airspace show to list "
+                 + "the names that have been declared.";
         }
 
         var text = new StringBuilder();
@@ -2594,9 +2628,9 @@ public static class VerbOutput
             if (watch.QuietSince is { } since)
             {
                 text.AppendLine(
-                    $"  quiet since {since:u}: nothing this watch should have found has been "
-                  + "seen. Either no runner is sweeping it, or the ones that took its sweeps "
-                  + "are not reporting.");
+                    $"  Quiet since {since:u}: nothing this watch looks for has been seen. "
+                  + "Either no runner is sweeping it, or the runners that took its sweeps are "
+                  + "not reporting.");
             }
 
             if (watch.Diagnosis is { Length: > 0 } why)
@@ -2633,8 +2667,8 @@ public static class VerbOutput
         // digest comes back through the strategy door - after which the pool
         // rolls onto it. `gg pools` shows the build's outcome when it lands.
         text.AppendLine(
-            "  the pool's runner builds it; the pin moves when the build reports back, and "
-          + "the pool rolls from there. gg pools shows how it went.");
+            "  The pool's runner builds it. The pin moves when the build reports back, and "
+          + "the pool rolls from there. Run gg pools to see how it went.");
 
         return text.ToString();
     }
@@ -2666,8 +2700,8 @@ public static class VerbOutput
     {
         if (ledger.Pools.Count == 0)
         {
-            return "No pool has attested. That is a tenant managing no pools, or a pull point "
-                 + "that has not come up - gg strategies tells the two apart.";
+            return "No pool has reported its state. Either this organisation manages no pools, "
+                 + "or a pull point has not started; run gg strategies to see which.";
         }
 
         var text = new StringBuilder();
@@ -2691,8 +2725,8 @@ public static class VerbOutput
             if (status.ScopeProbedAt is null)
             {
                 text.AppendLine(
-                    "  scope unproved: no outward act is decided toward this pool until the "
-                  + "resident runner is refused a reach outside its own inventory.");
+                    "  scope unproved: nothing outward is decided for this pool until its "
+                  + "resident runner has been refused a reach outside its own inventory");
             }
         }
 
@@ -3054,7 +3088,7 @@ public static class VerbOutput
             var satisfier = item.Satisfier switch
             {
                 ChecklistSatisfiers.MatchingRunner => "already true via matching",
-                ChecklistSatisfiers.Nobody => "nobody: declared capability gap",
+                ChecklistSatisfiers.Nobody => "no one: declared capability gap",
                 ChecklistSatisfiers.DeclinedByBound => "declined by bound",
                 // The capacity is there and a declaration is holding it: the
                 // row says so, and the reason underneath says which of the
@@ -3097,7 +3131,7 @@ public static class VerbOutput
         foreach (var gate in proposed.Gates)
         {
             text.Append($"  waits on {gate.ObligationId}")
-                .Append(gate.Approver is { Length: > 0 } who ? $", answered by {who}" : ", which names nobody to answer it")
+                .Append(gate.Approver is { Length: > 0 } who ? $", answered by {who}" : ", which names no one to answer it")
                 .Append('\n');
         }
 
@@ -3208,13 +3242,12 @@ public static class VerbOutput
         var text = new StringBuilder();
         text.AppendLine(Clean(invitation.InvitationUrl));
         text.AppendLine();
-        text.AppendLine($"Send that to the person you are inviting. It works once, and stops");
-        text.AppendLine($"working at {invitation.ExpiresAt:u}.");
+        text.AppendLine($"Send this link to the person being invited. It works once, and stops working at {invitation.ExpiresAt:u}.");
         text.AppendLine();
         // SAID PLAINLY, because it is the one thing about this link somebody
         // would not guess: it is not addressed to anybody. Whoever opens it
         // becomes a principal in this tenant.
-        text.Append("Anybody who opens it joins this tenant, so send it the way you would send a password.");
+        text.Append("Anyone who opens it joins this organisation, so send it as privately as a password.");
         return text.ToString();
     }
 
@@ -3267,7 +3300,7 @@ public static class VerbOutput
         text.AppendLine();
         text.AppendLine(bundle.FlightLog is { } log
             ? Log(log)
-            : "flight log        not in this bundle - see the completeness line above.");
+            : "flight log        not in this bundle - see the completeness line above");
 
         return text.ToString().TrimEnd();
     }
@@ -3712,8 +3745,8 @@ public static class VerbOutput
                 // ones that do get missed.
                 text.AppendLine(
                     string.Equals(row.Mode, DestinationOpening.Gated, StringComparison.Ordinal)
-                        ? "  standing:     gated - it is waiting for somebody"
-                        : $"  standing:     {Clean(row.Mode)} - nobody need answer it");
+                        ? "  standing:     gated - waiting for a person to answer it"
+                        : $"  standing:     {Clean(row.Mode)} - no one needs to answer it");
 
                 // WHY IT IS GATED, EXACTLY WHEN THERE IS SOMEWHERE ELSE TO
                 // LOOK AND NOWHERE ELSE TO LOOK. An authored gate's reason is
@@ -3778,7 +3811,7 @@ public static class VerbOutput
         }
         else if (string.Equals(row.Ending, NominationEndings.Opened, StringComparison.Ordinal))
         {
-            text.AppendLine("  flight:       opened, and its number is not minted yet");
+            text.AppendLine("  flight:       opened, and not numbered yet");
         }
 
         text.AppendLine();
@@ -3979,7 +4012,7 @@ public static class VerbOutput
 
         if (pulled.Written.Count == 0 && pulled.Removed.Count == 0)
         {
-            text.Append("the working copy already matches the airspace\n");
+            text.Append("The working copy already matches the airspace.\n");
         }
         else
         {
@@ -4021,10 +4054,10 @@ public static class VerbOutput
     {
         if (declared.Flight is { Length: > 0 } flight)
         {
-            return $"{declared.Name}: declaring a {declared.Role} widens {declared.Widens} - "
-                 + $"flight {flight} awaits {declared.Awaiting}. The name is not in the "
-                 + "topology until that gate opens, so a document applied to it now is "
-                 + "refused.\n";
+            return $"Declaring {declared.Name} as a {declared.Role} widens {declared.Widens}, so "
+                 + $"it waits on flight {flight} for {declared.Awaiting} to approve it (a gate). "
+                 + "The name is not in the airspace until then, and a document applied to it "
+                 + "now is refused.\n";
         }
 
         // YOURS, AND WHAT THE WATCH SAYS ABOUT IT. Unquoted, where the renderer
@@ -4034,16 +4067,16 @@ public static class VerbOutput
         {
             var line = $"for: {whose}";
             return declared.WroteTo is { Length: > 0 } wrote
-                ? $"{declared.Name}: declared as your own {declared.Role}. "
+                ? $"Declared {declared.Name} as a personal {declared.Role} for {whose}. "
                 + $"Wrote {line} into {wrote}.\n"
-                : $"{declared.Name}: declared as your own {declared.Role}. Its "
-                + $"file names you on its first line:\n  {line}\n";
+                : $"Declared {declared.Name} as a personal {declared.Role} for {whose}. The "
+                + $"first line of its file names that person:\n  {line}\n";
         }
 
         return declared.DeclaredBy is { Length: > 0 } who
-            ? $"{declared.Name}: already declared as a {declared.Role}, by {who}. Nothing "
-            + "rode a flight.\n"
-            : $"{declared.Name}: declared as a {declared.Role} under {declared.Parent}.\n";
+            ? $"The name {declared.Name} was already declared as a {declared.Role}, by {who}. Nothing "
+            + "was changed.\n"
+            : $"Declared {declared.Name} as a {declared.Role} under {declared.Parent}.\n";
     }
 
     /// <summary>What registering a repository came to, as a person reads it.</summary>
@@ -4059,17 +4092,17 @@ public static class VerbOutput
     {
         if (added.Flight is { Length: > 0 } flight)
         {
-            return $"{added.Name}: registering {added.Path} widens {added.Widens} - flight "
-                 + $"{flight} awaits {added.Awaiting}. The name is NOT in the registry until "
-                 + "that gate opens, so a flight naming it now is refused.\n";
+            return $"Registering {added.Path} as {added.Name} widens {added.Widens}, so it waits "
+                 + $"on flight {flight} for {added.Awaiting} to approve it (a gate). The name is "
+                 + "NOT in the registry until then, and a flight naming it now is refused.\n";
         }
 
         var says = added.Credential is { Length: > 0 } mode
             ? $", credential {mode}"
             : string.Empty;
 
-        return $"{added.Name}: registered as {added.Provider} {added.Path} ({added.Id})"
-             + $"{says}, by {Clean(added.RegisteredBy)}. Nothing rode a flight.\n";
+        return $"Registered {added.Name} as {added.Provider} {added.Path} ({added.Id})"
+             + $"{says}, by {Clean(added.RegisteredBy)}. No approval was needed.\n";
     }
 
     /// <summary>
@@ -4083,14 +4116,15 @@ public static class VerbOutput
     /// </remarks>
     private static string NameRetiredText(NameRetired retired) =>
         retired.Flight is { Length: > 0 } flight
-            ? $"{retired.Name}: retiring it removes every constraint in it at once, so it "
-            + $"widens - flight {flight} awaits {retired.Awaiting}. The name STILL GOVERNS "
-            + "until that gate opens, and flights that start before then are governed by "
-            + $"it. In force: {retired.Version}.\n"
+            ? $"Retiring {retired.Name} removes every constraint in it at once, so it widens "
+            + $"what flights may do and waits on flight {flight} for {retired.Awaiting} to "
+            + $"approve it (a gate). {retired.Name} STILL GOVERNS until then, including flights "
+            + $"that start before the gate opens. Version in force: {retired.Version}.\n"
             // NOT REACHABLE THROUGH THE DOOR, which has no 200 - and said
             // rather than thrown, because a control plane that grew one should
             // report what it did instead of crashing a verb.
-            : $"{retired.Name}: retired, with no gate. In force: {retired.Version}.\n";
+            : $"Retired {retired.Name}; no approval was needed. Version in force: "
+            + $"{retired.Version}.\n";
 
     /// <summary>
     /// One applied document, with the version that names it permanently.
@@ -4184,7 +4218,7 @@ public static class VerbOutput
         }
 
         return text.Length == 0
-            ? "nothing has been applied to any name in this airspace\n"
+            ? "Nothing has been applied to any name in this airspace.\n"
             : text.ToString();
     }
 
@@ -4198,9 +4232,9 @@ public static class VerbOutput
         foreach (var name in applied.Declared)
         {
             text.Append(name.Flight is { Length: > 0 } gate
-                ? $"{name.Name}: declared as a {name.Role} - flight {gate} awaits "
-                + $"{name.Awaiting}. The name is not reachable until that gate opens, so "
-                + "its document waits with it.\n"
+                ? $"{name.Name}: declared as a {name.Role}, waiting on flight {gate} for "
+                + $"{name.Awaiting} to approve it (a gate); until then the name cannot be "
+                + "reached and its document waits\n"
                 : $"{name.Name}: declared as a {name.Role} under {name.Parent}\n");
         }
 
@@ -4215,7 +4249,7 @@ public static class VerbOutput
             && applied.Retiring.Count == 0
             && applied.Refused is null)
         {
-            text.Append("nothing to apply: the working copy matches the airspace\n");
+            text.Append("Nothing to apply: the working copy matches the airspace.\n");
         }
 
         foreach (var document in applied.Applied)
@@ -4223,8 +4257,8 @@ public static class VerbOutput
             if (document.Flight is { Length: > 0 } flight)
             {
                 text.Append(
-                    $"{document.Name}: widens {document.Widens} - flight {flight} awaits "
-                  + $"{document.Awaiting}\n");
+                    $"{document.Name}: widens {document.Widens}, waiting on flight {flight} for "
+                  + $"{document.Awaiting} to approve it (a gate)\n");
             }
             else if (document.Changed)
             {
@@ -4242,7 +4276,7 @@ public static class VerbOutput
         // the safe order.
         if (applied.Refused is { } refused)
         {
-            text.Append($"stopped at {refused.Path}: {Clean(refused.Diagnosis, lines: true)}\n");
+            text.Append($"Stopped at {refused.Path}: {Clean(refused.Diagnosis, lines: true)}\n");
 
             if (refused.NotTried.Count > 0)
             {
@@ -4255,8 +4289,8 @@ public static class VerbOutput
         foreach (var name in applied.Retiring)
         {
             text.Append(
-                $"{name}: the tree no longer holds this document. Retiring a name is "
-              + "applying a terminal version of it, which is its own gated change.\n");
+                $"{name}: not in the tree, and not retired by apply; run gg airspace retire "
+              + $"{name} to retire it, which waits for a person to approve it (a gate)\n");
         }
 
         return text.ToString();
@@ -4269,7 +4303,7 @@ public static class VerbOutput
 
         if (diff.Changes.Count == 0 && diff.Retiring.Count == 0 && diff.Unreadable.Count == 0)
         {
-            text.Append("no changes: the working copy matches the airspace\n");
+            text.Append("No changes: the working copy matches the airspace.\n");
         }
 
         foreach (var change in diff.Changes)

@@ -119,8 +119,8 @@ public static class Bundle
             CompletenessDetail = reachable
                 ? "The control plane answered, so this bundle has both halves."
                 : "The control plane could not be reached, so this bundle contains local material "
-                  + "only. There is no flight log in it, and that is a fact about the connection "
-                  + "rather than about the tenant.",
+                  + "only. There is no flight log in it because of the connection, not because "
+                  + "the organisation has no flights.",
             Binary = GgVersions.Binary,
             Protocol = GgVersions.Protocol,
             FactVocabulary = Contracts.FactVocabulary.Version,

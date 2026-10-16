@@ -190,8 +190,8 @@ public sealed class PinnedRunnerKeys
             // is exactly what an attacker would want the file to do. Loud.
             throw new PinnedKeysUnreadableException(
                 $"The pinned runner keys at {_path} could not be read, so this console cannot "
-              + "tell a runner it has met from one it has not. That is a state to look at "
-              + "rather than to carry on from: fix or delete the file deliberately.",
+              + "tell a runner it has met from one it has not. Nothing was pinned. Fix the "
+              + "file, or delete it to start pinning again.",
                 failure);
         }
     }

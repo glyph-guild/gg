@@ -82,7 +82,7 @@ public sealed class LogAnAgentIn(ControlPlaneClient control, ConsoleChannel chan
       + "Two things look like this: its own configuration does not say `accept-agent-login` and "
       + "it is old enough to stay quiet about that, or it is running a gg that predates this ask "
       + "entirely. Check `gg config show` and `gg --version` on that machine, in that order. A "
-      + "pool member is closed to this by decision: mint a token elsewhere and put it there with "
+      + "pool member does not accept this: create a token elsewhere and put it there with "
       + "`gg credential send --runner <id> --agent <name>`.";
 
     /// <summary>Introduces, reaches, begins, shows the URL, reads the code, finishes.</summary>
@@ -102,7 +102,7 @@ public sealed class LogAnAgentIn(ControlPlaneClient control, ConsoleChannel chan
 
         var say = saying ?? (_ => { });
 
-        say("asking the control plane which runners you can see");
+        say("asking the control plane which runners are visible here");
 
         var fleet = await control.ListRunnersAsync(sessionToken, cancellationToken);
 
@@ -112,7 +112,7 @@ public sealed class LogAnAgentIn(ControlPlaneClient control, ConsoleChannel chan
         {
             return new LoggedIn(
                 LoginOutcome.NoSuchRunner,
-                $"There is no runner {runnerId} here. `gg runners` lists the ones you can see.");
+                $"There is no runner {runnerId} here. Run gg runners to see which runners are visible here.");
         }
 
         if (string.Equals(runner.State, "offline", StringComparison.Ordinal))
@@ -131,7 +131,7 @@ public sealed class LogAnAgentIn(ControlPlaneClient control, ConsoleChannel chan
 
         using var ephemeral = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
 
-        say($"asking the control plane to introduce you to {runner.Label}");
+        say($"asking the control plane to introduce this person to {runner.Label}");
 
         var introduced = await control.IntroduceRunnerAsync(
             sessionToken,

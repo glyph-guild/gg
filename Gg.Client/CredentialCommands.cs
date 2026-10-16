@@ -370,7 +370,8 @@ public sealed class CredentialCommands(
             + $"credential. Change '|{elsewhere[0]}' to '|{filed}' in "
             + "`gg config set intent-hosts`, then run "
             + $"`gg credential trust-this-machine {filed}` so this machine can open it."
-            : $"This machine reads '{tracker}' as itself, and the credential is sealed to you: "
+            : $"This machine reads '{tracker}' as itself, and the credential is sealed to the "
+            + "signed-in person: "
             + $"run `gg credential trust-this-machine {filed}` so it can open it.";
     }
 
@@ -522,7 +523,7 @@ public sealed class CredentialCommands(
         {
             return "It is not registered yet - this machine is not signed in. Run `gg login` and "
                  + "then `gg key create` on a machine that is, or register this one later; until "
-                 + "then nobody can look your key up to seal a credential to it.";
+                 + "then no one can look this key up to seal a credential to it.";
         }
 
         try
@@ -532,12 +533,13 @@ public sealed class CredentialCommands(
                 new PrincipalKeyRegistrationRequest { PublicKey = publicKey },
                 cancellationToken);
 
-            return $"Registered as {registered.Fingerprint}, so a credential can be sealed to you.";
+            return $"Registered as {registered.Fingerprint}, so a credential can be sealed to it.";
         }
         catch (Exception failure) when (failure is HttpRequestException or InvalidOperationException)
         {
-            return $"Your key is written, and registering it did not work: {failure.Message} "
-                 + "Nobody can seal a credential to you until it is registered.";
+            return "The key is written, and registering it did not work: "
+                 + $"{ControlPlaneFailure.Said(failure)} No one can seal a credential to it until "
+                 + "it is registered. Run gg bundle and send the result to the Good Grief team.";
         }
     }
 
@@ -628,7 +630,7 @@ public sealed class CredentialCommands(
         var person = PersonKey.Unlock(
             _personKeyPath,
             passphrase: _prompt.ReadSecret(
-                "Passphrase for your key, so this machine can be given a copy (not echoed): "));
+                "Passphrase for the personal key, so this machine can be given a copy (not echoed): "));
 
         _credentials.TrustThisMachine(locator, person);
 

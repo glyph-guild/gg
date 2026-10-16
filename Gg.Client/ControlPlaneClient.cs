@@ -849,8 +849,8 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         {
             throw new PermissionRefusedException(
                 await RefusalAsync(response, cancellationToken)
-              + " Charting an environment widens what every envelope in this tenant may "
-              + "select, so it is an administrator's act.");
+              + " Charting an environment widens what every envelope in this organisation may "
+              + "select, so only an administrator can do it. Ask one to run it.");
         }
 
         response.EnsureSuccessStatusCode();
@@ -1417,8 +1417,9 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         {
             throw new PermissionRefusedException(
                 await RefusalAsync(response, cancellationToken)
-              + " Registering a repository widens what this tenant can reach, so it is an "
-              + "administrator's to do - ask one of yours to run it, or to grant you the role.");
+              + " Registering a repository widens what this organisation can reach, so only an "
+              + "administrator can do it. Ask one to run it, or to make this person an "
+              + "administrator.");
         }
 
         response.EnsureSuccessStatusCode();
@@ -2399,14 +2400,15 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
                 return new Introduced(
                     null, IntroductionRefusal.NoSuchRunner,
                     $"There is no runner {runnerId} here. It may have been retired, or the id "
-                  + "may belong to another tenant - `gg runners` lists the ones you can see.");
+                  + "may belong to another organisation. Run gg runners to see which runners are "
+                  + "visible here.");
 
             case HttpStatusCode.Forbidden:
                 return new Introduced(
                     null, IntroductionRefusal.NotYoursToReach,
-                    $"Runner {runnerId} is in your tenant and somebody else registered it. "
-                  + "Reaching a machine means reading what it is doing, so that is theirs to "
-                  + "allow - `gg runners` names who registered it.");
+                    $"Runner {runnerId} is in this organisation and someone else registered it. "
+                  + "Reaching a machine means reading what it is doing, so the person who "
+                  + "registered it decides; run gg runners to see who that is.");
 
             case HttpStatusCode.Conflict:
                 return new Introduced(
@@ -2576,7 +2578,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         {
             throw new DecisionRefusedException(
                 "The work changed while this decision was being made, so it was not recorded. "
-              + "What you were shown is not what is there now - read it again with `gg why` and "
+              + "What was shown is not what is there now. Read it again with `gg why`, then "
               + "decide against the work as it stands.");
         }
 
@@ -2672,10 +2674,10 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
             throw new ControlPlaneTooOldException(
-                "this control plane does not serve offered configuration - it is older than "
-              + "the contract this gg was built against. Nothing is wrong with your machine, "
-              + "and nothing here can tell you what is offered until the control plane is "
-              + "updated.");
+                "This control plane does not serve offered configuration: it is older than "
+              + "the contract this gg was built against. Nothing is wrong with this machine, "
+              + "and nothing here can say what is offered until the control plane is "
+              + "updated. Ask the Good Grief team when it will be.");
         }
 
         response.EnsureSuccessStatusCode();

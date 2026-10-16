@@ -189,7 +189,7 @@ public sealed class ConsoleChannel(
             return new Reached(
                 null, ReachFailure.KeyChanged,
                 $"The key for runner {introduction.RunnerId} is not the one this console pinned. "
-              + "A reinstall changes it legitimately and so does somebody substituting it, and "
+              + "A reinstall changes it legitimately and so does someone substituting it, and "
               + "nothing here can tell which - so nothing was sent. If the machine was rebuilt, "
               + $"run: gg runner repin {introduction.RunnerId}");
         }
@@ -272,9 +272,10 @@ public sealed class ConsoleChannel(
             peer.close();
             return new Reached(
                 null, ReachFailure.IntroductionExpired,
-                "The introduction ended before the runner answered. One lasts a minute, so this "
-              + "is a runner that was away for longer than that - not a network. Asking again "
-              + "mints a new one, and if it keeps happening the runner is not heartbeating.");
+                "The introduction ended before the runner answered. One lasts a minute, so the "
+              + "runner was away for longer than that, not held up by the network. Try again to "
+              + "start a new one; if this keeps happening, the runner is not heartbeating, and "
+              + "gg runners shows when it was last seen.");
         }
 
         if (collected.Answer is not { } answer)
@@ -298,14 +299,14 @@ public sealed class ConsoleChannel(
             answerSdp = RunnerSeal.OpenAnswer(
                 ephemeral, introduction.RunnerPublicKey, answer.Sealed);
         }
-        catch (CryptographicException opening)
+        catch (CryptographicException)
         {
             peer.close();
             return new Reached(
                 null, ReachFailure.AnswerWouldNotOpen,
-                "The runner answered and this console could not open what it sent. That is a "
-              + "different machine answering, or something rewriting the answer in transit: "
-              + opening.Message);
+                "The runner answered and this console could not open what it sent, so no "
+              + "channel was opened. Either a different machine answered, or something rewrote the "
+              + "answer in transit. Run gg runners to check the machine, then try again.");
         }
 
         say("the runner answered; opening the channel");
@@ -358,9 +359,7 @@ public sealed class ConsoleChannel(
             + "server configured, so it offered only its own address on its own network - "
             + "which nothing anywhere else can reach. Run `gg config set stun-servers "
             + "<stun:host:port,...>`, or set GG_STUN_SERVERS to the same, the way the runner "
-            + "is configured, and try again. There is no built-in default because a "
-            + "well-known server belongs to somebody, and which one to depend on is not this "
-            + "binary's decision to make.";
+            + "is configured, and try again. gg has no built-in default server.";
 
     /// <summary>Why no route was found, given the servers this channel asked.</summary>
     /// <remarks>

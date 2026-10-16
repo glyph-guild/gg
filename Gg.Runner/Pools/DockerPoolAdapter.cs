@@ -678,9 +678,9 @@ public sealed class DockerPoolAdapter(HttpClient httpClient) : IPoolAdapter, IIm
             return new PoolObservation
             {
                 Outcome = PoolOutcomes.Failed,
-                Diagnosis = $"no credential could be minted for '{member}', so it was not "
-                          + "created. A member without one registers with nobody and claims "
-                          + "nothing, and the pool would count it as warm.",
+                Diagnosis = $"the control plane gave no one-time sign-in code for '{member}', so "
+                          + "it was not created. A member without one cannot sign in or claim "
+                          + "work, and the pool would count it as warm.",
             };
         }
 

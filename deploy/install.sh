@@ -103,7 +103,7 @@ main() {
   fi
 
   case "$keep" in
-    "" | *[!0-9]*) refuse "--keep takes a count of releases, e.g. --keep 3, or 0 to keep them all." ;;
+    "" | *[!0-9]*) refuse "--keep takes a count of releases, for example --keep 3, or --keep 0 to keep them all. Nothing was installed." ;;
   esac
 
   # Where `gg service install` records what it wrote: its presence is how this
@@ -124,11 +124,11 @@ main() {
   fi
 
   if [ -n "$enroll" ] && [ -n "$enroll_file" ]; then
-    refuse "--enroll reads the token at a prompt and --enroll-file reads it from a file; give one of them."
+    refuse "--enroll reads the token at a prompt and --enroll-file reads it from a file. Give only one of them. Nothing was installed."
   fi
 
   if [ -n "$enroll_file" ] && [ ! -r "$enroll_file" ]; then
-    refuse "cannot read $enroll_file. Nothing was installed. Check the path and its permissions, or use --enroll to type the token at a prompt."
+    refuse "Cannot read $enroll_file. Nothing was installed. Check the path and its permissions, or use --enroll to type the token at a prompt."
   fi
 
   case "$(uname -s)" in
@@ -142,16 +142,16 @@ main() {
     # told otherwise, so the pinned script alone would not install the pin.
     MINGW* | MSYS* | CYGWIN* | Windows_NT)
       if [ -n "$version" ]; then
-        refuse "gg is released for Windows, and this script installs the Unix builds. In PowerShell: & ([scriptblock]::Create((irm https://github.com/$repo/releases/download/v$version/install.ps1))) -Version $version"
+        refuse "This is Windows, and this script installs only the Unix builds of gg. Nothing was installed. In PowerShell, run: & ([scriptblock]::Create((irm https://github.com/$repo/releases/download/v$version/install.ps1))) -Version $version"
       fi
-      refuse "gg is released for Windows, and this script installs the Unix builds. In PowerShell: irm https://github.com/$repo/releases/latest/download/install.ps1 | iex" ;;
-    *) refuse "gg is released for Linux, macOS and Windows, and this is $(uname -s). Nothing was installed. The releases are listed at https://github.com/$repo/releases." ;;
+      refuse "This is Windows, and this script installs only the Unix builds of gg. Nothing was installed. In PowerShell, run: irm https://github.com/$repo/releases/latest/download/install.ps1 | iex" ;;
+    *) refuse "This machine runs $(uname -s), and gg is released only for Linux, macOS and Windows. Nothing was installed. The releases are listed at https://github.com/$repo/releases." ;;
   esac
 
   case "$(uname -m)" in
     x86_64 | amd64) arch=x64 ;;
     arm64 | aarch64) arch=arm64 ;;
-    *) refuse "this machine is $(uname -m), and gg is not released for it. Nothing was installed. The releases are listed at https://github.com/$repo/releases." ;;
+    *) refuse "This machine is $(uname -m), and gg is not released for it. Nothing was installed. The releases are listed at https://github.com/$repo/releases." ;;
   esac
 
   rid="$os-$arch"
@@ -161,7 +161,7 @@ main() {
   # that platform in the publish workflow rather than a flag.
   case "$rid" in
     linux-x64 | linux-arm64 | osx-arm64 | osx-x64) ;;
-    *) refuse "gg is released for linux-x64, linux-arm64, osx-arm64 and osx-x64, and this machine is $rid." ;;
+    *) refuse "This machine is $rid, and gg is released only for linux-x64, linux-arm64, osx-arm64 and osx-x64. Nothing was installed. The releases are listed at https://github.com/$repo/releases." ;;
   esac
 
   asset="gg-$rid.tar.gz"
@@ -186,9 +186,9 @@ main() {
 
   if [ -n "$command_name" ]; then
     command_ok "$command_name" \
-      || refuse "'$command_name' is not a command name: letters, digits, dot, dash and underscore, e.g. --as goodgrief."
+      || refuse "'$command_name' is not a command name. Use only letters, digits, dots, dashes and underscores, for example --as goodgrief. Nothing was installed."
     if [ -n "$runner" ] && [ "$command_name" != gg ]; then
-      refuse "--as renames the command a person types, and a runner's service runs $service_binary, so a runner is always installed as gg. Leave --as off here, or leave --control-plane off to make this a laptop."
+      refuse "--as renames the command a person types, and a runner's service runs $service_binary, so a runner is always installed as gg. Nothing was installed. Leave --as off, or leave --control-plane off to install only the command line."
     fi
   fi
   [ -n "$command_name" ] || command_name=gg
@@ -227,16 +227,16 @@ main() {
     # destructive one, and the only one worth stopping for.
     if { [ -e "$bin/gg" ] || [ -L "$bin/gg" ]; } && ! ours "$bin/gg"; then
       if [ -n "$runner" ]; then
-        refuse "another program called gg is at $bin/gg, and a runner's service runs $service_binary. Remove or rename it first; nothing was installed."
+        refuse "Another program called gg is at $bin/gg, and a runner's service runs $service_binary. Nothing was installed. Remove or rename that program, then run this again."
       elif (: < /dev/tty) 2>/dev/null; then
-        printf 'install.sh: another program called gg is at %s.\n' "$bin/gg" > /dev/tty
+        printf 'install.sh: Another program called gg is at %s.\n' "$bin/gg" > /dev/tty
         printf "Install Good Grief's command under a different name [goodgrief]: " > /dev/tty
         IFS= read -r answer < /dev/tty || answer=""
         command_name="${answer:-goodgrief}"
         command_ok "$command_name" \
-          || refuse "'$command_name' is not a command name: letters, digits, dot, dash and underscore."
+          || refuse "'$command_name' is not a command name. Use only letters, digits, dots, dashes and underscores. Nothing was installed."
       else
-        refuse "another program called gg is at $bin/gg, and installing over it would delete it. Run this again with --as <name>, e.g. --as goodgrief, to install Good Grief's command under another name. Nothing was installed."
+        refuse "Another program called gg is at $bin/gg, and installing over it would delete it. Run this again with --as <name>, for example --as goodgrief, to install Good Grief's command under another name. Nothing was installed."
       fi
     fi
 
@@ -259,9 +259,9 @@ main() {
     version="${latest##*/v}"
     case "$version" in
       "" | [!0-9]* | *[!0-9A-Za-z.+-]*)
-        refuse "could not find the newest gg release on GitHub. Nothing was installed. Run it again with --version <version>; the releases are listed at https://github.com/$repo/releases." ;;
+        refuse "Could not find the newest gg release on GitHub. Nothing was installed. Run this again with --version <version>. The releases are listed at https://github.com/$repo/releases." ;;
     esac
-    printf 'install.sh: installing the newest release, v%s.\n' "$version"
+    printf 'install.sh: Installing the newest release, v%s.\n' "$version"
   fi
 
   work="$(mktemp -d)"
@@ -280,9 +280,9 @@ main() {
     fetching="-s"
   fi
 
-  step "downloading $asset (v$version)..."
+  step "Downloading $asset (v$version)."
   curl -fSL "$fetching" -o "$work/$asset" "https://github.com/$repo/releases/download/v$version/$asset" \
-    || refuse "could not download $asset for v$version. Nothing was installed. Check that v$version is listed at https://github.com/$repo/releases."
+    || refuse "Could not download $asset for v$version. Nothing was installed. Check that v$version is listed at https://github.com/$repo/releases, then run this again."
 
   sha256() {
     if command -v sha256sum >/dev/null 2>&1; then
@@ -304,18 +304,18 @@ main() {
   # over TLS rather than checking a signature itself; install gh for the stronger
   # one.
   digest="$(sha256 "$work/$asset")"
-  step "checking it against $repo's build attestation..."
+  step "Checking it against $repo's build attestation."
 
   if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
     gh attestation verify "$work/$asset" --repo "$repo" >/dev/null 2>&1 \
-      || refuse "$asset (sha256:$digest) does not verify against $repo's build attestation. Nothing was installed."
+      || refuse "The downloaded $asset (sha256:$digest) does not verify against $repo's build attestation. Nothing was installed. Do not install this file by hand; report it at https://github.com/$repo/issues."
     checked="its attestation's signature verified by gh"
   else
     curl -fsSL -o "$work/attestations.json" \
       "https://api.github.com/repos/$repo/attestations/sha256:$digest" \
-      || refuse "no attestation of $repo names sha256:$digest, the digest of the $asset that arrived. Nothing was installed."
+      || refuse "No attestation of $repo names sha256:$digest, the digest of the $asset that arrived. Nothing was installed. Run this again; if it is refused again, report it at https://github.com/$repo/issues."
     grep -q '"bundle"' "$work/attestations.json" \
-      || refuse "the attestation lookup for sha256:$digest named no bundle. Nothing was installed."
+      || refuse "The attestation lookup for sha256:$digest named no bundle. Nothing was installed. Run this again; if it is refused again, report it at https://github.com/$repo/issues."
     checked="its digest named by an attestation of $repo (install gh to check the signature too)"
   fi
 
@@ -330,10 +330,10 @@ main() {
   # that can replace what the OS starts.
   target="$lib/$version"
   mkdir -p "$lib" "$bin"
-  step "installing v$version..."
+  step "Installing v$version."
 
   if [ -d "$target" ]; then
-    installed="v$version was already at $target, and is left as it is"
+    installed="Release v$version was already at $target and was left as it is"
   else
     staging="$lib/.incoming-$version-$$"
     rm -rf "$staging"
@@ -343,11 +343,11 @@ main() {
 
     if [ ! -x "$staging/gg" ]; then
       rm -rf "$staging"
-      refuse "$asset holds no gg. Nothing was installed."
+      refuse "The downloaded $asset holds no gg. Nothing was installed. Report it at https://github.com/$repo/issues."
     fi
 
     mv "$staging" "$target"
-    installed="v$version installed at $target"
+    installed="Installed v$version at $target"
   fi
 
   # THE LINK MOVES BY RENAME TOO: a new link beside the old, renamed over it, so
@@ -411,12 +411,12 @@ main() {
   if [ "$keep" -gt 0 ]; then
     removed="$(prune)"
     if [ -n "$removed" ]; then
-      printf 'install.sh: removed older releases%s, keeping the newest %s (--keep <n> to change, 0 keeps all).\n' "$removed" "$keep"
+      printf 'install.sh: Removed older releases%s and kept the newest %s. Run this with --keep <n> to keep a different number, or --keep 0 to keep them all.\n' "$removed" "$keep"
     fi
   fi
 
   if [ -n "$shadowing" ]; then
-    printf 'install.sh: another program called gg is at %s, earlier on PATH, so `gg` still runs that one. Install this one under a name of its own with --as <name>, e.g. --as goodgrief, or put /usr/local/bin first.\n' "$shadowing"
+    printf 'install.sh: Another program called gg is at %s, earlier on PATH, so `gg` still runs that one. Install this one under a name of its own with --as <name>, for example --as goodgrief, or put /usr/local/bin first on PATH.\n' "$shadowing"
   fi
 
   # AND WHETHER A SHELL WILL FIND IT. "gg: command not found" after a successful
@@ -480,7 +480,7 @@ main() {
           printf '\n%s\n%s\n' "$marker" "$path_line" >> "$startup"
         fi
         [ -z "$who" ] || [ -z "$created" ] || chown "$who" "$startup" "$(dirname "$startup")" 2>/dev/null || true
-        printf 'install.sh: /usr/local/bin was not on PATH; added it to %s for %s. Open a new terminal, or run: %s\n' "$startup" "${shell##*/}" "$path_line"
+        printf 'install.sh: /usr/local/bin was not on PATH, so this script added it to %s for %s. Open a new terminal, or run: %s\n' "$startup" "${shell##*/}" "$path_line"
       fi ;;
   esac
 
@@ -489,7 +489,7 @@ main() {
   # after typing one line - and because the default control plane is localhost,
   # so a laptop nobody pointed anywhere points at nothing.
   if [ -z "$runner" ]; then
-    printf 'install.sh: this machine is not a runner - nothing was started and no user was made.\n'
+    printf 'install.sh: This machine is not a runner. Nothing was started and no user was made.\n'
     printf '  %s config set control-plane <url>   # the organisation'\''s control plane\n' "$command_name"
     printf '  %s login                            # then sign in\n' "$command_name"
     printf 'To make it a runner instead, run this again with --control-plane <url>.\n'
@@ -508,7 +508,7 @@ main() {
     "$gg" "$@" --enroll < "$enroll_file"
   elif [ -n "$enroll" ]; then
     (: < /dev/tty) 2>/dev/null \
-      || refuse "--enroll asks for the token on this terminal, and there is none. Use --enroll-file <path>."
+      || refuse "--enroll asks for the token on this terminal, and this run has no terminal. The service was not installed. Run this again with --enroll-file <path>."
     printf 'Enrollment token (not echoed): ' > /dev/tty
     stty -echo < /dev/tty
     IFS= read -r token < /dev/tty || token=""

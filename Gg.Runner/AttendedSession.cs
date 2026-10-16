@@ -180,11 +180,12 @@ public sealed class AttendedSession(
                 Forget(serving);
 
                 observer.CannotBeFlownByHand(
-                    $"introduction {introductionId} was answered and nobody arrived: {how}. "
+                    $"introduction {introductionId} was answered and no one connected. "
                   + (how is HandshakeFailure.NoRouteBetweenUs
-                        ? "ICE never connected, which is the network between the two machines "
-                        + "rather than either of them."
-                        : "A route was found and no channel opened on it, which is this end."));
+                        ? "The two machines found no network route to each other, so the cause "
+                        + "is the network between them rather than either machine."
+                        : "A route was found and no channel opened on it, so the cause is on "
+                        + "this machine."));
             }
         }
         catch (Exception narrating) when (narrating is not OperationCanceledException)

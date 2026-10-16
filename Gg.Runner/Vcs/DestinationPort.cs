@@ -500,7 +500,7 @@ public static class GitPush
             $"the branch '{branch}' has moved since this flight last pushed. It is at "
           + $"{Short(tip)}, this attempt builds on {Short(head)}, and that commit is not on "
           + "it - so this push is refusing to rewrite the branch. The commits already there "
-          + "are somebody's work: fetch the branch and continue from where it is now, or "
+          + "are someone else's work: fetch the branch and continue from where it is now, or "
           + "ground this flight and fly a new one.");
     }
 

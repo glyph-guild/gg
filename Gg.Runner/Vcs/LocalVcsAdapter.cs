@@ -124,7 +124,7 @@ public sealed class LocalVcsAdapter(string? root = null) : IVcsAdapter
         {
             throw new InvalidOperationException(
                 "The local adapter speaks file:// and has nothing to authenticate to. "
-              + "A credential offered here would be one nobody could have needed.");
+              + "No credential is needed here, so none may be passed.");
         }
 
         return await GitWorkingTree.FetchAsync(
@@ -155,7 +155,7 @@ public sealed class LocalVcsAdapter(string? root = null) : IVcsAdapter
         {
             throw new InvalidOperationException(
                 "The local adapter speaks file:// and has nothing to authenticate to. "
-              + "A credential offered here would be one nobody could have needed.");
+              + "No credential is needed here, so none may be passed.");
         }
 
         return GitWorkingTree.ResolveRemoteAsync(
@@ -173,7 +173,7 @@ public sealed class LocalVcsAdapter(string? root = null) : IVcsAdapter
         {
             throw new InvalidOperationException(
                 "The local adapter speaks file:// and has nothing to authenticate to. "
-              + "A credential offered here would be one nobody could have needed.");
+              + "No credential is needed here, so none may be passed.");
         }
 
         return GitWorkingTree.ReadFileAsync(

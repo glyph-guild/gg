@@ -379,7 +379,7 @@ public sealed partial class AgentLoginCeremony(
         }
 
         child.Dispose();
-        saying?.Invoke($"agent login for {Provider} ended, written: false (nobody finished it within {Patience})");
+        saying?.Invoke($"agent login for {Provider} ended, written: false (no one finished it within {Patience})");
     }
 
     public void Dispose()

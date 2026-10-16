@@ -174,7 +174,7 @@ public class WatchingAnIdleRunnerFromTheModalTests
             Over(RunnerStates.Offline),
             _ => throw new InvalidOperationException("nothing should be started"));
 
-        await Assert.That(after.LastRunner).Contains("beating")
+        await Assert.That(after.LastRunner).Contains("is offline")
             .Because("the sentence has to say what is missing, or a person presses the key "
                    + "again and waits out another introduction.");
     }

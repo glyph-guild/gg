@@ -58,7 +58,7 @@ public class TheFleetPaneSaysWhoseTests
             Fleet(A("vmlinux002", RunnerOwnerships.Claimed, "Kevin", reserved: true)))[0];
 
         await Assert.That(Rows.Whose(tenant)).IsEqualTo("organisation's");
-        await Assert.That(Rows.Whose(open)).IsEqualTo("open");
+        await Assert.That(Rows.Whose(open)).IsEqualTo("unclaimed");
         await Assert.That(Rows.Whose(claimed)).IsEqualTo("Kevin's");
         await Assert.That(Rows.Whose(reserved)).IsEqualTo("Kevin's, reserved")
             .Because("reservation rides the owner: nothing is reserved that is not claimed, so "
@@ -75,7 +75,7 @@ public class TheFleetPaneSaysWhoseTests
             .Because("a row reading 'open' from a control plane with no claim door invites a "
                    + "key that cannot succeed - the command line's rule, and the same one here.");
         await Assert.That(PaneText.ForTab(Fleet(A("vmlinux001")), TabId.Runners))
-            .DoesNotContain("open", StringComparison.Ordinal);
+            .DoesNotContain("unclaimed", StringComparison.Ordinal);
     }
 
     [Test]
@@ -108,7 +108,7 @@ public class TheFleetPaneSaysWhoseTests
             .Because("a cell per column, or the table draws one machine's fact under another's "
                    + "heading.");
 
-        var whose = cells[Rows.RunnerColumns.ToList().IndexOf("whose")];
+        var whose = cells[Rows.RunnerColumns.ToList().IndexOf("owner")];
         await Assert.That(whose).IsEqualTo("organisation's · resident");
         await Assert.That(cells[Rows.RunnerColumns.ToList().IndexOf("profile")])
             .IsEqualTo("dev-worker");
@@ -149,7 +149,7 @@ public class TheFleetPaneSaysWhoseTests
 
         var pane = PaneText.ForTab(state, TabId.Runners);
 
-        await Assert.That(pane).Contains("lacks forge ado", StringComparison.Ordinal)
+        await Assert.That(pane).Contains("missing forge ado", StringComparison.Ordinal)
             .Because("a person scanning a fleet is asking which machines are not working, and "
                    + "the item sends them to the right place where a count sends them into a "
                    + "modal to find out.");

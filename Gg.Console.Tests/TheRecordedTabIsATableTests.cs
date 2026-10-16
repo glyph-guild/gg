@@ -137,7 +137,7 @@ public class TheRecordedTabIsATableTests
     public async Task The_table_says_what_each_column_is()
     {
         await Assert.That(Rows.FactColumns).IsEquivalentTo(
-            (string[])["at", "kind", "kept as", "what it says"]);
+            (string[])["at", "kind", "stored as", "what it says"]);
 
         // THE PROSE LAST, measured in the pty: with `what it says' third it took
         // the rest of the width and pushed `kept as' off the right edge, so the

@@ -51,24 +51,28 @@ public class AWatchSaysWhenItSweepsNextTests
     };
 
     [Test]
-    public async Task The_column_is_called_since()
+    public async Task Each_age_column_says_what_it_is_the_age_of()
     {
+        await Assert.That(Rows.NominationColumns).Contains("age")
+            .Because("a nomination's column is how long ago it was made, which is the word "
+                   + "the flights tab uses for the same thing.");
+        await Assert.That(Rows.SweepColumns).Contains("last heard")
+            .Because("a watch's column is how long ago it last reported, which is the word "
+                   + "the runners tab uses for the same thing.");
+
         foreach (var columns in (IReadOnlyList<string>[])[Rows.NominationColumns, Rows.SweepColumns])
         {
-            await Assert.That(columns).Contains("since");
-            await Assert.That(columns).DoesNotContain("when")
-                .Because("it is an age, and on this tab it is the age of two different things - "
-                       + "a nomination since it was made, a watch since it last reported.");
+            await Assert.That(columns).DoesNotContain("when");
         }
     }
 
     [Test]
-    public async Task The_sweeps_have_a_next_column_after_since()
+    public async Task The_sweeps_have_a_next_column_after_the_last()
     {
-        await Assert.That(Rows.SweepColumns).Contains("next");
+        await Assert.That(Rows.SweepColumns).Contains("next sweep");
 
-        await Assert.That(Rows.SweepColumns.ToList().IndexOf("next"))
-            .IsEqualTo(Rows.SweepColumns.ToList().IndexOf("since") + 1)
+        await Assert.That(Rows.SweepColumns.ToList().IndexOf("next sweep"))
+            .IsEqualTo(Rows.SweepColumns.ToList().IndexOf("last heard") + 1)
             .Because("last time and next time read together; a column between them is one "
                    + "an eye has to cross twice.");
     }

@@ -138,8 +138,8 @@ public class TheLookPageTests
 
         var said = Looks.Copyable(look);
 
-        await Assert.That(said).Contains("Midnight");
-        await Assert.That(said).Contains("Double");
+        await Assert.That(said).Contains("midnight");
+        await Assert.That(said).Contains("double");
 
         await Assert.That(said).DoesNotContain("tab depth")
             .Because("five settings were left alone, and a copy that listed them buries "
@@ -158,7 +158,7 @@ public class TheLookPageTests
         var rows = Looks.Rows(look);
 
         await Assert.That(rows).Count().IsEqualTo(Looks.All.Count);
-        await Assert.That(rows[0].Value).IsEqualTo("Neon");
+        await Assert.That(rows[0].Value).IsEqualTo("neon");
         await Assert.That(rows[0].Changed).IsNotEmpty();
 
         await Assert.That(rows[1].Changed).IsEmpty()

@@ -102,11 +102,11 @@ public class TheFleetShowsWhatEachMachineHasTests
     {
         var columns = Rows.RunnerColumns.ToList();
 
-        await Assert.That(columns.IndexOf("cpu")).IsLessThan(columns.IndexOf("lacks"))
+        await Assert.That(columns.IndexOf("cpu")).IsLessThan(columns.IndexOf("missing"))
             .Because("driving the real console at 176 columns, `last heard` is already clipped "
-                   + "to two characters - so a figure placed after `lacks` and `advertises` "
+                   + "to two characters - so a figure placed after `missing` and `offers` "
                    + "would be a figure nobody can see.");
-        await Assert.That(columns.IndexOf("memory")).IsLessThan(columns.IndexOf("advertises"));
+        await Assert.That(columns.IndexOf("memory")).IsLessThan(columns.IndexOf("offers"));
     }
 
     [Test]

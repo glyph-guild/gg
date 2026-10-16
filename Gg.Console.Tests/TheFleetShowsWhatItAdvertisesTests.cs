@@ -59,7 +59,7 @@ public class TheFleetShowsWhatItAdvertisesTests
     [Test]
     public async Task The_table_has_a_column_for_them()
     {
-        await Assert.That(Rows.RunnerColumns).Contains("advertises")
+        await Assert.That(Rows.RunnerColumns).Contains("offers")
             .Because("the column that answers why a flight will not fly here.");
     }
 
@@ -130,7 +130,7 @@ public class TheFleetShowsWhatItAdvertisesTests
 
         await Assert.That(cells.Length).IsEqualTo(Rows.RunnerColumns.Count)
             .Because("a column with no cell behind it is a heading over nothing.");
-        await Assert.That(cells[Rows.RunnerColumns.ToList().IndexOf("advertises")])
+        await Assert.That(cells[Rows.RunnerColumns.ToList().IndexOf("offers")])
             .IsEqualTo(row.Labels);
     }
 }

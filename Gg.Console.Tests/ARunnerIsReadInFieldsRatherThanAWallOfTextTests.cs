@@ -118,7 +118,7 @@ public class ARunnerIsReadInFieldsRatherThanAWallOfTextTests
 
         await Assert.That(labels).Contains("state");
         await Assert.That(labels).Contains("working on");
-        await Assert.That(labels).Contains("advertises");
+        await Assert.That(labels).Contains("offers");
         await Assert.That(labels).Contains("last heard");
         await Assert.That(labels).Contains("registered by");
 

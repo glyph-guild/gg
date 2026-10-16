@@ -217,7 +217,7 @@ public class ABoardRowOpensIntoAModalTests
     [Test]
     public async Task The_column_is_the_cost_and_the_sentence_is_not_in_it()
     {
-        await Assert.That(Rows.SweepColumns).Contains("cost");
+        await Assert.That(Rows.SweepColumns).Contains("opened");
         await Assert.That(Rows.SweepColumns).DoesNotContain("why")
             .Because("what is left in the table is a number; the prose moved.");
         await Assert.That(Rows.NominationColumns).DoesNotContain("why");
@@ -230,7 +230,7 @@ public class ABoardRowOpensIntoAModalTests
 
         await Assert.That(row.Cost).IsEqualTo("");
         await Assert.That(row.Cost).DoesNotContain(Sentence);
-        await Assert.That(Rows.NominationColumns).DoesNotContain("cost")
+        await Assert.That(Rows.NominationColumns).DoesNotContain("opened")
             .Because("a nomination is a question, not a spender - its table has no such "
                    + "column at all.");
     }

@@ -48,7 +48,7 @@ public class TheRunnerModalSaysWhoseTests
             RunnerOwnerships.Claimed, "Kevin", reserved: true, resident: true,
             profile: "dev-worker"));
 
-        await Assert.That(ValueOf(state, "whose")).IsEqualTo("Kevin's, reserved");
+        await Assert.That(ValueOf(state, "owner")).IsEqualTo("Kevin's, reserved");
         await Assert.That(ValueOf(state, "profile")).IsEqualTo("dev-worker");
         await Assert.That(ValueOf(state, "resident")).IsNotEmpty();
     }
@@ -58,7 +58,7 @@ public class TheRunnerModalSaysWhoseTests
     {
         var state = Fleet(A());
 
-        await Assert.That(ValueOf(state, "whose")).IsEqualTo("")
+        await Assert.That(ValueOf(state, "owner")).IsEqualTo("")
             .Because("empty is not open: a field reading open, from a control plane with no "
                    + "claim door, invites a key that cannot succeed.");
         await Assert.That(ValueOf(state, "profile")).IsEqualTo("")
@@ -77,8 +77,8 @@ public class TheRunnerModalSaysWhoseTests
 
         var labels = RunnerDetails.Fields(state).Select(f => f.Label).ToList();
 
-        await Assert.That(labels.IndexOf("whose")).IsGreaterThan(-1);
-        await Assert.That(labels.IndexOf("whose")).IsLessThan(labels.IndexOf("working on"));
+        await Assert.That(labels.IndexOf("owner")).IsGreaterThan(-1);
+        await Assert.That(labels.IndexOf("owner")).IsLessThan(labels.IndexOf("working on"));
     }
 
     [Test]

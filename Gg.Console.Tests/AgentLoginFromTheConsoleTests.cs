@@ -123,7 +123,7 @@ public class AgentLoginFromTheConsoleTests
         await Assert.That(asked).IsEqualTo(0);
         await Assert.That(after.LastCredential!).Contains("gg-pool-ui-3")
             .Because("which machine, so a fleet of them is actionable.");
-        await Assert.That(after.LastCredential!).Contains("not beating")
+        await Assert.That(after.LastCredential!).Contains("is offline")
             .Because("a person asked to visit a browser for a machine that is switched off "
                    + "has typed a code for nothing.");
     }

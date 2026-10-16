@@ -160,7 +160,7 @@ public static class PreviewAnswers
 
         return $"this kind serves a preview, and nothing answers at {origin}: {why}. The loop "
              + "changed what it was asked to change, and what it did not do is the one thing "
-             + "somebody was about to be asked to look at - so this is not completed. The branch "
+             + "a person was about to be asked to look at, so this is not completed. The branch "
              + "is pushed and the tree is held; what is missing is a server on that address."
              + elsewhere;
     }

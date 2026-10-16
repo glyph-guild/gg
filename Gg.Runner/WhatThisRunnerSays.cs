@@ -202,7 +202,7 @@ public sealed class WhatThisRunnerSays(
 
     public void Fenced(string leaseId)
     {
-        Doing("fenced - the flight is somebody else's now");
+        Doing("fenced - another runner has the flight now");
         FlyingNothing();
         _inner.Fenced(leaseId);
     }
@@ -269,7 +269,7 @@ public sealed class WhatThisRunnerSays(
 
     public void Parked()
     {
-        Doing("parked - somebody withheld this machine");
+        Doing("parked - a person withheld this machine");
         FlyingNothing();
         _inner.Parked();
     }
@@ -285,7 +285,7 @@ public sealed class WhatThisRunnerSays(
 
     public void AgentHeld(string provider, string diagnosis)
     {
-        Doing($"holding: the {provider} agent is not logged in", diagnosis);
+        Doing($"waiting: the {provider} agent is not logged in", diagnosis);
         FlyingNothing();
         _inner.AgentHeld(provider, diagnosis);
     }

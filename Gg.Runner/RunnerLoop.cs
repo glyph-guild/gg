@@ -3491,9 +3491,9 @@ public sealed class RunnerLoop(
             if (!proposed.TryGetValue(key, out var proposal))
             {
                 return Refused(
-                    $"admission named proposal '{key}' and this run shipped no such fact. "
-                  + "Performing the rest would leave a backlog changed in a way nobody can "
-                  + "reconcile against what was decided.");
+                    $"The control plane admitted proposal '{key}', and this run sent no such "
+                  + "proposal, so none of the admitted changes were made to the backlog. Run gg "
+                  + "bundle and send the result to the Good Grief team.");
             }
 
             performing.Add(proposal);
@@ -4029,10 +4029,11 @@ public sealed class RunnerLoop(
         if (refused is { Length: > 0 })
         {
             return (RunnerDisposition.Outstanding,
-                "You recorded this flight as finished and the runner could not land it: "
+                "The person who took over recorded this flight as finished, and the runner "
+              + "could not land it: "
               + refused
-              + " Nothing was closed and your work is where you left it."
-              + (decision.Note is { Length: > 0 } said ? " You said: " + said : ""));
+              + " Nothing was closed, and the work is where they left it."
+              + (decision.Note is { Length: > 0 } said ? " Their note: " + said : ""));
         }
 
         // THE PERSON ANSWERS FOR THEIR WORK; THEY DO NOT ANSWER THE GATE.
@@ -4069,13 +4070,14 @@ public sealed class RunnerLoop(
         // what the new disposition buys.
         return (outstanding ? RunnerDisposition.Outstanding : RunnerDisposition.Abandoned,
             (outstanding
-                ? "You recorded this flight as finished, and the gate your work opened has "
-                + "not been answered yet. Nothing was closed and your work is pushed where "
-                + "whoever answers it can read it: the flight stays open until they do."
-                : "You recorded this flight as finished, and the control plane has not "
-                + "settled it. Nothing was closed and your work is still there: the flight "
-                + "stays open until it settles.")
-          + (decision.Note is { Length: > 0 } note ? " You said: " + note : ""));
+                ? "The person who took over recorded this flight as finished, and no one has "
+                + "answered the gate the work opened yet. Nothing was closed, and the work is "
+                + "pushed where the person who answers the gate can read it. The flight stays "
+                + "open until someone answers it."
+                : "The person who took over recorded this flight as finished, and the control "
+                + "plane has not settled it. Nothing was closed, and the work is still there. "
+                + "The flight stays open until it settles.")
+          + (decision.Note is { Length: > 0 } note ? " Their note: " + note : ""));
     }
 
     private async Task HoldAsync(

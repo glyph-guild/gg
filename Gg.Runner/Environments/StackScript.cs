@@ -439,7 +439,8 @@ public static class StackScript
             return $"this environment's hooks are declared at '{hooks}', which resolves "
                  + "outside the checkout. A hook is a file in the repository this flight "
                  + "checked out; an absolute path, or one that climbs out of it, names a file "
-                 + "on the pool host instead - which is not the tenant's to run from here.";
+                 + "on the pool host instead, which a flight may not run. Move the hooks into the "
+                 + "repository and name them by a path inside it.";
         }
 
         return File.Exists(script)

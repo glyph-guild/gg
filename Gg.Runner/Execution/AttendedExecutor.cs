@@ -381,7 +381,7 @@ public sealed class AttendedExecutor(
     private ExecutorRun Unstartable(ExecutorRequest request, string why) =>
         ExecutorRun.Failed(
             request.LoopId,
-            $"'{_binary}' could not be started, so nobody was handed this flight: {why}",
+            $"'{_binary}' could not be started, so this flight was not handed to anyone: {why}",
             attempts: 0, took: TimeSpan.Zero, movesUsed: []);
 
     private void Announce(ExecutorRequest request)
@@ -411,9 +411,9 @@ public sealed class AttendedExecutor(
         // vanished concludes the tool is broken rather than that it is
         // governed.
         _announce.WriteLine(
-            "Your own Claude Code settings, plugins and tool servers are not loaded for this "
-          + "session: the flight's envelope decides what may run, not this machine's "
-          + "configuration.");
+            "This machine's own Claude Code settings, plugins and tool servers are not loaded "
+          + "for this session: the flight's envelope decides what may run, not this "
+          + "machine's configuration.");
 
         if (request.Moves is [_, ..])
         {

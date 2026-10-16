@@ -59,23 +59,23 @@ public sealed record CredentialEnding(string Said, int Exit)
         return expiresAt switch
         {
             { } ends when ends <= now => new CredentialEnding(
-                "this runner's credential expired at "
-              + $"{ends:yyyy-MM-dd HH:mm}Z and a runner token cannot be renewed in flight. "
-              + "Nothing is wrong: a machine whose credential is sized to its life has "
-              + "reached the end of one.", 0),
+                "This runner's credential expired at "
+              + $"{ends:yyyy-MM-dd HH:mm}Z, and a runner's credential cannot be renewed while "
+              + "it runs, so this runner stopped. This is the ordinary end of a credential "
+              + "issued for the life of one machine.", 0),
 
             { } ends => new CredentialEnding(
-                "this runner's credential was refused although it does not expire until "
-              + $"{ends:yyyy-MM-dd HH:mm}Z, so it was revoked or this runner was retired. "
-              + "No waiting fixes that.", Refused),
+                "The control plane refused this runner's credential, which does not expire "
+              + $"until {ends:yyyy-MM-dd HH:mm}Z, so someone revoked it or retired this runner, "
+              + "and this runner stopped. Run gg runners to see whether it was retired.", Refused),
 
             // NOT GUESSED. Said as what it is - a 401 this runner cannot
             // explain - so a reader is told the platform does not know rather
             // than told a guess.
             null => new CredentialEnding(
-                "the control plane refused this runner's credential (401) and this runner "
-              + "has no recorded expiry, so whether it ended or was taken away is not "
-              + $"known here: {refused.Message}", Refused),
+                "The control plane refused this runner's credential, and this runner has no "
+              + "record of when it expires, so it cannot tell whether the credential ended or "
+              + "was revoked. This runner stopped. Run gg runners to see whether it was retired.", Refused),
         };
     }
 }

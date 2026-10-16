@@ -79,7 +79,7 @@ function Install-Gg {
         # executable its own user can rewrite. The ratchet over every install line
         # in this repository caught this sentence, and it was right to.
         $pinned = if ($Version) { " --version $Version" } else { '' }
-        throw "gg is released for win-x64, and this machine reports architecture $arch. Nothing was installed. The .NET tool works anywhere the SDK does: dotnet tool install GlyphGuild.Gg.Cli$pinned --tool-path $Prefix\tool"
+        throw "This machine reports architecture $arch, and gg is released for Windows only as win-x64. Nothing was installed. The .NET tool works anywhere the SDK does; to install it, run: dotnet tool install GlyphGuild.Gg.Cli$pinned --tool-path $Prefix\tool"
     }
 
     # WHAT THE COMMAND IS CALLED. Ours is the shim in $Prefix; anything else on
@@ -100,13 +100,13 @@ function Install-Gg {
     # with.
     if ($theirs -and -not $Alias -and
         [Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {
-        Write-Host "install.ps1: another program called gg is at $($theirs.Source)."
+        Write-Host "install.ps1: Another program called gg is at $($theirs.Source)."
         $answer = Read-Host "Install Good Grief's command under a different name [goodgrief]"
         $Alias = if ($answer) { $answer } else { 'goodgrief' }
     }
     if (-not $Alias) { $Alias = 'gg' }
     if ($Alias -notmatch '^[A-Za-z0-9_-][A-Za-z0-9._-]*$') {
-        throw "'$Alias' is not a command name: letters, digits, dot, dash and underscore, e.g. -Alias goodgrief."
+        throw "'$Alias' is not a command name. Use only letters, digits, dots, dashes and underscores, for example -Alias goodgrief. Nothing was installed."
     }
 
     # THE NEWEST RELEASE, WHEN NONE WAS NAMED, looked up after every refusal that
@@ -122,9 +122,9 @@ function Install-Gg {
         }
         $Version = "$tag".TrimStart('v')
         if ($Version -notmatch '^[0-9][0-9A-Za-z.+-]*$') {
-            throw "Could not find the newest gg release on GitHub. Nothing was installed. Run it again with -Version <version>; the releases are listed at https://github.com/$repo/releases."
+            throw "Could not find the newest gg release on GitHub. Nothing was installed. Run this again with -Version <version>. The releases are listed at https://github.com/$repo/releases."
         }
-        Write-Host "install.ps1: installing the newest release, v$Version."
+        Write-Host "install.ps1: Installing the newest release, v$Version."
     }
 
     $asset = 'gg-win-x64.tar.gz'
@@ -132,7 +132,7 @@ function Install-Gg {
     $work = New-Item -ItemType Directory -Path (Join-Path $env:TEMP "gg-$Version-$PID")
 
     try {
-        Write-Host "install.ps1: downloading $asset"
+        Write-Host "install.ps1: Downloading $asset (v$Version)."
         $archive = Join-Path $work $asset
         Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing
 
@@ -147,12 +147,12 @@ function Install-Gg {
         if (Get-Command gh -ErrorAction SilentlyContinue) {
             gh attestation verify $archive --repo $repo | Out-Null
             if ($LASTEXITCODE -ne 0) {
-                throw "the attestation for $asset does not vouch for these bytes. Nothing was installed. Run it again to download it afresh, or compare the release at https://github.com/$repo/releases/tag/v$Version."
+                throw "The attestation for $asset does not match the file that arrived. Nothing was installed. Run this again to download it afresh, or compare the release at https://github.com/$repo/releases/tag/v$Version."
             }
-            Write-Host "install.ps1: attestation verified by gh"
+            Write-Host "install.ps1: Verified the attestation with gh."
         }
         else {
-            Write-Host "install.ps1: sha256 $digest (install gh to verify its attestation too)"
+            Write-Host "install.ps1: The download's sha256 is $digest. Install gh and run this again to verify its attestation too."
         }
 
         # BESIDE THE LAST ONE, AND THE LINK MOVES, which is how install.sh updates:
@@ -160,18 +160,18 @@ function Install-Gg {
         # update never leaves the binary half-replaced and a rollback is one edit.
         $target = Join-Path $Prefix $Version
         if (Test-Path $target) {
-            Write-Host "install.ps1: v$Version was already at $target, and is left as it is"
+            Write-Host "install.ps1: Release v$Version was already at $target and was left as it is."
         }
         else {
             $staging = Join-Path $work 'out'
             New-Item -ItemType Directory -Path $staging | Out-Null
             tar -xzf $archive -C $staging
             if (-not (Test-Path (Join-Path $staging 'gg.exe'))) {
-                throw "$asset holds no gg.exe. Nothing was installed."
+                throw "The downloaded $asset holds no gg.exe. Nothing was installed. Report it at https://github.com/$repo/issues."
             }
             New-Item -ItemType Directory -Path $Prefix -Force | Out-Null
             Move-Item $staging $target
-            Write-Host "install.ps1: v$Version installed at $target"
+            Write-Host "install.ps1: Installed v$Version at $target."
         }
 
         # A SHIM RATHER THAN A COPY, because gg loads its native libraries from its
@@ -194,7 +194,7 @@ function Install-Gg {
         $entries = @($userPath -split ';' | Where-Object { $_ })
         if ($entries -notcontains $Prefix) {
             [Environment]::SetEnvironmentVariable('Path', (($entries + $Prefix) -join ';'), 'User')
-            Write-Host "install.ps1: added $Prefix to the user PATH. Open a new terminal for it to take effect."
+            Write-Host "install.ps1: Added $Prefix to the user PATH. Open a new terminal for it to take effect."
         }
         if (($env:Path -split ';') -notcontains $Prefix) {
             $env:Path = "$env:Path;$Prefix"
@@ -203,7 +203,7 @@ function Install-Gg {
         & $shim --version
 
         if ($theirs -and $Alias -eq 'gg') {
-            Write-Host "install.ps1: another program called gg is at $($theirs.Source), earlier on PATH, so ``gg`` still runs that one. Install this one under a name of its own with -Alias <name>, e.g. -Alias goodgrief."
+            Write-Host "install.ps1: Another program called gg is at $($theirs.Source), earlier on PATH, so ``gg`` still runs that one. Install this one under a name of its own with -Alias <name>, for example -Alias goodgrief."
         }
 
         if ($ControlPlane) {
@@ -211,7 +211,7 @@ function Install-Gg {
         }
 
         Write-Host ''
-        Write-Host 'install.ps1: this machine is not a runner - nothing was started and no service was made.'
+        Write-Host 'install.ps1: This machine is not a runner. Nothing was started and no service was made.'
         if (-not $ControlPlane) {
             Write-Host "  $Alias config set control-plane <url>   # the organisation's control plane"
         }

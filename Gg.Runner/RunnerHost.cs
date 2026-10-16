@@ -26,7 +26,7 @@ internal sealed class ConsoleObserver : IRunnerObserver
         System.Console.WriteLine($"released {leaseId} as {disposition}");
 
     public void CannotBeFlownByHand(string diagnosis) =>
-        System.Console.Error.WriteLine($"somebody could not reach this runner: {diagnosis}");
+        System.Console.Error.WriteLine($"someone could not reach this runner: {diagnosis}");
 
     public void BoundBroken(string diagnosis) =>
         System.Console.Error.WriteLine(
@@ -47,18 +47,18 @@ internal sealed class ConsoleObserver : IRunnerObserver
     // out of service by a person, and only a person puts it back.
     public void Parked() =>
         System.Console.WriteLine(
-            "parked: a person has withheld this machine from claiming. It keeps "
-          + "beating and takes no work until it is unparked.");
+            "parked: a person has withheld this machine from claiming. It stays "
+          + "connected and takes no new work until a person unparks it.");
 
     public void AllowanceSpent() =>
         System.Console.WriteLine(
             "allowance spent: the subscription this machine spends from is at the floor "
-          + "its owner keeps. Nobody withheld this machine - it takes work again when "
+          + "its owner keeps. No one withheld this machine; it takes work again when "
           + "the window rolls over.");
     public void AgentHeld(string provider, string diagnosis) =>
         System.Console.Error.WriteLine(
-            $"holding: the {provider} agent is not logged in - {diagnosis} This runner "
-          + "keeps beating and takes no work. Send it a token with `gg credential send "
+            $"waiting: the {provider} agent is not logged in - {diagnosis} This runner "
+          + "stays connected and takes no work. Send it a token with `gg credential send "
           + $"--runner <id> --agent {provider}`, or log it in from the console.");
     public void AgentReady(string provider) =>
         System.Console.WriteLine($"the {provider} agent can start again; taking work.");
@@ -169,14 +169,15 @@ internal sealed class ConsoleObserver : IRunnerObserver
     /// </summary>
     public void PreviewHolds(string address, string flightNumber) =>
         System.Console.WriteLine(
-            $"holding for {flightNumber}'s preview at {address}. This machine keeps beating "
-          + "and takes no work until that flight's gate is answered - what it is serving is "
-          + "somebody's unreviewed work, on this tree and this port.");
+            $"kept for {flightNumber}'s preview at {address}. This machine stays connected "
+          + "and takes no work until a person answers that flight's gate, because it is "
+          + "serving that flight's unreviewed work from this tree on this port.");
 
     public void CredentialNotExtended(DateTimeOffset endsAt) =>
         System.Console.WriteLine(
             $"this runner's credential ends at {endsAt:yyyy-MM-dd HH:mm}Z and the control plane "
-          + "will not extend it. It keeps flying until then; after that it needs a new one.");
+          + "will not extend it. It keeps working until then, and after that it needs a new "
+          + "credential.");
 }
 
 /// <summary>

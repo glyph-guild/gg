@@ -164,16 +164,8 @@ public static class PtyHost
 
         var emulator = new XTermTerminal(new TerminalOptions { Cols = columns, Rows = rows });
 
-        var options = new PtyOptions
-        {
-            Name = "gg",
-            Cols = columns,
-            Rows = rows,
-            Cwd = workingDirectory,
-            App = command,
-            CommandLine = [.. arguments],
-            Environment = new Dictionary<string, string> { ["TERM"] = "xterm-256color" },
-        };
+        var options = ChildPty.Options(
+            columns, rows, workingDirectory, command, arguments, OperatingSystem.IsWindows());
 
         // MODES THE CHILD DID NOT ASK FOR, TURNED OFF FIRST. Whatever had the
         // terminal before gg may have left mouse reporting, focus events or

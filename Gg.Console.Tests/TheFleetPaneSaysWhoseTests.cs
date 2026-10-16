@@ -58,7 +58,7 @@ public class TheFleetPaneSaysWhoseTests
             Fleet(A("vmlinux002", RunnerOwnerships.Claimed, "Kevin", reserved: true)))[0];
 
         await Assert.That(Rows.Whose(tenant)).IsEqualTo("organisation's");
-        await Assert.That(Rows.Whose(open)).IsEqualTo("unclaimed");
+        await Assert.That(Rows.Whose(open)).IsEqualTo("open");
         await Assert.That(Rows.Whose(claimed)).IsEqualTo("Kevin's");
         await Assert.That(Rows.Whose(reserved)).IsEqualTo("Kevin's, reserved")
             .Because("reservation rides the owner: nothing is reserved that is not claimed, so "
@@ -75,7 +75,7 @@ public class TheFleetPaneSaysWhoseTests
             .Because("a row reading 'open' from a control plane with no claim door invites a "
                    + "key that cannot succeed - the command line's rule, and the same one here.");
         await Assert.That(PaneText.ForTab(Fleet(A("vmlinux001")), TabId.Runners))
-            .DoesNotContain("unclaimed", StringComparison.Ordinal);
+            .DoesNotContain("open", StringComparison.Ordinal);
     }
 
     [Test]

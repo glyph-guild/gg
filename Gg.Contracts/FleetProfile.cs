@@ -332,7 +332,7 @@ public sealed record FleetProfile
         // relay applies at once, as an offer of one does.
         if (!prior.Sweeps && proposed.Sweeps)
         {
-            return ("sweeps", "it has every machine under it sweep the tenant's watches.");
+            return ("sweeps", "it has every machine under it sweep the organisation's watches.");
         }
 
         if (Added(prior.Credentials, proposed.Credentials) is { } credential)

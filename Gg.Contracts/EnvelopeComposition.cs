@@ -163,7 +163,7 @@ public static class EnvelopeComposition
                 {
                     throw new InvalidOperationException(
                         $"{field} declares no merge operator and carries no exemption. A field "
-                        + "nobody decided an operator for would compose by accident - declare "
+                        + "with no decided operator would compose by accident. Declare "
                         + "one of: " + string.Join(", ", MergeOperators.All)
                         + ", or write the exemption down with its reason.");
                 }
@@ -246,7 +246,7 @@ public static class EnvelopeComposition
                         Refused = $"Both '{other}' and '{layer.Name}' declare obligation "
                                 + $"'{obligation.Id}'. Two documents' rules under one name would "
                                 + "compose to whichever was read second - to require MORE than "
-                                + $"'{obligation.Id}' asks, add an obligation of your own: both "
+                                + $"'{obligation.Id}' asks, add a separately named obligation: both "
                                 + "attach, both must hold, and the stricter one binds.",
                     };
                 }
@@ -859,8 +859,8 @@ public static class EnvelopeComposition
 
         return (null,
             $"scope '{wider}' and scope '{narrower}' have no expressible intersection - "
-          + "neither contains the other, and a glob nobody wrote deciding what governs work "
-          + "is worse than a refusal. Narrow one until it sits inside the other.");
+          + "neither contains the other, and no single glob can say what governs the work. "
+          + "Narrow one until it sits inside the other.");
     }
 
     /// <summary>Glob containment: does <paramref name="outer"/> allow everything <paramref name="inner"/> does?</summary>

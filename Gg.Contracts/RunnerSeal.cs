@@ -291,7 +291,7 @@ public static class RunnerSeal
             // reason: this is what a truncated file looks like, and a person has
             // to be able to tell it from a key that does not match.
             throw new CryptographicException(
-                "A sealed body shorter than its own nonce and tag cannot be opened. "
+                "This sealed body is shorter than any sealed body can be, so it cannot be opened. "
               + "Something truncated it.");
         }
 

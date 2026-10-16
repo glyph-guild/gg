@@ -572,8 +572,8 @@ public sealed record EnvironmentInstanceReading
             if (string.IsNullOrWhiteSpace(seen.Environment))
             {
                 return $"instance '{seen.Instance}' names no environment, and an environment "
-                     + "is what a grant is made against. A slot nobody has said the purpose "
-                     + "of is one to leave out of the reading.";
+                     + "is what a grant is made against. Leave a slot with "
+                     + "no environment out of the reading.";
             }
 
             if (!named.Add(seen.Instance))

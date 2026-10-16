@@ -55,7 +55,7 @@ public static class RepositoryRefs
         {
             return $"'{declared}' is not a ref, it is a name that could be several. A branch and "
                  + $"a tag called '{declared}' are two different commits, and resolving which one "
-                 + "was meant is not something this can do on your behalf. Write the whole ref: "
+                 + "was meant cannot be decided here. Write the whole ref: "
                  + $"'refs/heads/{declared}' for a branch, 'refs/tags/{declared}' for a tag.";
         }
 

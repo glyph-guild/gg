@@ -96,7 +96,7 @@ public static class RunnerCapabilityPurposes
     public static string? Refused(string? asked) =>
         asked is not { Length: > 0 } named || All.Contains(named, StringComparer.Ordinal)
             ? null
-            : $"'{named}' is not a purpose an introduction can be minted for. "
+            : $"'{named}' is not a purpose an introduction can be created for. "
             + $"This build knows {string.Join(", ", All)}.";
 }
 

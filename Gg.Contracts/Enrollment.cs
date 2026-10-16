@@ -77,13 +77,14 @@ public static class EnrollmentBounds
 
         if (request.Ownership is not (RunnerOwnerships.Tenant or RunnerOwnerships.Open or RunnerOwnerships.Claimed))
         {
-            return $"'{request.Ownership}' is not whose a machine can start as. It starts as the "
-                 + "tenant's, open, or claimed by whoever mints the token.";
+            return $"'{request.Ownership}' is not whose a machine can start as. It starts as "
+                 + "`tenant` (the organisation's), `open`, or `claimed` by the person who creates "
+                 + "the token.";
         }
 
         return request.Reserve && request.Ownership != RunnerOwnerships.Claimed
             ? "Only a claimed machine can start reserved - a reservation keeps a machine to its "
-            + "owner's flights, and a tenant or open machine has no owner."
+            + "owner's flights, and a machine that is the organisation's or open has no owner."
             : null;
     }
 }

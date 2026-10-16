@@ -37,7 +37,7 @@ public static class Inapplicability
             : throw new ArgumentOutOfRangeException(
                 nameof(family),
                 family,
-                "An obligation marked inapplicable has to name a fact family somebody can look "
-              + "up, or the reason is one nobody can check. Expected one of: "
+                "An obligation marked inapplicable names a fact family this contract declares, "
+              + "so that the reason can be checked. Expected one of: "
               + string.Join(", ", FactKinds.All) + ".");
 }

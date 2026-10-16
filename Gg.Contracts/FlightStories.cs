@@ -168,7 +168,7 @@ public sealed record FlightStory
 
         return kind switch
         {
-            StoryKinds.Created => $"opened by {At(parameters, 0, "somebody")}",
+            StoryKinds.Created => $"opened by {At(parameters, 0, "someone")}",
             // A LEG OF A PLAN SAYS WHICH, when the record carries its label: "'<subject>' of ITN-n".
             // Without one - a classifier's nomination, or a record from before labels - the
             // sentence it always had.
@@ -194,12 +194,13 @@ public sealed record FlightStory
             StoryKinds.LeaseReleased =>
                 $"the runner let it go, reporting {At(parameters, 0, "nothing")}",
             StoryKinds.LeaseExpired =>
-                $"runner {At(parameters, 0, "unnamed")} stopped talking to us and its claim ran out",
+                $"runner {At(parameters, 0, "unnamed")} stopped reporting to the control plane and its "
+              + "claim ran out",
             StoryKinds.LeaseAbandoned =>
                 $"granted to runner {At(parameters, 0, "unnamed")} and never collected",
 
             StoryKinds.LoopRan =>
-                $"the {At(parameters, 1, "loop")} loop ran and ended {At(parameters, 0, "somehow")}",
+                $"the {At(parameters, 1, "loop")} loop ran and ended {At(parameters, 0, "(outcome not recorded)")}",
             StoryKinds.LoopAsked => "the agent asked for a decision it is not allowed to make",
 
             StoryKinds.Evaluated =>
@@ -212,20 +213,20 @@ public sealed record FlightStory
             StoryKinds.LoopWaitingForPerson => "it now needs a person",
 
             StoryKinds.DecisionAsked =>
-                $"{At(parameters, 0, "a rule")} needs {At(parameters, 1, "somebody")}",
+                $"{At(parameters, 0, "a rule")} needs {At(parameters, 1, "a person")}",
             StoryKinds.DecisionMade =>
-                $"{At(parameters, 0, "a rule")} was answered {At(parameters, 1, "somehow")}",
+                $"{At(parameters, 0, "a rule")} was answered {At(parameters, 1, "(answer not recorded)")}",
 
-            StoryKinds.Ended => $"it ended {At(parameters, 0, "somehow")}",
+            StoryKinds.Ended => $"it ended {At(parameters, 0, "(outcome not recorded)")}",
 
-            StoryKinds.TakenOver => $"{At(parameters, 0, "somebody")} took it over",
-            StoryKinds.HoldExpired => $"{At(parameters, 0, "somebody")}'s hold lapsed",
+            StoryKinds.TakenOver => $"{At(parameters, 0, "someone")} took it over",
+            StoryKinds.HoldExpired => $"the takeover by {At(parameters, 0, "someone")} lapsed",
 
             // NAMES THE MACHINE, because that is the only thing a person can do
             // something about - wait for it, or fly a different one. Nothing ran,
             // which is the other half: this is not a flight that failed.
             StoryKinds.AttendedNobodyCame =>
-                $"nobody came to fly it: {At(parameters, 0, "the runner")} never claimed it, "
+                $"no runner came to fly it: {At(parameters, 0, "the runner")} never claimed it, "
               + "and nothing ran",
             StoryKinds.PoolIncident =>
                 $"the pool it came from had trouble: {At(parameters, 0, "unnamed")}",

@@ -217,10 +217,8 @@ public sealed record LoopAttended
 
         if (string.IsNullOrWhiteSpace(attended.BinaryVersion))
         {
-            return "An attended session names the version that binary answered with. A gap "
-                 + "declared against an unnamed tool surface is a claim that expires quietly: "
-                 + "the surface moved from 28 tools to 29 between two versions nobody chose "
-                 + "between.";
+            return "An attended session names the version that binary answered with. Without "
+                 + "it, a gap cannot be tied to the tool surface it was declared against.";
         }
 
         if (attended.BudgetSeconds < 0 || attended.HeldSeconds < 0)
@@ -251,8 +249,7 @@ public sealed record LoopAttended
 
         return attended.Unmeasured.Distinct(StringComparer.Ordinal).Count()
             != attended.Unmeasured.Count
-            ? "A gap is declared once. The same absence twice is a list somebody appended to "
-            + "without reading."
+            ? "A gap is declared once. Remove the repeated entry."
             : null;
     }
 }

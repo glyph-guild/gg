@@ -289,7 +289,7 @@ public sealed record Exposure
         {
             return ("inventory.credentials",
                 $"it points every slot at '{proposed.Inventory.Credentials}' instead of "
-              + $"'{prior.Inventory.Credentials}', which is a set of secrets somebody has to "
+              + $"'{prior.Inventory.Credentials}', which is a set of secrets a person has to "
               + "have placed for any preview to appear at all.");
         }
 
@@ -474,7 +474,7 @@ public sealed record PreviewUrl
         if (!string.Equals(address.Scheme, Uri.UriSchemeHttps, StringComparison.Ordinal))
         {
             return $"A preview is served over https and '{preview.Url}' is {address.Scheme}. It "
-                 + "carries the tenant's unreleased interface and whatever data is on its "
+                 + "carries the organisation's unreleased interface and whatever data is on its "
                  + "screen, and every way gg can arrange an exposure serves https.";
         }
 

@@ -50,8 +50,8 @@ public sealed record DestinationLanded
 
         if (string.IsNullOrWhiteSpace(landed.Branch))
         {
-            return "A landing names the branch it pushed. A branch nobody can name is one nobody "
-                 + "will delete.";
+            return "A landing names the branch it pushed, so that the branch can be found and "
+                 + "deleted later. Name the branch.";
         }
 
         return landed.PullRequestNumber < 1
@@ -163,15 +163,15 @@ public sealed record DestinationPushed
 
         if (string.IsNullOrWhiteSpace(pushed.Branch))
         {
-            return "A push names the branch it wrote. A branch nobody can name is one nobody will "
-                 + "delete.";
+            return "A push names the branch it wrote, so that the branch can be found and "
+                 + "deleted later. Name the branch.";
         }
 
         return Commits.IsSha(pushed.Commit)
             ? null
             : $"A push names the commit it wrote, and '{pushed.Commit}' is not one. The commit is "
-            + "what a pending decision is about, so a push without one describes work nobody can "
-            + "find.";
+            + "what a pending decision is about, so a push without one describes work no one "
+            + "can find. Name the full commit SHA.";
     }
 }
 

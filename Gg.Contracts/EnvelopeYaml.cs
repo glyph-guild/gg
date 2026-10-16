@@ -1710,7 +1710,7 @@ public static class EnvelopeYaml
         if (entry.Body.Entries.ContainsKey("provenance"))
         {
             throw new EnvelopeSyntaxException(
-                $"{entry.Body.Path}.provenance is not yours to set. Which layer an obligation "
+                $"{entry.Body.Path}.provenance cannot be set in a document. Which layer an obligation "
               + "came from is assigned from where its document sat, so that a lower layer "
               + "cannot claim a higher one's authority. Remove the line; the composed envelope "
               + "will carry it.");

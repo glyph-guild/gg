@@ -350,8 +350,7 @@ public sealed record FlightIntent
         {
             return $"A ticket's id is the identifier the tracker issues - '4471', 'PROJ-123' - "
                  + $"and this one is a URI: '{id}'. The id is a DECLARED field: nothing here "
-                 + "derives one from a link, because a link's shape is whatever host somebody "
-                 + "happened to type.";
+                 + "derives one from a link. Give the id the tracker shows.";
         }
 
         return id.Contains('/', StringComparison.Ordinal) || id.Contains('\\', StringComparison.Ordinal)

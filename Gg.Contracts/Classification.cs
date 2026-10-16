@@ -62,8 +62,8 @@ public static class Classifications
         var limit = RankOf(ceiling)
             ?? throw new ArgumentException(
                 $"'{ceiling}' is not a classification ceiling. Expected one of: "
-              + string.Join(", ", Ordered) + ". A ceiling nobody declared must halt rather than "
-              + "permit everything.",
+              + string.Join(", ", Ordered) + ". An undeclared ceiling halts rather than "
+              + "permits everything.",
                 nameof(ceiling));
 
         return item <= limit;

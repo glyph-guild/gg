@@ -2485,7 +2485,7 @@ public sealed record Envelope
         if (envelope.Models is not null && !string.Equals(role, Roles.Root, StringComparison.Ordinal))
         {
             return $"A '{role}' declares 'models:', and only '{Roles.Root}' may. The list says which "
-                 + "models a person may move any flight to, which is the tenant's decision; a work "
+                 + "models a person may move any flight to, which is the organisation's decision; a work "
                  + "kind chooses its own loop's model with 'model:' under the loop.";
         }
 
@@ -2616,8 +2616,8 @@ public sealed record Envelope
 
         if (string.IsNullOrWhiteSpace(envelope.Context.Constitution))
         {
-            return "context.constitution is empty. A flight that cannot say which constitution "
-                 + "governed it is one nobody can act on later.";
+            return "context.constitution is empty. Name the constitution, so that each flight can "
+                 + "say which one governed it.";
         }
 
         if (Producing(envelope) is { } producing)
@@ -2983,7 +2983,7 @@ public sealed record Envelope
                 {
                     return $"Destination '{destination.Id}' may-write names "
                          + $"'{unbounded}'. A menu that permits every field is not a menu - "
-                         + "name the paths, or a `prefix.*` narrow enough that somebody "
+                         + "name the paths, or a `prefix.*` narrow enough that a person "
                          + "reading it knows what it reaches.";
                 }
             }
@@ -3036,9 +3036,8 @@ public sealed record Envelope
 
                     if (!seen.Add(opened))
                     {
-                        return $"Destination '{destination.Id}' opens '{opened}' twice. A menu "
-                             + "with a repeated entry is a list somebody edited without "
-                             + "reading.";
+                        return $"Destination '{destination.Id}' opens '{opened}' twice. Remove "
+                             + "the repeated entry.";
                     }
                 }
             }
@@ -3144,9 +3143,8 @@ public sealed record Envelope
                 || obligation.Approver.All(char.IsWhiteSpace))
             {
                 return $"Obligation '{obligation.Id}' is checked by a human and names no "
-                     + "approver. A gate nobody was named to answer is a flight that waits "
-                     + "forever - and it would wait looking exactly like a flight that is "
-                     + "still working.";
+                     + "approver, so its flights would wait for ever, looking like flights that "
+                     + "are still working. Name the approver.";
             }
 
             // THE ONE SPELLING OF A PERSON, the one a watch's `for:` is held to.
@@ -3178,9 +3176,9 @@ public sealed record Envelope
             if (obligation.Approver is not null)
             {
                 return $"Obligation '{obligation.Id}' is checked by a machine and names "
-                     + $"approver '{obligation.Approver}'. Nobody will ever be asked, so the "
+                     + $"approver '{obligation.Approver}'. No one will ever be asked, so the "
                      + "field records a person as responsible for something that will not "
-                     + "reach them - and somebody would read it as a gate.";
+                     + "reach them. Remove the approver, or set 'check: human'.";
             }
 
             if (Unknown(obligation.Rule, ObligationPredicates.All) is { } rule)
@@ -3314,8 +3312,8 @@ public sealed record Envelope
 
     private static string? Cardinality(Envelope envelope) =>
         envelope.Obligations.Count < 1
-            ? "An envelope carries at least one obligation, and this one has none. An envelope "
-            + "that governs nothing is a flight nobody is measuring."
+            ? "An envelope carries at least one obligation, and this one has none, so it "
+            + "governs nothing. Declare at least one."
         : envelope.Loops.Count != 1
             ? $"An envelope carries one loop, and this one has {envelope.Loops.Count}. "
             + "A second is the next slice arriving early."
@@ -3412,8 +3410,7 @@ public sealed record Envelope
         {
             if (string.IsNullOrWhiteSpace(instruction.Text))
             {
-                return "An instruction block is empty. A block that parses and says nothing is "
-                     + "a policy somebody believes they wrote.";
+                return "An instruction block is empty. Write its text, or remove the block.";
             }
 
             // ONE LINE PER BLOCK, AND THAT IS A DESIGN DECISION RATHER THAN A
@@ -3920,9 +3917,8 @@ public sealed record EnvelopeNarrowing
 
         if (narrowing.Obligations.Count == 0)
         {
-            return "A narrowing declares at least one obligation. One that narrows nothing is "
-                 + "a document with no reason to exist, and every version it minted would "
-                 + "govern nothing.";
+            return "A narrowing declares at least one obligation. One with none governs "
+                 + "nothing. Add an obligation, or remove the narrowing.";
         }
 
         foreach (var obligation in narrowing.Obligations)

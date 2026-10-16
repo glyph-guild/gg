@@ -133,11 +133,11 @@ public sealed record SealedCredential
         if (string.IsNullOrEmpty(envelope.Ciphertext))
         {
             return "This credential is sealed under a version this gg knows and carries nothing "
-                 + "to open. It was written wrong rather than written by somebody else.";
+                 + "to open. It was written wrongly. Seal it again.";
         }
 
         return envelope.Wrapped.Count == 0
-            ? "This credential is sealed to nobody, so nothing can open it. Seal it again naming "
+            ? "This credential is sealed to no one, so nothing can open it. Seal it again naming "
             + "at least one holder."
             : null;
     }
@@ -445,7 +445,7 @@ public static class CredentialSeal
 
         return $"This credential is sealed to {envelope.Wrapped.Count} holder(s), and this machine "
              + $"is not one of them. Nothing is wrong with it - it was never pushed here. Ask "
-             + $"somebody who holds it to push it to this machine's key, {Short(holder)}.";
+             + $"a person who holds it to push it to this machine's key, {Short(holder)}.";
     }
 
     /// <summary>Enough of a public key to recognise, for a sentence a person reads.</summary>

@@ -206,8 +206,7 @@ public sealed record OfferedConfiguration
             if (string.IsNullOrWhiteSpace(setting.Value))
             {
                 return $"'{setting.Key}' is offered with a blank value. Blank is not the same "
-                     + "as unset, and an offer that clears a setting by accident is one "
-                     + "nobody reviewed.";
+                     + "as unset. Give the value, or leave the setting out.";
             }
         }
 

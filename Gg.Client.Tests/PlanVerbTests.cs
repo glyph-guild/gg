@@ -57,8 +57,8 @@ public class PlanVerbTests
         var text = VerbOutput.ToText(new VerbResult.Plan(TwoItems()));
 
         await Assert.That(text).Contains("already true via matching");
-        await Assert.That(text).Contains("nobody: declared capability gap")
-            .Because("a gap is a fact about the fleet, and 'nobody' is the honest satisfier.");
+        await Assert.That(text).Contains("no one: declared capability gap")
+            .Because("a gap is a fact about the fleet, and 'no one' is the honest satisfier.");
         await Assert.That(text).Contains("environment=aspire-payments");
         await Assert.That(text).Contains("No runner advertises environment=aurora, so this is waiting.");
     }

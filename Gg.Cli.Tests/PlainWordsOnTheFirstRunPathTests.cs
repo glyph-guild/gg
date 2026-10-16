@@ -10,7 +10,7 @@ namespace Gg.Cli.Tests;
 /// was wrong and what to run next. These pin the wording that carries meaning,
 /// not incidental phrasing.
 /// </remarks>
-public class PlainWordsOnTheFirstRunPathTests
+public partial class PlainWordsOnTheFirstRunPathTests
 {
     private static string Refusal(params string[] args) =>
         ((CliAction.Unknown)CliArgs.Parse(args)).Message;

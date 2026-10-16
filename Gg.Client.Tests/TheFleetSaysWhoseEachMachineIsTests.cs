@@ -269,7 +269,7 @@ public class TheFleetSaysWhoseEachMachineIsTests
         await Assert.That(open).Contains("open");
         await Assert.That(open).Contains("claim");
         await Assert.That(tenant).Contains("kept for organisation work");
-        await Assert.That(tenant).Contains("nobody may claim it");
+        await Assert.That(tenant).Contains("no one may claim it");
     }
 
     [Test]

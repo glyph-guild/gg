@@ -55,7 +55,7 @@ public class HandTests
 
         await Assert.That(outcome.Account).IsNull()
             .Because("an account is a person's own statement, so it is not written for them.");
-        await Assert.That(outcome.Detail).Contains("no account from you")
+        await Assert.That(outcome.Detail).Contains("no account from this person")
             .Because("the absence is the record. A flight with no account from the person who "
                    + "worked on it is a true statement; a guess shown as theirs is a false one.");
     }

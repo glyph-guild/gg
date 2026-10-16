@@ -62,7 +62,7 @@ public static class NominationDirection
                 Field = "nominates.opens",
                 Because = $"{whose} may now open "
                         + $"{string.Join(", ", added.Order(StringComparer.Ordinal))}, which is "
-                        + "reach nobody granted.",
+                        + "reach no one granted.",
             };
         }
 
@@ -79,7 +79,7 @@ public static class NominationDirection
             ? new EnvelopeWidening
             {
                 Field = "nominates.opens-as",
-                Because = $"a nomination from {whose} used to wait for somebody and now "
+                Because = $"a nomination from {whose} used to wait for a person and now "
                         + "becomes a flight without one.",
             }
             : null;
@@ -146,7 +146,7 @@ public static class NominationDirection
                 Because = $"{whose} may now open {proposed.Flights} flights per "
                         + $"{proposed.Window} where they could open {applied.Flights} per "
                         + $"{applied.Window}, which is a faster rate and so more tokens spent "
-                        + "with nobody watching.",
+                        + "with no person watching.",
             }
             : null;
     }
@@ -164,7 +164,7 @@ public static class WatchDirection
 {
     private static string WhoseWatch(string whose) =>
         string.Equals(whose, LinesOfWork.Tenant, StringComparison.Ordinal)
-            ? "the tenant's"
+            ? "the organisation's"
             : $"{whose}'s";
 
     /// <summary>How this watch widens the one in force, or null.</summary>
@@ -239,7 +239,7 @@ public static class WatchDirection
                 Field = "trigger.every",
                 Because = $"this watch sweeps every {proposed.Trigger.Every} where it swept "
                         + $"every {applied.Trigger.Every}, which is more passes and so more "
-                        + "nominated with nobody watching.",
+                        + "nominated with no person watching.",
             };
         }
 
@@ -282,7 +282,7 @@ public static class WatchDirection
             return Moved(
                 "skill",
                 $"this watch follows {proposed.Skill} where it followed {applied.Skill}. A "
-              + "different path is a different procedure, and nobody has approved that one "
+              + "different path is a different procedure, and no one has approved that one "
               + "as this watch's.");
         }
 
@@ -291,9 +291,9 @@ public static class WatchDirection
             return Moved(
                 "ref",
                 $"this watch reads its skill at {proposed.Ref} where it read it at "
-              + $"{applied.Ref}. The ref is what makes the words that run the words somebody "
-              + "reviewed, and whether anybody reviewed what is at the new one cannot be "
-              + "known from here - a branch is anybody's.");
+              + $"{applied.Ref}. The ref is what ties the words that run to the words a person "
+              + "reviewed, and whether anyone reviewed what is at the new one cannot be "
+              + "known from here.");
         }
 
         if (!Same(applied.Host, proposed.Host))
@@ -301,7 +301,7 @@ public static class WatchDirection
             return Moved(
                 "host",
                 $"this watch reaches {proposed.Host} where it reached {applied.Host} - a "
-              + "different system of record, whose subjects nobody granted it.");
+              + "different system of record, whose subjects no one granted it.");
         }
 
         if (!Same(applied.Credential, proposed.Credential))

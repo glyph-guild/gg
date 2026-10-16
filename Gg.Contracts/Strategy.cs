@@ -548,7 +548,7 @@ public sealed record EnvironmentStrategy
         if (strategy.Bounds.ActiveHours is { } hours && ParseActiveHours(hours) is null)
         {
             return $"bounds.active-hours '{hours}' is not readable. Expected HH:MM-HH:MMZ, "
-                 + "e.g. 08:00-20:00Z - a schedule bound nobody can parse binds nothing.";
+                 + "for example 08:00-20:00Z.";
         }
 
         if (strategy.Build is { } recipe && RecipeRefusal(recipe) is { } badRecipe)
@@ -601,7 +601,7 @@ public sealed record EnvironmentStrategy
         if (string.IsNullOrWhiteSpace(recipe.Repository))
         {
             return "build.repository is blank. A recipe names the repository it is in by its "
-                 + "name in this tenant's registry.";
+                 + "name in this organisation's registry.";
         }
 
         if (string.IsNullOrWhiteSpace(recipe.Path))

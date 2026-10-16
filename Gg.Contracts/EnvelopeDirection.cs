@@ -103,7 +103,7 @@ public static class EnvelopeDirection
             {
                 throw new InvalidOperationException(
                     $"{field} composes by '{op}', and this comparator declares no ordering for "
-                  + "it. A direction nobody decided would compose by accident - teach the "
+                  + "it, so its direction would compose by accident. Teach the "
                   + "comparator the operator's order, or the answer for the field is widening.");
             }
         }
@@ -323,14 +323,14 @@ public static class EnvelopeDirection
             {
                 return Widen(
                     $"offers.{offer.Key}",
-                    $"it tells every machine in this tenant '{offer.Key}: {offer.Value}'.");
+                    $"it tells every machine in this organisation '{offer.Key}: {offer.Value}'.");
             }
 
             if (!string.Equals(was.Value, offer.Value, StringComparison.Ordinal))
             {
                 return Widen(
                     $"offers.{offer.Key}",
-                    $"it changes what every machine in this tenant is told '{offer.Key}' is.");
+                    $"it changes what every machine in this organisation is told '{offer.Key}' is.");
             }
         }
 
@@ -592,8 +592,8 @@ public static class EnvelopeDirection
                     StringComparison.Ordinal))
             {
                 return Widen($"{at}.opens-as",
-                    "a nomination admitted here used to stand until somebody opened it, and now "
-                  + "becomes a flight with nobody in between. That is reach the agent did not "
+                    "a nomination admitted here used to stand until a person opened it, and now "
+                  + "becomes a flight with no person in between. That is reach the agent did not "
                   + "have: the menu still bounds WHICH kind it may name, and this was the only "
                   + "thing bounding whether naming one was enough.");
             }
@@ -643,7 +643,7 @@ public static class EnvelopeDirection
                 return Widen($"{at}.may-perform",
                     $"operation '{performable[0]}' could not be performed here before, and "
                   + "may-perform intersects: it can only ever narrow. What is gained is a kind "
-                  + "of change an admitted flight may make to somebody's tracker, on a "
+                  + "of change an admitted flight may make to a person's tracker, on a "
                   + "credential a person registered for a narrower purpose.");
             }
 
@@ -662,7 +662,7 @@ public static class EnvelopeDirection
                 return Widen($"{at}.may-write",
                     $"field '{reached}' could not be written here before, and may-write "
                   + "intersects: it can only ever narrow. What is gained is somewhere an "
-                  + "admitted flight may write on somebody's backlog, on a credential a "
+                  + "admitted flight may write on a person's backlog, on a credential a "
                   + "person registered for a narrower purpose.");
             }
 
@@ -679,7 +679,7 @@ public static class EnvelopeDirection
                 return Widen($"{at}.may-select.environments",
                     $"environment '{permitted[0]}' could not be selected here before, and this "
                   + "set intersects: it can only ever narrow. Somewhere a classifier may newly "
-                  + "send work is the whole point of the bound - a tenant that meant it to "
+                  + "send work is the whole point of the bound - an organisation that meant it to "
                   + "choose between two development environments has just been given more.");
             }
 
@@ -690,7 +690,7 @@ public static class EnvelopeDirection
                 return Widen($"{at}.may-select.repositories",
                     $"repository '{reachable[0]}' could not be selected here before, and this "
                   + "set intersects: it can only ever narrow. A repository gained is work a "
-                  + "nomination can newly direct at somebody else's code.");
+                  + "nomination can newly direct at another person's code.");
             }
         }
 
@@ -743,7 +743,7 @@ public static class EnvelopeDirection
 
         return was.Count == 0
             ? Widen(field,
-                $"{field} listed nothing, so nobody could choose, and now lists "
+                $"{field} listed nothing, so no one could choose, and now lists "
               + string.Join(", ", gained) + ". Listing anything turns the door on, which is "
               + "new reach for every person here.")
             : Widen(field,
@@ -760,7 +760,7 @@ public static class EnvelopeDirection
                 ? null
                 : Widen(field,
                     $"{field} bounded nothing and now names " + string.Join(", ", proposed)
-                  + ". Selecting a name where none was selected is new reach: this tenant's "
+                  + ". Selecting a name where none was selected is new reach: this organisation's "
                   + "flights can run somewhere they could not, and compile a label they did "
                   + "not.");
         }

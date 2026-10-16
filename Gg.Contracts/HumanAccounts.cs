@@ -143,8 +143,7 @@ public sealed record HumanAccount
 
         if (string.IsNullOrWhiteSpace(account.By))
         {
-            return "A human account names who asserted it. An assertion nobody can be attributed "
-                 + "to is not one.";
+            return "A human account names who asserted it. Name the person.";
         }
 
         if (string.IsNullOrWhiteSpace(account.Statement))
@@ -156,7 +155,7 @@ public sealed record HumanAccount
         if (account.Statement.Length > MaxStatement)
         {
             return $"A human account is at most {MaxStatement} characters and this one is "
-                 + $"{account.Statement.Length}. It is inline evidence, sized for what somebody reads "
+                 + $"{account.Statement.Length}. It is inline evidence, sized for what a person reads "
                  + "while deciding something.";
         }
 

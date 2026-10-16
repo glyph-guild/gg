@@ -169,8 +169,8 @@ public sealed record WatchAction
         {
             return $"A sweep may not declare '{LoopMoves.Anything}'. That value is an "
                  + "envelope declining to bound an agent, read by a person on the flight it "
-                 + "governs; a sweep is decided by a schedule and performed with nobody "
-                 + "looking. Name the moves this sweep needs.";
+                 + "governs; a sweep is decided by a schedule and performed with no "
+                 + "person looking. Name the moves this sweep needs.";
         }
 
         if (action.Skill is null == string.IsNullOrWhiteSpace(action.Diagnosis))
@@ -560,8 +560,8 @@ public sealed record WatchAttestation
         if (!unreachable && attestation.Diagnosis is not null)
         {
             return "A sweep that reached its system of record carries a diagnosis. The "
-                 + "diagnosis is what a person's escalation reads, and one on a good pass is a "
-                 + "sentence nobody is asked to read.";
+                 + "diagnosis is what a person's escalation reads, so it is sent only when the "
+                 + "sweep could not reach its system of record. Leave it out.";
         }
 
         if (attestation.Nominated.Count > MaxNominations)

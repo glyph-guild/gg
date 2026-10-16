@@ -69,8 +69,8 @@ public static class RepositoryNarrowings
         {
             if (char.IsControl(c))
             {
-                return $"A narrowings directory cannot contain {Describe(c)}. A path that "
-                     + "carries one is a path no forge will serve and nobody meant to write.";
+                return $"A narrowings directory cannot contain {Describe(c)}. No forge "
+                     + "serves such a path. Remove the character.";
             }
         }
 
@@ -92,7 +92,7 @@ public static class RepositoryNarrowings
         if (declared.Split('/').Contains("..", StringComparer.Ordinal))
         {
             return $"A narrowings directory cannot contain '..', and '{declared}' does. This "
-                 + "declaration is the only bound on what the control plane will ever ask your "
+                 + "declaration is the only bound on what the control plane will ever ask the "
                  + "forge to read - a forge has no path-scoped permission, so a path that can "
                  + "climb out of the directory is a path with no containment at all.";
         }

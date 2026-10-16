@@ -1337,8 +1337,8 @@ public sealed record FactEnvelope
 
         if (!IsSha256(envelope.Digest))
         {
-            return $"'{envelope.Digest}' is not a sha256. A digest that cannot be compared is a "
-                 + "budget nobody can enforce.";
+            return $"'{envelope.Digest}' is not a sha256. A digest that cannot be compared "
+                 + "cannot be enforced. Send the sha256 of the content.";
         }
 
         var carried = Carried(envelope);

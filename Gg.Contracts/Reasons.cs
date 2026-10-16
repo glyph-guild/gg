@@ -74,56 +74,52 @@ public sealed record Reason
         return kind switch
         {
             ReasonKinds.NoRunnerAdvertises =>
-                "waiting: no runner advertises " + string.Join(", ", parameters),
+                "No runner advertises " + string.Join(", ", parameters)
+              + ", so this is waiting. Start a runner that advertises "
+              + (parameters.Count > 1 ? "them." : "it."),
 
             ReasonKinds.CannotBeShownToTighten =>
-                $"refused: the change moves {First(parameters)} in a way that cannot be shown "
-              + "to tighten, and what cannot be shown to tighten is treated as widening - "
-              + "incomparable is not neutral. A widening lands only through its gate.",
+                $"The change was refused: it moves {First(parameters)} in a way that cannot be "
+              + "shown to tighten, so it counts as a widening. A widening lands only when a "
+              + "person approves it (its gate).",
 
             ReasonKinds.FlightsInTheAir =>
-                $"refused: '{First(parameters)}' still governs flights that are in the "
-              + $"air — {Second(parameters)}. Retiring it now would leave them declared "
-              + "against a work kind that no longer exists, which is a flight nobody can "
-              + "finish and nobody can read the rules for. Let them land, or take them "
-              + "over, and retire it after.",
+                $"Retiring '{First(parameters)}' was refused: it still governs flights that are "
+              + $"in the air ({Second(parameters)}). Let them land, or take them over, and "
+              + "retire it after.",
 
             ReasonKinds.StaleWorkingCopy =>
-                $"refused: this apply says it was based on {First(parameters)}, and the "
-              + $"document in force is {Second(parameters)}. The stream moved after the "
-              + "working copy was rendered, so applying now would overwrite a change "
-              + "nobody here has read. Pull, look at what changed, and apply again.",
+                $"The apply was refused: it is based on {First(parameters)}, and the document "
+              + $"in force is {Second(parameters)}. The document changed after this working "
+              + "copy was rendered, and nothing was applied. Pull, look at what changed, and "
+              + "apply again.",
 
             ReasonKinds.WideningRequiresAGate =>
-                $"refused: this change widens {First(parameters)}, and the document in force "
-              + $"declares no obligation with 'when: {AttachmentConditions.Widens}' to gate "
-              + "it. Declaring that obligation is itself a tightening and lands on the "
-              + "owner's say-so; the widening then rides a flight to its approver.",
+                $"The change was refused: it widens {First(parameters)}, and the document in "
+              + $"force declares no obligation with 'when: {AttachmentConditions.Widens}' to "
+              + "gate it. Declare that obligation first. It is a tightening, so it needs only the "
+              + "owner's approval; the widening then goes to its approver as a flight.",
 
             ReasonKinds.DeclaredAndAbsent =>
                 $"'{First(parameters)}' declares its narrowings at "
-              + $"'{Second(parameters)}', and there is no such directory at the commit this "
-              + "flight pinned. The layer is on and the rules cannot be read, so this flight "
-              + "waits rather than being measured against rules nobody could see. Commit the "
-              + "directory, or turn the declaration off - the directory often exists on a "
-              + "branch and not at the commit this flight is working from.",
+              + $"'{Second(parameters)}', and that directory does not exist at the commit this "
+              + "flight pinned, so the flight is waiting. Commit the directory, or turn the "
+              + "declaration off. The directory may exist on a branch and not at this commit.",
 
             ReasonKinds.ForgeUnreachable =>
-                $"'{First(parameters)}' could not be reached to read its narrowings. Nothing "
-              + "is wrong with what was set up: this flight cannot be evaluated because the "
-              + "policy it is governed by is somewhere nobody can currently ask about. It "
-              + "will be readable again when the forge is.",
+                $"'{First(parameters)}' could not be reached to read its narrowings, so this "
+              + "flight cannot be evaluated yet. Nothing is misconfigured, and nothing needs "
+              + "to change: the flight continues when the forge answers again.",
 
             ReasonKinds.Uncharted =>
-                $"refused: '{First(parameters)}' is not in the environment chart - nothing "
-              + "has charted it, so no envelope may select it. Chart it first "
-              + "(POST /v1/environments).",
+                $"The selection was refused: '{First(parameters)}' is not in the environment "
+              + "chart, so no envelope may select it. Chart it first with "
+              + $"`gg environment chart {First(parameters)}`.",
 
             ReasonKinds.RegistrationIsAWidening =>
-                $"refused: registering widens {First(parameters)}, and no envelope is in "
-              + "force to gate it - the estate has no floor. Apply a root envelope first "
-              + "(PUT /v1/envelope); its first version is the ratification and lands on "
-              + "the owner's say-so.",
+                $"The registration was refused: it widens {First(parameters)}, and no envelope "
+              + "is in force to gate it. Apply a root envelope first with "
+              + "`gg envelope apply <file>`; its first version needs the owner's approval.",
 
             ReasonKinds.BlockedByBound => Bound(parameters),
 
@@ -132,37 +128,33 @@ public sealed record Reason
             ReasonKinds.RunnerParked => Parked(parameters),
 
             ReasonKinds.DirectedRunnerBusy =>
-                $"refused: this flight is to be flown by hand on '{First(parameters)}', and "
-              + "that runner is already flying something. Nothing is misconfigured and nothing "
-              + "is queued - waiting behind it would be waiting an unknown time at a terminal. "
-              + "Wait for it to land and ask again, or fly a machine that is free.",
+                $"Flying this by hand on '{First(parameters)}' was refused: that runner is "
+              + "already flying something, and nothing is queued. Wait for it to land and "
+              + "try again, or fly this on a machine that is free.",
 
             ReasonKinds.PersonalRunnerAbsent => Personal(parameters),
 
             ReasonKinds.DirectedRunnerAbsent =>
-                $"waiting: this flight is for '{First(parameters)}', and that runner is not "
-              + "currently asking for work. Nothing is misconfigured - a directed flight is "
-              + "claimable by exactly one machine, and this one is not answering. Start it, or "
-              + "re-open the flight without naming a runner.",
+                $"This flight is for '{First(parameters)}', and that runner is not asking for "
+              + "work, so the flight is waiting. Only that runner can take it. Start it, or "
+              + "open the flight again without naming a runner.",
 
             ReasonKinds.NoCredentialRegistered =>
-                "waiting: no credential is registered for "
+                "No credential is registered for "
               + string.Join(", ", parameters)
-              + ". Fetching without one either fails at the forge with nothing pointing at "
-              + "the cause or, worse, quietly succeeds against a public copy of something "
-              + "that was meant to be read with a credential - so this waits instead. "
-              + "Register one with `gg credential add --repo <slug>`.",
+              + ", so this is waiting. It does not fetch without one, so that it never reads "
+              + "a public copy by mistake. Register one with `gg credential add --repo <slug>`.",
 
             ReasonKinds.CredentialUnreadable =>
-                $"waiting: '{First(parameters)}' is registered, and the machine that took "
-              + $"this flight ({Second(parameters)}) does not hold the secret. Nothing is "
-              + "misconfigured and the reference is correct - the credential is on another "
-              + "machine. Run `gg credential add` ON THAT MACHINE, or fly this somewhere "
-              + "that already holds it.",
+                $"This flight is waiting: '{First(parameters)}' is registered, and the machine "
+              + $"that took the flight ({Second(parameters)}) does not hold the secret. The "
+              + "reference is correct; the secret is on another machine. Run "
+              + "`gg credential add` on that machine, or fly this on a machine that already "
+              + "holds it.",
 
             ReasonKinds.PoolWarming =>
-                $"the pool '{First(parameters)}' is warming toward this flight's label; "
-              + "a runner advertising it clears this.",
+                $"The pool '{First(parameters)}' is warming toward this flight's label. The "
+              + "flight is offered when a runner advertising that label comes up.",
 
             _ => throw new InvalidOperationException(
                 $"'{kind}' is not a reason kind this build knows. A sentence cannot be "
@@ -189,15 +181,14 @@ public sealed record Reason
             var label = First(parameters);
 
             return parameters.Count > 1
-                ? $"waiting: every runner advertising {label} is reserved to "
-                + $"{parameters[1]}, so this flight is not offered to any of them. The capacity "
-                + "is there and somebody is holding it - ask them, bring up a runner that is not "
-                + "reserved, or have the reservation released."
-                : $"waiting: every runner advertising {label} is reserved to somebody who is no "
-                + "longer in this tenant. A reservation is cleared by a person and by nothing "
-                + "else - there is no expiry - so this will not resolve on its own. Release it "
-                + "(DELETE /v1/runners/{id}/reservation), or bring up a runner that is not "
-                + "reserved.";
+                ? $"This flight is waiting: every runner advertising {label} is reserved to "
+                + $"{parameters[1]}, so the flight is not offered to any of them. Ask "
+                + $"{parameters[1]} to release one, bring up a runner that is not reserved, or "
+                + "have the reservation released."
+                : $"This flight is waiting: every runner advertising {label} is reserved to a "
+                + "person who is no longer in this organisation. A reservation has no expiry, "
+                + "so this does not resolve on its own. Release it with "
+                + "`gg runner release <id>`, or bring up a runner that is not reserved.";
         }
 
         // WHOSE MACHINE IS MISSING, and what they can do about it. A personal
@@ -206,13 +197,14 @@ public sealed record Reason
         // personal watch follows whose a machine is, not what it is kept for.
         static string Personal(IReadOnlyList<string> parameters) =>
             parameters.Count > 0
-                ? $"waiting: this flight is {parameters[0]}'s own work, from their personal "
-                + "watch, and it runs only on a machine they have claimed. None of theirs is "
-                + "asking for work. Start one of theirs, or claim one that is running "
-                + "(gg runner claim)."
-                : "waiting: this flight is the work of a personal watch whose person is no "
-                + "longer in this tenant. It runs only on a machine they have claimed, so "
-                + "nothing will take it - retire the watch, or decline its work on the board.";
+                ? $"This flight is waiting: it is {parameters[0]}'s own work, from their "
+                + "personal watch, and it runs only on a machine they have claimed. None of "
+                + "their machines is asking for work. Start one of them, or claim one that is "
+                + "running with `gg runner claim <id>`."
+                : "This flight is waiting: it is the work of a personal watch whose person is "
+                + "no longer in this organisation. It runs only on a machine that person "
+                + "claimed, so no runner will take it. Retire the watch, or decline its work "
+                + "on the board.";
 
         // A PARKING QUOTES THE REASON SOMEBODY GAVE, and copes when they gave
         // none. The reason is nullable where it is written, and a sentence that
@@ -223,12 +215,14 @@ public sealed record Reason
             var label = First(parameters);
 
             return parameters.Count > 1
-                ? $"waiting: every runner advertising {label} is parked - \"{parameters[1]}\". "
-                + "Parked runners keep beating and take no new work; this flight moves when one "
-                + "of them is unparked, or when another runner advertising that label comes up."
-                : $"waiting: every runner advertising {label} is parked, with no reason recorded. "
-                + "Parked runners keep beating and take no new work; this flight moves when one "
-                + "of them is unparked, or when another runner advertising that label comes up.";
+                ? $"This flight is waiting: every runner advertising {label} is parked "
+                + $"(\"{parameters[1]}\"). A parked runner stays connected and takes no new "
+                + "work. The flight moves when one of them is unparked, or when another runner "
+                + "advertising that label comes up."
+                : $"This flight is waiting: every runner advertising {label} is parked, with no "
+                + "reason recorded. A parked runner stays connected and takes no new work. The "
+                + "flight moves when one of them is unparked, or when another runner "
+                + "advertising that label comes up.";
         }
 
         // The clearing is the sentence's other half - the remedy. An unknown
@@ -243,14 +237,16 @@ public sealed record Reason
 
             if (string.Equals(clearing, BoundClearings.Capacity, StringComparison.Ordinal))
             {
-                return $"declined by your own bound: {bound} is reached; clears when a "
-                     + "peer flight releases.";
+                return $"This flight is waiting: this organisation's own bound {bound} is "
+                     + "reached. The flight moves when another flight under that bound "
+                     + "releases its place.";
             }
 
             if (string.Equals(clearing, BoundClearings.Schedule, StringComparison.Ordinal))
             {
                 return parameters.Count > 2
-                    ? $"declined by your own bound: outside {bound}; opens {parameters[2]}."
+                    ? $"This flight is waiting: it is outside this organisation's own bound "
+                    + $"{bound}, which opens {parameters[2]}."
                     : throw new InvalidOperationException(
                         $"A schedule clearing on '{bound}' carries no eta. A wait with no "
                       + "end a reader can plan around is not a schedule - the producer "

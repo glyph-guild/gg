@@ -216,9 +216,9 @@ public sealed record TakeoverReturnRequest
 
         if (request.Generation <= 0)
         {
-            return "A return names the hold it decides. Generation 0 is a decision from nobody in "
-                 + "particular, and applying one would attribute it to whoever holds the flight "
-                 + "now.";
+            return "A return names the takeover it decides. Generation 0 names no takeover, and "
+                 + "applying it would attribute the decision to whoever has the flight now. "
+                 + "Send the takeover's generation.";
         }
 
         return TakeoverOutcomes.All.Contains(request.Outcome, StringComparer.Ordinal)

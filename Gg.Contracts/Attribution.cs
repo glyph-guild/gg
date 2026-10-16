@@ -272,7 +272,7 @@ public sealed record ObligationAttribution
             && !FactKinds.All.Contains(family, StringComparer.Ordinal))
         {
             return $"'{family}' is not a fact family this contract declares, so an obligation "
-                 + "marked inapplicable for it gives a reason nobody can check. Expected one "
+                 + "marked inapplicable for it gives a reason that cannot be checked. Expected one "
                  + "of: " + string.Join(", ", FactKinds.All) + ".";
         }
 
@@ -293,7 +293,7 @@ public sealed record ObligationAttribution
                   && attribution.Inapplicable is not { Length: > 0 } =>
                 "An obligation that did not attach has a condition that did not hold, and this one "
               + "names none. Without it there is no way to tell a false condition from an "
-              + "obligation nobody wrote.",
+              + "obligation that was never written. Name the condition.",
 
             Attachments.Unevaluable when attribution.Diagnosis is not { Length: > 0 } =>
                 "An obligation that could not be evaluated says why. 'Unevaluable' with no reason "

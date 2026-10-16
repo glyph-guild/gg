@@ -130,7 +130,7 @@ public static class FlightStages
 
         _ => throw new InvalidOperationException(
             $"'{kind}' is not a story kind this build knows, so the stage it belongs to "
-          + "cannot be decided - and picking one would put an entry in a box nobody chose."),
+          + "cannot be decided, and this build does not guess one."),
     };
 }
 

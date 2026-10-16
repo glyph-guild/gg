@@ -147,7 +147,7 @@ public static class AirspaceNames
         if (!char.IsAsciiLetterLower(last) && !char.IsAsciiDigit(last))
         {
             return $"'{name}' ends with {Describe(last)}. A name ends with a letter or a "
-                 + "digit, so that two names cannot differ only by punctuation nobody sees.";
+                 + "digit, so that two names cannot differ only by punctuation that is hard to see.";
         }
 
         return null;
@@ -180,9 +180,8 @@ public static class AirspaceNames
 
         throw new ArgumentOutOfRangeException(
             nameof(role), role,
-            "This role has no place in the rendered tree, so pull cannot write it. A role "
-          + "that reaches here is one somebody added to the vocabulary without deciding "
-          + "where its documents live.");
+            "This role has no place in the rendered tree, so pull cannot write it. The role "
+          + "is in the vocabulary, and where its documents live has not been decided.");
     }
 
     /// <summary>

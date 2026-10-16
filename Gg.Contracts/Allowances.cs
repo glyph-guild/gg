@@ -230,10 +230,9 @@ public sealed record AllowanceReading
         {
             if (!AllowanceWindows.All.Contains(window.Kind))
             {
-                return $"'{window.Kind}' is not a window this contract declares. The only "
-                     + "safe answer to an unknown one is to halt: counting it as nothing "
-                     + "under-reports what was spent, which is the direction that costs "
-                     + "somebody their own allowance.";
+                return $"'{window.Kind}' is not a window this contract declares. It is "
+                     + "refused rather than counted as nothing, because counting it as nothing "
+                     + "under-reports what was spent.";
             }
 
             if (!seen.Add(window.Kind))
@@ -251,9 +250,9 @@ public sealed record AllowanceReading
 
             if (window.Limit is { } limit && limit <= 0)
             {
-                return $"'{window.Kind}' declares a ceiling of {limit}. A ceiling nobody "
-                     + "configured is absent; one of zero is a machine that may never "
-                     + "work, said by accident.";
+                return $"'{window.Kind}' declares a ceiling of {limit}. A ceiling that "
+                     + "is not configured is left out; one of zero would mean the machine may "
+                     + "never work. Leave the ceiling out, or set it above zero.";
             }
         }
 
@@ -481,14 +480,13 @@ public sealed record AllowanceOverrideRequest
 
         if (request.Minutes < 1)
         {
-            return "An override runs for at least a minute. One with no end is a floor "
-                 + "somebody deleted without saying so.";
+            return "An override runs for at least a minute. Give it a length in minutes.";
         }
 
         if (request.Minutes > MaxMinutes)
         {
-            return $"An override runs for at most {MaxMinutes} minutes. A longer one is a "
-                 + "floor nobody will revisit, which is the state this exists to avoid.";
+            return $"An override runs for at most {MaxMinutes} minutes. Ask for a shorter "
+                 + "one, and ask again when it ends.";
         }
 
         if (string.IsNullOrWhiteSpace(request.Reason))
@@ -499,8 +497,8 @@ public sealed record AllowanceOverrideRequest
 
         if (request.Reason.Length > MaxReason)
         {
-            return $"A reason is at most {MaxReason} characters. This is the line somebody "
-                 + "reads first, not the place for the argument.";
+            return $"A reason is at most {MaxReason} characters. It is the line a person "
+                 + "reads first. Shorten it.";
         }
 
         return null;

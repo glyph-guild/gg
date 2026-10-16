@@ -46,13 +46,13 @@ public static class PersonSpelling
         if (colon < 0)
         {
             return $"'{Shown(value)}' names no provider, so it is a role and not a person. A "
-                 + "person is spelled <provider>:<subject> - `gg whoami` prints yours.";
+                 + "person is spelled <provider>:<subject> - `gg whoami` prints the signed-in person's.";
         }
 
         if (value.Length > MaxLength)
         {
             return $"That person is {value.Length} characters and the limit is {MaxLength}. It "
-                 + "is refused rather than trimmed, because half a subject names somebody else.";
+                 + "is refused rather than trimmed, because half a subject can name another person.";
         }
 
         var provider = value[..colon];
@@ -62,7 +62,7 @@ public static class PersonSpelling
         {
             return $"'{Shown(value)}' names its provider as '{Shown(provider)}', which is not a "
                  + "word of lowercase letters, digits and hyphens. A person is spelled "
-                 + "<provider>:<subject> - `gg whoami` prints yours.";
+                 + "<provider>:<subject> - `gg whoami` prints the signed-in person's.";
         }
 
         // THE SUBJECT IS THE PROVIDER'S, so what shape it takes is not this
@@ -72,8 +72,8 @@ public static class PersonSpelling
         // which would make one person render as two or as none.
         if (subject.Length == 0)
         {
-            return $"'{Shown(value)}' names a provider and no subject, so it names nobody. "
-                 + "A person is spelled <provider>:<subject> - `gg whoami` prints yours.";
+            return $"'{Shown(value)}' names a provider and no subject, so it names no one. "
+                 + "A person is spelled <provider>:<subject> - `gg whoami` prints the signed-in person's.";
         }
 
         return subject.Any(c => char.IsWhiteSpace(c) || char.IsControl(c))

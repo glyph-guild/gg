@@ -287,7 +287,7 @@ public sealed record WatchDocument
         if (string.IsNullOrWhiteSpace(watch.Filter))
         {
             return "This watch declares no filter. A blank one would read as every subject the "
-                 + "shape has, which is a sweep nobody asked for - say what to look for.";
+                 + "shape has, which no one asked for. Say what to look for.";
         }
 
         if (string.IsNullOrWhiteSpace(watch.Host) || string.IsNullOrWhiteSpace(watch.Credential))
@@ -308,7 +308,7 @@ public sealed record WatchDocument
         {
             return "This watch names no skill, or no ref to read it at. The instructions "
                  + "executor follows a skill in the repository, and a path without a ref is a "
-                 + "procedure whose words can change after somebody reviewed them.";
+                 + "procedure whose words can change after a person reviewed them. Name the ref.";
         }
 
         if (string.IsNullOrWhiteSpace(watch.Mapping.Subject)
@@ -326,7 +326,7 @@ public sealed record WatchDocument
         {
             return $"This watch is performed by '{watch.PullPoint}', which is not a pull point "
                  + $"this version knows. Expected one of: {string.Join(", ", PullPoints.All)}. "
-                 + "A watch nobody can perform is a control that reads as running.";
+                 + "Name one of those.";
         }
 
         // A WATCH IS THE TENANT'S OR ONE PERSON'S, AND NOTHING IN BETWEEN. A
@@ -337,8 +337,9 @@ public sealed record WatchDocument
         {
             if (!PersonSpelling.IsPerson(whose))
             {
-                return $"This watch is for '{whose}', which is neither the tenant nor a person. "
-                     + $"A watch is the tenant's - `for: {LinesOfWork.Tenant}`, or nothing - or "
+                return $"This watch is for '{whose}', which is neither the organisation nor a "
+                     + $"person. A watch is the organisation's - `for: {LinesOfWork.Tenant}`, or "
+                     + "nothing - or "
                      + "one person's, spelled <provider>:<subject>, and there is nothing in "
                      + "between.";
             }

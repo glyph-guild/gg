@@ -182,13 +182,14 @@ public sealed record Reason
 
             return parameters.Count > 1
                 ? $"This flight is waiting: every runner advertising {label} is reserved to "
-                + $"{parameters[1]}, so the flight is not offered to any of them. Ask "
-                + $"{parameters[1]} to release one, bring up a runner that is not reserved, or "
-                + "have the reservation released."
+                + $"{parameters[1]}, so the control plane offers it to none of them. Ask "
+                + $"{parameters[1]} to release one with `gg runner release <id>`, or bring up a "
+                + "runner that is not reserved."
                 : $"This flight is waiting: every runner advertising {label} is reserved to a "
                 + "person who is no longer in this organisation. A reservation has no expiry, "
-                + "so this does not resolve on its own. Release it with "
-                + "`gg runner release <id>`, or bring up a runner that is not reserved.";
+                + "and only its owner can release it, so an administrator must free each "
+                + "runner with `gg runner unclaim <id>`. Otherwise, bring up a runner that is "
+                + "not reserved.";
         }
 
         // WHOSE MACHINE IS MISSING, and what they can do about it. A personal

@@ -27,6 +27,16 @@ namespace Gg.Runner.Tests;
 /// <c>VersionPrefix</c> means the release pull request that moves the version
 /// moves the pins with it, in the same diff, where somebody reads them.
 /// </para>
+/// <para>
+/// <b>The pins are the fleet's, and the README no longer has one</b> (owner,
+/// 2026-10-15). A machine in the fleet runs a release somebody chose, so
+/// cloud-init and both member images still pin and are still held here. A
+/// person installing gg on a laptop takes the newest release - the installers
+/// resolve it, and verify its attestation as they verify a named one - so the
+/// README's commands name no version and <c>releases/latest</c> is a link it
+/// may give: contract releases are never marked latest
+/// (<c>ContractsAreNeverLatestTests</c>), so it always resolves to a gg release.
+/// </para>
 /// </remarks>
 public class TheHostRunbooksNameWhatExistsTests
 {
@@ -63,6 +73,16 @@ public class TheHostRunbooksNameWhatExistsTests
         ];
     }
 
+    /// <summary>What a machine in the fleet is built from: everything under deploy and packaging.</summary>
+    /// <remarks>
+    /// The installer scripts live in deploy too, and they are not a fleet
+    /// artifact: install.sh asks the forge for the newest release when it is
+    /// given no version, which is what a person on a laptop wants.
+    /// </remarks>
+    private static bool IsFleet(string file) =>
+        !file.Equals("README.md", StringComparison.Ordinal)
+        && !Path.GetFileName(file).StartsWith("install.", StringComparison.Ordinal);
+
     /// <summary>
     /// Every line that tells somebody to install or update gg as a tool.
     /// </summary>
@@ -71,12 +91,12 @@ public class TheHostRunbooksNameWhatExistsTests
     /// directory" is prose about the tool and names no package; a line that names
     /// one is a line somebody will paste.
     /// </remarks>
-    private static IReadOnlyList<string> ToolLines() =>
+    private static IReadOnlyList<(string File, string Line)> ToolLines() =>
     [
         .. from runbook in Runbooks()
            from line in runbook.Text.Split('\n')
            where Regex.IsMatch(line, @"dotnet tool (install|update)\b") && Package.IsMatch(line)
-           select $"{runbook.File}: {line.Trim()}",
+           select (runbook.File, $"{runbook.File}: {line.Trim()}"),
     ];
 
     [Test]
@@ -94,6 +114,7 @@ public class TheHostRunbooksNameWhatExistsTests
         var id = PackageId();
 
         var wrong = ToolLines()
+            .Select(t => t.Line)
             .Where(line => Package.Matches(line).Any(m => m.Value != id))
             .ToList();
 
@@ -103,43 +124,65 @@ public class TheHostRunbooksNameWhatExistsTests
     }
 
     [Test]
-    public async Task Every_install_line_pins_a_version_and_a_path_the_runner_cannot_write()
+    public async Task Every_install_line_names_a_path_the_runner_cannot_write_and_the_fleet_pins_a_version()
     {
-        // --version, because without one `dotnet tool` takes whatever reached
-        // nuget.org last, and a stolen API key is what reaches it. --tool-path
-        // rather than -g, because -g installs into the home of whoever typed it:
-        // on a host that is writable by the runner's own user, and on this
-        // owner's Mac it lands on a PATH entry with a literal `~` that resolves
-        // nowhere.
+        // --tool-path rather than -g, everywhere, because -g installs into the
+        // home of whoever typed it: on a host that is writable by the runner's
+        // own user, and on this owner's Mac it lands on a PATH entry with a
+        // literal `~` that resolves nowhere.
+        //
+        // --version on the FLEET's lines, because a fleet runs a release
+        // somebody chose, and without one `dotnet tool` takes whatever reached
+        // nuget.org last. The README's line names none since 2026-10-15: a
+        // person installing the tool on a laptop takes the newest, by the
+        // owner's decision.
         var loose = ToolLines()
-            .Where(line => !line.Contains("--version", StringComparison.Ordinal)
-                        || !line.Contains("--tool-path", StringComparison.Ordinal)
-                        || Regex.IsMatch(line, @"\s(-g|--global)(\s|$)"))
+            .Where(t => (IsFleet(t.File) && !t.Line.Contains("--version", StringComparison.Ordinal))
+                     || !t.Line.Contains("--tool-path", StringComparison.Ordinal)
+                     || Regex.IsMatch(t.Line, @"\s(-g|--global)(\s|$)"))
+            .Select(t => t.Line)
             .ToList();
 
         await Assert.That(loose).IsEmpty()
-            .Because("every install names its version and a tool path, and none is global. Found: "
-                   + string.Join(" | ", loose));
+            .Because("every install names a tool path and none is global, and every fleet install "
+                   + "names its version. Found: " + string.Join(" | ", loose));
     }
 
     [Test]
-    public async Task Nothing_a_person_follows_resolves_latest()
+    public async Task Nothing_the_fleet_is_built_from_resolves_latest()
     {
-        // `releases/latest` is whichever release the forge marks latest, and the
-        // contracts workflow publishes one on most pushes - so the README's
-        // install link resolved to a contract release with no gg assets, and
-        // 404'd.
+        // `releases/latest` WAS refused everywhere, when the contracts workflow
+        // took it and the README's link 404'd. That is fixed where releases are
+        // made (ContractsAreNeverLatestTests), and the README now links it on
+        // purpose. A machine in the fleet still runs the release it was given,
+        // so nothing cloud-init or a member image follows may float.
         //
         // LINKS, not mentions. A first formulation matched the bare words and
-        // fired on the README sentence explaining why there is no such link -
-        // which is the opposite of the defect. A URL is what somebody pastes.
+        // fired on a sentence explaining why there was no such link. A URL is
+        // what somebody pastes.
         var floating = (from runbook in Runbooks()
+                        where IsFleet(runbook.File)
                         from line in runbook.Text.Split('\n')
                         where Regex.IsMatch(line, @"https?://\S*/releases/latest\b")
                         select $"{runbook.File}: {line.Trim()}").ToList();
 
         await Assert.That(floating).IsEmpty()
-            .Because("'latest' is not a version anybody named. Found: " + string.Join(" | ", floating));
+            .Because("a fleet runs the release somebody named, and 'latest' is not one. Found: "
+                   + string.Join(" | ", floating));
+    }
+
+    [Test]
+    public async Task The_readme_installs_the_newest_release()
+    {
+        // THE OTHER HALF of the owner's decision: a person's one-line install
+        // names no version, and a version pinned in the README would go stale
+        // between releases for no gain.
+        var readme = File.ReadAllText(Path.Combine(RepoRoot(), "README.md"));
+
+        await Assert.That(readme).Contains("/releases/latest/download/install.sh");
+        await Assert.That(readme).Contains("/releases/latest/download/install.ps1");
+        await Assert.That(Regex.IsMatch(readme, @"(?m)^\$?v='?\d+\.\d+\.\d+")).IsFalse()
+            .Because("the README's commands take the newest release; a pin belongs to the fleet.");
     }
 
     [Test]
@@ -157,7 +200,6 @@ public class TheHostRunbooksNameWhatExistsTests
         // 0.67.0 - thirty releases - and three releases after a hand bump it
         // was stale again. Both member images are held to the release now.
         var devImage = File.ReadAllText(Path.Combine(root, "deploy", "member", "Dockerfile"));
-        var readme = File.ReadAllText(Path.Combine(root, "README.md"));
 
         var pins = new List<(string Where, string Version)>();
 
@@ -171,11 +213,9 @@ public class TheHostRunbooksNameWhatExistsTests
             .Select(m => ("member-browser", m.Groups[1].Value)));
         pins.AddRange(Regex.Matches(devImage, @"ARG GG_VERSION=(\d+\.\d+\.\d+)")
             .Select(m => ("member", m.Groups[1].Value)));
-        pins.AddRange(Regex.Matches(readme, @"(?m)^v=(\d+\.\d+\.\d+)")
-            .Select(m => ("README", m.Groups[1].Value)));
 
         foreach (var where in (string[])
-            ["cloud-init --version", "cloud-init bundle", "member-browser", "member", "README"])
+            ["cloud-init --version", "cloud-init bundle", "member-browser", "member"])
         {
             await Assert.That(pins.Any(p => p.Where == where)).IsTrue()
                 .Because($"no pin was found in {where}, so there is nothing to hold to the release.");

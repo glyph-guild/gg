@@ -62,24 +62,42 @@ says so. That covers CI, anything behind a pipe, and Windows, where
 **One command, on a laptop.** macOS or Linux:
 
 ```sh
-v=0.88.43
-curl -fsSL https://github.com/glyph-guild/gg/releases/download/v$v/install.sh \
-  | sudo sh -s -- --version $v
+curl -fsSL https://github.com/glyph-guild/gg/releases/latest/download/install.sh | sudo sh
 ```
 
 Windows, in PowerShell:
 
 ```powershell
-$v='0.88.43'
-& ([scriptblock]::Create((irm https://github.com/glyph-guild/gg/releases/download/v$v/install.ps1))) -Version $v
+irm https://github.com/glyph-guild/gg/releases/latest/download/install.ps1 | iex
 ```
+
+Once goodgrief.dev serves the installers, the short form is the recommended
+one, and runs the same scripts:
+
+```sh
+curl -fsSL https://goodgrief.dev/install.sh | sudo sh
+```
+
+```powershell
+irm https://goodgrief.dev/install.ps1 | iex
+```
+
+**Verify the script first**, if piping it into a shell is not acceptable: the
+script is attested with the release, like the binaries it installs.
+
+```sh
+curl -fsSLO https://goodgrief.dev/install.sh && gh attestation verify install.sh --repo glyph-guild/gg && sudo sh install.sh
+```
+
+The script runs only once all of it has arrived: its whole body is one
+function, called on its last line, so a download cut off part way runs nothing.
 
 It picks the build for the machine it is on, checks the bytes against the
 build's own attestation before unpacking them, installs the native libraries
 beside the binary, makes sure `/usr/local/bin` is on the PATH of the shell you
 ran it from — adding it to that shell's startup file if it is not, and naming
 the file — and **starts nothing**. It then says the two things left to do —
-where your tenant is, and signing in:
+the organisation's control plane, and signing in:
 
 ```sh
 gg config set control-plane <url>
@@ -101,7 +119,7 @@ that runs `gg runner up`, creates the user it runs as, and redeems an
 enrollment token if you hand it one:
 
 ```sh
-curl -fsSL .../install.sh | sudo sh -s -- --version $v \
+curl -fsSL .../install.sh | sudo sh -s -- --version <version> \
   --control-plane <url> --agent-binary /usr/local/bin/claude --enroll
 ```
 
@@ -116,8 +134,7 @@ and says so.
 is not optional:
 
 ```sh
-v=0.88.43
-curl -fsSL https://github.com/glyph-guild/gg/releases/download/v$v/gg-linux-x64.tar.gz | tar xz
+curl -fsSL https://github.com/glyph-guild/gg/releases/latest/download/gg-linux-x64.tar.gz | tar xz
 sudo install -m 0755 gg /usr/local/bin/gg
 sudo install -m 0644 libporta_pty.so libonigwrap.so /usr/local/bin/
 gg --version
@@ -126,10 +143,14 @@ gg --version
 A release carries `linux-x64`, `linux-arm64`, `osx-arm64`, `osx-x64` and
 `win-x64`; swap the asset for yours, and `.so` for `.dylib` on a Mac.
 
-**A version, not `latest`.** `v` is the release this README was written
-against, and the release that moves the version moves it. `releases/latest`
-means whichever release GitHub last marked latest on this repository, and the
-contract releases published here used to take it — a link to `latest` 404'd.
+**The newest release, unless a version is named.** The installers take the
+newest release by default and say which one they chose; `--version <version>`
+(`-Version` on Windows) installs a chosen one, which is what a fleet does — its
+machines run the release somebody picked, and cloud-init and the member images
+pin it. `releases/latest` is reliable here because the contract releases this
+repository also publishes are never marked latest, so it always resolves to a
+gg release. Either way the installer checks the bytes against the release's
+attestation before unpacking them.
 
 **Both `install` lines, and the second is not optional.** `gg` loads those two
 libraries from its own directory — which is why they go in `bin` beside it
@@ -142,16 +163,15 @@ pressed the key.
 **As a .NET tool**, if you already have the SDK, from nuget.org:
 
 ```sh
-v=0.88.43
-sudo dotnet tool install GlyphGuild.Gg.Cli --version $v --tool-path /usr/local/lib/gg
+sudo dotnet tool install GlyphGuild.Gg.Cli --tool-path /usr/local/lib/gg
 sudo ln -sf /usr/local/lib/gg/gg /usr/local/bin/gg
 ```
 
 `--tool-path` rather than `-g`: a global install lands in the home of whoever
 typed it, which on a host is the account the runner runs as — able to rewrite
-its own executable. `--version` because a tool installed without one takes
-whatever reached nuget.org last. `gg update` says the update command for
-whichever shape it finds.
+its own executable. Without `--version` it installs the newest release on
+nuget.org; add `--version <version>` to pin one. `gg update` says the update
+command for whichever shape it finds.
 
 Either way the command is `gg`. The package id is not `gg` because that one is
 taken on nuget.org; the command is unaffected.

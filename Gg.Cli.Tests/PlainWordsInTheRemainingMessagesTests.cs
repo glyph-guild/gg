@@ -41,7 +41,7 @@ public class PlainWordsInTheRemainingMessagesTests
     {
         var source = Program();
 
-        await Assert.That(source).Contains("\"This machine names no agent to run the flight, so nothing was run. Run \"");
+        await Assert.That(source).Contains("\"No agent is configured to run the flight on this machine. Nothing was run. Run \"");
         await Assert.That(source).DoesNotContain("the binary \"\n          + \"you want handed the flight");
     }
 

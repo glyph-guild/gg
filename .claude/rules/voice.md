@@ -14,6 +14,12 @@ examples, is https://docs.goodgrief.dev/contributing/voice/.
 - Plain words first. Never in user output: principal (person), tenant
   (organisation), nonce, mint, redeem, hold. Introduce a Good Grief term in
   brackets when it is needed: "waiting for a person to approve it (a gate)".
+- Say it directly. Lead with what it means for the reader, not an
+  abstraction to decode: "Anyone who opens the link can join", not "The link
+  names no one". When the reader must act, use an imperative; avoiding "you"
+  never means describing the reader as "the person who created it". Leave out
+  what does not happen unless the reader would expect it. One idea per
+  sentence.
 - Never show internals: no type or class names (`GetType().Name`), exception
   text, rule ids, Article numbers or ADR/slice numbers.
 - State facts without judgement. Do not presume why the reader did something.

@@ -1150,8 +1150,8 @@ public static class VerbOutput
         VerbResult.EnrollmentMinted r => EnrollmentMintedText(r.Value),
         VerbResult.EnrollmentTokens r => EnrollmentTokensText(r.Value),
         VerbResult.EnrollmentRevoked r =>
-            $"Revoked enrollment token {Clean(r.Value.TokenId)}: it enrolls nothing more. Machines "
-          + "it already enrolled are unchanged - gg runner retire takes one out.",
+            $"Revoked enrollment token {Clean(r.Value.TokenId)}. It cannot add any more machines. "
+          + "Machines it already enrolled are unchanged. To remove one, run gg runner retire <id|name>.",
         VerbResult.RunnerReservation r => RunnerReservationText(r.Value),
         VerbResult.RunnerRepinned r => RunnerRepinnedText(r.Value),
         VerbResult.Bundle r => Bundle(r.Value),
@@ -1393,10 +1393,10 @@ public static class VerbOutput
         text.AppendLine(applied.Changed
             ? $"Applied. This envelope is now {Clean(applied.Version)}."
             : applied.Flight is { Length: > 0 } flight
-                ? $"Waiting. This widens {Clean(applied.Widens ?? "the envelope")}, so it rides flight "
-                + $"{Clean(flight)} and waits on {Clean(applied.Awaiting ?? "its approver")}. The envelope "
-                + $"is still {Clean(applied.Version)} until that gate is answered; applying again "
-                + "opens a second one."
+                ? $"Waiting. This widens {Clean(applied.Widens ?? "the envelope")}, so flight "
+                + $"{Clean(flight)} now waits on {Clean(applied.Awaiting ?? "its approver")} to approve it "
+                + $"(a gate). The envelope is still {Clean(applied.Version)} until that gate is "
+                + "answered. Applying again opens a second one."
                 : $"Nothing changed. The envelope is still {Clean(applied.Version)}.");
 
         foreach (var note in notes)
@@ -1780,9 +1780,8 @@ public static class VerbOutput
             ? $"This machine was already a holder of {Clean(trusted.Locator)}. Nothing changed."
             : $"This machine can now open {Clean(trusted.Locator)}, so a flight here resolves it "
             + "with no one present. "
-            + $"It has {trusted.Holders} holders; `gg credential list` names them. "
-            + "The person who ran this is still one of them: trusting a machine adds a holder "
-            + "and removes none.";
+            + $"It has {trusted.Holders} holders, and `gg credential list` names them. "
+            + "Trusting a machine adds a holder and removes none.";
 
     private static string CredentialRemoved(Gg.Contracts.CredentialRemoved removed) =>
         $"Removed {Clean(removed.CredentialId)}. "
@@ -1791,7 +1790,7 @@ public static class VerbOutput
     private static string RunnerRetiredText(Gg.Contracts.RunnerRetired retired) =>
         $"Retired {Clean(retired.RunnerId)} at {retired.RetiredAt:u}. "
       + "Its credential is revoked and it is out of the fleet; what it did is still recorded. "
-      + "Bringing that machine back is gg runner up.";
+      + "To bring that machine back, run gg runner up on it.";
 
     /// <summary>The token, once, with what it does and how a machine uses it.</summary>
     private static string EnrollmentMintedText(Gg.Contracts.EnrollmentTokenMinted minted)
@@ -1807,9 +1806,10 @@ public static class VerbOutput
         return $"Enrollment token {Clean(minted.TokenId)}: up to {minted.Uses} machine(s) as "
              + $"'{Clean(minted.Profile)}', until {minted.ExpiresAt:u}, each starting {starts}.\n\n"
              + $"  {Clean(minted.Token)}\n\n"
-             + "Shown once - the control plane keeps only its hash. On a machine, give it to "
-             + "`gg service install --enroll` at the prompt or on stdin, or to install.sh with "
-             + "--enroll-file; never as an argument, where a process list would show it.";
+             + "Shown once. The control plane keeps only a hash of it. To use it on a machine, "
+             + "give it to `gg service install --enroll` at the prompt or on stdin, or to "
+             + "install.sh with --enroll-file. "
+             + "Never pass it as an argument, because a process list would show it.";
     }
 
     /// <summary>One row per token: what it is for and how much is left, never the secret.</summary>
@@ -2519,8 +2519,9 @@ public static class VerbOutput
     {
         if (chart.Environments.Count == 0)
         {
-            return "Nothing is charted. An envelope naming an environment is refused until "
-                 + "one is, because the chart is what it is refused against.";
+            return "No environment is charted yet. An envelope that names an environment is "
+                 + "refused until that environment is charted. "
+                 + "To chart one, run gg environment chart <name>.";
         }
 
         var text = new StringBuilder();
@@ -2725,8 +2726,8 @@ public static class VerbOutput
             if (status.ScopeProbedAt is null)
             {
                 text.AppendLine(
-                    "  scope unproved: nothing outward is decided for this pool until its "
-                  + "resident runner has been refused a reach outside its own inventory");
+                    "  scope not proved yet: no action is taken toward this pool until its "
+                  + "resident runner has tried to reach outside its own inventory and been refused");
             }
         }
 
@@ -3247,7 +3248,7 @@ public static class VerbOutput
         // SAID PLAINLY, because it is the one thing about this link somebody
         // would not guess: it is not addressed to anybody. Whoever opens it
         // becomes a principal in this tenant.
-        text.Append("Anyone who opens it joins this organisation, so send it as privately as a password.");
+        text.Append("Anyone who opens it can join this organisation. Send it as privately as a password.");
         return text.ToString();
     }
 

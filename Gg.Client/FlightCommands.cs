@@ -214,8 +214,7 @@ public sealed class FlightCommands(
             // A rejection with no reason is work sent back with nothing to act on, and
             // the loop would run again against the same instructions it just followed.
             throw new DecisionRefusedException(
-                "Rejecting needs a reason. The loop runs again with it, and a rejection that says "
-              + "nothing sends the work back to be done the same way.");
+                "A rejection needs a reason. The flight runs again with that reason. Say what should change.");
         }
 
         if (reason is { Length: > DecisionReasons.MaxLength })
@@ -223,9 +222,9 @@ public sealed class FlightCommands(
             // REFUSED, NEVER TRUNCATED. A reason cut in half is a different reason rather
             // than a shorter one - the rule every inline item follows.
             throw new DecisionRefusedException(
-                $"That reason is {reason.Length} characters and the limit is "
-              + $"{DecisionReasons.MaxLength}. It is refused rather than trimmed, because half a "
-              + "reason is a different reason.");
+                $"That reason is {reason.Length} characters, and the limit is "
+              + $"{DecisionReasons.MaxLength}. "
+              + "It was not trimmed, and nothing was recorded. Shorten it, then decide again.");
         }
 
         // STRIPPED HERE, before the digest and before it leaves this machine. Trusting
@@ -240,8 +239,7 @@ public sealed class FlightCommands(
             throw new DecisionRefusedException(
                 $"'{outcome}' is not a decision this version of gg can record. It knows: "
               + string.Join(", ", DecisionOutcomes.All)
-              + ". Rejecting a gate is not built yet - the flight stays waiting, which is what "
-              + "it already does, and nothing here will pretend otherwise.");
+              + ". Nothing was recorded. Run the command again with one of those.");
         }
 
         var token = Session();
@@ -470,7 +468,9 @@ public sealed class FlightCommands(
             throw new DecisionRefusedException(
                 $"'{outcome}' is not a decision this version of gg can record about a "
               + "nomination. It knows: " + string.Join(", ", NominationDecisions.All)
-              + ". The other endings belong to the board, the world, the clock and the rules.");
+              + ". The other endings are not decisions. They happen when a newer nomination "
+              + "replaces it, its subject ends, the rules refuse it, it lapses unopened, or its "
+              + "plan drops it.");
         }
 
         var clean = because?.Trim();
@@ -555,8 +555,8 @@ public sealed class FlightCommands(
             throw new InvalidOperationException(
                 $"This flight's envelope declares no obligation called '{obligation}'. It declares: "
               + string.Join(", ", attribution.Obligations.Select(o => o.ObligationId))
-              + ". An obligation that is absent from the envelope is a different thing from one "
-              + "whose condition did not hold.");
+              + $". Run gg why {reference}"
+              + " with one of those, or with no obligation to see every one.");
         }
 
         return new VerbResult.Why(attribution with { Obligations = one });
@@ -791,7 +791,7 @@ public sealed class FlightCommands(
             await _client.GetPlanAsync(token, cancellationToken)
             ?? throw new NoEnvelopeException(
                 "No envelope has been applied, so there is nothing to plan against. "
-              + "gg envelope apply is where the rules come from."));
+              + "To apply one, run gg envelope apply <file>."));
     }
 
     /// <summary>
@@ -910,9 +910,10 @@ public sealed class FlightCommands(
             // governs a strategy is asking a question with no answer rather
             // than one whose answer is empty.
             throw new EnvelopeRefusedException(
-                $"'{workKind}' is a {named.Role}, and the rules in force are composed per "
-              + "work kind - that is what a flight has. Read it with gg airspace show "
-              + $"{workKind}.");
+                $"'{workKind}' is a {named.Role}, "
+              + "not a work kind. The rules in force are composed "
+              + "only for a work kind, because a flight has one. "
+              + $"To read the {named.Role}, run gg airspace show {workKind}.");
         }
 
         var estate = await _client.ReadEstateAsync(session, cancellationToken);
@@ -1462,13 +1463,14 @@ public sealed class FlightCommands(
         if (missing.Count > 0 && !declareNames)
         {
             throw new EnvelopeRefusedException(
-                "These documents name things this airspace has not declared, so nothing was "
+                "These documents name things this airspace has not declared. Nothing was "
               + "applied, because a changeset is applied as a whole:\n"
               + string.Join('\n', missing.Select(
                   d => $"  {d.Path}: gg airspace name {d.Role} {d.Name} --under {d.Extension?.Extends ?? "root"}"))
-              + "\n\nRun apply with --declare-names to declare them first - under root, or "
-              + "under the work kind a file extends - or declare them yourself to put one "
-              + "under something else.");
+              + "\n\nTo declare them as part of this apply, run it again with --declare-names. "
+              + "Each one is "
+              + "declared under root, or under the work kind its file extends. To put one "
+              + "under something else, declare it first with the command shown beside it.");
         }
 
         foreach (var document in missing)

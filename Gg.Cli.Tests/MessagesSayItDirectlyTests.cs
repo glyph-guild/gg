@@ -27,7 +27,7 @@ public class MessagesSayItDirectlyTests
             "would make this machine hold");
         yield return () => ("Gg.Cli/ServiceInstaller.cs",
             "install gg itself.",
-            "never writes a byte");
+            "writes a byte of gg: install.sh");
         yield return () => ("Gg.Cli/Program.cs",
             "did not return the plan that says what this flight needs.",
             "sent back no plan");

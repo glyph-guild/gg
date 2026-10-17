@@ -1441,8 +1441,8 @@ public sealed class Doctor(
             Passed = accountsMissing == 0,
             Detail = accountsMissing == 0
                 ? "takeover seeds carry the agent's own account"
-                : $"{accountsMissing} recent flight(s) produced no closing account, so their "
-                + "takeover seeds are measurements only",
+                : $"{accountsMissing} recent flight(s) ended without the agent's closing account, "
+                + "so taking one of them over starts from measurements alone",
             // Not blocking. A takeover still works on measurements - that is the
             // point of the fallback - and calling this blocking would stop the
             // thing it exists to protect.

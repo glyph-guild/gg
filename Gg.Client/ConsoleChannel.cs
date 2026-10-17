@@ -376,8 +376,8 @@ public sealed class ConsoleChannel(
         return asked.FirstOrDefault(server => server.IsRelay()) is { } relay
             ? "Both ends spoke and no route between them was found, even through the relay at "
             + $"{string.Join(", ", relay.Urls)}. A relay is reached the way a web page is, out "
-            + "to one address, so this machine's network is refusing UDP and TCP to it on that "
-            + "port - a firewall rule that whoever runs this network can name."
+            + "to one address. This machine's network is refusing UDP and TCP to it on that "
+            + "port. Ask the administrator of this network to allow them."
             : NoRoute(asked.Count > 0);
     }
 

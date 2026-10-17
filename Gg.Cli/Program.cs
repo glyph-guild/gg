@@ -3237,8 +3237,8 @@ static async Task<int> HandAsync(CliAction.Fly fly)
         fly,
         plan: async token => await client.GetPlanAsync(session.SessionToken, token)
             ?? throw new InvalidOperationException(
-                "The control plane sent back no plan, so what this flight needs is unknown and no "
-              + "flight was opened. Run the command again; if this keeps happening, run gg bundle "
+                "The control plane did not return the plan that says what this flight needs. "
+              + "No flight was opened. Run the command again; if this keeps happening, run gg bundle "
               + "and send the result to the Good Grief team."),
         // WHAT THIS MACHINE ADVERTISES. The plan prices against the fleet, and a
         // label some other runner has is useless to a person at this keyboard.
@@ -3301,7 +3301,7 @@ static async Task<int> HoldAsync(
             Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable) is not { } declared)
     {
         return Fail(
-            "This machine names no agent to run the flight, so nothing was run. Run "
+            "No agent is configured to run the flight on this machine. Nothing was run. Run "
           + "gg config set executor-binary <path> (or set "
           + $"{Gg.Runner.Execution.ExecutorConfiguration.BinaryVariable}) to name the agent's "
           + "program, then try again.");
@@ -4404,9 +4404,8 @@ static async Task<int> RunnerMaintainAsync(string pool)
                 // be minted from nothing.
                 throw new InvalidOperationException(
                     "This pool host has no usable runner credential and is not signed in. A "
-                  + "credential that ran out while the host was down cannot be renewed, so a "
-                  + "person signs in once to get a new one: run `gg login`, then start this "
-                  + "again.");
+                  + "credential that ran out while the host was down cannot be renewed. Run `gg login` "
+                  + "once to get a new one, then start this again.");
             }
 
             var fresh = await new ControlPlaneClient(http)

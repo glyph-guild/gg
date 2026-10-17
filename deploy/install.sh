@@ -227,7 +227,7 @@ main() {
     # destructive one, and the only one worth stopping for.
     if { [ -e "$bin/gg" ] || [ -L "$bin/gg" ]; } && ! ours "$bin/gg"; then
       if [ -n "$runner" ]; then
-        refuse "Another program called gg is at $bin/gg, and a runner's service runs $service_binary. Nothing was installed. Remove or rename that program, then run this again."
+        refuse "Another program called gg is at $bin/gg. A runner is always installed as gg, because its service runs $service_binary. Nothing was installed. Remove or rename that program, then run this again."
       elif (: < /dev/tty) 2>/dev/null; then
         printf 'install.sh: Another program called gg is at %s.\n' "$bin/gg" > /dev/tty
         printf "Install Good Grief's command under a different name [goodgrief]: " > /dev/tty

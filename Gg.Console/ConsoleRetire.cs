@@ -93,8 +93,9 @@ public static class ConsoleRetire
         }
 
         said.Add("");
-        said.Add("NOTHING IS GONE YET. Each of these rides a gate, and until it opens the "
-               + "name governs every flight that starts.");
+        said.Add("NOTHING IS GONE YET. Each name above waits for a person to approve its "
+               + "retirement (a gate). "
+               + "Until that gate opens, the name still governs every flight that starts.");
 
         return said;
     }

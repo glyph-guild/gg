@@ -64,9 +64,9 @@ public static class ConsoleBringUp
         {
             ReadinessKinds.Agent =>
                 $"{machine} does not declare the agent its profile names ({subject}). The "
-              + "binary is the machine's to have: give its path to `gg service install "
+              + "agent's path is set on that machine. Give it to `gg service install "
               + "--agent-binary <path>` when the machine is built, or set executor-binary on "
-              + "it. Nothing here can do that.",
+              + "it. The console cannot do this.",
 
             ReadinessKinds.Credential =>
                 $"{machine} cannot resolve the credential {subject}. Send it one with "
@@ -74,8 +74,8 @@ public static class ConsoleBringUp
               + "own store looks - the modal for it is on the machine's row, not on this gate.",
 
             ReadinessKinds.Forge =>
-                $"{machine} cannot reach its forge '{subject}'. That is a route between that "
-              + "machine and that host, and nothing a console does opens one.",
+                $"{machine} cannot reach its forge '{subject}'. Fix the network route between "
+              + "that machine and that host. The console cannot open it.",
 
             _ => $"{machine} does not meet its profile, and this build does not know the item "
                + $"'{asked.Item}'. Its own words are below.",

@@ -239,16 +239,15 @@ public static partial class ServiceInstaller
         if (agentBinary is not null && !Path.IsPathRooted(agentBinary))
         {
             return Refused(
-                $"'{agentBinary}' is not an absolute path, and --agent-binary takes one: the "
-              + "service runs as its own user, whose PATH is not the PATH of whoever typed "
-              + "this. Nothing was written.");
+                $"'{agentBinary}' is not an absolute path. --agent-binary needs one, because the "
+              + "service runs as its own user, with a PATH of its own. Nothing was written.");
         }
 
         if (agentBinary is not null && !host.Exists(agentBinary))
         {
             return Refused(
-                $"Nothing is at '{agentBinary}', so declaring it would make this machine hold "
-              + "for a login on a binary that will never run. Install the agent first, then "
+                $"There is no file at '{agentBinary}'. A runner given that path would wait for "
+              + "an agent sign-in that can never happen. Install the agent first, then "
               + "install the service. Nothing was written.");
         }
 
@@ -264,9 +263,9 @@ public static partial class ServiceInstaller
         if (!host.Exists(Binary))
         {
             return Refused(
-                $"The service runs {Binary}, and nothing is there. gg service install never "
-              + "writes a byte of gg: install.sh puts it there, by rename, and links it. "
-              + "Nothing was written.");
+                $"The service runs {Binary}, and there is no gg there. gg service install does "
+              + "not install gg itself. install.sh puts it there and links it. Run install.sh "
+              + "first, then run this again. Nothing was written.");
         }
 
         if (host.Exists(definition))

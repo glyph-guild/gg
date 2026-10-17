@@ -47,9 +47,9 @@ public static class ConsoleGround
             return state with
             {
                 LastGrounded =
-                    $"{flight.FlightNumber} was not grounded: nothing was written to say why. "
-                  + "The reason is the only thing that survives to tell a later reader why "
-                  + "work that could have been done was not.",
+                    $"{flight.FlightNumber} was not grounded, because no reason was written. "
+                  + "Ground it again and say why the work is being stopped. "
+                  + "The reason is the only record of why it was not done.",
             };
         }
 

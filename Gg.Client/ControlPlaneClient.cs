@@ -2419,8 +2419,9 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
                 return new Introduced(
                     null, IntroductionRefusal.NotYoursToReach,
                     $"Runner {runnerId} is in this organisation and someone else registered it. "
-                  + "Reaching a machine means reading what it is doing, so the person who "
-                  + "registered it decides; run gg runners to see who that is.");
+                  + "Only the person who registered it "
+                  + "decides who may reach it, because reaching a "
+                  + "machine shows what it is doing. Run gg runners to see who that is.");
 
             case HttpStatusCode.Conflict:
                 return new Introduced(

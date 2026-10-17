@@ -756,7 +756,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
             // validated on its own terms rather than trusting that gg did, and
             // if the two disagree the person needs to see which one refused.
             throw new EnvelopeRefusedException(
-                await response.Content.ReadAsStringAsync(cancellationToken));
+                await RefusalBodyAsync(response, cancellationToken));
         }
 
         response.EnsureSuccessStatusCode();
@@ -842,7 +842,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         if (response.StatusCode == HttpStatusCode.BadRequest)
         {
             throw new EnvelopeRefusedException(
-                await response.Content.ReadAsStringAsync(cancellationToken));
+                await RefusalBodyAsync(response, cancellationToken));
         }
 
         if (response.StatusCode == HttpStatusCode.Forbidden)
@@ -876,7 +876,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         if (response.StatusCode == HttpStatusCode.BadRequest)
         {
             throw new EnvelopeRefusedException(
-                await response.Content.ReadAsStringAsync(cancellationToken));
+                await RefusalBodyAsync(response, cancellationToken));
         }
 
         response.EnsureSuccessStatusCode();
@@ -934,7 +934,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         if (response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Conflict)
         {
             throw new EnvelopeRefusedException(
-                await response.Content.ReadAsStringAsync(cancellationToken));
+                await RefusalBodyAsync(response, cancellationToken));
         }
 
         response.EnsureSuccessStatusCode();
@@ -969,7 +969,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
             // a 409 is the stale-working-copy refusal, which names both versions
             // because how far behind you are decides what you do next.
             throw new EnvelopeRefusedException(
-                await response.Content.ReadAsStringAsync(cancellationToken));
+                await RefusalBodyAsync(response, cancellationToken));
         }
 
         response.EnsureSuccessStatusCode();
@@ -1000,7 +1000,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
             // The control plane's own diagnosis, carried through unchanged -
             // both sides fail closed on their own format.
             throw new StrategyRefusedException(
-                await response.Content.ReadAsStringAsync(cancellationToken));
+                await RefusalBodyAsync(response, cancellationToken));
         }
 
         response.EnsureSuccessStatusCode();
@@ -1139,7 +1139,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         if (response.StatusCode == HttpStatusCode.BadRequest)
         {
             throw new StrategyRefusedException(
-                await response.Content.ReadAsStringAsync(cancellationToken));
+                await RefusalBodyAsync(response, cancellationToken));
         }
 
         response.EnsureSuccessStatusCode();
@@ -1165,7 +1165,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         if (response.StatusCode == HttpStatusCode.BadRequest)
         {
             throw new StrategyRefusedException(
-                await response.Content.ReadAsStringAsync(cancellationToken));
+                await RefusalBodyAsync(response, cancellationToken));
         }
 
         response.EnsureSuccessStatusCode();
@@ -1213,7 +1213,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         if (response.StatusCode == HttpStatusCode.BadRequest)
         {
             throw new EnvelopeRefusedException(
-                await response.Content.ReadAsStringAsync(cancellationToken));
+                await RefusalBodyAsync(response, cancellationToken));
         }
 
         response.EnsureSuccessStatusCode();
@@ -1404,7 +1404,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         if (response.StatusCode == HttpStatusCode.BadRequest)
         {
             throw new EnvelopeRefusedException(
-                await response.Content.ReadAsStringAsync(cancellationToken));
+                await RefusalBodyAsync(response, cancellationToken));
         }
 
         // THE ROLE ANSWER, AND IT IS AN ANSWER RATHER THAN A FAULT. Left to
@@ -1685,7 +1685,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Conflict)
         {
             throw new EnvelopeRefusedException(
-                await response.Content.ReadAsStringAsync(cancellationToken));
+                await RefusalBodyAsync(response, cancellationToken));
         }
 
         response.EnsureSuccessStatusCode();
@@ -1895,7 +1895,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
             // diagnosis, and swallowing it into "bad request" would lose the
             // only part they can act on.
             throw new FlightIntentException(
-                (await response.Content.ReadAsStringAsync(cancellationToken)).Trim());
+                await RefusalBodyAsync(response, cancellationToken));
         }
 
         response.EnsureSuccessStatusCode();
@@ -1931,7 +1931,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         if (response.StatusCode == HttpStatusCode.BadRequest)
         {
             throw new CredentialRefusedException(
-                (await response.Content.ReadAsStringAsync(cancellationToken)).Trim());
+                await RefusalBodyAsync(response, cancellationToken));
         }
 
         response.EnsureSuccessStatusCode();
@@ -2044,7 +2044,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         if (response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Conflict)
         {
             throw new ItineraryRefusedException(
-                ProblemDetail(await response.Content.ReadAsStringAsync(cancellationToken)));
+                await RefusalBodyAsync(response, cancellationToken));
         }
 
         response.EnsureSuccessStatusCode();
@@ -2053,6 +2053,18 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
             ProtocolJsonContext.Default.ItineraryProposed, cancellationToken)
             ?? throw Unconfirmed("the proposed plan");
     }
+
+    /// <summary>
+    /// The sentence a refusal carries: a problem document's `detail`, or the body as it came
+    /// when it is not one, trimmed.
+    /// </summary>
+    /// <remarks>
+    /// Every person-facing refusal reads its body here. A refusal built straight from the raw
+    /// body printed a problem document's whole JSON, and a test scans this file for that shape.
+    /// </remarks>
+    private static async Task<string> RefusalBodyAsync(
+        HttpResponseMessage response, CancellationToken cancellationToken) =>
+        ProblemDetail(await response.Content.ReadAsStringAsync(cancellationToken)).Trim();
 
     /// <summary>A problem+json body's `detail`, or the body as it came when it is not one.</summary>
     private static string ProblemDetail(string body)
@@ -2099,7 +2111,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
         if (response.StatusCode == HttpStatusCode.BadRequest)
         {
             throw new ItineraryRefusedException(
-                await response.Content.ReadAsStringAsync(cancellationToken));
+                await RefusalBodyAsync(response, cancellationToken));
         }
 
         response.EnsureSuccessStatusCode();
@@ -2589,7 +2601,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
             // "400 (Bad Request)" - the control plane's sentence, which is the only
             // part anybody can act on, was thrown away one line before it was read.
             throw new DecisionRefusedException(
-                (await response.Content.ReadAsStringAsync(cancellationToken)).Trim());
+                await RefusalBodyAsync(response, cancellationToken));
         }
 
         response.EnsureSuccessStatusCode();
@@ -2958,7 +2970,7 @@ public sealed class ControlPlaneClient(HttpClient httpClient)
     {
         if (response.StatusCode == HttpStatusCode.UpgradeRequired)
         {
-            var detail = await response.Content.ReadAsStringAsync(cancellationToken);
+            var detail = await RefusalBodyAsync(response, cancellationToken);
             throw new ProtocolTooOldException(
                 $"This gg is too old for the control plane. {detail}".Trim());
         }

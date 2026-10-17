@@ -142,6 +142,8 @@ public class AnIntroductionCarriesItsIceServersTests
 
         await Assert.That(said).Contains("relay");
         await Assert.That(said).Contains("3478");
+        await Assert.That(said).Contains("Ask the administrator of this network")
+            .Because("a blocked relay is a rule someone can change, and the sentence says who.");
         await Assert.That(said.Contains("hole punching", StringComparison.Ordinal)).IsFalse()
             .Because("hole punching is what the relay replaced. Said: " + said);
 

@@ -361,6 +361,7 @@ public class TheServiceIsInstalledNativelyTests
 
         await Assert.That(outcome.Done).IsFalse();
         await Assert.That(string.Join(" ", outcome.Said)).Contains("absolute path");
+        await Assert.That(string.Join(" ", outcome.Said)).Contains("--agent-binary needs one");
         await Assert.That(host.Files.ContainsKey("/etc/systemd/system/gg-runner-up.service")).IsFalse()
             .Because("refused before a download means refused before a write.");
     }
@@ -377,6 +378,7 @@ public class TheServiceIsInstalledNativelyTests
 
         await Assert.That(outcome.Done).IsFalse();
         await Assert.That(string.Join(" ", outcome.Said)).Contains("Install the agent first");
+        await Assert.That(string.Join(" ", outcome.Said)).Contains("There is no file at '/opt/agents/claude'");
     }
 
     [Test]

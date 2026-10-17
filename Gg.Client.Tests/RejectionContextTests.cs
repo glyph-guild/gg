@@ -142,7 +142,7 @@ public class RejectionContextTests
         var commands = File.ReadAllText(
             ClientSources().Single(f => Path.GetFileName(f) == "FlightCommands.cs"));
 
-        await Assert.That(commands).Contains("refused rather than trimmed");
+        await Assert.That(commands).Contains("It was not trimmed, and nothing was recorded.");
         await Assert.That(commands).Contains("DecisionReasons.MaxLength");
         await Assert.That(commands).DoesNotContain("Substring(0, DecisionReasons")
             .Because("truncating would produce a reason nobody wrote.");

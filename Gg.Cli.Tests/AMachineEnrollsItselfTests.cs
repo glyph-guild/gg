@@ -106,6 +106,7 @@ public class AMachineEnrollsItselfTests
 
         await Assert.That(minted).Contains("ggenroll_s3cret");
         await Assert.That(minted).Contains("Shown once");
+        await Assert.That(minted).Contains("Never pass it as an argument");
         await Assert.That(ProtocolSurface.JsonMembers[typeof(EnrollmentTokenSummary)]).DoesNotContain("token")
             .Because("a listed token has no member its secret could travel in, so no bug can print it.");
     }

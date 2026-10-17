@@ -102,7 +102,7 @@ public class TheConsoleAnswersABringUpGateTests
     [Test]
     [Arguments(ReadinessKinds.Agent, "claude", "--agent-binary")]
     [Arguments(ReadinessKinds.Credential, "keyvault://a-vault/npm", "gg credential send")]
-    [Arguments(ReadinessKinds.Forge, "ado", "nothing a console does opens one")]
+    [Arguments(ReadinessKinds.Forge, "ado", "The console cannot open it.")]
     public async Task It_says_what_is_missing_and_where_it_is_answered(
         string item, string subject, string expected)
     {
